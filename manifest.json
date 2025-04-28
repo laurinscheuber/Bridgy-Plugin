@@ -5,14 +5,15 @@
   "main": "code.js",
   "capabilities": ["inspect", "vscode", "codegen"],
   "enableProposedApi": false,
-  "documentAccess": "dynamic-page",
+  "documentAccess": "document",
   "editorType": ["figma", "dev"],
   "codegenLanguages": [
+    {"label": "Angular", "value": "angular"},
     {"label": "TypeScript", "value": "typescript"},
     {"label": "JavaScript", "value": "javascript"}
   ],
   "ui": "ui.html",
   "networkAccess": {
-    "allowedDomains": ["none"]
+    "allowedDomains": ["https://cdnjs.cloudflare.com"]
   }
 }

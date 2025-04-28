@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>aWall Synch UI</title>
+  <!-- Add JSZip library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -144,6 +146,17 @@
       <div class="search-container">
         <input type="text" class="search-input" id="component-search" placeholder="Search components...">
       </div>
+      
+      <!-- Add export controls -->
+      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+        <select id="language-select" style="padding: 8px; border-radius: 4px; border: 1px solid #e0e0e0;">
+          <option value="angular">Angular</option>
+          <option value="typescript">TypeScript</option>
+          <option value="javascript">JavaScript</option>
+        </select>
+        <button id="export-angular-button" style="padding: 8px 12px;">Export Components</button>
+      </div>
+      
       <div id="components-container">
         <div class="loading">Loading components...</div>
       </div>
@@ -182,12 +195,24 @@
         if (variablesData && variablesData.some(collection => collection.variables.length > 0)) {
           exportButton.disabled = false;
         } else {
-          exportButton.disabled = true; // Keep disabled if no variables
+          exportButton.disabled = true;
+        }
+
+        // Enable/disable the Angular export button based on components
+        const exportAngularButton = document.getElementById('export-angular-button');
+        if (componentsData && componentsData.length > 0) {
+          exportAngularButton.disabled = false;
+        } else {
+          exportAngularButton.disabled = true;
         }
 
       } else if (message.type === 'css-export') {
         // Trigger download when CSS data is received
         downloadCSS(message.cssData);
+      } else if (message.type === 'angular-export-data') {
+        // Trigger ZIP download with component data based on selected language
+        const language = message.language || 'angular';
+        downloadComponentsZip(message.files, language);
       } else if (message.type === 'error') {
         // Optionally display errors from the plugin code
         console.error('Plugin Error:', message.message);
@@ -287,6 +312,7 @@
               <tr>
                 <th>Name</th>
                 <th>Type</th>
+                <th>Page</th>
               </tr>
             </thead>
             <tbody>
@@ -297,6 +323,7 @@
           <tr class="component-item">
             <td>${component.name}</td>
             <td>${component.type === 'COMPONENT' ? 'Component' : 'Component Set'}</td>
+            <td>${component.pageName || 'Unknown'}</td>
           </tr>
         `;
       });
@@ -328,6 +355,64 @@
       // Send message to plugin code to request CSS export
       parent.postMessage({ pluginMessage: { type: 'export-css' } }, '*');
     });
+
+    // Add event listener for the Angular export button
+    document.getElementById('export-angular-button').addEventListener('click', () => {
+      const selectedLanguage = document.getElementById('language-select').value;
+      // Send message to plugin code to request Angular export with selected language
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'export-angular',
+          language: selectedLanguage
+        } 
+      }, '*');
+    });
+
+    // Function to trigger ZIP download
+    function downloadComponentsZip(files, language) {
+      if (!files || files.length === 0) {
+        alert('No components available to export');
+        return;
+      }
+
+      // Create a new JSZip instance (needs to be added in the head section)
+      const zip = new JSZip();
+      
+      // Add files to the ZIP based on the selected language
+      files.forEach(component => {
+        const folderName = component.kebabName;
+        const folder = zip.folder(folderName);
+        
+        if (language === 'angular') {
+          // Add all Angular component files
+          folder.file(`${folderName}.component.html`, component.angularHtml);
+          folder.file(`${folderName}.component.ts`, component.angularTs);
+          folder.file(`${folderName}.component.scss`, `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`);
+        } else if (language === 'typescript') {
+          // Add only TypeScript file
+          folder.file(`${folderName}.component.ts`, component.angularTs);
+        } else if (language === 'javascript') {
+          // Convert TypeScript to JavaScript (basic conversion)
+          const jsCode = component.angularTs
+            .replace(/: [A-Za-z<>[\]]+/g, '') // Remove type annotations
+            .replace(/interface [^}]+}/g, ''); // Remove interfaces
+          
+          folder.file(`${folderName}.component.js`, jsCode);
+        }
+      });
+      
+      // Generate and download the ZIP
+      zip.generateAsync({ type: 'blob' }).then(content => {
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `figma-components-${language}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
 
     // Search functionality
     document.getElementById('variable-search').addEventListener('input', (e) => {

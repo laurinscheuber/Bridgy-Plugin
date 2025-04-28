@@ -127,48 +127,112 @@ function collectDocumentData() {
             errorOccurred = true; // Mark that an error happened
         }
 
-        // --- Component Fetching (Updated for async children access) ---
+        // --- Component Fetching with Enhanced Debug Logging ---
         try {
              if (!errorOccurred) {
-                 console.log("Attempting to find components and generate code (async)...");
+                 console.log("Attempting to find components across all pages...");
+                 const componentsDataWithCode = []; // Create a new array here
+                 
+                 // Debug info about the document
+                 console.log(`Document name: ${figma.root.name}`);
+                 console.log(`Page count: ${figma.root.children.length}`);
+                 figma.root.children.forEach(page => {
+                     console.log(`Page: ${page.name} (${page.type})`);
+                 });
 
-                 // Make traverseNode async
-                 async function traverseNode(node) {
-                     if (node && typeof node === 'object' && 'type' in node) {
-                         if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
-                             const componentName = node.name || 'UnnamedComponent';
-                             componentsDataWithCode.push({
-                                 id: node.id,
-                                 name: componentName,
-                                 type: node.type,
-                                 angularHtml: generateAngularHtml(componentName),
-                                 angularTs: generateAngularTs(componentName),
-                                 kebabName: kebabCase(componentName)
-                             });
+                 // Define our node traversal function with enhanced debugging
+                 const traverseNodeAsync = (node) => __awaiter(this, void 0, void 0, function* () {
+                     if (!node) {
+                         console.log(`Warning: Null/undefined node encountered`);
+                         return;
+                     }
+                     
+                     // More detailed node info for debugging
+                     const nodeInfo = `Node: ${node.name} | Type: ${node.type} | ID: ${node.id}`;
+                     if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+                         console.log(`🎯 FOUND COMPONENT: ${nodeInfo}`);
+                     } else {
+                         console.log(`Traversing ${nodeInfo}`);
+                     }
+
+                     // Check if node is a component or component set
+                     if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+                         // Get page name safely without using optional chaining
+                         let pageName = 'unknown';
+                         if (node.parent && node.parent.type === 'PAGE') {
+                             pageName = node.parent.name;
                          }
-                         // Check if children exist and use getChildrenAsync
-                         if ('children' in node && typeof node.getChildrenAsync === 'function') {
-                             try {
-                                 const children = await node.getChildrenAsync(); // Await async children access
-                                 // Traverse children concurrently
-                                 await Promise.all(children.map(child => traverseNode(child)));
-                             } catch (childError) {
-                                 console.warn(`Could not get children for node ${node.id} (${node.name}):`, childError);
+                         
+                         console.log(`Found component: ${node.name} on page: ${pageName}`);
+                         const componentName = node.name || 'UnnamedComponent';
+                         componentsDataWithCode.push({
+                             id: node.id,
+                             name: componentName,
+                             type: node.type,
+                             pageName: pageName,
+                             angularHtml: generateAngularHtml(componentName),
+                             angularTs: generateAngularTs(componentName),
+                             kebabName: kebabCase(componentName)
+                         });
+                     }
+                     
+                     // Get children using getChildrenAsync - with enhanced error handling
+                     try {
+                         // Check if the node can have children
+                         if ('children' in node) {
+                             if (typeof node.getChildrenAsync === 'function') {
+                                 console.log(`Getting children for node: ${node.name}`);
+                                 // Use yield since we're inside __awaiter
+                                 const children = yield node.getChildrenAsync();
+                                 console.log(`Node ${node.name} has ${children.length} children`);
+                                 
+                                 // Process children sequentially
+                                 for (let i = 0; i < children.length; i++) {
+                                     yield traverseNodeAsync(children[i]);
+                                 }
+                             } else {
+                                 console.warn(`Node ${node.name} has 'children' property but no getChildrenAsync method`);
+                                 if (Array.isArray(node.children)) {
+                                     console.log(`Falling back to synchronous children access for ${node.name}`);
+                                     // Direct .children access as fallback (shouldn't be needed with document access)
+                                     for (let i = 0; i < node.children.length; i++) {
+                                         yield traverseNodeAsync(node.children[i]);
+                                     }
+                                 }
                              }
+                         } else {
+                             console.log(`Node ${node.name} has no children`);
                          }
+                     } catch (childError) {
+                         console.warn(`Error getting children of node ${node.name}:`, childError);
+                     }
+                 });
+
+                 // With full document access, we can iterate through all pages
+                 if (figma.root && figma.root.children) {
+                     console.log(`Document has ${figma.root.children.length} pages. Starting traversal...`);
+                     
+                     // Process each page in the document
+                     for (const page of figma.root.children) {
+                         console.log(`Processing page: ${page.name}`);
+                         yield traverseNodeAsync(page);
                      }
                  }
-
-                 // Await directly within the main async function body (using yield for generator context)
-                 if (figma.root && Array.isArray(figma.root.children)) {
-                     // Use Promise.all to handle async traversal of multiple pages concurrently
-                     yield Promise.all(figma.root.children.map(page => traverseNode(page)));
+                 
+                 console.log(`Component search complete. Found ${componentsDataWithCode.length} components across all pages.`);
+                 if (componentsDataWithCode.length > 0) {
+                     console.log("Components found:", componentsDataWithCode.map(c => c.name).join(", "));
+                 } else {
+                     console.log("No components found. Check if your document actually contains components.");
+                     console.log("Remember: A component must be created using 'Create Component' in Figma (not just a group or frame).");
                  }
-
-                 console.log(`Found and generated code for ${componentsDataWithCode.length} components.`);
+                 
+                 // Store components data globally to make it accessible
+                 collectedComponentsData = componentsDataWithCode;
              }
         } catch (error) {
              console.error('Error traversing nodes for components or generating code:', error);
+             figma.ui.postMessage({ type: 'error', message: `Error finding components: ${error.message}` });
              errorOccurred = true;
         }
 
@@ -177,8 +241,11 @@ function collectDocumentData() {
         figma.ui.postMessage({
             type: 'document-data',
             variablesData,
-            componentsData: componentsDataWithCode
+            componentsData: collectedComponentsData || [] // Use the global variable we just populated
         });
+        
+        // Log what we're sending to help debug
+        console.log(`Sending ${variablesData ? variablesData.length : 0} variable collections and ${collectedComponentsData ? collectedComponentsData.length : 0} components to UI`);
 
         // Store the collected data for potential export later, only if no error
         if (!errorOccurred) {
@@ -275,10 +342,14 @@ figma.ui.onmessage = (msg) => __awaiter(this, void 0, void 0, function* () {
         }
     } else if (msg.type === 'export-angular') {
         // Handle Angular export request
-        console.log("Received request to export Angular components.");
+        console.log(`Received request to export Angular components in ${msg.language || 'angular'} format.`);
         if (collectedComponentsData) {
             // Send the component data (which includes the generated code) to the UI for zipping
-            figma.ui.postMessage({ type: 'angular-export-data', files: collectedComponentsData });
+            figma.ui.postMessage({ 
+                type: 'angular-export-data', 
+                files: collectedComponentsData,
+                language: msg.language || 'angular'  // Pass the selected language back
+            });
             console.log("Sent Angular component data to UI for zipping.");
         } else {
              figma.ui.postMessage({ type: 'error', message: 'Component data not available for export. Please reload the plugin.' });
@@ -288,22 +359,94 @@ figma.ui.onmessage = (msg) => __awaiter(this, void 0, void 0, function* () {
 });
 
 // Keep the codegen functionality for generating code in the Code tab
-figma.codegen.on('generate', (_event) => {
+figma.codegen.on('generate', (event) => {
     try {
-        return [
-            {
-                language: 'PLAINTEXT',
-                code: 'aWall Synch - Use the plugin interface to view variables and components',
-                title: 'aWall Synch',
-            },
-        ];
+        const node = event.node;
+        const language = event.language; // Get the selected language
+        
+        // If no node is selected or node isn't a valid component type
+        if (!node) {
+            return [
+                {
+                    language: 'PLAINTEXT',
+                    code: 'Select a component or frame to generate Angular code.',
+                    title: 'aWall Synch',
+                }
+            ];
+        }
+        
+        const componentName = node.name;
+        const kebabName = kebabCase(componentName);
+        const pascalName = pascalCase(componentName);
+        
+        // If Angular is selected or no specific language is specified
+        if (language === 'angular' || !language) {
+            // Generate HTML
+            const htmlCode = generateAngularHtml(componentName);
+            
+            // Generate TypeScript
+            const tsCode = generateAngularTs(componentName);
+            
+            // Generate basic SCSS with component dimensions
+            const scssCode = `// Styles for ${componentName}
+.${kebabName} {
+  width: ${node.width}px;
+  height: ${node.height}px;
+  // Add your custom styles here
+}`;
+            
+            // Return the Angular component files
+            return [
+                {
+                    language: 'HTML',
+                    code: htmlCode,
+                    title: `${kebabName}.component.html`,
+                },
+                {
+                    language: 'TYPESCRIPT',
+                    code: tsCode,
+                    title: `${kebabName}.component.ts`,
+                },
+                {
+                    language: 'CSS',
+                    code: scssCode,
+                    title: `${kebabName}.component.scss`,
+                }
+            ];
+        } 
+        else if (language === 'typescript') {
+            // TypeScript only - just the component class
+            return [
+                {
+                    language: 'TYPESCRIPT',
+                    code: generateAngularTs(componentName),
+                    title: `${kebabName}.component.ts`,
+                }
+            ];
+        }
+        else if (language === 'javascript') {
+            // JavaScript version - convert TypeScript to JavaScript
+            const jsCode = generateAngularTs(componentName)
+                .replace(/: [A-Za-z<>[\]]+/g, '') // Remove type annotations
+                .replace(/interface [^}]+}/g, '') // Remove interfaces
+                .replace('import { Component } from \'@angular/core\';', 
+                         'import { Component } from \'@angular/core\';'); // Keep imports
+                
+            return [
+                {
+                    language: 'JAVASCRIPT',
+                    code: jsCode,
+                    title: `${kebabName}.component.js`,
+                }
+            ];
+        }
     }
     catch (error) {
-        console.error('Plugin error:', error);
+        console.error('Plugin error in codegen:', error);
         return [
             {
                 language: 'PLAINTEXT',
-                code: 'Error occurred during code generation',
+                code: `Error occurred during code generation: ${error.message}`,
                 title: 'Error',
             },
         ];
