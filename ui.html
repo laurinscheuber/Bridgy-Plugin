@@ -134,6 +134,7 @@
       <div class="search-container">
         <input type="text" class="search-input" id="variable-search" placeholder="Search variables...">
       </div>
+      <button id="export-css-button" style="margin-bottom: 10px;" disabled>Export Variables as CSS</button> 
       <div id="variables-container">
         <div class="loading">Loading variables...</div>
       </div>
@@ -168,6 +169,7 @@
     // Listen for messages from the plugin
     window.onmessage = (event) => {
       const message = event.data.pluginMessage;
+      const exportButton = document.getElementById('export-css-button');
       
       if (message.type === 'document-data') {
         variablesData = message.variablesData;
@@ -175,6 +177,22 @@
         
         renderVariables(variablesData);
         renderComponents(componentsData);
+
+        // Enable the export button only if there are variables
+        if (variablesData && variablesData.some(collection => collection.variables.length > 0)) {
+          exportButton.disabled = false;
+        } else {
+          exportButton.disabled = true; // Keep disabled if no variables
+        }
+
+      } else if (message.type === 'css-export') {
+        // Trigger download when CSS data is received
+        downloadCSS(message.cssData);
+      } else if (message.type === 'error') {
+        // Optionally display errors from the plugin code
+        console.error('Plugin Error:', message.message);
+        alert(`Error: ${message.message}`); // Simple alert for user feedback
+        exportButton.disabled = true; // Disable button on error
       }
     };
     
@@ -292,6 +310,25 @@
       container.innerHTML = html;
     }
     
+    // Function to trigger CSS download
+    function downloadCSS(cssString) {
+      const blob = new Blob([cssString], { type: 'text/css' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'figma-variables.css';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Add event listener for the export button
+    document.getElementById('export-css-button').addEventListener('click', () => {
+      // Send message to plugin code to request CSS export
+      parent.postMessage({ pluginMessage: { type: 'export-css' } }, '*');
+    });
+
     // Search functionality
     document.getElementById('variable-search').addEventListener('input', (e) => {
       const searchTerm = e.target.value.toLowerCase();
