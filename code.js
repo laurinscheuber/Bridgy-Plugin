@@ -1,0 +1,104 @@
+"use strict";
+// aWall Synch plugin
+// This file holds the main code for the plugin. It has access to
+// the *figma document* via the figma global object.
+// You can access browser APIs in the <script> tag inside "ui.html"
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+// Show the UI (required for inspect panel plugins)
+figma.showUI(__html__, { width: 450, height: 500 });
+// Collect all variables and components from the document
+function collectDocumentData() {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Collection variables
+        const variableCollections = figma.variables.getLocalVariableCollections();
+        const variablesData = [];
+        for (const collection of variableCollections) {
+            const variables = collection.variableIds.map(id => {
+                const variable = figma.variables.getVariableById(id);
+                if (!variable)
+                    return null;
+                const valuesByModeEntries = [];
+                // Handle valuesByMode in a TypeScript-friendly way
+                for (const modeId in variable.valuesByMode) {
+                    const value = variable.valuesByMode[modeId];
+                    const mode = collection.modes.find(m => m.modeId === modeId);
+                    valuesByModeEntries.push({
+                        modeName: mode ? mode.name : 'Unknown',
+                        value: value
+                    });
+                }
+                return {
+                    id: variable.id,
+                    name: variable.name,
+                    resolvedType: variable.resolvedType,
+                    valuesByMode: valuesByModeEntries
+                };
+            }).filter(item => item !== null);
+            variablesData.push({
+                name: collection.name,
+                variables: variables
+            });
+        }
+        // Collecting components
+        const componentsData = [];
+        // Fixed type definition to handle both PageNode and other nodes with children
+        function traverseNode(node) {
+            if ('type' in node) {
+                if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+                    componentsData.push({
+                        id: node.id,
+                        name: node.name,
+                        type: node.type
+                    });
+                }
+                if ('children' in node) {
+                    for (const child of node.children) {
+                        traverseNode(child);
+                    }
+                }
+            }
+        }
+        // Traverse all pages to find components
+        for (const page of figma.root.children) {
+            traverseNode(page);
+        }
+        // Send the data to the UI
+        figma.ui.postMessage({
+            type: 'document-data',
+            variablesData,
+            componentsData
+        });
+    });
+}
+// Run the collection when the plugin starts
+collectDocumentData();
+// Keep the codegen functionality for generating code in the Code tab
+figma.codegen.on('generate', (_event) => {
+    try {
+        return [
+            {
+                language: 'PLAINTEXT',
+                code: 'aWall Synch - Use the plugin interface to view variables and components',
+                title: 'aWall Synch',
+            },
+        ];
+    }
+    catch (error) {
+        console.error('Plugin error:', error);
+        return [
+            {
+                language: 'PLAINTEXT',
+                code: 'Error occurred during code generation',
+                title: 'Error',
+            },
+        ];
+    }
+});
