@@ -157,11 +157,19 @@ function generateJestTest(component) {
         console.error("Error parsing component styles:", e);
         styles = {};
     }
-    // Extract the CSS properties we want to test
-    const borderRadius = styles['border-radius'] || styles['borderRadius'] || '0px';
-    const border = styles['border'] || 'none';
-    const color = styles['color'] || 'inherit';
-    const backgroundColor = styles['background-color'] || styles['backgroundColor'] || 'transparent';
+    // Extract all CSS properties that are present in the styles object
+    const styleChecks = [];
+    // Process all style properties
+    for (const key in styles) {
+        if (Object.prototype.hasOwnProperty.call(styles, key)) {
+            // Convert kebab-case to camelCase for JavaScript property access
+            const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+            styleChecks.push({
+                property: camelCaseKey,
+                value: styles[key]
+            });
+        }
+    }
     // Determine if this is a component set or a regular component
     const isComponentSet = component.type === 'COMPONENT_SET';
     // For component sets, we'll create a test that checks the default variant
@@ -186,70 +194,45 @@ function generateJestTest(component) {
                 console.error("Error parsing variant styles:", e);
                 variantStyles = {};
             }
-            const variantBorderRadius = variantStyles['border-radius'] || variantStyles['borderRadius'] || '0px';
-            const variantBorder = variantStyles['border'] || 'none';
-            const variantColor = variantStyles['color'] || 'inherit';
-            const variantBackgroundColor = variantStyles['background-color'] || variantStyles['backgroundColor'] || 'transparent';
-            testContent = `import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component } from './${kebabName}.component';
-
-describe('${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component', () => {
-  let component: ${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component;
-  let fixture: ComponentFixture<${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component>;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      declarations: [ ${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component ]
-    })
-    .compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('should render the default variant with correct styles', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (element) {
-      const computedStyle = window.getComputedStyle(element);
-      
-      // Check border-radius
-      expect(computedStyle.borderRadius).toBe('${variantBorderRadius}');
-      
-      // Check border
-      expect(computedStyle.border).toBe('${variantBorder}');
-      
-      // Check color
-      expect(computedStyle.color).toBe('${variantColor}');
-      
-      // Check background-color
-      expect(computedStyle.backgroundColor).toBe('${variantBackgroundColor}');
-    } else {
-      console.warn('No suitable element found to test styles');
-    }
-  });
-});
-`;
+            // Extract all CSS properties that are present in the variant styles object
+            const variantStyleChecks = [];
+            // Process all style properties
+            for (const key in variantStyles) {
+                if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
+                    // Convert kebab-case to camelCase for JavaScript property access
+                    const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                    variantStyleChecks.push({
+                        property: camelCaseKey,
+                        value: variantStyles[key]
+                    });
+                }
+            }
+            testContent = createTestWithStyleChecks(componentName, kebabName, variantStyleChecks);
         }
         else {
             // If no default variant is found, create a standard test
-            testContent = createStandardTest(componentName, kebabName, borderRadius, border, color, backgroundColor);
+            testContent = createTestWithStyleChecks(componentName, kebabName, styleChecks);
         }
     }
     else {
         // For regular components, create a standard test
-        testContent = createStandardTest(componentName, kebabName, borderRadius, border, color, backgroundColor);
+        testContent = createTestWithStyleChecks(componentName, kebabName, styleChecks);
     }
     return testContent;
 }
-// Helper function to create a standard test
-function createStandardTest(componentName, kebabName, borderRadius, border, color, backgroundColor) {
+// Helper function to create a test with dynamic style checks
+function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
+    // Generate the style check code based on the available style checks
+    let styleCheckCode = '';
+    if (styleChecks.length > 0) {
+        styleCheckCode = styleChecks.map(check => {
+            return `      // Check ${check.property}
+      expect(computedStyle.${check.property}).toBe('${check.value}');`;
+        }).join('\n\n');
+    }
+    else {
+        styleCheckCode = '      // No style properties to check';
+    }
     return `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component } from './${kebabName}.component';
 
@@ -279,17 +262,7 @@ describe('${componentName.replace(/[^a-zA-Z0-9]/g, '')}Component', () => {
     if (element) {
       const computedStyle = window.getComputedStyle(element);
       
-      // Check border-radius
-      expect(computedStyle.borderRadius).toBe('${borderRadius}');
-      
-      // Check border
-      expect(computedStyle.border).toBe('${border}');
-      
-      // Check color
-      expect(computedStyle.color).toBe('${color}');
-      
-      // Check background-color
-      expect(computedStyle.backgroundColor).toBe('${backgroundColor}');
+${styleCheckCode}
     } else {
       console.warn('No suitable element found to test styles');
     }
