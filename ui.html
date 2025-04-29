@@ -126,27 +126,27 @@
 <body>
   <div class="container">
     <h2>aWall Synch</h2>
-    
+
     <div class="tabs">
       <div class="tab active" data-tab="variables">Variables</div>
       <div class="tab" data-tab="components">Components</div>
     </div>
-    
+
     <div class="tab-content active" id="variables-content">
       <div class="search-container">
         <input type="text" class="search-input" id="variable-search" placeholder="Search variables...">
       </div>
-      <button id="export-css-button" style="margin-bottom: 10px;" disabled>Export Variables as CSS</button> 
+      <button id="export-css-button" style="margin-bottom: 10px;" disabled>Export Variables as CSS</button>
       <div id="variables-container">
         <div class="loading">Loading variables...</div>
       </div>
     </div>
-    
+
     <div class="tab-content" id="components-content">
       <div class="search-container">
         <input type="text" class="search-input" id="component-search" placeholder="Search components...">
       </div>
-      
+
       <!-- Add export controls -->
       <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
         <select id="language-select" style="padding: 8px; border-radius: 4px; border: 1px solid #e0e0e0;">
@@ -156,7 +156,7 @@
         </select>
         <button id="export-angular-button" style="padding: 8px 12px;">Export Components</button>
       </div>
-      
+
       <div id="components-container">
         <div class="loading">Loading components...</div>
       </div>
@@ -169,25 +169,25 @@
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        
+
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab + '-content').classList.add('active');
       });
     });
-    
+
     // Store data
     let variablesData = [];
     let componentsData = [];
-    
+
     // Listen for messages from the plugin
     window.onmessage = (event) => {
       const message = event.data.pluginMessage;
       const exportButton = document.getElementById('export-css-button');
-      
+
       if (message.type === 'document-data') {
         variablesData = message.variablesData;
         componentsData = message.componentsData;
-        
+
         renderVariables(variablesData);
         renderComponents(componentsData);
 
@@ -220,18 +220,18 @@
         exportButton.disabled = true; // Disable button on error
       }
     };
-    
+
     // Render variables
     function renderVariables(data) {
       const container = document.getElementById('variables-container');
-      
+
       if (data.length === 0) {
         container.innerHTML = '<div class="no-items">No variables found in this document.</div>';
         return;
       }
-      
+
       let html = '';
-      
+
       data.forEach(collection => {
         html += `
           <div class="variable-collection">
@@ -246,7 +246,7 @@
               </thead>
               <tbody>
         `;
-        
+
         if (collection.variables.length === 0) {
           html += `<tr><td colspan="3">No variables in this collection</td></tr>`;
         } else {
@@ -257,17 +257,17 @@
                 <td>${variable.resolvedType}</td>
                 <td>
             `;
-            
+
             variable.valuesByMode.forEach(mode => {
               const value = mode.value;
-              
+
               // Display color values with a preview
               if (variable.resolvedType === 'COLOR' && typeof value === 'object' && value.r !== undefined) {
                 const r = Math.round(value.r * 255);
                 const g = Math.round(value.g * 255);
                 const b = Math.round(value.b * 255);
                 const a = value.a !== undefined ? value.a : 1;
-                
+
                 html += `
                   <div>
                     <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
@@ -278,33 +278,33 @@
                 html += `<div>${mode.modeName}: ${JSON.stringify(value)}</div>`;
               }
             });
-            
+
             html += `
                 </td>
               </tr>
             `;
           });
         }
-        
+
         html += `
               </tbody>
             </table>
           </div>
         `;
       });
-      
+
       container.innerHTML = html;
     }
-    
+
     // Render components
     function renderComponents(data) {
       const container = document.getElementById('components-container');
-      
+
       if (data.length === 0) {
         container.innerHTML = '<div class="no-items">No components found in this document.</div>';
         return;
       }
-      
+
       let html = `
         <div class="component-list">
           <table>
@@ -313,30 +313,32 @@
                 <th>Name</th>
                 <th>Type</th>
                 <th>Page</th>
+                <th>Styles</th>
               </tr>
             </thead>
             <tbody>
       `;
-      
+
       data.forEach(component => {
         html += `
           <tr class="component-item">
             <td>${component.name}</td>
             <td>${component.type === 'COMPONENT' ? 'Component' : 'Component Set'}</td>
             <td>${component.pageName || 'Unknown'}</td>
+            <td>${component.type === 'COMPONENT' ? JSON.stringify(component.styles) : ''}</td>
           </tr>
         `;
       });
-      
+
       html += `
             </tbody>
           </table>
         </div>
       `;
-      
+
       container.innerHTML = html;
     }
-    
+
     // Function to trigger CSS download
     function downloadCSS(cssString) {
       const blob = new Blob([cssString], { type: 'text/css' });
@@ -360,11 +362,11 @@
     document.getElementById('export-angular-button').addEventListener('click', () => {
       const selectedLanguage = document.getElementById('language-select').value;
       // Send message to plugin code to request Angular export with selected language
-      parent.postMessage({ 
-        pluginMessage: { 
+      parent.postMessage({
+        pluginMessage: {
           type: 'export-angular',
           language: selectedLanguage
-        } 
+        }
       }, '*');
     });
 
@@ -377,12 +379,12 @@
 
       // Create a new JSZip instance (needs to be added in the head section)
       const zip = new JSZip();
-      
+
       // Add files to the ZIP based on the selected language
       files.forEach(component => {
         const folderName = component.kebabName;
         const folder = zip.folder(folderName);
-        
+
         if (language === 'angular') {
           // Add all Angular component files
           folder.file(`${folderName}.component.html`, component.angularHtml);
@@ -396,11 +398,11 @@
           const jsCode = component.angularTs
             .replace(/: [A-Za-z<>[\]]+/g, '') // Remove type annotations
             .replace(/interface [^}]+}/g, ''); // Remove interfaces
-          
+
           folder.file(`${folderName}.component.js`, jsCode);
         }
       });
-      
+
       // Generate and download the ZIP
       zip.generateAsync({ type: 'blob' }).then(content => {
         const url = URL.createObjectURL(content);
@@ -417,26 +419,26 @@
     // Search functionality
     document.getElementById('variable-search').addEventListener('input', (e) => {
       const searchTerm = e.target.value.toLowerCase();
-      
+
       const filteredData = variablesData.map(collection => {
         return {
           ...collection,
-          variables: collection.variables.filter(variable => 
+          variables: collection.variables.filter(variable =>
             variable.name.toLowerCase().includes(searchTerm)
           )
         };
       }).filter(collection => collection.variables.length > 0);
-      
+
       renderVariables(filteredData);
     });
-    
+
     document.getElementById('component-search').addEventListener('input', (e) => {
       const searchTerm = e.target.value.toLowerCase();
-      
-      const filteredData = componentsData.filter(component => 
+
+      const filteredData = componentsData.filter(component =>
         component.name.toLowerCase().includes(searchTerm)
       );
-      
+
       renderComponents(filteredData);
     });
   </script>
