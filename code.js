@@ -273,7 +273,122 @@ ${styleCheckCode}
 // Handle messages from the UI
 figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     if (msg.type === "export-css") {
-        // Existing CSS export functionality
+        try {
+            // Get all variable collections
+            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+            let cssContent = '/* Figma Variables Export */\n';
+            cssContent += `/* Generated: ${new Date().toLocaleString()} */\n\n`;
+            cssContent += ':root {\n';
+            // Process each collection
+            for (const collection of collections) {
+                let hasValidVariables = false;
+                let collectionContent = `  /* ${collection.name} */\n`;
+                // Get all variables in the collection
+                for (const variableId of collection.variableIds) {
+                    const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                    if (!variable)
+                        continue;
+                    // Get the default mode (first mode)
+                    const defaultModeId = collection.modes[0].modeId;
+                    const value = variable.valuesByMode[defaultModeId];
+                    // Skip variables that reference other variables
+                    if (value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                        continue;
+                    }
+                    // Format the variable name (replace spaces and special characters)
+                    const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+                    // Format the value based on the variable type
+                    let formattedValue = '';
+                    if (variable.resolvedType === 'COLOR') {
+                        if (value && typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
+                            const color = value;
+                            formattedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+                        }
+                        else {
+                            continue; // Skip invalid color values
+                        }
+                    }
+                    else if (variable.resolvedType === 'FLOAT') {
+                        if (typeof value === 'number' && !isNaN(value)) {
+                            // Add 'px' unit for size-related values
+                            if (variable.name.toLowerCase().includes('size') ||
+                                variable.name.toLowerCase().includes('padding') ||
+                                variable.name.toLowerCase().includes('margin') ||
+                                variable.name.toLowerCase().includes('radius') ||
+                                variable.name.toLowerCase().includes('gap') ||
+                                variable.name.toLowerCase().includes('stroke')) {
+                                formattedValue = `${value}px`;
+                            }
+                            else {
+                                formattedValue = String(value);
+                            }
+                        }
+                        else {
+                            continue; // Skip invalid float values
+                        }
+                    }
+                    else if (variable.resolvedType === 'STRING') {
+                        if (typeof value === 'string') {
+                            // Handle font names and other string values
+                            formattedValue = `"${value}"`;
+                        }
+                        else {
+                            continue; // Skip invalid string values
+                        }
+                    }
+                    else if (variable.resolvedType === 'BOOLEAN') {
+                        if (typeof value === 'boolean') {
+                            formattedValue = value ? 'true' : 'false';
+                        }
+                        else {
+                            continue; // Skip invalid boolean values
+                        }
+                    }
+                    else {
+                        continue; // Skip unknown types
+                    }
+                    // Add the CSS variable
+                    collectionContent += `  --${formattedName}: ${formattedValue};\n`;
+                    hasValidVariables = true;
+                }
+                // Only add the collection content if it has valid variables
+                if (hasValidVariables) {
+                    cssContent += collectionContent + '\n';
+                }
+            }
+            // Close the root selector
+            cssContent += '}\n\n';
+            // Add media query for dark mode if needed
+            cssContent += '@media (prefers-color-scheme: dark) {\n';
+            cssContent += '  :root {\n';
+            cssContent += '    /* Dark mode overrides can be added here */\n';
+            cssContent += '  }\n';
+            cssContent += '}\n';
+            // Add usage examples and documentation
+            cssContent += '\n/* ---------------------------------------------------------- */\n';
+            cssContent += '/* Usage Examples */\n';
+            cssContent += '/* ---------------------------------------------------------- */\n\n';
+            cssContent += '/* Example usage of variables */\n';
+            cssContent += '.example-element {\n';
+            cssContent += '  color: var(--primary-color);\n';
+            cssContent += '  background-color: var(--background-color);\n';
+            cssContent += '  padding: var(--spacing-medium);\n';
+            cssContent += '  border-radius: var(--border-radius);\n';
+            cssContent += '  font-family: var(--font-family);\n';
+            cssContent += '}\n';
+            // Send the CSS content back to the UI
+            figma.ui.postMessage({
+                type: "css-export",
+                cssData: cssContent
+            });
+        }
+        catch (error) {
+            console.error("Error exporting CSS:", error);
+            figma.ui.postMessage({
+                type: "error",
+                message: `Error exporting CSS: ${error.message || 'Unknown error'}`
+            });
+        }
     }
     else if (msg.type === "export-angular") {
         // Existing Angular export functionality
@@ -304,6 +419,63 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             figma.ui.postMessage({
                 type: "error",
                 message: `Error generating test: ${error.message || 'Unknown error'}`,
+            });
+        }
+    }
+    else if (msg.type === "commit-to-gitlab") {
+        try {
+            if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
+                throw new Error("Missing required fields for GitLab commit");
+            }
+            // Construct the GitLab API URL using the project ID
+            const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
+            const filePath = msg.filePath || 'variables.css';
+            // First, check if the file exists
+            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/files/${encodeURIComponent(filePath)}`;
+            const checkResponse = yield fetch(checkFileUrl, {
+                method: 'GET',
+                headers: {
+                    'PRIVATE-TOKEN': msg.gitlabToken
+                }
+            });
+            // Determine if we should create or update the file
+            const fileExists = checkResponse.ok;
+            const action = fileExists ? 'update' : 'create';
+            // Prepare the commit data
+            const commitData = {
+                branch: 'main', // Default to main branch
+                commit_message: msg.commitMessage,
+                actions: [
+                    {
+                        action: action,
+                        file_path: filePath,
+                        content: msg.cssData
+                    }
+                ]
+            };
+            // Make the API request to GitLab
+            const response = yield fetch(gitlabApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'PRIVATE-TOKEN': msg.gitlabToken
+                },
+                body: JSON.stringify(commitData)
+            });
+            if (!response.ok) {
+                const errorData = yield response.json();
+                throw new Error(errorData.message || 'Failed to commit to GitLab');
+            }
+            // Send success message back to UI
+            figma.ui.postMessage({
+                type: "commit-success"
+            });
+        }
+        catch (error) {
+            console.error("Error committing to GitLab:", error);
+            figma.ui.postMessage({
+                type: "commit-error",
+                error: error.message || 'Unknown error occurred'
             });
         }
     }
