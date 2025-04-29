@@ -11,11 +11,14 @@
         margin: 0;
         padding: 20px;
         color: #333;
+        background-color: #f7f8fa;
       }
       .container {
         display: flex;
         flex-direction: column;
         gap: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
       }
       .section {
         border: 1px solid #e0e0e0;
@@ -26,7 +29,7 @@
       h2 {
         margin-top: 0;
         color: #333;
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 600;
       }
       h3 {
@@ -40,18 +43,31 @@
         display: flex;
         border-bottom: 1px solid #e0e0e0;
         margin-bottom: 16px;
+        background-color: #fff;
+        border-radius: 8px 8px 0 0;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       .tab {
-        padding: 8px 16px;
+        padding: 12px 24px;
         cursor: pointer;
         font-weight: 500;
+        transition: all 0.2s ease;
+      }
+      .tab:hover {
+        background-color: #f0f7ff;
       }
       .tab.active {
         border-bottom: 2px solid #0d99ff;
         color: #0d99ff;
+        background-color: #f0f7ff;
       }
       .tab-content {
         display: none;
+        background-color: #fff;
+        border-radius: 0 0 8px 8px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       .tab-content.active {
         display: block;
@@ -60,31 +76,44 @@
         margin-bottom: 24px;
         background: #f9f9f9;
         border-radius: 6px;
-        padding: 12px;
+        padding: 16px;
+        border: 1px solid #eaeaea;
       }
       .collection-name {
         font-weight: 600;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
+        color: #444;
+        font-size: 16px;
       }
       table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 8px;
+        background-color: #fff;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
       th {
         text-align: left;
-        background-color: #f5f5f5;
-        padding: 8px;
+        background-color: #f3f4f6;
+        padding: 10px 12px;
         font-weight: 500;
+        color: #444;
+        border-bottom: 1px solid #e5e7eb;
       }
       td {
-        padding: 8px;
+        padding: 10px 12px;
         border-top: 1px solid #eee;
+        vertical-align: top;
+      }
+      tr:hover td {
+        background-color: #f9fafb;
       }
       .color-preview {
-        width: 20px;
-        height: 20px;
-        border-radius: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
         display: inline-block;
         margin-right: 8px;
         vertical-align: middle;
@@ -95,17 +124,27 @@
       }
       .search-input {
         width: 100%;
-        padding: 8px 12px;
+        padding: 10px 16px;
         border: 1px solid #e0e0e0;
-        border-radius: 4px;
+        border-radius: 6px;
         font-size: 14px;
+        transition: border-color 0.2s;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+      .search-input:focus {
+        border-color: #0d99ff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
       }
       .component-list {
-        max-height: 600px;
+        max-height: 700px;
         overflow-y: auto;
+        border-radius: 6px;
+        background-color: #fff;
+        border: 1px solid #eaeaea;
       }
       .component-item {
-        padding: 8px;
+        padding: 10px;
         border-bottom: 1px solid #eee;
       }
       .component-item:hover {
@@ -114,41 +153,162 @@
       .no-items {
         color: #999;
         font-style: italic;
-        padding: 16px 0;
+        padding: 24px;
+        text-align: center;
+        background-color: #f9f9f9;
+        border-radius: 6px;
       }
       .loading {
         text-align: center;
-        padding: 30px;
-        color: #999;
+        padding: 40px;
+        color: #777;
+        background-color: #f9f9f9;
+        border-radius: 6px;
       }
+      .loading:after {
+        content: "...";
+        animation: dots 1.5s steps(5, end) infinite;
+      }
+      @keyframes dots {
+        0%,
+        20% {
+          content: ".";
+        }
+        40% {
+          content: "..";
+        }
+        60%,
+        100% {
+          content: "...";
+        }
+      }
+      /* Component hierarchy styling */
       .component-set {
-        background-color: #f8f8f8;
-        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        margin-bottom: 0;
+        border-bottom: 1px solid #e5e7eb;
       }
       .component-set-header {
         cursor: pointer;
-        padding: 8px;
+        padding: 12px;
         display: flex;
         align-items: center;
+        transition: background-color 0.2s;
       }
       .component-set-header:hover {
-        background-color: #f0f0f0;
+        background-color: #edf2f7;
       }
       .component-set-toggle {
-        margin-right: 5px;
+        width: 20px;
+        height: 20px;
+        margin-right: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-weight: bold;
+        color: #0d99ff;
+        background-color: #e1f0ff;
+        border-radius: 3px;
+        transition: all 0.2s;
+      }
+      .component-set-header.expanded .component-set-toggle {
+        transform: rotate(90deg);
       }
       .component-set-children {
-        padding-left: 20px;
-        display: none;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
       }
       .component-set-children.expanded {
-        display: block;
+        max-height: 1000px;
       }
       .child-component {
-        border-left: 2px solid #ddd;
-        margin-left: 10px;
-        padding-left: 10px;
+        border-left: 3px solid #0d99ff;
+        margin: 0 0 0 20px;
+        background-color: #fafbfc;
+      }
+      .child-component table {
+        box-shadow: none;
+        border-radius: 0;
+      }
+      /* Type and state badges */
+      .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 4px;
+        margin-right: 8px;
+      }
+      .badge-component {
+        background-color: #e1f0ff;
+        color: #0d99ff;
+      }
+      .badge-component-set {
+        background-color: #c9f7f0;
+        color: #0a9882;
+      }
+      .badge-state {
+        background-color: #f0e6ff;
+        color: #7e3ff2;
+      }
+      .badge-type {
+        background-color: #fff2e0;
+        color: #ff8c00;
+      }
+      /* Component info layout */
+      .component-name {
+        font-weight: 500;
+        margin-right: 10px;
+      }
+      .component-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .component-styles {
+        margin-top: 8px;
+        padding: 8px;
+        background-color: #f5f7f9;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #555;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+        cursor: pointer;
+      }
+      .component-styles.expanded {
+        white-space: pre-wrap;
+        overflow: auto;
+        max-height: 200px;
+      }
+      /* Button styling */
+      button {
+        padding: 10px 16px;
+        background-color: #0d99ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      button:hover {
+        background-color: #0a85e9;
+      }
+      button:disabled {
+        background-color: #c8d3dc;
+        cursor: not-allowed;
+      }
+      select {
+        padding: 9px 12px;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        background-color: white;
+        font-size: 14px;
       }
     </style>
   </head>
@@ -170,11 +330,11 @@
             placeholder="Search variables..."
           />
         </div>
-        <button id="export-css-button" style="margin-bottom: 10px" disabled>
+        <button id="export-css-button" style="margin-bottom: 16px" disabled>
           Export Variables as CSS
         </button>
         <div id="variables-container">
-          <div class="loading">Loading variables...</div>
+          <div class="loading">Loading variables</div>
         </div>
       </div>
 
@@ -191,7 +351,7 @@
         <!-- Add export controls -->
         <div
           style="
-            margin-bottom: 15px;
+            margin-bottom: 16px;
             display: flex;
             gap: 10px;
             align-items: center;
@@ -199,19 +359,21 @@
         >
           <select
             id="language-select"
-            style="padding: 8px; border-radius: 4px; border: 1px solid #e0e0e0"
+            style="
+              padding: 9px 12px;
+              border-radius: 4px;
+              border: 1px solid #e0e0e0;
+            "
           >
             <option value="angular">Angular</option>
             <option value="typescript">TypeScript</option>
             <option value="javascript">JavaScript</option>
           </select>
-          <button id="export-angular-button" style="padding: 8px 12px">
-            Export Components
-          </button>
+          <button id="export-angular-button">Export Components</button>
         </div>
 
         <div id="components-container">
-          <div class="loading">Loading components...</div>
+          <div class="loading">Loading components</div>
         </div>
       </div>
     </div>
@@ -366,6 +528,48 @@
         container.innerHTML = html;
       }
 
+      // Extract component type and state from name
+      function parseComponentName(name) {
+        const result = {
+          name: name,
+          type: null,
+          state: null,
+        };
+
+        // Check for Type=X pattern
+        const typeMatch = name.match(/Type=([^,]+)/i);
+        if (typeMatch && typeMatch[1]) {
+          result.type = typeMatch[1].trim();
+        }
+
+        // Check for State=X pattern
+        const stateMatch = name.match(/State=([^,]+)/i);
+        if (stateMatch && stateMatch[1]) {
+          result.state = stateMatch[1].trim();
+        }
+
+        return result;
+      }
+
+      // Format component styles for readability
+      function formatStyles(styles) {
+        if (!styles) return "";
+
+        // Try to parse and format the JSON
+        try {
+          if (typeof styles === "string") {
+            styles = JSON.parse(styles);
+          }
+
+          const styleStr = JSON.stringify(styles, null, 2);
+          return styleStr.length > 100
+            ? styleStr.substring(0, 100) + "..."
+            : styleStr;
+        } catch (e) {
+          return String(styles);
+        }
+      }
+
       // Render components in hierarchical view
       function renderComponents(data) {
         const container = document.getElementById("components-container");
@@ -376,90 +580,131 @@
           return;
         }
 
-        let html = `
-        <div class="component-list">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Page</th>
-                <th>Styles</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
+        let html = `<div class="component-list">`;
 
         // Render each component with hierarchy
         data.forEach((component, index) => {
           if (component.type === "COMPONENT_SET") {
+            // Parse the component set name to extract type information
+            const parsedName = parseComponentName(component.name);
+
             // For component sets, create an expandable section
             html += `
-            <tr class="component-set" data-index="${index}">
-              <td colspan="4">
-                <div class="component-set-header" onclick="toggleComponentSet(${index})">
-                  <span class="component-set-toggle" id="toggle-${index}">+</span>
-                  <strong>${component.name}</strong>
+            <div class="component-set">
+              <div class="component-set-header" data-index="${index}" onclick="toggleComponentSet(${index})">
+                <div class="component-set-toggle">+</div>
+                <div class="component-meta">
+                  <span class="component-name">${parsedName.name}</span>
+                  <span class="badge badge-component-set">Component Set</span>
+                  ${
+                    parsedName.type
+                      ? `<span class="badge badge-type">${parsedName.type}</span>`
+                      : ""
+                  }
                 </div>
-                <div class="component-set-children" id="children-${index}">
-          `;
+              </div>
+              <div class="component-set-children" id="children-${index}">
+            `;
 
             // Render child components
-            component.children.forEach((child) => {
-              html += `
-              <div class="child-component">
-                <table style="width: 100%;">
-                  <tr>
-                    <td>${child.name}</td>
-                    <td>Component</td>
-                    <td>${child.pageName || "Unknown"}</td>
-                    <td>${JSON.stringify(child.styles)}</td>
-                  </tr>
-                </table>
-              </div>
-            `;
-            });
+            if (component.children && component.children.length > 0) {
+              component.children.forEach((child) => {
+                // Parse the child component name to extract type and state
+                const childParsed = parseComponentName(child.name);
+
+                html += `
+                <div class="child-component">
+                  <table style="width: 100%;">
+                    <tbody>
+                      <tr>
+                        <td>
+                          <div class="component-meta">
+                            <span class="component-name">${
+                              childParsed.name
+                            }</span>
+                            <span class="badge badge-component">Component</span>
+                            ${
+                              childParsed.type
+                                ? `<span class="badge badge-type">${childParsed.type}</span>`
+                                : ""
+                            }
+                            ${
+                              childParsed.state
+                                ? `<span class="badge badge-state">${childParsed.state}</span>`
+                                : ""
+                            }
+                          </div>
+                          <div class="component-styles" onclick="toggleStyles(this)">${formatStyles(
+                            child.styles
+                          )}</div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              `;
+              });
+            } else {
+              html += `<div class="child-component"><div class="no-items">No child components</div></div>`;
+            }
 
             html += `
                 </div>
-              </td>
-            </tr>
-          `;
+              </div>
+            `;
           } else {
+            // Parse the standalone component name
+            const parsedName = parseComponentName(component.name);
+
             // For regular components, render normally
             html += `
-            <tr class="component-item">
-              <td>${component.name}</td>
-              <td>${
-                component.type === "COMPONENT" ? "Component" : "Component Set"
-              }</td>
-              <td>${component.pageName || "Unknown"}</td>
-              <td>${JSON.stringify(component.styles)}</td>
-            </tr>
+            <div class="component-item">
+              <div class="component-meta">
+                <span class="component-name">${parsedName.name}</span>
+                <span class="badge badge-component">Component</span>
+                ${
+                  parsedName.type
+                    ? `<span class="badge badge-type">${parsedName.type}</span>`
+                    : ""
+                }
+                ${
+                  parsedName.state
+                    ? `<span class="badge badge-state">${parsedName.state}</span>`
+                    : ""
+                }
+              </div>
+              <div class="component-styles" onclick="toggleStyles(this)">${formatStyles(
+                component.styles
+              )}</div>
+            </div>
           `;
           }
         });
 
-        html += `
-            </tbody>
-          </table>
-        </div>
-      `;
+        html += `</div>`;
 
         container.innerHTML = html;
 
-        // Add toggle function to the global scope
+        // Add toggle functions to the global scope
         window.toggleComponentSet = function (index) {
+          const headerEl = document.querySelector(
+            `.component-set-header[data-index="${index}"]`
+          );
           const childrenEl = document.getElementById(`children-${index}`);
-          const toggleEl = document.getElementById(`toggle-${index}`);
 
           if (childrenEl.classList.contains("expanded")) {
             childrenEl.classList.remove("expanded");
-            toggleEl.textContent = "+";
+            headerEl.classList.remove("expanded");
+            headerEl.querySelector(".component-set-toggle").textContent = "+";
           } else {
             childrenEl.classList.add("expanded");
-            toggleEl.textContent = "-";
+            headerEl.classList.add("expanded");
+            headerEl.querySelector(".component-set-toggle").textContent = "›";
           }
+        };
+
+        window.toggleStyles = function (element) {
+          element.classList.toggle("expanded");
         };
       }
 
