@@ -1,239 +1,303 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>aWall Synch UI</title>
-  <!-- Add JSZip library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 20px;
-      color: #333;
-    }
-    .container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .section {
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 16px;
-      background-color: #fff;
-    }
-    h2 {
-      margin-top: 0;
-      color: #333;
-      font-size: 18px;
-      font-weight: 600;
-    }
-    h3 {
-      margin-top: 16px;
-      margin-bottom: 8px;
-      color: #555;
-      font-size: 16px;
-      font-weight: 500;
-    }
-    .tabs {
-      display: flex;
-      border-bottom: 1px solid #e0e0e0;
-      margin-bottom: 16px;
-    }
-    .tab {
-      padding: 8px 16px;
-      cursor: pointer;
-      font-weight: 500;
-    }
-    .tab.active {
-      border-bottom: 2px solid #0d99ff;
-      color: #0d99ff;
-    }
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    .variable-collection {
-      margin-bottom: 24px;
-      background: #f9f9f9;
-      border-radius: 6px;
-      padding: 12px;
-    }
-    .collection-name {
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    th {
-      text-align: left;
-      background-color: #f5f5f5;
-      padding: 8px;
-      font-weight: 500;
-    }
-    td {
-      padding: 8px;
-      border-top: 1px solid #eee;
-    }
-    .color-preview {
-      width: 20px;
-      height: 20px;
-      border-radius: 3px;
-      display: inline-block;
-      margin-right: 8px;
-      vertical-align: middle;
-      border: 1px solid rgba(0,0,0,0.1);
-    }
-    .search-container {
-      margin-bottom: 16px;
-    }
-    .search-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    .component-list {
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    .component-item {
-      padding: 8px;
-      border-bottom: 1px solid #eee;
-    }
-    .component-item:hover {
-      background-color: #f5f5f5;
-    }
-    .no-items {
-      color: #999;
-      font-style: italic;
-      padding: 16px 0;
-    }
-    .loading {
-      text-align: center;
-      padding: 30px;
-      color: #999;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>aWall Synch</h2>
+  <head>
+    <meta charset="UTF-8" />
+    <title>aWall Synch UI</title>
+    <!-- Add JSZip library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .section {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 16px;
+        background-color: #fff;
+      }
+      h2 {
+        margin-top: 0;
+        color: #333;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      h3 {
+        margin-top: 16px;
+        margin-bottom: 8px;
+        color: #555;
+        font-size: 16px;
+        font-weight: 500;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #e0e0e0;
+        margin-bottom: 16px;
+      }
+      .tab {
+        padding: 8px 16px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .tab.active {
+        border-bottom: 2px solid #0d99ff;
+        color: #0d99ff;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .variable-collection {
+        margin-bottom: 24px;
+        background: #f9f9f9;
+        border-radius: 6px;
+        padding: 12px;
+      }
+      .collection-name {
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+      }
+      th {
+        text-align: left;
+        background-color: #f5f5f5;
+        padding: 8px;
+        font-weight: 500;
+      }
+      td {
+        padding: 8px;
+        border-top: 1px solid #eee;
+      }
+      .color-preview {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+        display: inline-block;
+        margin-right: 8px;
+        vertical-align: middle;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+      }
+      .search-container {
+        margin-bottom: 16px;
+      }
+      .search-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .component-list {
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .component-item {
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+      }
+      .component-item:hover {
+        background-color: #f5f5f5;
+      }
+      .no-items {
+        color: #999;
+        font-style: italic;
+        padding: 16px 0;
+      }
+      .loading {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+      }
+      .component-set {
+        background-color: #f8f8f8;
+        margin-bottom: 10px;
+      }
+      .component-set-header {
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+      }
+      .component-set-header:hover {
+        background-color: #f0f0f0;
+      }
+      .component-set-toggle {
+        margin-right: 5px;
+        font-weight: bold;
+      }
+      .component-set-children {
+        padding-left: 20px;
+        display: none;
+      }
+      .component-set-children.expanded {
+        display: block;
+      }
+      .child-component {
+        border-left: 2px solid #ddd;
+        margin-left: 10px;
+        padding-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>aWall Synch</h2>
 
-    <div class="tabs">
-      <div class="tab active" data-tab="variables">Variables</div>
-      <div class="tab" data-tab="components">Components</div>
+      <div class="tabs">
+        <div class="tab active" data-tab="variables">Variables</div>
+        <div class="tab" data-tab="components">Components</div>
+      </div>
+
+      <div class="tab-content active" id="variables-content">
+        <div class="search-container">
+          <input
+            type="text"
+            class="search-input"
+            id="variable-search"
+            placeholder="Search variables..."
+          />
+        </div>
+        <button id="export-css-button" style="margin-bottom: 10px" disabled>
+          Export Variables as CSS
+        </button>
+        <div id="variables-container">
+          <div class="loading">Loading variables...</div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="components-content">
+        <div class="search-container">
+          <input
+            type="text"
+            class="search-input"
+            id="component-search"
+            placeholder="Search components..."
+          />
+        </div>
+
+        <!-- Add export controls -->
+        <div
+          style="
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+          "
+        >
+          <select
+            id="language-select"
+            style="padding: 8px; border-radius: 4px; border: 1px solid #e0e0e0"
+          >
+            <option value="angular">Angular</option>
+            <option value="typescript">TypeScript</option>
+            <option value="javascript">JavaScript</option>
+          </select>
+          <button id="export-angular-button" style="padding: 8px 12px">
+            Export Components
+          </button>
+        </div>
+
+        <div id="components-container">
+          <div class="loading">Loading components...</div>
+        </div>
+      </div>
     </div>
 
-    <div class="tab-content active" id="variables-content">
-      <div class="search-container">
-        <input type="text" class="search-input" id="variable-search" placeholder="Search variables...">
-      </div>
-      <button id="export-css-button" style="margin-bottom: 10px;" disabled>Export Variables as CSS</button>
-      <div id="variables-container">
-        <div class="loading">Loading variables...</div>
-      </div>
-    </div>
+    <script>
+      // Tab switching
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab")
+            .forEach((t) => t.classList.remove("active"));
+          document
+            .querySelectorAll(".tab-content")
+            .forEach((c) => c.classList.remove("active"));
 
-    <div class="tab-content" id="components-content">
-      <div class="search-container">
-        <input type="text" class="search-input" id="component-search" placeholder="Search components...">
-      </div>
-
-      <!-- Add export controls -->
-      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
-        <select id="language-select" style="padding: 8px; border-radius: 4px; border: 1px solid #e0e0e0;">
-          <option value="angular">Angular</option>
-          <option value="typescript">TypeScript</option>
-          <option value="javascript">JavaScript</option>
-        </select>
-        <button id="export-angular-button" style="padding: 8px 12px;">Export Components</button>
-      </div>
-
-      <div id="components-container">
-        <div class="loading">Loading components...</div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab + '-content').classList.add('active');
+          tab.classList.add("active");
+          document
+            .getElementById(tab.dataset.tab + "-content")
+            .classList.add("active");
+        });
       });
-    });
 
-    // Store data
-    let variablesData = [];
-    let componentsData = [];
+      // Store data
+      let variablesData = [];
+      let componentsData = [];
 
-    // Listen for messages from the plugin
-    window.onmessage = (event) => {
-      const message = event.data.pluginMessage;
-      const exportButton = document.getElementById('export-css-button');
+      // Listen for messages from the plugin
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        const exportButton = document.getElementById("export-css-button");
 
-      if (message.type === 'document-data') {
-        variablesData = message.variablesData;
-        componentsData = message.componentsData;
+        if (message.type === "document-data") {
+          variablesData = message.variablesData;
+          componentsData = message.componentsData;
 
-        renderVariables(variablesData);
-        renderComponents(componentsData);
+          renderVariables(variablesData);
+          renderComponents(componentsData);
 
-        // Enable the export button only if there are variables
-        if (variablesData && variablesData.some(collection => collection.variables.length > 0)) {
-          exportButton.disabled = false;
-        } else {
-          exportButton.disabled = true;
+          // Enable the export button only if there are variables
+          if (
+            variablesData &&
+            variablesData.some((collection) => collection.variables.length > 0)
+          ) {
+            exportButton.disabled = false;
+          } else {
+            exportButton.disabled = true;
+          }
+
+          // Enable/disable the Angular export button based on components
+          const exportAngularButton = document.getElementById(
+            "export-angular-button"
+          );
+          if (componentsData && componentsData.length > 0) {
+            exportAngularButton.disabled = false;
+          } else {
+            exportAngularButton.disabled = true;
+          }
+        } else if (message.type === "css-export") {
+          // Trigger download when CSS data is received
+          downloadCSS(message.cssData);
+        } else if (message.type === "angular-export-data") {
+          // Trigger ZIP download with component data based on selected language
+          const language = message.language || "angular";
+          downloadComponentsZip(message.files, language);
+        } else if (message.type === "error") {
+          // Optionally display errors from the plugin code
+          console.error("Plugin Error:", message.message);
+          alert(`Error: ${message.message}`); // Simple alert for user feedback
+          exportButton.disabled = true; // Disable button on error
+        }
+      };
+
+      // Render variables
+      function renderVariables(data) {
+        const container = document.getElementById("variables-container");
+
+        if (data.length === 0) {
+          container.innerHTML =
+            '<div class="no-items">No variables found in this document.</div>';
+          return;
         }
 
-        // Enable/disable the Angular export button based on components
-        const exportAngularButton = document.getElementById('export-angular-button');
-        if (componentsData && componentsData.length > 0) {
-          exportAngularButton.disabled = false;
-        } else {
-          exportAngularButton.disabled = true;
-        }
+        let html = "";
 
-      } else if (message.type === 'css-export') {
-        // Trigger download when CSS data is received
-        downloadCSS(message.cssData);
-      } else if (message.type === 'angular-export-data') {
-        // Trigger ZIP download with component data based on selected language
-        const language = message.language || 'angular';
-        downloadComponentsZip(message.files, language);
-      } else if (message.type === 'error') {
-        // Optionally display errors from the plugin code
-        console.error('Plugin Error:', message.message);
-        alert(`Error: ${message.message}`); // Simple alert for user feedback
-        exportButton.disabled = true; // Disable button on error
-      }
-    };
-
-    // Render variables
-    function renderVariables(data) {
-      const container = document.getElementById('variables-container');
-
-      if (data.length === 0) {
-        container.innerHTML = '<div class="no-items">No variables found in this document.</div>';
-        return;
-      }
-
-      let html = '';
-
-      data.forEach(collection => {
-        html += `
+        data.forEach((collection) => {
+          html += `
           <div class="variable-collection">
             <div class="collection-name">${collection.name}</div>
             <table>
@@ -247,65 +311,72 @@
               <tbody>
         `;
 
-        if (collection.variables.length === 0) {
-          html += `<tr><td colspan="3">No variables in this collection</td></tr>`;
-        } else {
-          collection.variables.forEach(variable => {
-            html += `
+          if (collection.variables.length === 0) {
+            html += `<tr><td colspan="3">No variables in this collection</td></tr>`;
+          } else {
+            collection.variables.forEach((variable) => {
+              html += `
               <tr>
                 <td>${variable.name}</td>
                 <td>${variable.resolvedType}</td>
                 <td>
             `;
 
-            variable.valuesByMode.forEach(mode => {
-              const value = mode.value;
+              variable.valuesByMode.forEach((mode) => {
+                const value = mode.value;
 
-              // Display color values with a preview
-              if (variable.resolvedType === 'COLOR' && typeof value === 'object' && value.r !== undefined) {
-                const r = Math.round(value.r * 255);
-                const g = Math.round(value.g * 255);
-                const b = Math.round(value.b * 255);
-                const a = value.a !== undefined ? value.a : 1;
+                // Display color values with a preview
+                if (
+                  variable.resolvedType === "COLOR" &&
+                  typeof value === "object" &&
+                  value.r !== undefined
+                ) {
+                  const r = Math.round(value.r * 255);
+                  const g = Math.round(value.g * 255);
+                  const b = Math.round(value.b * 255);
+                  const a = value.a !== undefined ? value.a : 1;
 
-                html += `
+                  html += `
                   <div>
                     <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
                     ${mode.modeName}: rgba(${r},${g},${b},${a})
                   </div>
                 `;
-              } else {
-                html += `<div>${mode.modeName}: ${JSON.stringify(value)}</div>`;
-              }
-            });
+                } else {
+                  html += `<div>${mode.modeName}: ${JSON.stringify(
+                    value
+                  )}</div>`;
+                }
+              });
 
-            html += `
+              html += `
                 </td>
               </tr>
             `;
-          });
-        }
+            });
+          }
 
-        html += `
+          html += `
               </tbody>
             </table>
           </div>
         `;
-      });
+        });
 
-      container.innerHTML = html;
-    }
-
-    // Render components
-    function renderComponents(data) {
-      const container = document.getElementById('components-container');
-
-      if (data.length === 0) {
-        container.innerHTML = '<div class="no-items">No components found in this document.</div>';
-        return;
+        container.innerHTML = html;
       }
 
-      let html = `
+      // Render components in hierarchical view
+      function renderComponents(data) {
+        const container = document.getElementById("components-container");
+
+        if (data.length === 0) {
+          container.innerHTML =
+            '<div class="no-items">No components found in this document.</div>';
+          return;
+        }
+
+        let html = `
         <div class="component-list">
           <table>
             <thead>
@@ -319,128 +390,204 @@
             <tbody>
       `;
 
-      data.forEach(component => {
-        html += `
-          <tr class="component-item">
-            <td>${component.name}</td>
-            <td>${component.type === 'COMPONENT' ? 'Component' : 'Component Set'}</td>
-            <td>${component.pageName || 'Unknown'}</td>
-            <td>${component.type === 'COMPONENT' ? JSON.stringify(component.styles) : ''}</td>
-          </tr>
-        `;
-      });
+        // Render each component with hierarchy
+        data.forEach((component, index) => {
+          if (component.type === "COMPONENT_SET") {
+            // For component sets, create an expandable section
+            html += `
+            <tr class="component-set" data-index="${index}">
+              <td colspan="4">
+                <div class="component-set-header" onclick="toggleComponentSet(${index})">
+                  <span class="component-set-toggle" id="toggle-${index}">+</span>
+                  <strong>${component.name}</strong>
+                </div>
+                <div class="component-set-children" id="children-${index}">
+          `;
 
-      html += `
+            // Render child components
+            component.children.forEach((child) => {
+              html += `
+              <div class="child-component">
+                <table style="width: 100%;">
+                  <tr>
+                    <td>${child.name}</td>
+                    <td>Component</td>
+                    <td>${child.pageName || "Unknown"}</td>
+                    <td>${JSON.stringify(child.styles)}</td>
+                  </tr>
+                </table>
+              </div>
+            `;
+            });
+
+            html += `
+                </div>
+              </td>
+            </tr>
+          `;
+          } else {
+            // For regular components, render normally
+            html += `
+            <tr class="component-item">
+              <td>${component.name}</td>
+              <td>${
+                component.type === "COMPONENT" ? "Component" : "Component Set"
+              }</td>
+              <td>${component.pageName || "Unknown"}</td>
+              <td>${JSON.stringify(component.styles)}</td>
+            </tr>
+          `;
+          }
+        });
+
+        html += `
             </tbody>
           </table>
         </div>
       `;
 
-      container.innerHTML = html;
-    }
+        container.innerHTML = html;
 
-    // Function to trigger CSS download
-    function downloadCSS(cssString) {
-      const blob = new Blob([cssString], { type: 'text/css' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'figma-variables.css';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+        // Add toggle function to the global scope
+        window.toggleComponentSet = function (index) {
+          const childrenEl = document.getElementById(`children-${index}`);
+          const toggleEl = document.getElementById(`toggle-${index}`);
 
-    // Add event listener for the export button
-    document.getElementById('export-css-button').addEventListener('click', () => {
-      // Send message to plugin code to request CSS export
-      parent.postMessage({ pluginMessage: { type: 'export-css' } }, '*');
-    });
-
-    // Add event listener for the Angular export button
-    document.getElementById('export-angular-button').addEventListener('click', () => {
-      const selectedLanguage = document.getElementById('language-select').value;
-      // Send message to plugin code to request Angular export with selected language
-      parent.postMessage({
-        pluginMessage: {
-          type: 'export-angular',
-          language: selectedLanguage
-        }
-      }, '*');
-    });
-
-    // Function to trigger ZIP download
-    function downloadComponentsZip(files, language) {
-      if (!files || files.length === 0) {
-        alert('No components available to export');
-        return;
+          if (childrenEl.classList.contains("expanded")) {
+            childrenEl.classList.remove("expanded");
+            toggleEl.textContent = "+";
+          } else {
+            childrenEl.classList.add("expanded");
+            toggleEl.textContent = "-";
+          }
+        };
       }
 
-      // Create a new JSZip instance (needs to be added in the head section)
-      const zip = new JSZip();
-
-      // Add files to the ZIP based on the selected language
-      files.forEach(component => {
-        const folderName = component.kebabName;
-        const folder = zip.folder(folderName);
-
-        if (language === 'angular') {
-          // Add all Angular component files
-          folder.file(`${folderName}.component.html`, component.angularHtml);
-          folder.file(`${folderName}.component.ts`, component.angularTs);
-          folder.file(`${folderName}.component.scss`, `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`);
-        } else if (language === 'typescript') {
-          // Add only TypeScript file
-          folder.file(`${folderName}.component.ts`, component.angularTs);
-        } else if (language === 'javascript') {
-          // Convert TypeScript to JavaScript (basic conversion)
-          const jsCode = component.angularTs
-            .replace(/: [A-Za-z<>[\]]+/g, '') // Remove type annotations
-            .replace(/interface [^}]+}/g, ''); // Remove interfaces
-
-          folder.file(`${folderName}.component.js`, jsCode);
-        }
-      });
-
-      // Generate and download the ZIP
-      zip.generateAsync({ type: 'blob' }).then(content => {
-        const url = URL.createObjectURL(content);
-        const a = document.createElement('a');
+      // Function to trigger CSS download
+      function downloadCSS(cssString) {
+        const blob = new Blob([cssString], { type: "text/css" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `figma-components-${language}.zip`;
+        a.download = "figma-variables.css";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      });
-    }
+      }
 
-    // Search functionality
-    document.getElementById('variable-search').addEventListener('input', (e) => {
-      const searchTerm = e.target.value.toLowerCase();
+      // Add event listener for the export button
+      document
+        .getElementById("export-css-button")
+        .addEventListener("click", () => {
+          // Send message to plugin code to request CSS export
+          parent.postMessage({ pluginMessage: { type: "export-css" } }, "*");
+        });
 
-      const filteredData = variablesData.map(collection => {
-        return {
-          ...collection,
-          variables: collection.variables.filter(variable =>
-            variable.name.toLowerCase().includes(searchTerm)
-          )
-        };
-      }).filter(collection => collection.variables.length > 0);
+      // Add event listener for the Angular export button
+      document
+        .getElementById("export-angular-button")
+        .addEventListener("click", () => {
+          const selectedLanguage =
+            document.getElementById("language-select").value;
+          // Send message to plugin code to request Angular export with selected language
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "export-angular",
+                language: selectedLanguage,
+              },
+            },
+            "*"
+          );
+        });
 
-      renderVariables(filteredData);
-    });
+      // Function to trigger ZIP download
+      function downloadComponentsZip(files, language) {
+        if (!files || files.length === 0) {
+          alert("No components available to export");
+          return;
+        }
 
-    document.getElementById('component-search').addEventListener('input', (e) => {
-      const searchTerm = e.target.value.toLowerCase();
+        // Create a new JSZip instance (needs to be added in the head section)
+        const zip = new JSZip();
 
-      const filteredData = componentsData.filter(component =>
-        component.name.toLowerCase().includes(searchTerm)
-      );
+        // Add files to the ZIP based on the selected language
+        files.forEach((component) => {
+          const folderName = component.kebabName;
+          const folder = zip.folder(folderName);
 
-      renderComponents(filteredData);
-    });
-  </script>
-</body>
+          if (language === "angular") {
+            // Add all Angular component files
+            folder.file(`${folderName}.component.html`, component.angularHtml);
+            folder.file(`${folderName}.component.ts`, component.angularTs);
+            folder.file(
+              `${folderName}.component.scss`,
+              `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`
+            );
+          } else if (language === "typescript") {
+            // Add only TypeScript file
+            folder.file(`${folderName}.component.ts`, component.angularTs);
+          } else if (language === "javascript") {
+            // Convert TypeScript to JavaScript (basic conversion)
+            const jsCode = component.angularTs
+              .replace(/: [A-Za-z<>[\]]+/g, "") // Remove type annotations
+              .replace(/interface [^}]+}/g, ""); // Remove interfaces
+
+            folder.file(`${folderName}.component.js`, jsCode);
+          }
+        });
+
+        // Generate and download the ZIP
+        zip.generateAsync({ type: "blob" }).then((content) => {
+          const url = URL.createObjectURL(content);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `figma-components-${language}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      // Search functionality
+      document
+        .getElementById("variable-search")
+        .addEventListener("input", (e) => {
+          const searchTerm = e.target.value.toLowerCase();
+
+          const filteredData = variablesData
+            .map((collection) => {
+              return {
+                ...collection,
+                variables: collection.variables.filter((variable) =>
+                  variable.name.toLowerCase().includes(searchTerm)
+                ),
+              };
+            })
+            .filter((collection) => collection.variables.length > 0);
+
+          renderVariables(filteredData);
+        });
+
+      document
+        .getElementById("component-search")
+        .addEventListener("input", (e) => {
+          const searchTerm = e.target.value.toLowerCase();
+
+          // Search in both component name and children names
+          const filteredData = componentsData.filter(
+            (component) =>
+              component.name.toLowerCase().includes(searchTerm) ||
+              (component.children &&
+                component.children.some((child) =>
+                  child.name.toLowerCase().includes(searchTerm)
+                ))
+          );
+
+          renderComponents(filteredData);
+        });
+    </script>
+  </body>
 </html>
