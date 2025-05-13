@@ -1,11 +1,18 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "lib": ["es6"],
+    "lib": ["es6", "dom"],
+    "module": "none",
     "strict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
     "typeRoots": [
       "./node_modules/@types",
       "./node_modules/@figma"
-    ]
-  }
+    ],
+    "skipLibCheck": true,
+    "outFile": "code.js"
+  },
+  "include": ["code.ts"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
 }

@@ -215,7 +215,9 @@ function generateJestTest(component, generateAllVariants = false) {
             const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
             styleChecks.push({
                 property: camelCaseKey,
-                value: styles[key],
+                value: typeof styles[key] === 'string' && styles[key].includes('var(--')
+                    ? styles[key].replace(/var\(--[^)]+,\s*([^)]+)\)/g, '$1').trim() // Extract just the fallback value
+                    : styles[key],
             });
         }
     }
@@ -251,7 +253,9 @@ function generateJestTest(component, generateAllVariants = false) {
                     const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
                     variantStyleChecks.push({
                         property: camelCaseKey,
-                        value: variantStyles[key],
+                        value: typeof variantStyles[key] === 'string' && variantStyles[key].includes('var(--')
+                            ? variantStyles[key].replace(/var\(--[^)]+,\s*([^)]+)\)/g, '$1').trim() // Extract just the fallback value
+                            : variantStyles[key],
                     });
                 }
             }
@@ -333,7 +337,9 @@ describe('${pascalName}Component', () => {
                 const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
                 styleChecks.push({
                     property: camelCaseKey,
-                    value: variantStyles[key],
+                    value: typeof variantStyles[key] === 'string' && variantStyles[key].includes('var(--')
+                        ? variantStyles[key].replace(/var\(--[^)]+,\s*([^)]+)\)/g, '$1').trim() // Extract just the fallback value
+                        : variantStyles[key],
                 });
             }
         }

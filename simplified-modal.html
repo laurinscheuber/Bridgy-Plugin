@@ -1,0 +1,54 @@
+<!-- GitLab Commit Modal -->      
+<div id="gitlab-modal" class="modal">
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeGitLabModal()">&times;</button>
+    <div class="modal-header">
+      <h3>Commit to GitLab Repository</h3>
+    </div>
+    <div class="modal-body">
+      <!-- Hidden technical fields with stored config values -->
+      <input type="hidden" id="gitlab-project-id">
+      <input type="hidden" id="gitlab-token">
+      <input type="hidden" id="file-path">
+      <input type="hidden" id="branch-name">
+      <input type="hidden" id="create-merge-request" value="false">
+      
+      <!-- Progress indicator for GitLab operations -->
+      <div id="commit-progress-container" style="display: none;">
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="commit-progress-bar"></div>
+        </div>
+        <div class="progress-status" id="commit-progress-status">Preparing...</div>
+      </div>
+      
+      <!-- Simplified commit form for designers -->
+      <div class="simple-commit-form">
+        <div class="form-group">
+          <label for="commit-message">Commit Message</label>
+          <input type="text" id="commit-message" placeholder="Update CSS variables from Figma" value="feat: update CSS variables from Figma" />
+          <p class="commit-help">Describe the changes you're making (e.g., "Updated color palette" or "Added new spacing variables")</p>
+        </div>
+      </div>
+
+      <!-- Success or error messages will be inserted here -->
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeGitLabModal()">Cancel</button>
+      <button id="commit-submit-button" class="commit-button" onclick="commitToGitLab()">Commit</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Simplified commit modal */
+.simple-commit-form {
+  padding: 16px 0;
+}
+
+.commit-help {
+  color: #666;
+  font-size: 13px;
+  margin-top: 5px;
+  font-style: italic;
+}
+</style>

@@ -1,7 +1,7 @@
 {
-  "name": "IP5-aWall-original",
+  "name": "awall-synch",
   "version": "1.0.0",
-  "description": "Your Figma Plugin",
+  "description": "aWall Synch - Figma plugin for design token export",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -9,8 +9,8 @@
     "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix .",
     "watch": "npm run build -- --watch"
   },
-  "author": "",
-  "license": "",
+  "author": "aWall Team",
+  "license": "MIT",
   "devDependencies": {
     "@figma/eslint-plugin-figma-plugins": "*",
     "@figma/plugin-typings": "^1.110.0",

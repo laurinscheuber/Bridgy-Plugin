@@ -231,7 +231,9 @@ function generateJestTest(component: any, generateAllVariants = false): string {
 
       styleChecks.push({
         property: camelCaseKey,
-        value: styles[key],
+        value: typeof styles[key] === 'string' && styles[key].includes('var(--')
+               ? styles[key].replace(/var\(--[^)]+,\s*([^)]+)\)/g, '$1').trim() // Extract just the fallback value
+               : styles[key],
       });
     }
   }
@@ -275,7 +277,9 @@ function generateJestTest(component: any, generateAllVariants = false): string {
 
           variantStyleChecks.push({
             property: camelCaseKey,
-            value: variantStyles[key],
+            value: typeof variantStyles[key] === 'string' && variantStyles[key].includes('var(--')
+                   ? variantStyles[key].replace(/var\(--[^)]+,\s*([^)]+)\)/g, '$1').trim() // Extract just the fallback value
+                   : variantStyles[key],
           });
         }
       }
@@ -376,7 +380,9 @@ describe('${pascalName}Component', () => {
         );
         styleChecks.push({
           property: camelCaseKey,
-          value: variantStyles[key],
+          value: typeof variantStyles[key] === 'string' && variantStyles[key].includes('var(--')
+                 ? variantStyles[key].replace(/var\(--[^)]+,\s*([^)]+)\)/g, '$1').trim() // Extract just the fallback value
+                 : variantStyles[key],
         });
       }
     }

@@ -79,11 +79,128 @@
         padding: 16px;
         border: 1px solid #eaeaea;
       }
+      .collection-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
       .collection-name {
         font-weight: 600;
-        margin-bottom: 12px;
         color: #444;
         font-size: 16px;
+      }
+      .collection-stats {
+        font-size: 13px;
+        color: #666;
+        font-style: italic;
+      }
+      .variable-name {
+        font-weight: 500;
+      }
+      .variable-type {
+        text-align: center;
+        width: 100px;
+      }
+      .type-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: lowercase;
+      }
+      .type-color {
+        background-color: #ffecec;
+        color: #e91e63;
+      }
+      .type-float {
+        background-color: #e3f2fd;
+        color: #2196f3;
+      }
+      .type-string {
+        background-color: #e8f5e9;
+        color: #4caf50;
+      }
+      .type-boolean {
+        background-color: #fff8e1;
+        color: #ff9800;
+      }
+      .variable-values {
+        width: 40%;
+      }
+      .variable-css {
+        width: 20%;
+      }
+      .css-var-name {
+        font-family: monospace;
+        background-color: #f5f5f5;
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        border: 1px solid #eee;
+      }
+      .css-var-name:hover {
+        background-color: #e6e6e6;
+      }
+      .multi-value-container {
+        width: 100%;
+      }
+      .value-toggle {
+        cursor: pointer;
+        background-color: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .toggle-icon {
+        font-size: 8px;
+        color: #666;
+      }
+      .values-list {
+        display: none;
+        margin-top: 8px;
+        background-color: #fff;
+        border-radius: 4px;
+        border: 1px solid #eee;
+        overflow: hidden;
+      }
+      .value-item {
+        padding: 6px 10px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+      }
+      .value-item:last-child {
+        border-bottom: none;
+      }
+      .mode-name {
+        font-weight: 500;
+        font-size: 12px;
+        color: #666;
+        margin-right: 8px;
+        min-width: 80px;
+      }
+      .value-display {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .color-value, .value-text {
+        font-family: monospace;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      .color-value:hover, .value-text:hover {
+        background-color: #f0f0f0;
       }
       table {
         width: 100%;
@@ -119,22 +236,102 @@
         vertical-align: middle;
         border: 1px solid rgba(0, 0, 0, 0.1);
       }
-      .search-container {
+      .advanced-search-container {
         margin-bottom: 16px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        padding: 16px;
+        border: 1px solid #eaeaea;
+      }
+      .search-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+      .search-input-wrapper {
+        position: relative;
+        flex: 1;
+        min-width: 250px;
+      }
+      .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
       }
       .search-input {
         width: 100%;
         padding: 10px 16px;
+        padding-right: 40px;
         border: 1px solid #e0e0e0;
         border-radius: 6px;
         font-size: 14px;
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
       .search-input:focus {
         border-color: #0d99ff;
         outline: none;
         box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
+      }
+      .filter-controls {
+        display: flex;
+        gap: 8px;
+      }
+      .filter-select {
+        padding: 9px 12px;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+        background-color: white;
+        font-size: 14px;
+        min-width: 140px;
+      }
+      .filter-select:focus {
+        border-color: #0d99ff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
+      }
+      .filter-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-height: 28px;
+      }
+      .filter-tag {
+        display: inline-flex;
+        align-items: center;
+        background-color: #e1f0ff;
+        color: #0d99ff;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .filter-tag .remove-filter {
+        margin-left: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: rgba(13, 153, 255, 0.1);
+      }
+      .filter-tag .remove-filter:hover {
+        background-color: rgba(13, 153, 255, 0.2);
+      }
+      .stats-container {
+        display: flex;
+        align-items: center;
+        color: #666;
+        font-size: 13px;
+        font-style: italic;
+      }
+      .flex-spacer {
+        flex: 1;
       }
       .component-list {
         max-height: 700px;
@@ -670,6 +867,56 @@
         margin-bottom: 16px;
         border: 1px solid #eaeaea;
       }
+
+      /* Configuration tab styles */
+      .config-description {
+        margin-bottom: 20px;
+        color: #666;
+        font-style: italic;
+      }
+
+      .config-section {
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid #eaeaea;
+      }
+
+      .radio-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .radio-group input[type="radio"] {
+        margin-right: 8px;
+      }
+
+      .primary-button {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      .primary-button:hover {
+        background-color: #3d8b40;
+      }
+
+      /* Simplified commit modal */
+      .simple-commit-form {
+        padding: 16px 0;
+      }
+
+      .commit-help {
+        color: #666;
+        font-size: 13px;
+        margin-top: 5px;
+        font-style: italic;
+      }
     </style>
   </head>
   <body>
@@ -679,18 +926,48 @@
       <div class="tabs">
         <div class="tab active" data-tab="variables">Variables</div>
         <div class="tab" data-tab="components">Components</div>
+        <div class="tab" data-tab="config">Configuration</div>
       </div>
 
       <div class="tab-content active" id="variables-content">
-        <div class="search-container">
-          <input
-            type="text"
-            class="search-input"
-            id="variable-search"
-            placeholder="Search variables..."
-          />
+        <div class="advanced-search-container">
+          <div class="search-row">
+            <div class="search-input-wrapper">
+              <input
+                type="text"
+                class="search-input"
+                id="variable-search"
+                placeholder="Search variables..."
+              />
+              <div class="search-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="filter-controls">
+              <select id="variable-type-filter" class="filter-select">
+                <option value="all">All Types</option>
+                <option value="COLOR">Colors</option>
+                <option value="FLOAT">Numbers</option>
+                <option value="STRING">Text</option>
+                <option value="BOOLEAN">Boolean</option>
+              </select>
+              <select id="collection-filter" class="filter-select">
+                <option value="all">All Collections</option>
+                <!-- Collection options will be populated dynamically -->
+              </select>
+            </div>
+          </div>
+          <div class="filter-tags" id="active-filters">
+            <!-- Active filters will appear here -->
+          </div>
         </div>
         <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+          <div class="stats-container">
+            <span id="variables-count">0</span> variables in <span id="collections-count">0</span> collections
+          </div>
+          <div class="flex-spacer"></div>
           <button id="export-css-button" disabled>
             Export Variables as CSS
           </button>
@@ -717,6 +994,63 @@
           <div class="loading">Loading components</div>
         </div>
       </div>
+
+      <div class="tab-content" id="config-content">
+        <h3>GitLab Repository Configuration</h3>
+        <p class="config-description">This configuration is typically set up once by a developer when integrating the plugin into a project.</p>
+
+        <div class="config-section">
+          <div class="form-group">
+            <label for="config-project-id">GitLab Project ID:</label>
+            <input type="text" id="config-project-id" placeholder="e.g. 24267" />
+          </div>
+
+          <div class="form-group">
+            <label for="config-token">Private Token:</label>
+            <input type="password" id="config-token" placeholder="Enter your GitLab private token" />
+          </div>
+
+          <div class="form-group">
+            <label for="config-default-branch">Default Branch:</label>
+            <input type="text" id="config-default-branch" placeholder="main" value="main" />
+          </div>
+
+          <div class="form-group">
+            <label for="config-css-path">CSS Variables File Path:</label>
+            <input type="text" id="config-css-path" placeholder="src/variables.css" value="src/variables.css" />
+          </div>
+
+          <div class="form-group">
+            <label for="config-test-path">Test Files Path:</label>
+            <input type="text" id="config-test-path" placeholder="src/tests" value="src/tests" />
+          </div>
+
+          <div class="form-group">
+            <label>Commit Strategy:</label>
+            <div class="radio-group">
+              <input type="radio" id="strategy-direct" name="commit-strategy" value="direct" checked />
+              <label for="strategy-direct">Direct commit to branch</label>
+            </div>
+            <div class="radio-group">
+              <input type="radio" id="strategy-mr" name="commit-strategy" value="mr" />
+              <label for="strategy-mr">Create merge request</label>
+            </div>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="config-save-token" checked />
+            <label for="config-save-token">Save token (secure but with security implications)</label>
+          </div>
+
+          <div class="security-note">
+            <p><strong>Security Note:</strong> The token and project settings will be stored in the Figma file and accessible to anyone with access to this file.</p>
+          </div>
+
+          <div class="form-group">
+            <button id="save-config-button" class="primary-button">Save Configuration</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- GitLab Commit Modal -->
@@ -727,53 +1061,12 @@
           <h3>Commit to GitLab Repository</h3>
         </div>
         <div class="modal-body">
-          <div id="gitlab-credentials-summary" style="display: none;">
-            <div class="credentials-display">
-              <div>Project ID: <span id="project-id-display">loading...</span></div>
-              <div>Token: <span id="token-display">•••••••</span></div>
-              <button id="settings-button" class="settings-icon" title="Edit credentials">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2"/>
-                  <path d="M19.4 15C19.2669 15.3016 19.2272 15.6362 19.286 15.9606C19.3448 16.285 19.4995 16.5843 19.73 16.82L19.79 16.88C19.976 17.0657 20.1235 17.2863 20.2241 17.5291C20.3248 17.7719 20.3766 18.0322 20.3766 18.295C20.3766 18.5578 20.3248 18.8181 20.2241 19.0609C20.1235 19.3037 19.976 19.5243 19.79 19.71C19.6043 19.896 19.3837 20.0435 19.1409 20.1441C18.8981 20.2448 18.6378 20.2966 18.375 20.2966C18.1122 20.2966 17.8519 20.2448 17.6091 20.1441C17.3663 20.0435 17.1457 19.896 16.96 19.71L16.9 19.65C16.6643 19.4195 16.365 19.2648 16.0406 19.206C15.7162 19.1472 15.3816 19.1869 15.08 19.32C14.7842 19.4468 14.532 19.6572 14.3543 19.9255C14.1766 20.1938 14.0813 20.5082 14.08 20.83V21C14.08 21.5304 13.8693 22.0391 13.4942 22.4142C13.1191 22.7893 12.6104 23 12.08 23C11.5496 23 11.0409 22.7893 10.6658 22.4142C10.2907 22.0391 10.08 21.5304 10.08 21V20.91C10.0723 20.579 9.96512 20.258 9.77251 19.9887C9.5799 19.7194 9.31074 19.5143 9 19.4C8.69838 19.2669 8.36381 19.2272 8.03941 19.286C7.71502 19.3448 7.41568 19.4995 7.18 19.73L7.12 19.79C6.93425 19.976 6.71368 20.1235 6.47088 20.2241C6.22808 20.3248 5.96783 20.3766 5.705 20.3766C5.44217 20.3766 5.18192 20.3248 4.93912 20.2241C4.69632 20.1235 4.47575 19.976 4.29 19.79C4.10405 19.6043 3.95653 19.3837 3.85588 19.1409C3.75523 18.8981 3.70343 18.6378 3.70343 18.375C3.70343 18.1122 3.75523 17.8519 3.85588 17.6091C3.95653 17.3663 4.10405 17.1457 4.29 16.96L4.35 16.9C4.58054 16.6643 4.73519 16.365 4.794 16.0406C4.85282 15.7162 4.81312 15.3816 4.68 15.08C4.55324 14.7842 4.34276 14.532 4.07447 14.3543C3.80618 14.1766 3.49179 14.0813 3.17 14.08H3C2.46957 14.08 1.96086 13.8693 1.58579 13.4942C1.21071 13.1191 1 12.6104 1 12.08C1 11.5496 1.21071 11.0409 1.58579 10.6658C1.96086 10.2907 2.46957 10.08 3 10.08H3.09C3.42099 10.0723 3.742 9.96512 4.0113 9.77251C4.28059 9.5799 4.48572 9.31074 4.6 9C4.73312 8.69838 4.77282 8.36381 4.714 8.03941C4.65519 7.71502 4.50054 7.41568 4.27 7.18L4.21 7.12C4.02405 6.93425 3.87653 6.71368 3.77588 6.47088C3.67523 6.22808 3.62343 5.96783 3.62343 5.705C3.62343 5.44217 3.67523 5.18192 3.77588 4.93912C3.87653 4.69632 4.02405 4.47575 4.21 4.29C4.39575 4.10405 4.61632 3.95653 4.85912 3.85588C5.10192 3.75523 5.36217 3.70343 5.625 3.70343C5.88783 3.70343 6.14808 3.75523 6.39088 3.85588C6.63368 3.95653 6.85425 4.10405 7.04 4.29L7.1 4.35C7.33568 4.58054 7.63502 4.73519 7.95941 4.794C8.28381 4.85282 8.61838 4.81312 8.92 4.68H9C9.29577 4.55324 9.54802 4.34276 9.72569 4.07447C9.90337 3.80618 9.99872 3.49179 10 3.17V3C10 2.46957 10.2107 1.96086 10.5858 1.58579C10.9609 1.21071 11.4696 1 12 1C12.5304 1 13.0391 1.21071 13.4142 1.58579C13.7893 1.96086 14 2.46957 14 3V3.09C14.0013 3.41179 14.0966 3.72618 14.2743 3.99447C14.452 4.26276 14.7042 4.47324 15 4.6C15.3016 4.73312 15.6362 4.77282 15.9606 4.714C16.285 4.65519 16.5843 4.50054 16.82 4.27L16.88 4.21C17.0657 4.02405 17.2863 3.87653 17.5291 3.77588C17.7719 3.67523 18.0322 3.62343 18.295 3.62343C18.5578 3.62343 18.8181 3.67523 19.0609 3.77588C19.3037 3.87653 19.5243 4.02405 19.71 4.21C19.896 4.39575 20.0435 4.61632 20.1441 4.85912C20.2448 5.10192 20.2966 5.36217 20.2966 5.625C20.2966 5.88783 20.2448 6.14808 20.1441 6.39088C20.0435 6.63368 19.896 6.85425 19.71 7.04L19.65 7.1C19.4195 7.33568 19.2648 7.63502 19.206 7.95941C19.1472 8.28381 19.1869 8.61838 19.32 8.92V9C19.4468 9.29577 19.6572 9.54802 19.9255 9.72569C20.1938 9.90337 20.5082 9.99872 20.83 10H21C21.5304 10 22.0391 10.2107 22.4142 10.5858C22.7893 10.9609 23 11.4696 23 12C23 12.5304 22.7893 13.0391 22.4142 13.4142C22.0391 13.7893 21.5304 14 21 14H20.91C20.5882 14.0013 20.2738 14.0966 20.0055 14.2743C19.7372 14.452 19.5268 14.7042 19.4 15Z" stroke="currentColor" stroke-width="2"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div id="gitlab-credentials-fields">
-            <div class="form-group">
-              <label for="gitlab-project-id">GitLab Project ID</label>
-              <input type="text" id="gitlab-project-id" placeholder="e.g. 24267" />
-            </div>
-            <div class="form-group">
-              <label for="gitlab-token">Private Token</label>
-              <input type="password" id="gitlab-token" placeholder="Enter your GitLab private token" />
-            </div>
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="save-token" />
-              <label for="save-token">Save token (with security implications, see below)</label>
-            </div>
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="share-with-team" />
-              <label for="share-with-team">Share settings with team (project ID and token if saved)</label>
-            </div>
-          </div>
-          <div id="security-note-compact" class="security-note-compact">
-            <!-- This will be filled dynamically with "Last updated by..." info -->
-          </div>
-
-          <div id="security-note-full" class="security-note">
-            <p>Security notes:</p>
-            <ul>
-              <li>If you save the token, it will be stored in Figma's data store</li>
-              <li>If you share with team, all users with access to this file can access the token</li>
-              <li>Consider using a project-specific token with limited permissions</li>
-              <li>Tokens should be rotated periodically for security</li>
-            </ul>
-            <div class="saved-info">
-              <!-- This will be filled dynamically with "Last updated by..." info -->
-            </div>
-          </div>
+          <!-- Hidden technical fields with stored config values -->
+          <input type="hidden" id="gitlab-project-id">
+          <input type="hidden" id="gitlab-token">
+          <input type="hidden" id="file-path">
+          <input type="hidden" id="branch-name">
+          <input type="hidden" id="create-merge-request" value="false">
 
           <!-- Progress indicator for GitLab operations -->
           <div id="commit-progress-container" style="display: none;">
@@ -782,40 +1075,30 @@
             </div>
             <div class="progress-status" id="commit-progress-status">Preparing...</div>
           </div>
-          <div class="form-group">
-            <label for="commit-message">Commit Message</label>
-            <input type="text" id="commit-message" placeholder="feat: update variables" />
-          </div>
-          <div class="form-group">
-            <label for="file-path">File Path (optional)</label>
-            <input type="text" id="file-path" placeholder="src/variables.css" />
-          </div>
-          <div class="form-group">
-            <label for="branch-name">Branch Name (optional)</label>
-            <input type="text" id="branch-name" placeholder="feature/variables" />
-          </div>
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="create-merge-request" />
-            <label for="create-merge-request">Create merge request after commit</label>
-          </div>
-          <div id="merge-request-options" style="display: none;">
+
+          <!-- Simplified commit form for designers -->
+          <div class="simple-commit-form">
             <div class="form-group">
-              <label for="mr-title">Merge Request Title</label>
-              <input type="text" id="mr-title" placeholder="Update CSS variables" />
+              <label for="commit-message">Commit Message</label>
+              <input type="text" id="commit-message" placeholder="Update CSS variables from Figma" value="feat: update CSS variables from Figma" />
+              <p class="commit-help">Describe the changes you're making (e.g., "Updated color palette" or "Added new spacing variables")</p>
             </div>
             <div class="form-group">
-              <label for="mr-description">Merge Request Description</label>
-              <textarea id="mr-description" rows="3" placeholder="Describe the changes in this merge request..."></textarea>
+              <label for="branch-select">Branch</label>
+              <select id="branch-select" onchange="updateBranchField()">
+                <option value="default">Default branch from configuration</option>
+                <option value="feature">Create feature branch</option>
+                <option value="custom">Use custom branch</option>
+              </select>
             </div>
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="mr-remove-source-branch" checked />
-              <label for="mr-remove-source-branch">Remove source branch when merged</label>
-            </div>
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="mr-squash" />
-              <label for="mr-squash">Squash commits when merged</label>
+            <div class="form-group" id="custom-branch-input" style="display: none;">
+              <label for="custom-branch-name">Custom Branch Name</label>
+              <input type="text" id="custom-branch-name" placeholder="e.g., feature/update-variables" />
+              <p class="commit-help">Enter a custom branch name or full branch path</p>
             </div>
           </div>
+
+          <!-- Success or error messages will be inserted here -->
         </div>
         <div class="modal-footer">
           <button onclick="closeGitLabModal()">Cancel</button>
@@ -1012,6 +1295,20 @@
       // Render variables
       function renderVariables(data) {
         const container = document.getElementById("variables-container");
+        const collectionsCount = document.getElementById("collections-count");
+        const variablesCount = document.getElementById("variables-count");
+
+        // Update collection filter dropdown
+        updateCollectionFilter(data);
+
+        // Update stats
+        let totalVariables = 0;
+        data.forEach(collection => {
+          totalVariables += collection.variables.length;
+        });
+
+        collectionsCount.textContent = data.length;
+        variablesCount.textContent = totalVariables;
 
         if (data.length === 0) {
           container.innerHTML =
@@ -1023,29 +1320,49 @@
 
         data.forEach((collection) => {
           html += `
-          <div class="variable-collection">
-            <div class="collection-name">${collection.name}</div>
+          <div class="variable-collection" data-collection="${collection.name}">
+            <div class="collection-header">
+              <div class="collection-name">${collection.name}</div>
+              <div class="collection-stats">${collection.variables.length} variables</div>
+            </div>
             <table>
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Type</th>
                   <th>Values</th>
+                  <th>CSS</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
           if (collection.variables.length === 0) {
-            html += `<tr><td colspan="3">No variables in this collection</td></tr>`;
+            html += `<tr><td colspan="4">No variables in this collection</td></tr>`;
           } else {
             collection.variables.forEach((variable) => {
+              // Generate CSS variable name
+              const cssVarName = `--${collection.name.toLowerCase()}-${variable.name.toLowerCase().replace(/\s+/g, '-')}`;
+
               html += `
-              <tr>
-                <td>${variable.name}</td>
-                <td>${variable.resolvedType}</td>
-                <td>
-            `;
+              <tr data-type="${variable.resolvedType}">
+                <td class="variable-name">${variable.name}</td>
+                <td class="variable-type">
+                  <span class="type-badge type-${variable.resolvedType.toLowerCase()}">${variable.resolvedType}</span>
+                </td>
+                <td class="variable-values">
+              `;
+
+              // Add a collapsible toggle if there are multiple modes
+              if (variable.valuesByMode.length > 1) {
+                html += `
+                <div class="multi-value-container">
+                  <div class="value-toggle" onclick="toggleValues(this)">
+                    ${variable.valuesByMode.length} values <span class="toggle-icon">▼</span>
+                  </div>
+                  <div class="values-list">
+                `;
+              }
 
               variable.valuesByMode.forEach((mode) => {
                 const value = mode.value;
@@ -1061,23 +1378,52 @@
                   const b = Math.round(value.b * 255);
                   const a = value.a !== undefined ? value.a : 1;
 
+                  // Generate hex color for copying
+                  const hexColor = rgbaToHex(r, g, b, a);
+
                   html += `
-                  <div>
-                    <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
-                    ${mode.modeName}: rgba(${r},${g},${b},${a})
+                  <div class="value-item">
+                    <div class="mode-name">${mode.modeName}:</div>
+                    <div class="value-display">
+                      <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
+                      <span class="color-value" title="Click to copy" onclick="copyToClipboard('${hexColor}', this)">
+                        ${hexColor}
+                      </span>
+                    </div>
                   </div>
                 `;
                 } else {
-                  html += `<div>${mode.modeName}: ${JSON.stringify(
-                    value
-                  )}</div>`;
+                  const displayValue = formatValue(value, variable.resolvedType);
+                  html += `
+                  <div class="value-item">
+                    <div class="mode-name">${mode.modeName}:</div>
+                    <div class="value-display">
+                      <span class="value-text" title="Click to copy" onclick="copyToClipboard('${displayValue}', this)">
+                        ${displayValue}
+                      </span>
+                    </div>
+                  </div>
+                  `;
                 }
               });
 
+              // Close the multi-value container if it was opened
+              if (variable.valuesByMode.length > 1) {
+                html += `
+                  </div>
+                </div>
+                `;
+              }
+
               html += `
                 </td>
+                <td class="variable-css">
+                  <div class="css-var-name" title="Click to copy" onclick="copyToClipboard('${cssVarName}', this)">
+                    ${cssVarName}
+                  </div>
+                </td>
               </tr>
-            `;
+              `;
             });
           }
 
@@ -1089,6 +1435,87 @@
         });
 
         container.innerHTML = html;
+      }
+
+      // Format different value types for display
+      function formatValue(value, type) {
+        if (value === null || value === undefined) return 'null';
+
+        if (type === 'FLOAT') {
+          // Format numbers with up to 2 decimal places
+          return typeof value === 'number' ? value.toFixed(2).replace(/\.00$/, '') : value;
+        } else if (type === 'BOOLEAN') {
+          return value ? 'true' : 'false';
+        } else if (type === 'STRING') {
+          return `"${value}"`;
+        } else {
+          return JSON.stringify(value);
+        }
+      }
+
+      // Convert RGBA to HEX color
+      function rgbaToHex(r, g, b, a) {
+        const toHex = (value) => {
+          const hex = value.toString(16);
+          return hex.length === 1 ? '0' + hex : hex;
+        };
+
+        // If fully opaque, return hex without alpha
+        if (a === 1) {
+          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+
+        // Otherwise include alpha channel
+        const alphaHex = Math.round(a * 255);
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(alphaHex)}`;
+      }
+
+      // Copy value to clipboard (defined in window scope for HTML access)
+      window.copyToClipboard = function(text, element) {
+        navigator.clipboard.writeText(text).then(
+          function() {
+            // Show feedback
+            const originalText = element.textContent;
+            element.textContent = "Copied!";
+
+            // Reset after 1.5 seconds
+            setTimeout(() => {
+              element.textContent = originalText;
+            }, 1500);
+          }
+        );
+      }
+
+      // Toggle display of multiple values (defined in window scope for HTML access)
+      window.toggleValues = function(element) {
+        const valuesList = element.nextElementSibling;
+        const toggleIcon = element.querySelector('.toggle-icon');
+
+        if (valuesList.style.display === 'none' || !valuesList.style.display) {
+          valuesList.style.display = 'block';
+          toggleIcon.textContent = '▲';
+        } else {
+          valuesList.style.display = 'none';
+          toggleIcon.textContent = '▼';
+        }
+      }
+
+      // Update the collection filter with available collections
+      function updateCollectionFilter(data) {
+        const collectionFilter = document.getElementById('collection-filter');
+
+        // Clear existing options except the first one (All Collections)
+        while (collectionFilter.options.length > 1) {
+          collectionFilter.remove(1);
+        }
+
+        // Add collection options
+        data.forEach(collection => {
+          const option = document.createElement('option');
+          option.value = collection.name;
+          option.textContent = collection.name;
+          collectionFilter.appendChild(option);
+        });
       }
 
       // Extract component type and state from name
@@ -1453,23 +1880,164 @@
       }
 
       // Search functionality
+      // Track filter state
+      let activeFilters = {
+        search: '',
+        type: 'all',
+        collection: 'all'
+      };
+
+      // Apply filters to variables data
+      function applyFilters() {
+        const searchTerm = activeFilters.search.toLowerCase();
+        const typeFilter = activeFilters.type;
+        const collectionFilter = activeFilters.collection;
+
+        // Create a filtered copy of the variables data
+        let filteredData = [...variablesData];
+
+        // Apply collection filter first if specified
+        if (collectionFilter !== 'all') {
+          filteredData = filteredData.filter(collection =>
+            collection.name === collectionFilter
+          );
+        }
+
+        // Then apply type and search filters to variables within collections
+        filteredData = filteredData.map(collection => {
+          return {
+            ...collection,
+            variables: collection.variables.filter(variable => {
+              // Filter by type
+              const typeMatch = typeFilter === 'all' || variable.resolvedType === typeFilter;
+
+              // Filter by search term (match name or values)
+              let searchMatch = true;
+              if (searchTerm) {
+                // Check if name matches
+                const nameMatch = variable.name.toLowerCase().includes(searchTerm);
+
+                // Check if any value matches (for strings, numerics, etc.)
+                let valueMatch = false;
+
+                // Look through all modes and their values
+                for (const mode of variable.valuesByMode) {
+                  const value = mode.value;
+
+                  if (typeof value === 'string' && value.toLowerCase().includes(searchTerm)) {
+                    valueMatch = true;
+                    break;
+                  } else if (typeof value === 'number' && value.toString().includes(searchTerm)) {
+                    valueMatch = true;
+                    break;
+                  } else if (
+                    typeof value === 'object' &&
+                    value !== null &&
+                    'r' in value &&
+                    'g' in value &&
+                    'b' in value
+                  ) {
+                    // For colors, convert to hex and check if it matches
+                    const r = Math.round(value.r * 255);
+                    const g = Math.round(value.g * 255);
+                    const b = Math.round(value.b * 255);
+                    const a = value.a !== undefined ? value.a : 1;
+
+                    const hexColor = rgbaToHex(r, g, b, a);
+                    if (hexColor.toLowerCase().includes(searchTerm)) {
+                      valueMatch = true;
+                      break;
+                    }
+                  }
+                }
+
+                // Match if either name or value matches
+                searchMatch = nameMatch || valueMatch;
+              }
+
+              return typeMatch && searchMatch;
+            })
+          };
+        }).filter(collection => collection.variables.length > 0);
+
+        // Update filter tags
+        updateFilterTags();
+
+        // Render the filtered variables
+        renderVariables(filteredData);
+      }
+
+      // Update the filter tags based on active filters
+      function updateFilterTags() {
+        const filterTagsContainer = document.getElementById('active-filters');
+        let htmlTags = '';
+
+        if (activeFilters.search) {
+          htmlTags += `
+            <div class="filter-tag search-tag">
+              Search: "${activeFilters.search}"
+              <span class="remove-filter" onclick="clearFilter('search')">×</span>
+            </div>
+          `;
+        }
+
+        if (activeFilters.type !== 'all') {
+          htmlTags += `
+            <div class="filter-tag type-tag">
+              Type: ${activeFilters.type}
+              <span class="remove-filter" onclick="clearFilter('type')">×</span>
+            </div>
+          `;
+        }
+
+        if (activeFilters.collection !== 'all') {
+          htmlTags += `
+            <div class="filter-tag collection-tag">
+              Collection: ${activeFilters.collection}
+              <span class="remove-filter" onclick="clearFilter('collection')">×</span>
+            </div>
+          `;
+        }
+
+        filterTagsContainer.innerHTML = htmlTags;
+      }
+
+      // Clear a specific filter (defined in window scope to be accessible from HTML)
+      window.clearFilter = function(filterType) {
+        if (filterType === 'search') {
+          activeFilters.search = '';
+          document.getElementById('variable-search').value = '';
+        } else if (filterType === 'type') {
+          activeFilters.type = 'all';
+          document.getElementById('variable-type-filter').value = 'all';
+        } else if (filterType === 'collection') {
+          activeFilters.collection = 'all';
+          document.getElementById('collection-filter').value = 'all';
+        }
+
+        applyFilters();
+      }
+
+      // Add event listeners for filtering
       document
         .getElementById("variable-search")
         .addEventListener("input", (e) => {
-          const searchTerm = e.target.value.toLowerCase();
+          activeFilters.search = e.target.value;
+          applyFilters();
+        });
 
-          const filteredData = variablesData
-            .map((collection) => {
-              return {
-                ...collection,
-                variables: collection.variables.filter((variable) =>
-                  variable.name.toLowerCase().includes(searchTerm)
-                ),
-              };
-            })
-            .filter((collection) => collection.variables.length > 0);
+      document
+        .getElementById("variable-type-filter")
+        .addEventListener("change", (e) => {
+          activeFilters.type = e.target.value;
+          applyFilters();
+        });
 
-          renderVariables(filteredData);
+      document
+        .getElementById("collection-filter")
+        .addEventListener("change", (e) => {
+          activeFilters.collection = e.target.value;
+          applyFilters();
         });
 
       document
@@ -1522,71 +2090,36 @@
       function openGitLabModal() {
         document.getElementById("gitlab-modal").style.display = "block";
 
-        // Reset display state
-        const fieldsSection = document.getElementById("gitlab-credentials-fields");
-        const summarySection = document.getElementById("gitlab-credentials-summary");
-        const securityNoteCompact = document.getElementById("security-note-compact");
-        const securityNoteFull = document.getElementById("security-note-full");
-
-        fieldsSection.style.display = "block";
-        summarySection.style.display = "none";
-        securityNoteCompact.style.display = "none";
-        securityNoteFull.style.display = "block";
-
-        // Check if we have saved settings
+        // Load saved settings from configuration tab
         if (window.gitlabSettings) {
-          // Fill in the project ID
+          // Fill in the hidden fields with stored config values
           if (window.gitlabSettings.projectId) {
-            const projectIdField = document.getElementById("gitlab-project-id");
-            projectIdField.value = window.gitlabSettings.projectId;
-
-            // Update the display text
-            document.getElementById("project-id-display").textContent = window.gitlabSettings.projectId;
+            document.getElementById("gitlab-project-id").value = window.gitlabSettings.projectId;
           }
 
-          // Fill in the token if it was saved
           if (window.gitlabSettings.gitlabToken) {
             document.getElementById("gitlab-token").value = window.gitlabSettings.gitlabToken;
-            document.getElementById("save-token").checked = true;
           }
 
-          // Fill in the branch name if it was saved
           if (window.gitlabSettings.branchName) {
             document.getElementById("branch-name").value = window.gitlabSettings.branchName;
           }
 
-          // Check "share with team" if this came from team storage
-          if (!window.gitlabSettings.isPersonal) {
-            document.getElementById("share-with-team").checked = true;
-          }
-
-          // Show saved info if available
-          if (window.gitlabSettings.savedBy && window.gitlabSettings.savedAt) {
-            const savedDate = new Date(window.gitlabSettings.savedAt);
-            const formattedDate = savedDate.toLocaleDateString() + ' ' + savedDate.toLocaleTimeString();
-            const savedInfoText = `Last updated by: <strong>${window.gitlabSettings.savedBy}</strong> on ${formattedDate}`;
-
-            // Update the compact security note
-            securityNoteCompact.innerHTML = savedInfoText;
-
-            // Update the full security note
-            const savedInfoDiv = securityNoteFull.querySelector('.saved-info');
-            if (savedInfoDiv) {
-              savedInfoDiv.innerHTML = savedInfoText;
-            }
-          }
-
-          // If project ID exists, show the summary view instead of fields
-          if (window.gitlabSettings.projectId) {
-            fieldsSection.style.display = "none";
-            summarySection.style.display = "block";
-            securityNoteCompact.style.display = "block";
-            securityNoteFull.style.display = "none";
-          }
+          // Set default file path
+          document.getElementById("file-path").value = window.gitlabSettings.filePath || "src/variables.css";
         }
 
-        // Add click event listener to the settings button
-        document.getElementById("settings-button").onclick = toggleGitLabCredentialsFields;
+        // Initialize branch selection
+        document.getElementById("branch-select").value = "default";
+        document.getElementById("custom-branch-input").style.display = "none";
+        updateBranchField(); // Set initial branch to default
+
+        // Add commit message input change listener to update feature branch name
+        document.getElementById("commit-message").addEventListener("input", function() {
+          if (document.getElementById("branch-select").value === "feature") {
+            updateBranchField();
+          }
+        });
       }
 
       // Function to close the GitLab modal
@@ -1627,57 +2160,36 @@
         progressBar.style.width = "5%";
         progressStatus.textContent = "Preparing commit...";
 
+        // Get values from hidden fields (populated from configuration tab)
         const projectId = document.getElementById("gitlab-project-id").value.trim();
         const gitlabToken = document.getElementById("gitlab-token").value.trim();
-        const saveToken = document.getElementById("save-token").checked;
-        const shareWithTeam = document.getElementById("share-with-team").checked;
-        const commitMessage = document.getElementById("commit-message").value.trim();
         const filePath = document.getElementById("file-path").value.trim() || "src/variables.css";
         const branchName = document.getElementById("branch-name").value.trim() || "feature/variables";
+        const createMergeRequest = document.getElementById("create-merge-request").value === "true";
 
-        // Get merge request options
-        const createMergeRequest = document.getElementById("create-merge-request").checked;
-        let mrTitle = "";
-        let mrDescription = "";
-        let mrRemoveSourceBranch = false;
+        // Get commit message from the visible form
+        const commitMessage = document.getElementById("commit-message").value.trim();
+
+        // Set default merge request options - using simplified approach
+        let mrTitle = commitMessage;
+        let mrDescription = "Created via aWall Synch plugin";
+        let mrRemoveSourceBranch = true;
         let mrSquash = false;
 
-        if (createMergeRequest) {
-          mrTitle = document.getElementById("mr-title").value.trim();
-          mrDescription = document.getElementById("mr-description").value.trim();
-          mrRemoveSourceBranch = document.getElementById("mr-remove-source-branch").checked;
-          mrSquash = document.getElementById("mr-squash").checked;
-
-          // Validate MR fields
-          if (!mrTitle) {
-            alert("Please provide a merge request title");
-            resetCommitButton();
-            return;
-          }
-        }
-
-        if (!projectId || !gitlabToken || !commitMessage) {
-          alert("Please fill in all required fields");
+        // Validate required fields
+        if (!projectId || !gitlabToken) {
+          alert("GitLab configuration is missing. Please set up the configuration in the Configuration tab.");
           resetCommitButton();
           return;
         }
 
-        // Save the GitLab settings if requested
-        if (projectId) {
-          parent.postMessage(
-            {
-              pluginMessage: {
-                type: "save-gitlab-settings",
-                projectId: projectId,
-                gitlabToken: gitlabToken,
-                branchName: branchName,
-                saveToken: saveToken,
-                shareWithTeam: shareWithTeam
-              },
-            },
-            "*"
-          );
+        if (!commitMessage) {
+          alert("Please enter a commit message");
+          resetCommitButton();
+          return;
         }
+
+        // No need to save settings here - they're already saved in the Configuration tab
 
         // First, ensure we have the latest CSS data
         if (!currentCSSData) {
@@ -1712,7 +2224,9 @@
                     mrTitle,
                     mrDescription,
                     mrRemoveSourceBranch,
-                    mrSquash
+                    mrSquash,
+                    saveToken: true, // Always save token from the Configuration tab
+                    shareWithTeam: true // Always share with team
                   },
                 },
                 "*"
@@ -1744,7 +2258,9 @@
                 mrTitle,
                 mrDescription,
                 mrRemoveSourceBranch,
-                mrSquash
+                mrSquash,
+                saveToken: true, // Always save token from the Configuration tab
+                shareWithTeam: true // Always share with team
               },
             },
             "*"
@@ -1757,27 +2273,125 @@
         .getElementById("commit-repo-button")
         .addEventListener("click", openGitLabModal);
 
-      // Toggle merge request options when checkbox is clicked
-      document.getElementById("create-merge-request").addEventListener("change", function() {
-        const mergeRequestOptions = document.getElementById("merge-request-options");
-        if (this.checked) {
-          mergeRequestOptions.style.display = "block";
+      // Add event listener for the configuration save button
+      document
+        .getElementById("save-config-button")
+        .addEventListener("click", function() {
+          // Get values from configuration fields
+          const projectId = document.getElementById("config-project-id").value.trim();
+          const token = document.getElementById("config-token").value.trim();
+          const defaultBranch = document.getElementById("config-default-branch").value.trim();
+          const cssPath = document.getElementById("config-css-path").value.trim();
+          const testPath = document.getElementById("config-test-path").value.trim();
+          const saveToken = document.getElementById("config-save-token").checked;
 
-          // Pre-fill the merge request title with the commit message
-          const commitMessage = document.getElementById("commit-message").value;
-          if (commitMessage) {
-            document.getElementById("mr-title").value = commitMessage;
+          // Get commit strategy
+          const strategy = document.querySelector('input[name="commit-strategy"]:checked').value;
+          const createMergeRequest = strategy === "mr";
+
+          // Validate required fields
+          if (!projectId) {
+            alert("Please enter a GitLab Project ID");
+            return;
           }
-        } else {
-          mergeRequestOptions.style.display = "none";
-        }
-      });
 
-      // Update MR title when commit message changes if checkbox is checked
-      document.getElementById("commit-message").addEventListener("input", function() {
-        const createMR = document.getElementById("create-merge-request");
-        if (createMR.checked) {
-          document.getElementById("mr-title").value = this.value;
+          if (!token) {
+            alert("Please enter a GitLab Private Token");
+            return;
+          }
+
+          // Save the configuration to Figma's shared plugin data
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "save-gitlab-settings",
+                projectId: projectId,
+                gitlabToken: token,
+                branchName: defaultBranch,
+                filePath: cssPath,
+                testPath: testPath,
+                saveToken: saveToken,
+                shareWithTeam: true, // Always share config settings with team
+                createMergeRequest: createMergeRequest
+              },
+            },
+            "*"
+          );
+
+          // Show success feedback
+          alert("Configuration saved successfully!");
+        });
+
+      // Branch selection handler
+      function updateBranchField() {
+        const branchSelect = document.getElementById("branch-select");
+        const customBranchInput = document.getElementById("custom-branch-input");
+        const customBranchName = document.getElementById("custom-branch-name");
+        const hiddenBranchField = document.getElementById("branch-name");
+
+        if (branchSelect.value === "custom") {
+          // Show custom branch input field
+          customBranchInput.style.display = "block";
+          // Update hidden branch field when custom name changes
+          customBranchName.onchange = function() {
+            hiddenBranchField.value = customBranchName.value;
+          };
+        } else if (branchSelect.value === "feature") {
+          // Create a feature branch with timestamp
+          customBranchInput.style.display = "none";
+          const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').substring(0, 12);
+          const message = document.getElementById("commit-message").value.trim();
+          const branchBase = message
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            .substring(0, 20);
+          hiddenBranchField.value = `feature/${branchBase}-${timestamp}`;
+        } else {
+          // Use default branch from configuration
+          customBranchInput.style.display = "none";
+          // Use the default branch name from configuration
+          if (window.gitlabSettings && window.gitlabSettings.branchName) {
+            hiddenBranchField.value = window.gitlabSettings.branchName;
+          } else {
+            hiddenBranchField.value = "main"; // Fallback default
+          }
+        }
+      }
+
+      // When configuration tab is selected, load the stored settings
+      document.querySelector('.tab[data-tab="config"]').addEventListener("click", function() {
+        if (window.gitlabSettings) {
+          // Fill in configuration fields from stored settings
+          if (window.gitlabSettings.projectId) {
+            document.getElementById("config-project-id").value = window.gitlabSettings.projectId;
+          }
+
+          if (window.gitlabSettings.gitlabToken) {
+            document.getElementById("config-token").value = window.gitlabSettings.gitlabToken;
+          }
+
+          if (window.gitlabSettings.branchName) {
+            document.getElementById("config-default-branch").value = window.gitlabSettings.branchName;
+          }
+
+          if (window.gitlabSettings.filePath) {
+            document.getElementById("config-css-path").value = window.gitlabSettings.filePath;
+          }
+
+          if (window.gitlabSettings.testPath) {
+            document.getElementById("config-test-path").value = window.gitlabSettings.testPath;
+          }
+
+          // Set commit strategy radio button
+          if (window.gitlabSettings.createMergeRequest) {
+            document.getElementById("strategy-mr").checked = true;
+          } else {
+            document.getElementById("strategy-direct").checked = true;
+          }
+
+          // Set save token checkbox
+          document.getElementById("config-save-token").checked = window.gitlabSettings.saveToken !== false;
         }
       });
     </script>
