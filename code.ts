@@ -144,84 +144,89 @@ figma.codegen.on("generate", (_event) => {
 });
 
 // Generate Jest test for a component
-function generateJestTest(component: any): string {
+function generateJestTest(component: any, generateAllVariants = false): string {
   // Extract component name and create a kebab case version for file naming
   const componentName = component.name;
   const kebabName = componentName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
-  
+
+  // Determine if this is a component set or a regular component
+  const isComponentSet = component.type === 'COMPONENT_SET';
+
+  // If this is a component set and we want to generate tests for all variants
+  if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
+    return generateComponentSetTest(component);
+  }
+
   // Parse the styles to extract the relevant CSS properties
   let styles;
   try {
-    styles = typeof component.styles === 'string' 
-      ? JSON.parse(component.styles) 
+    styles = typeof component.styles === 'string'
+      ? JSON.parse(component.styles)
       : component.styles;
   } catch (e) {
     console.error("Error parsing component styles:", e);
     styles = {};
   }
-  
+
   // Extract all CSS properties that are present in the styles object
   const styleChecks = [];
-  
+
   // Process all style properties
   for (const key in styles) {
     if (Object.prototype.hasOwnProperty.call(styles, key)) {
       // Convert kebab-case to camelCase for JavaScript property access
       const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      
+
       styleChecks.push({
         property: camelCaseKey,
         value: styles[key]
       });
     }
   }
-  
-  // Determine if this is a component set or a regular component
-  const isComponentSet = component.type === 'COMPONENT_SET';
-  
+
   // For component sets, we'll create a test that checks the default variant
   // For regular components, we'll create a standard test
   let testContent = '';
-  
+
   if (isComponentSet) {
     // For component sets, we need to find the default variant
     // This is a simplified approach - in a real implementation, you might need to
     // determine the default variant more accurately
-    const defaultVariant = component.children && component.children.length > 0 
-      ? component.children[0] 
+    const defaultVariant = component.children && component.children.length > 0
+      ? component.children[0]
       : null;
-    
+
     if (defaultVariant) {
       // Use the default variant's styles
       let variantStyles;
       try {
-        variantStyles = typeof defaultVariant.styles === 'string' 
-          ? JSON.parse(defaultVariant.styles) 
+        variantStyles = typeof defaultVariant.styles === 'string'
+          ? JSON.parse(defaultVariant.styles)
           : defaultVariant.styles;
       } catch (e) {
         console.error("Error parsing variant styles:", e);
         variantStyles = {};
       }
-      
+
       // Extract all CSS properties that are present in the variant styles object
       const variantStyleChecks = [];
-      
+
       // Process all style properties
       for (const key in variantStyles) {
         if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
           // Convert kebab-case to camelCase for JavaScript property access
           const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-          
+
           variantStyleChecks.push({
             property: camelCaseKey,
             value: variantStyles[key]
           });
         }
       }
-      
+
       testContent = createTestWithStyleChecks(componentName, kebabName, variantStyleChecks);
     } else {
       // If no default variant is found, create a standard test
@@ -231,8 +236,143 @@ function generateJestTest(component: any): string {
     // For regular components, create a standard test
     testContent = createTestWithStyleChecks(componentName, kebabName, styleChecks);
   }
-  
+
   return testContent;
+}
+
+// Generate comprehensive test for a component set with all variants
+function generateComponentSetTest(componentSet: any): string {
+  if (!componentSet.children || componentSet.children.length === 0) {
+    return generateJestTest(componentSet); // Fallback to standard test if no variants
+  }
+
+  const componentName = componentSet.name;
+  const kebabName = componentName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, '');
+
+  // Start building the test file
+  let testContent = `import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ${pascalName}Component } from './${kebabName}.component';
+
+describe('${pascalName}Component', () => {
+  let component: ${pascalName}Component;
+  let fixture: ComponentFixture<${pascalName}Component>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [ ${pascalName}Component ]
+    })
+    .compileComponents();
+  });
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(${pascalName}Component);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+`;
+
+  // Add tests for each variant
+  componentSet.children.forEach((variant: any, index: number) => {
+    // Extract state and type information from the variant name
+    const parsedName = parseVariantName(variant.name);
+    const variantDesc = parsedName.state
+      ? `in '${parsedName.state}' state`
+      : (parsedName.type ? `of type '${parsedName.type}'` : `variant ${index + 1}`);
+
+    // Parse the variant styles
+    let variantStyles;
+    try {
+      variantStyles = typeof variant.styles === 'string'
+        ? JSON.parse(variant.styles)
+        : variant.styles;
+    } catch (e) {
+      console.error("Error parsing variant styles:", e);
+      variantStyles = {};
+    }
+
+    // Extract all CSS properties for this variant
+    const styleChecks: Array<{property: string, value: string}> = [];
+    for (const key in variantStyles) {
+      if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
+        const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        styleChecks.push({
+          property: camelCaseKey,
+          value: variantStyles[key]
+        });
+      }
+    }
+
+    // Generate test for this variant
+    const stateVar = parsedName.state ? parsedName.state.toLowerCase().replace(/\s+/g, '') : 'default';
+    testContent += `  describe('${variantDesc}', () => {
+    it('should have correct styles', () => {
+      // Set component to the ${variantDesc} state
+      component.state = '${stateVar}';
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
+      if (element) {
+        const computedStyle = window.getComputedStyle(element);
+
+${generateStyleChecks(styleChecks)}
+      } else {
+        console.warn('No suitable element found to test styles');
+      }
+    });
+  });
+
+`;
+  });
+
+  // Close the main describe block
+  testContent += `});
+`;
+
+  return testContent;
+}
+
+// Helper function to parse variant names to extract type and state
+function parseVariantName(name: string): { name: string; type: string | null; state: string | null } {
+  const result = {
+    name: name,
+    type: null,
+    state: null,
+  };
+
+  // Check for Type=X pattern
+  const typeMatch = name.match(/Type=([^,]+)/i);
+  if (typeMatch && typeMatch[1]) {
+    result.type = typeMatch[1].trim();
+  }
+
+  // Check for State=X pattern
+  const stateMatch = name.match(/State=([^,]+)/i);
+  if (stateMatch && stateMatch[1]) {
+    result.state = stateMatch[1].trim();
+  }
+
+  return result;
+}
+
+// Helper function to generate style checks
+function generateStyleChecks(styleChecks: Array<{property: string, value: string}>): string {
+  if (styleChecks.length === 0) {
+    return '        // No style properties to check';
+  }
+
+  return styleChecks.map(check => {
+    return `        // Check ${check.property}
+        expect(computedStyle.${check.property}).toBe('${check.value}');`;
+  }).join('\n\n');
 }
 
 // Helper function to create a test with dynamic style checks
@@ -425,7 +565,8 @@ figma.ui.onmessage = async (msg: {
       // Get the component data
       const componentId = msg.componentId || '';
       const component = componentMap.get(componentId);
-      
+      const generateAllVariants = msg.generateAllVariants === true;
+
       if (!component) {
         figma.ui.postMessage({
           type: "error",
@@ -433,15 +574,17 @@ figma.ui.onmessage = async (msg: {
         });
         return;
       }
-      
+
       // Generate the test
-      const testContent = generateJestTest(component);
-      
+      const testContent = generateJestTest(component, generateAllVariants);
+
       // Send the test content back to the UI
       figma.ui.postMessage({
         type: "test-generated",
         componentName: msg.componentName || component.name,
         testContent: testContent,
+        isComponentSet: component.type === "COMPONENT_SET",
+        hasAllVariants: generateAllVariants
       });
     } catch (error: any) {
       console.error("Error generating test:", error);

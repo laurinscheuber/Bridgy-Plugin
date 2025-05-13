@@ -227,6 +227,13 @@
         margin: 0 0 0 20px;
         background-color: #fafbfc;
       }
+      .component-set-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        padding-left: 20px;
+      }
       .child-component table {
         box-shadow: none;
         border-radius: 0;
@@ -353,6 +360,12 @@
       .generate-test-button.loading {
         background-color: #9e9e9e;
         cursor: wait;
+      }
+      .generate-all-variants-button {
+        background-color: #e91e63;
+      }
+      .generate-all-variants-button:hover {
+        background-color: #c2185b;
       }
       .test-success-message {
         background-color: #e8f5e9;
@@ -605,20 +618,23 @@
         } else if (message.type === "test-generated") {
           // Download the generated test
           downloadTest(message.componentName, message.testContent);
-          
+
           // Show success message
-          const buttons = document.querySelectorAll('.generate-test-button');
+          const buttons = document.querySelectorAll('button.loading');
           buttons.forEach(button => {
             if (button.textContent === 'Generating...') {
               button.classList.remove('loading');
-              button.textContent = 'Generate Test';
+              // Restore the original button text
+              button.textContent = button.dataset.originalText ||
+                (button.classList.contains('generate-all-variants-button') ?
+                 'Generate Test for All Variants' : 'Generate Test');
               button.disabled = false;
-              
+
               // Show success message
               const successMessage = button.parentElement.nextElementSibling;
               if (successMessage && successMessage.classList.contains('test-success-message')) {
                 successMessage.style.display = 'block';
-                
+
                 // Hide success message after 3 seconds
                 setTimeout(() => {
                   successMessage.style.display = 'none';
@@ -630,12 +646,15 @@
           // Optionally display errors from the plugin code
           console.error("Plugin Error:", message.message);
           alert(`Error: ${message.message}`); // Simple alert for user feedback
-          
+
           // Reset button state
-          const buttons = document.querySelectorAll('.generate-test-button.loading');
+          const buttons = document.querySelectorAll('button.loading');
           buttons.forEach(button => {
             button.classList.remove('loading');
-            button.textContent = 'Generate Test';
+            // Restore the original button text
+            button.textContent = button.dataset.originalText ||
+              (button.classList.contains('generate-all-variants-button') ?
+               'Generate Test for All Variants' : 'Generate Test');
             button.disabled = false;
           });
           
@@ -844,6 +863,10 @@
                   }
                 </div>
               </div>
+              <div class="component-set-actions">
+                <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test for All Variants</button>
+                <div class="test-success-message">Test generated successfully!</div>
+              </div>
               <div class="component-set-children" id="children-${index}">
             `;
 
@@ -988,18 +1011,19 @@
         });
 
       // Function to generate test for a component
-      function generateTest(componentId, componentName, button) {
+      function generateTest(componentId, componentName, button, generateAllVariants = false) {
         // Show loading state
         button.classList.add('loading');
+        const originalText = button.textContent;
         button.textContent = 'Generating...';
         button.disabled = true;
-        
+
         // Hide any previous success messages
         const successMessage = button.parentElement.nextElementSibling;
         if (successMessage && successMessage.classList.contains('test-success-message')) {
           successMessage.style.display = 'none';
         }
-        
+
         // Send message to plugin code to request test generation
         parent.postMessage(
           {
@@ -1007,10 +1031,14 @@
               type: "generate-test",
               componentId: componentId,
               componentName: componentName,
+              generateAllVariants: generateAllVariants
             },
           },
           "*"
         );
+
+        // Store original button text for restoring later
+        button.dataset.originalText = originalText;
       }
 
       // Function to trigger ZIP download
