@@ -663,15 +663,49 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 !msg.cssData) {
                 throw new Error("Missing required fields for GitLab commit");
             }
-            // Construct the GitLab API URL using the project ID
-            const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
+            const projectId = msg.projectId;
+            const gitlabToken = msg.gitlabToken;
             const filePath = msg.filePath || "variables.css";
-            // First, check if the file exists
-            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/files/${encodeURIComponent(filePath)}?ref=main`;
+            const featureBranch = "feature/variables";
+            // First, get the default branch
+            const projectUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}`;
+            const projectResponse = yield fetch(projectUrl, {
+                method: "GET",
+                headers: {
+                    "PRIVATE-TOKEN": gitlabToken,
+                },
+            });
+            if (!projectResponse.ok) {
+                throw new Error("Failed to fetch project information");
+            }
+            const projectData = yield projectResponse.json();
+            const defaultBranch = projectData.default_branch;
+            // Create a new branch from the default branch if it doesn't exist
+            const createBranchUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/branches`;
+            const createBranchResponse = yield fetch(createBranchUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "PRIVATE-TOKEN": gitlabToken,
+                },
+                body: JSON.stringify({
+                    branch: featureBranch,
+                    ref: defaultBranch,
+                }),
+            });
+            if (!createBranchResponse.ok) {
+                const errorData = yield createBranchResponse.json();
+                // If branch already exists, that's fine - we'll use it
+                if (errorData.message !== "Branch already exists") {
+                    throw new Error(errorData.message || "Failed to create branch");
+                }
+            }
+            // Check if the file exists in the feature branch
+            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${featureBranch}`;
             const checkResponse = yield fetch(checkFileUrl, {
                 method: "GET",
                 headers: {
-                    "PRIVATE-TOKEN": msg.gitlabToken,
+                    "PRIVATE-TOKEN": gitlabToken,
                 },
             });
             // Determine if we should create or update the file
@@ -691,41 +725,41 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             };
             // For file updates, we need to either use the last_commit_id or force option
             if (action === "update") {
-                // Option 1: Use the last_commit_id if available
+                commitAction.encoding = "text";
                 if (fileData && fileData.last_commit_id) {
                     commitAction.last_commit_id = fileData.last_commit_id;
                 }
-                else {
-                    // Option 2: Add force parameter to overwrite regardless of change
-                    // This will overwrite the file even if there are no changes
-                    commitAction.encoding = "text";
-                }
             }
+            else {
+                commitAction.encoding = "text";
+            }
+            // Commit to the feature branch
+            const commitUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/commits`;
             const commitData = {
-                branch: "main", // Default to main branch
+                branch: featureBranch,
                 commit_message: msg.commitMessage,
                 actions: [commitAction],
             };
-            // Make the API request to GitLab
-            const response = yield fetch(gitlabApiUrl, {
+            const commitResponse = yield fetch(commitUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "PRIVATE-TOKEN": msg.gitlabToken,
+                    "PRIVATE-TOKEN": gitlabToken,
                 },
                 body: JSON.stringify(commitData),
             });
-            if (!response.ok) {
-                const errorData = yield response.json();
+            if (!commitResponse.ok) {
+                const errorData = yield commitResponse.json();
                 throw new Error(errorData.message || "Failed to commit to GitLab");
             }
             // Send success message back to UI
             figma.ui.postMessage({
                 type: "commit-success",
+                message: "Successfully committed changes to the feature branch",
             });
         }
         catch (error) {
-            console.error("Error committing to GitLab:", error);
+            console.error("Error in GitLab operations:", error);
             figma.ui.postMessage({
                 type: "commit-error",
                 error: error.message || "Unknown error occurred",

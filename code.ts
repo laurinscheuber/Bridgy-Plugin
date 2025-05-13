@@ -773,18 +773,55 @@ figma.ui.onmessage = async (msg: {
         throw new Error("Missing required fields for GitLab commit");
       }
 
-      // Construct the GitLab API URL using the project ID
-      const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
+      const projectId = msg.projectId;
+      const gitlabToken = msg.gitlabToken;
       const filePath = msg.filePath || "variables.css";
+      const featureBranch = "feature/variables";
 
-      // First, check if the file exists
-      const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${
-        msg.projectId
-      }/repository/files/${encodeURIComponent(filePath)}?ref=main`;
+      // First, get the default branch
+      const projectUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}`;
+      const projectResponse = await fetch(projectUrl, {
+        method: "GET",
+        headers: {
+          "PRIVATE-TOKEN": gitlabToken,
+        },
+      });
+
+      if (!projectResponse.ok) {
+        throw new Error("Failed to fetch project information");
+      }
+
+      const projectData = await projectResponse.json();
+      const defaultBranch = projectData.default_branch;
+
+      // Create a new branch from the default branch if it doesn't exist
+      const createBranchUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/branches`;
+      const createBranchResponse = await fetch(createBranchUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "PRIVATE-TOKEN": gitlabToken,
+        },
+        body: JSON.stringify({
+          branch: featureBranch,
+          ref: defaultBranch,
+        }),
+      });
+
+      if (!createBranchResponse.ok) {
+        const errorData = await createBranchResponse.json();
+        // If branch already exists, that's fine - we'll use it
+        if (errorData.message !== "Branch already exists") {
+          throw new Error(errorData.message || "Failed to create branch");
+        }
+      }
+
+      // Check if the file exists in the feature branch
+      const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${featureBranch}`;
       const checkResponse = await fetch(checkFileUrl, {
         method: "GET",
         headers: {
-          "PRIVATE-TOKEN": msg.gitlabToken,
+          "PRIVATE-TOKEN": gitlabToken,
         },
       });
 
@@ -814,45 +851,43 @@ figma.ui.onmessage = async (msg: {
 
       // For file updates, we need to either use the last_commit_id or force option
       if (action === "update") {
-        // Always include encoding for proper content handling
         commitAction.encoding = "text";
-
-        // If we have the last commit ID, use it for proper versioning
         if (fileData && fileData.last_commit_id) {
           commitAction.last_commit_id = fileData.last_commit_id;
         }
       } else {
-        // For new files, still specify encoding for consistency
         commitAction.encoding = "text";
       }
 
+      // Commit to the feature branch
+      const commitUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/commits`;
       const commitData = {
-        branch: "main", // Default to main branch
+        branch: featureBranch,
         commit_message: msg.commitMessage,
         actions: [commitAction],
       };
 
-      // Make the API request to GitLab
-      const response = await fetch(gitlabApiUrl, {
+      const commitResponse = await fetch(commitUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "PRIVATE-TOKEN": msg.gitlabToken,
+          "PRIVATE-TOKEN": gitlabToken,
         },
         body: JSON.stringify(commitData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!commitResponse.ok) {
+        const errorData = await commitResponse.json();
         throw new Error(errorData.message || "Failed to commit to GitLab");
       }
 
       // Send success message back to UI
       figma.ui.postMessage({
         type: "commit-success",
+        message: "Successfully committed changes to the feature branch",
       });
     } catch (error: any) {
-      console.error("Error committing to GitLab:", error);
+      console.error("Error in GitLab operations:", error);
       figma.ui.postMessage({
         type: "commit-error",
         error: error.message || "Unknown error occurred",

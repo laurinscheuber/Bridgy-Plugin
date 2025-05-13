@@ -727,7 +727,7 @@
           exportButton.disabled = true; // Disable button on error
         } else if (message.type === "commit-success") {
           // Show success message
-          alert("Successfully committed to GitLab repository!");
+          alert(message.message || "Successfully committed to GitLab repository!");
           closeGitLabModal();
           resetCommitButton();
         } else if (message.type === "commit-error") {
