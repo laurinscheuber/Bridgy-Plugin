@@ -552,20 +552,6 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             cssContent += "    /* Dark mode overrides can be added here */\n";
             cssContent += "  }\n";
             cssContent += "}\n";
-            // Add usage examples and documentation
-            cssContent +=
-                "\n/* ---------------------------------------------------------- */\n";
-            cssContent += "/* Usage Examples */\n";
-            cssContent +=
-                "/* ---------------------------------------------------------- */\n\n";
-            cssContent += "/* Example usage of variables */\n";
-            cssContent += ".example-element {\n";
-            cssContent += "  color: var(--primary-color);\n";
-            cssContent += "  background-color: var(--background-color);\n";
-            cssContent += "  padding: var(--spacing-medium);\n";
-            cssContent += "  border-radius: var(--border-radius);\n";
-            cssContent += "  font-family: var(--font-family);\n";
-            cssContent += "}\n";
             // Send the CSS content back to the UI
             figma.ui.postMessage({
                 type: "css-export",
@@ -665,7 +651,8 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             }
             // Construct the GitLab API URL using the project ID
             const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
-            const filePath = msg.filePath || "variables.css";
+            // If filePath is empty string, use the default path
+            const filePath = msg.filePath === "" ? "src/variables.css" : (msg.filePath || "src/variables.css");
             // First, check if the file exists
             const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/files/${encodeURIComponent(filePath)}?ref=main`;
             const checkResponse = yield fetch(checkFileUrl, {
@@ -691,15 +678,16 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             };
             // For file updates, we need to either use the last_commit_id or force option
             if (action === "update") {
-                // Option 1: Use the last_commit_id if available
+                // Always include encoding for proper content handling
+                commitAction.encoding = "text";
+                // If we have the last commit ID, use it for proper versioning
                 if (fileData && fileData.last_commit_id) {
                     commitAction.last_commit_id = fileData.last_commit_id;
                 }
-                else {
-                    // Option 2: Add force parameter to overwrite regardless of change
-                    // This will overwrite the file even if there are no changes
-                    commitAction.encoding = "text";
-                }
+            }
+            else {
+                // For new files, still specify encoding for consistency
+                commitAction.encoding = "text";
             }
             const commitData = {
                 branch: "main", // Default to main branch

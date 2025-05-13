@@ -653,21 +653,6 @@ figma.ui.onmessage = async (msg: {
       cssContent += "  }\n";
       cssContent += "}\n";
 
-      // Add usage examples and documentation
-      cssContent +=
-        "\n/* ---------------------------------------------------------- */\n";
-      cssContent += "/* Usage Examples */\n";
-      cssContent +=
-        "/* ---------------------------------------------------------- */\n\n";
-      cssContent += "/* Example usage of variables */\n";
-      cssContent += ".example-element {\n";
-      cssContent += "  color: var(--primary-color);\n";
-      cssContent += "  background-color: var(--background-color);\n";
-      cssContent += "  padding: var(--spacing-medium);\n";
-      cssContent += "  border-radius: var(--border-radius);\n";
-      cssContent += "  font-family: var(--font-family);\n";
-      cssContent += "}\n";
-
       // Send the CSS content back to the UI
       figma.ui.postMessage({
         type: "css-export",
@@ -775,7 +760,8 @@ figma.ui.onmessage = async (msg: {
 
       // Construct the GitLab API URL using the project ID
       const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
-      const filePath = msg.filePath || "variables.css";
+      // If filePath is empty string, use the default path
+      const filePath = msg.filePath === "" ? "src/variables.css" : (msg.filePath || "src/variables.css");
 
       // First, check if the file exists
       const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${
