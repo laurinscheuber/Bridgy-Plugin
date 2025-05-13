@@ -36,3 +36,6 @@ code.js.tmp
 # System files
 .DS_Store
 Thumbs.db
+
+# Claude guidance file
+CLAUDE.md

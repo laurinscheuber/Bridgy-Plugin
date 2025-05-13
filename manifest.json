@@ -18,5 +18,6 @@
       "https://cdnjs.cloudflare.com",
       "https://gitlab.fhnw.ch"
     ]
-  }
+  },
+  "permissions": ["currentuser"]
 }

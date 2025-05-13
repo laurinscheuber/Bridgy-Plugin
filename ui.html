@@ -450,6 +450,45 @@
         justify-content: flex-end;
         gap: 10px;
       }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .checkbox-group input[type="checkbox"] {
+        width: auto;
+        margin-right: 5px;
+      }
+
+      .security-note {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 10px 0;
+        font-size: 12px;
+      }
+
+      .security-note p {
+        margin-top: 0;
+        font-weight: 500;
+        color: #856404;
+      }
+
+      .security-note ul {
+        margin-bottom: 0;
+        padding-left: 20px;
+      }
+
+      .saved-info {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed #ffeeba;
+        font-style: italic;
+        color: #856404;
+      }
       
       .close-modal {
         position: absolute;
@@ -543,6 +582,23 @@
             <label for="gitlab-token">Private Token</label>
             <input type="password" id="gitlab-token" placeholder="Enter your GitLab private token" />
           </div>
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="save-token" />
+            <label for="save-token">Save token (with security implications, see below)</label>
+          </div>
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="share-with-team" />
+            <label for="share-with-team">Share settings with team (project ID and token if saved)</label>
+          </div>
+          <div class="security-note">
+            <p>Security notes:</p>
+            <ul>
+              <li>If you save the token, it will be stored in Figma's data store</li>
+              <li>If you share with team, all users with access to this file can access the token</li>
+              <li>Consider using a project-specific token with limited permissions</li>
+              <li>Tokens should be rotated periodically for security</li>
+            </ul>
+          </div>
           <div class="form-group">
             <label for="commit-message">Commit Message</label>
             <input type="text" id="commit-message" placeholder="feat: update variables" />
@@ -581,6 +637,7 @@
       let variablesData = [];
       let componentsData = [];
       let currentCSSData = null;
+      window.gitlabSettings = null; // Store GitLab settings
 
       // Listen for messages from the plugin
       window.onmessage = (event) => {
@@ -588,7 +645,14 @@
         const exportButton = document.getElementById("export-css-button");
         const commitButton = document.getElementById("commit-repo-button");
 
-        if (message.type === "document-data") {
+        if (message.type === "gitlab-settings-loaded") {
+          // Store the loaded GitLab settings
+          window.gitlabSettings = message.settings;
+          console.log("GitLab settings loaded");
+        } else if (message.type === "gitlab-settings-saved") {
+          // Confirmation that settings were saved
+          console.log("GitLab settings saved successfully");
+        } else if (message.type === "document-data") {
           variablesData = message.variablesData;
           componentsData = message.componentsData;
 
@@ -1154,9 +1218,48 @@
           renderComponents(filteredData);
         });
 
-      // Function to open the GitLab modal
+      // Function to open the GitLab modal and populate with saved settings if available
       function openGitLabModal() {
         document.getElementById("gitlab-modal").style.display = "block";
+
+        // Check if we have saved settings
+        if (window.gitlabSettings) {
+          // Fill in the project ID
+          if (window.gitlabSettings.projectId) {
+            document.getElementById("gitlab-project-id").value = window.gitlabSettings.projectId;
+          }
+
+          // Fill in the token if it was saved
+          if (window.gitlabSettings.gitlabToken) {
+            document.getElementById("gitlab-token").value = window.gitlabSettings.gitlabToken;
+            document.getElementById("save-token").checked = true;
+          }
+
+          // Check "share with team" if this came from team storage
+          if (!window.gitlabSettings.isPersonal) {
+            document.getElementById("share-with-team").checked = true;
+          }
+
+          // Show saved info if available
+          if (window.gitlabSettings.savedBy && window.gitlabSettings.savedAt) {
+            const savedDate = new Date(window.gitlabSettings.savedAt);
+            const formattedDate = savedDate.toLocaleDateString() + ' ' + savedDate.toLocaleTimeString();
+
+            const securityNote = document.querySelector(".security-note");
+            if (securityNote) {
+              // Remove any existing saved info
+              const existingSavedInfo = securityNote.querySelector('.saved-info');
+              if (existingSavedInfo) {
+                securityNote.removeChild(existingSavedInfo);
+              }
+
+              const savedInfo = document.createElement('p');
+              savedInfo.className = 'saved-info';
+              savedInfo.innerHTML = `Settings last saved by: <strong>${window.gitlabSettings.savedBy}</strong> on ${formattedDate}`;
+              securityNote.appendChild(savedInfo);
+            }
+          }
+        }
       }
 
       // Function to close the GitLab modal
@@ -1182,6 +1285,8 @@
 
         const projectId = document.getElementById("gitlab-project-id").value.trim();
         const gitlabToken = document.getElementById("gitlab-token").value.trim();
+        const saveToken = document.getElementById("save-token").checked;
+        const shareWithTeam = document.getElementById("share-with-team").checked;
         const commitMessage = document.getElementById("commit-message").value.trim();
         const filePath = document.getElementById("file-path").value.trim() || "variables.css";
 
@@ -1189,6 +1294,22 @@
           alert("Please fill in all required fields");
           resetCommitButton();
           return;
+        }
+
+        // Save the GitLab settings if requested
+        if (projectId) {
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "save-gitlab-settings",
+                projectId: projectId,
+                gitlabToken: gitlabToken,
+                saveToken: saveToken,
+                shareWithTeam: shareWithTeam
+              },
+            },
+            "*"
+          );
         }
 
         // First, ensure we have the latest CSS data
