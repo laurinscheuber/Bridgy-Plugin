@@ -379,7 +379,8 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             // Send the CSS content back to the UI
             figma.ui.postMessage({
                 type: "css-export",
-                cssData: cssContent
+                cssData: cssContent,
+                shouldDownload: msg.shouldDownload
             });
         }
         catch (error) {
@@ -440,7 +441,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             });
             // Determine if we should create or update the file
             const fileExists = checkResponse.ok;
-            const action = fileExists ? 'update' : 'create';
+            const action = 'update';
             // Prepare the commit data
             const commitData = {
                 branch: 'main', // Default to main branch

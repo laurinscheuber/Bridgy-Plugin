@@ -609,8 +609,10 @@
         } else if (message.type === "css-export") {
           // Store the CSS data for later use
           currentCSSData = message.cssData;
-          // Trigger download when CSS data is received
-          downloadCSS(message.cssData);
+          // Only trigger download if this was an explicit export request
+          if (message.shouldDownload) {
+            downloadCSS(message.cssData);
+          }
         } else if (message.type === "angular-export-data") {
           // Trigger ZIP download with component data based on selected language
           const language = message.language || "angular";
@@ -1007,7 +1009,12 @@
         .getElementById("export-css-button")
         .addEventListener("click", () => {
           // Send message to plugin code to request CSS export
-          parent.postMessage({ pluginMessage: { type: "export-css" } }, "*");
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: "export-css",
+              shouldDownload: true 
+            } 
+          }, "*");
         });
 
       // Function to generate test for a component
@@ -1184,20 +1191,56 @@
           return;
         }
 
-        // Send message to plugin code to request commit
-        parent.postMessage(
-          {
-            pluginMessage: {
-              type: "commit-to-gitlab",
-              projectId,
-              gitlabToken,
-              commitMessage,
-              filePath,
-              cssData: currentCSSData
+        // First, ensure we have the latest CSS data
+        if (!currentCSSData) {
+          // Request CSS export first
+          parent.postMessage({ pluginMessage: { type: "export-css" } }, "*");
+          
+          // Wait for CSS data to be available
+          const checkCSSData = setInterval(() => {
+            if (currentCSSData) {
+              clearInterval(checkCSSData);
+              // Now that we have CSS data, proceed with the commit
+              parent.postMessage(
+                {
+                  pluginMessage: {
+                    type: "commit-to-gitlab",
+                    projectId,
+                    gitlabToken,
+                    commitMessage,
+                    filePath,
+                    cssData: currentCSSData
+                  },
+                },
+                "*"
+              );
+            }
+          }, 100);
+
+          // Set a timeout in case CSS generation fails
+          setTimeout(() => {
+            if (!currentCSSData) {
+              clearInterval(checkCSSData);
+              alert("Failed to generate CSS data. Please try again.");
+              resetCommitButton();
+            }
+          }, 5000);
+        } else {
+          // If we already have CSS data, proceed with the commit
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "commit-to-gitlab",
+                projectId,
+                gitlabToken,
+                commitMessage,
+                filePath,
+                cssData: currentCSSData
+              },
             },
-          },
-          "*"
-        );
+            "*"
+          );
+        }
       }
 
       // Add event listener for the commit button
