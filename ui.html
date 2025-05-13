@@ -575,6 +575,101 @@
         background-color: #e1f0ff;
         color: #0d99ff;
       }
+
+      textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+        resize: vertical;
+        font-family: "Inter", sans-serif;
+      }
+
+      textarea:focus {
+        border-color: #0d99ff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
+      }
+
+      .success-message {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin-top: 8px;
+        font-size: 14px;
+        display: none;
+      }
+
+      .merge-request-link {
+        margin-top: 10px;
+        display: block;
+        text-decoration: none;
+        color: #0d99ff;
+        font-weight: 500;
+      }
+
+      .merge-request-link:hover {
+        text-decoration: underline;
+      }
+
+      .error-message {
+        background-color: #ffeeee;
+        color: #c62828;
+        padding: 12px;
+        border-radius: 4px;
+        margin-top: 8px;
+        font-size: 14px;
+        border: 1px solid #ffcdd2;
+      }
+
+      .error-message p {
+        margin: 0 0 8px 0;
+      }
+
+      .error-message p:last-child {
+        margin-bottom: 0;
+      }
+
+      .error-help {
+        color: #666;
+        font-size: 13px;
+        font-style: italic;
+      }
+
+      /* Progress bar styles */
+      .progress-bar-container {
+        width: 100%;
+        height: 8px;
+        background-color: #f0f0f0;
+        border-radius: 4px;
+        margin: 16px 0 8px 0;
+        overflow: hidden;
+      }
+
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        background-color: #0d99ff;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
+
+      .progress-status {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 16px;
+        font-style: italic;
+      }
+
+      #commit-progress-container {
+        background-color: #f5f7f9;
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+        border: 1px solid #eaeaea;
+      }
     </style>
   </head>
   <body>
@@ -679,13 +774,47 @@
               <!-- This will be filled dynamically with "Last updated by..." info -->
             </div>
           </div>
+
+          <!-- Progress indicator for GitLab operations -->
+          <div id="commit-progress-container" style="display: none;">
+            <div class="progress-bar-container">
+              <div class="progress-bar" id="commit-progress-bar"></div>
+            </div>
+            <div class="progress-status" id="commit-progress-status">Preparing...</div>
+          </div>
           <div class="form-group">
             <label for="commit-message">Commit Message</label>
             <input type="text" id="commit-message" placeholder="feat: update variables" />
           </div>
           <div class="form-group">
             <label for="file-path">File Path (optional)</label>
-            <input type="text" id="file-path" placeholder="src/variables.css" value="src/variables.css" />
+            <input type="text" id="file-path" placeholder="src/variables.css" />
+          </div>
+          <div class="form-group">
+            <label for="branch-name">Branch Name (optional)</label>
+            <input type="text" id="branch-name" placeholder="feature/variables" />
+          </div>
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="create-merge-request" />
+            <label for="create-merge-request">Create merge request after commit</label>
+          </div>
+          <div id="merge-request-options" style="display: none;">
+            <div class="form-group">
+              <label for="mr-title">Merge Request Title</label>
+              <input type="text" id="mr-title" placeholder="Update CSS variables" />
+            </div>
+            <div class="form-group">
+              <label for="mr-description">Merge Request Description</label>
+              <textarea id="mr-description" rows="3" placeholder="Describe the changes in this merge request..."></textarea>
+            </div>
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="mr-remove-source-branch" checked />
+              <label for="mr-remove-source-branch">Remove source branch when merged</label>
+            </div>
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="mr-squash" />
+              <label for="mr-squash">Squash commits when merged</label>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -788,6 +917,20 @@
               }
             }
           });
+        } else if (message.type === "commit-progress") {
+          // Handle progress updates for GitLab operations
+          const progressBar = document.getElementById("commit-progress-bar");
+          const progressStatus = document.getElementById("commit-progress-status");
+
+          if (progressBar && progressStatus) {
+            // Update the progress bar
+            progressBar.style.width = `${message.progress}%`;
+
+            // Update the status message
+            if (message.message) {
+              progressStatus.textContent = message.message;
+            }
+          }
         } else if (message.type === "error") {
           // Optionally display errors from the plugin code
           console.error("Plugin Error:", message.message);
@@ -803,16 +946,65 @@
                'Generate Test for All Variants' : 'Generate Test');
             button.disabled = false;
           });
-          
+
           exportButton.disabled = true; // Disable button on error
         } else if (message.type === "commit-success") {
-          // Show success message
-          alert("Successfully committed to GitLab repository!");
-          closeGitLabModal();
-          resetCommitButton();
+          if (message.mergeRequestUrl) {
+            // Show success message with merge request link
+            const successHTML = `
+              <div class="success-message" style="display: block;">
+                ${message.message || "Successfully committed to GitLab repository!"}
+                <a href="${message.mergeRequestUrl}" class="merge-request-link" target="_blank">
+                  View Merge Request →
+                </a>
+              </div>
+            `;
+
+            const modal = document.getElementById("gitlab-modal");
+            const footer = modal.querySelector(".modal-footer");
+
+            // Remove any existing success message
+            const existingMessage = modal.querySelector(".success-message");
+            if (existingMessage) {
+              existingMessage.remove();
+            }
+
+            // Insert the success message before the footer
+            footer.insertAdjacentHTML("beforebegin", successHTML);
+
+            // Change the commit button to a Close button
+            const commitButton = document.getElementById("commit-submit-button");
+            commitButton.textContent = "Close";
+            commitButton.classList.remove("loading");
+            commitButton.disabled = false;
+            commitButton.onclick = closeGitLabModal;
+          } else {
+            // Show standard success message
+            alert(message.message || "Successfully committed to GitLab repository!");
+            closeGitLabModal();
+            resetCommitButton();
+          }
         } else if (message.type === "commit-error") {
-          // Show error message
-          alert(`Error committing to GitLab: ${message.error}`);
+          // Show error message with better formatting
+          const errorHTML = `
+            <div class="error-message" style="display: block;">
+              <p><strong>Error committing to GitLab:</strong> ${message.error}</p>
+              <p class="error-help">Please check your credentials and try again.</p>
+            </div>
+          `;
+
+          const modal = document.getElementById("gitlab-modal");
+          const footer = modal.querySelector(".modal-footer");
+
+          // Remove any existing error message
+          const existingMessage = modal.querySelector(".error-message");
+          if (existingMessage) {
+            existingMessage.remove();
+          }
+
+          // Insert the error message before the footer
+          footer.insertAdjacentHTML("beforebegin", errorHTML);
+
           resetCommitButton();
         }
       };
@@ -1358,6 +1550,11 @@
             document.getElementById("save-token").checked = true;
           }
 
+          // Fill in the branch name if it was saved
+          if (window.gitlabSettings.branchName) {
+            document.getElementById("branch-name").value = window.gitlabSettings.branchName;
+          }
+
           // Check "share with team" if this came from team storage
           if (!window.gitlabSettings.isPersonal) {
             document.getElementById("share-with-team").checked = true;
@@ -1404,6 +1601,14 @@
         button.classList.remove("loading");
         button.textContent = "Commit";
         button.disabled = false;
+
+        // Hide progress container
+        const progressContainer = document.getElementById("commit-progress-container");
+        progressContainer.style.display = "none";
+
+        // Reset progress bar
+        const progressBar = document.getElementById("commit-progress-bar");
+        progressBar.style.width = "0%";
       }
 
       // Function to commit to GitLab
@@ -1413,12 +1618,43 @@
         button.textContent = "Committing...";
         button.disabled = true;
 
+        // Show progress container
+        const progressContainer = document.getElementById("commit-progress-container");
+        const progressBar = document.getElementById("commit-progress-bar");
+        const progressStatus = document.getElementById("commit-progress-status");
+
+        progressContainer.style.display = "block";
+        progressBar.style.width = "5%";
+        progressStatus.textContent = "Preparing commit...";
+
         const projectId = document.getElementById("gitlab-project-id").value.trim();
         const gitlabToken = document.getElementById("gitlab-token").value.trim();
         const saveToken = document.getElementById("save-token").checked;
         const shareWithTeam = document.getElementById("share-with-team").checked;
         const commitMessage = document.getElementById("commit-message").value.trim();
         const filePath = document.getElementById("file-path").value.trim() || "src/variables.css";
+        const branchName = document.getElementById("branch-name").value.trim() || "feature/variables";
+
+        // Get merge request options
+        const createMergeRequest = document.getElementById("create-merge-request").checked;
+        let mrTitle = "";
+        let mrDescription = "";
+        let mrRemoveSourceBranch = false;
+        let mrSquash = false;
+
+        if (createMergeRequest) {
+          mrTitle = document.getElementById("mr-title").value.trim();
+          mrDescription = document.getElementById("mr-description").value.trim();
+          mrRemoveSourceBranch = document.getElementById("mr-remove-source-branch").checked;
+          mrSquash = document.getElementById("mr-squash").checked;
+
+          // Validate MR fields
+          if (!mrTitle) {
+            alert("Please provide a merge request title");
+            resetCommitButton();
+            return;
+          }
+        }
 
         if (!projectId || !gitlabToken || !commitMessage) {
           alert("Please fill in all required fields");
@@ -1434,6 +1670,7 @@
                 type: "save-gitlab-settings",
                 projectId: projectId,
                 gitlabToken: gitlabToken,
+                branchName: branchName,
                 saveToken: saveToken,
                 shareWithTeam: shareWithTeam
               },
@@ -1444,13 +1681,22 @@
 
         // First, ensure we have the latest CSS data
         if (!currentCSSData) {
+          // Update progress
+          progressBar.style.width = "10%";
+          progressStatus.textContent = "Generating CSS variables...";
+
           // Request CSS export first
           parent.postMessage({ pluginMessage: { type: "export-css" } }, "*");
-          
+
           // Wait for CSS data to be available
           const checkCSSData = setInterval(() => {
             if (currentCSSData) {
               clearInterval(checkCSSData);
+
+              // Update progress
+              progressBar.style.width = "30%";
+              progressStatus.textContent = "CSS generated. Starting GitLab commit...";
+
               // Now that we have CSS data, proceed with the commit
               parent.postMessage(
                 {
@@ -1460,7 +1706,13 @@
                     gitlabToken,
                     commitMessage,
                     filePath,
-                    cssData: currentCSSData
+                    branchName,
+                    cssData: currentCSSData,
+                    createMergeRequest,
+                    mrTitle,
+                    mrDescription,
+                    mrRemoveSourceBranch,
+                    mrSquash
                   },
                 },
                 "*"
@@ -1486,7 +1738,13 @@
                 gitlabToken,
                 commitMessage,
                 filePath,
-                cssData: currentCSSData
+                branchName,
+                cssData: currentCSSData,
+                createMergeRequest,
+                mrTitle,
+                mrDescription,
+                mrRemoveSourceBranch,
+                mrSquash
               },
             },
             "*"
@@ -1498,6 +1756,30 @@
       document
         .getElementById("commit-repo-button")
         .addEventListener("click", openGitLabModal);
+
+      // Toggle merge request options when checkbox is clicked
+      document.getElementById("create-merge-request").addEventListener("change", function() {
+        const mergeRequestOptions = document.getElementById("merge-request-options");
+        if (this.checked) {
+          mergeRequestOptions.style.display = "block";
+
+          // Pre-fill the merge request title with the commit message
+          const commitMessage = document.getElementById("commit-message").value;
+          if (commitMessage) {
+            document.getElementById("mr-title").value = commitMessage;
+          }
+        } else {
+          mergeRequestOptions.style.display = "none";
+        }
+      });
+
+      // Update MR title when commit message changes if checkbox is checked
+      document.getElementById("commit-message").addEventListener("input", function() {
+        const createMR = document.getElementById("create-merge-request");
+        if (createMR.checked) {
+          document.getElementById("mr-title").value = this.value;
+        }
+      });
     </script>
   </body>
 </html>
