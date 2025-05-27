@@ -2,593 +2,710 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>aWall Synch UI</title>
+    <title>aWall Synch UI - Refactored</title>
     <!-- Add JSZip library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <style>
-      body {
-        font-family: "Inter", sans-serif;
-        margin: 0;
-        padding: 20px;
-        color: #333;
-        background-color: #f7f8fa;
-      }
-      .container {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-      .section {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 16px;
-        background-color: #fff;
-      }
-      h2 {
-        margin-top: 0;
-        color: #333;
-        font-size: 20px;
-        font-weight: 600;
-      }
-      h3 {
-        margin-top: 16px;
-        margin-bottom: 8px;
-        color: #555;
-        font-size: 16px;
-        font-weight: 500;
-      }
-      .tabs {
-        display: flex;
-        border-bottom: 1px solid #e0e0e0;
-        margin-bottom: 16px;
-        background-color: #fff;
-        border-radius: 8px 8px 0 0;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      }
-      .tab {
-        padding: 12px 24px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-      }
-      .tab:hover {
-        background-color: #f0f7ff;
-      }
-      .tab.active {
-        border-bottom: 2px solid #0d99ff;
-        color: #0d99ff;
-        background-color: #f0f7ff;
-      }
-      .tab-content {
-        display: none;
-        background-color: #fff;
-        border-radius: 0 0 8px 8px;
-        padding: 20px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      }
-      .tab-content.active {
-        display: block;
-      }
-      .variable-collection {
-        margin-bottom: 24px;
-        background: #f9f9f9;
-        border-radius: 6px;
-        padding: 16px;
-        border: 1px solid #eaeaea;
-      }
-      .collection-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-      .collection-name {
-        font-weight: 600;
-        color: #444;
-        font-size: 16px;
-      }
-      .collection-stats {
-        font-size: 13px;
-        color: #666;
-        font-style: italic;
-      }
-      .variable-name {
-        font-weight: 500;
-      }
-      .variable-type {
-        text-align: center;
-        width: 100px;
-      }
-      .type-badge {
-        display: inline-block;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 500;
-        text-transform: lowercase;
-      }
-      .type-color {
-        background-color: #ffecec;
-        color: #e91e63;
-      }
-      .type-float {
-        background-color: #e3f2fd;
-        color: #2196f3;
-      }
-      .type-string {
-        background-color: #e8f5e9;
-        color: #4caf50;
-      }
-      .type-boolean {
-        background-color: #fff8e1;
-        color: #ff9800;
-      }
-      .variable-values {
-        width: 40%;
-      }
-      .variable-css {
-        width: 20%;
-      }
-      .css-var-name {
-        font-family: monospace;
-        background-color: #f5f5f5;
-        padding: 3px 6px;
-        border-radius: 3px;
-        font-size: 12px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        border: 1px solid #eee;
-      }
-      .css-var-name:hover {
-        background-color: #e6e6e6;
-      }
-      .multi-value-container {
-        width: 100%;
-      }
-      .value-toggle {
-        cursor: pointer;
-        background-color: #f0f0f0;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .toggle-icon {
-        font-size: 8px;
-        color: #666;
-      }
-      .values-list {
-        display: none;
-        margin-top: 8px;
-        background-color: #fff;
-        border-radius: 4px;
-        border: 1px solid #eee;
-        overflow: hidden;
-      }
-      .value-item {
-        padding: 6px 10px;
-        border-bottom: 1px solid #f0f0f0;
-        display: flex;
-        align-items: center;
-      }
-      .value-item:last-child {
-        border-bottom: none;
-      }
-      .mode-name {
-        font-weight: 500;
-        font-size: 12px;
-        color: #666;
-        margin-right: 8px;
-        min-width: 80px;
-      }
-      .value-display {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .color-value, .value-text {
-        font-family: monospace;
-        font-size: 12px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        padding: 2px 4px;
-        border-radius: 3px;
-      }
-      .color-value:hover, .value-text:hover {
-        background-color: #f0f0f0;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 8px;
-        background-color: #fff;
-        border-radius: 4px;
-        overflow: hidden;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      }
-      th {
-        text-align: left;
-        background-color: #f3f4f6;
-        padding: 10px 12px;
-        font-weight: 500;
-        color: #444;
-        border-bottom: 1px solid #e5e7eb;
-      }
-      td {
-        padding: 10px 12px;
-        border-top: 1px solid #eee;
-        vertical-align: top;
-      }
-      tr:hover td {
-        background-color: #f9fafb;
-      }
-      .color-preview {
-        width: 24px;
-        height: 24px;
-        border-radius: 4px;
-        display: inline-block;
-        margin-right: 8px;
-        vertical-align: middle;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-      }
-      .advanced-search-container {
-        margin-bottom: 16px;
-        background-color: #f9f9f9;
-        border-radius: 8px;
-        padding: 16px;
-        border: 1px solid #eaeaea;
-      }
-      .search-row {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 8px;
-      }
-      .search-input-wrapper {
-        position: relative;
-        flex: 1;
-        min-width: 250px;
-      }
-      .search-icon {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #999;
-      }
-      .search-input {
-        width: 100%;
-        padding: 10px 16px;
-        padding-right: 40px;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        font-size: 14px;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      }
-      .search-input:focus {
-        border-color: #0d99ff;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
-      }
-      .filter-controls {
-        display: flex;
-        gap: 8px;
-      }
-      .filter-select {
-        padding: 9px 12px;
-        border-radius: 6px;
-        border: 1px solid #e0e0e0;
-        background-color: white;
-        font-size: 14px;
-        min-width: 140px;
-      }
-      .filter-select:focus {
-        border-color: #0d99ff;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
-      }
-      .filter-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        min-height: 28px;
-      }
-      .filter-tag {
-        display: inline-flex;
-        align-items: center;
-        background-color: #e1f0ff;
-        color: #0d99ff;
-        border-radius: 4px;
-        padding: 4px 8px;
-        font-size: 12px;
-        font-weight: 500;
-      }
-      .filter-tag .remove-filter {
-        margin-left: 6px;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background-color: rgba(13, 153, 255, 0.1);
-      }
-      .filter-tag .remove-filter:hover {
-        background-color: rgba(13, 153, 255, 0.2);
-      }
-      .stats-container {
-        display: flex;
-        align-items: center;
-        color: #666;
-        font-size: 13px;
-        font-style: italic;
-      }
-      .flex-spacer {
-        flex: 1;
-      }
-      .component-list {
-        max-height: 700px;
-        overflow-y: auto;
-        border-radius: 6px;
-        background-color: #fff;
-        border: 1px solid #eaeaea;
-      }
-      .component-item {
-        padding: 10px;
-        border-bottom: 1px solid #eee;
-      }
-      .component-item:hover {
-        background-color: #f5f5f5;
-      }
-      .no-items {
-        color: #999;
-        font-style: italic;
-        padding: 24px;
-        text-align: center;
-        background-color: #f9f9f9;
-        border-radius: 6px;
-      }
-      .loading {
-        text-align: center;
-        padding: 40px;
-        color: #777;
-        background-color: #f9f9f9;
-        border-radius: 6px;
-      }
-      .loading:after {
-        content: "...";
-        animation: dots 1.5s steps(5, end) infinite;
-      }
-      @keyframes dots {
-        0%,
-        20% {
-          content: ".";
-        }
-        40% {
-          content: "..";
-        }
-        60%,
-        100% {
-          content: "...";
-        }
-      }
-      /* Component hierarchy styling */
-      .component-set {
-        background-color: #f8f9fa;
-        margin-bottom: 0;
-        border-bottom: 1px solid #e5e7eb;
-      }
-      .component-set-header {
-        cursor: pointer;
-        padding: 12px;
-        display: flex;
-        align-items: center;
-        transition: background-color 0.2s;
-      }
-      .component-set-header:hover {
-        background-color: #edf2f7;
-      }
-      .component-set-toggle {
-        width: 20px;
-        height: 20px;
-        margin-right: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        color: #0d99ff;
-        background-color: #e1f0ff;
-        border-radius: 3px;
-        transition: all 0.2s;
-      }
-      .component-set-header.expanded .component-set-toggle {
-        transform: rotate(90deg);
-      }
-      .component-set-children {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-out;
-      }
-      .component-set-children.expanded {
-        max-height: 1000px;
-      }
-      .child-component {
-        border-left: 3px solid #0d99ff;
-        margin: 0 0 0 20px;
-        background-color: #fafbfc;
-      }
-      .component-set-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-        margin-bottom: 8px;
-        padding-left: 20px;
-      }
-      .child-component table {
-        box-shadow: none;
-        border-radius: 0;
-      }
-      /* Type and state badges */
-      .badge {
-        display: inline-block;
-        padding: 3px 8px;
-        font-size: 12px;
-        font-weight: 500;
-        border-radius: 4px;
-        margin-right: 8px;
-      }
-      .badge-component {
-        background-color: #e1f0ff;
-        color: #0d99ff;
-      }
-      .badge-component-set {
-        background-color: #c9f7f0;
-        color: #0a9882;
-      }
-      .badge-state {
-        background-color: #f0e6ff;
-        color: #7e3ff2;
-      }
-      .badge-type {
-        background-color: #fff2e0;
-        color: #ff8c00;
-      }
-      /* Component info layout */
-      .component-name {
-        font-weight: 500;
-        margin-right: 10px;
-      }
-      .component-meta {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .component-styles {
-        margin-top: 8px;
-        padding: 8px;
-        background-color: #f5f7f9;
-        border-radius: 4px;
-        font-size: 12px;
-        color: #555;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        position: relative;
-        font-family: monospace;
-      }
-      .component-styles.expanded {
-        white-space: pre-wrap;
-        overflow: auto;
-        max-height: 400px;
-        border: 1px solid #e0e0e0;
-        padding: 12px;
-        background-color: #f9f9f9;
-      }
-      .close-button {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background-color: #f0f0f0;
-        border: none;
-        border-radius: 4px;
-        padding: 4px 8px;
-        font-size: 10px;
-        cursor: pointer;
-        display: none;
-      }
-      .component-styles.expanded .close-button {
-        display: block;
-      }
-      .json-key {
-        color: #881391;
-      }
-      .json-string {
-        color: #1a1aa6;
-      }
-      .json-number {
-        color: #1c00cf;
-      }
-      .json-boolean {
-        color: #0033b3;
-      }
-      .json-null {
-        color: #808080;
-      }
-      /* Button styling */
-      button {
-        padding: 10px 16px;
-        background-color: #0d99ff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-      button:hover {
-        background-color: #0a85e9;
-      }
-      button:disabled {
-        background-color: #c8d3dc;
-        cursor: not-allowed;
-      }
-      .action-buttons {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
+      /* ================== BASE STYLES ================== */
+      /* Base styles and layout */
+body {
+  font-family: "Inter", sans-serif;
+  margin: 0;
+  padding: 20px;
+  color: #333;
+  background-color: #f7f8fa;
+}
 
-      .action-buttons .checkbox-group {
-        margin-left: 8px;
-        font-size: 12px;
-      }
-      .generate-test-button {
-        background-color: #4caf50;
-      }
-      .generate-test-button:hover {
-        background-color: #3d8b40;
-      }
-      .generate-test-button.loading {
-        background-color: #9e9e9e;
-        cursor: wait;
-      }
-      .generate-all-variants-button {
-        background-color: #e91e63;
-      }
-      .generate-all-variants-button:hover {
-        background-color: #c2185b;
-      }
-      .test-success-message {
-        background-color: #e8f5e9;
-        color: #2e7d32;
-        padding: 8px 12px;
-        border-radius: 4px;
-        margin-top: 8px;
-        font-size: 14px;
-        display: none;
-      }
-      select {
-        padding: 9px 12px;
-        border-radius: 4px;
-        border: 1px solid #e0e0e0;
-        background-color: white;
-        font-size: 14px;
-      }
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fff;
+}
+
+/* Typography */
+h2 {
+  margin-top: 0;
+  color: #333;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+h3 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: #555;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Forms */
+input, textarea, select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: #0d99ff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Buttons */
+button {
+  padding: 10px 16px;
+  background-color: #0d99ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #0a85e9;
+}
+
+button:disabled {
+  background-color: #c8d3dc;
+  cursor: not-allowed;
+}
+
+.primary-button {
+  background-color: #4caf50;
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primary-button:hover {
+  background-color: #3d8b40;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  background-color: #fff;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+th {
+  text-align: left;
+  background-color: #f3f4f6;
+  padding: 10px 12px;
+  font-weight: 500;
+  color: #444;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+td {
+  padding: 10px 12px;
+  border-top: 1px solid #eee;
+  vertical-align: top;
+}
+
+tr:hover td {
+  background-color: #f9fafb;
+}
+
+/* Loading states */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #777;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.loading:after {
+  content: "...";
+  animation: dots 1.5s steps(5, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: "."; }
+  40% { content: ".."; }
+  60%, 100% { content: "..."; }
+}
+
+/* Utility classes */
+.flex-spacer {
+  flex: 1;
+}
+
+.no-items {
+  color: #999;
+  font-style: italic;
+  padding: 24px;
+  text-align: center;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
       
-      /* Modal styles */
+      /* ================== COMPONENT STYLES ================== */
+      /* Component-specific styles */
+
+/* Variable display */
+.variable-collection {
+  margin-bottom: 24px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  padding: 16px;
+  border: 1px solid #eaeaea;
+}
+
+.collection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.collection-name {
+  font-weight: 600;
+  color: #444;
+  font-size: 16px;
+}
+
+.collection-stats {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+.variable-name {
+  font-weight: 500;
+}
+
+.variable-type {
+  text-align: center;
+  width: 100px;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.type-color { background-color: #ffecec; color: #e91e63; }
+.type-float { background-color: #e3f2fd; color: #2196f3; }
+.type-string { background-color: #e8f5e9; color: #4caf50; }
+.type-boolean { background-color: #fff8e1; color: #ff9800; }
+
+.variable-values {
+  width: 40%;
+}
+
+.variable-css {
+  width: 20%;
+}
+
+.css-var-name {
+  font-family: monospace;
+  background-color: #f5f5f5;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: 1px solid #eee;
+}
+
+.css-var-name:hover {
+  background-color: #e6e6e6;
+}
+
+/* Multi-value display */
+.multi-value-container {
+  width: 100%;
+}
+
+.value-toggle {
+  cursor: pointer;
+  background-color: #f0f0f0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toggle-icon {
+  font-size: 8px;
+  color: #666;
+}
+
+.values-list {
+  display: none;
+  margin-top: 8px;
+  background-color: #fff;
+  border-radius: 4px;
+  border: 1px solid #eee;
+  overflow: hidden;
+}
+
+.value-item {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+}
+
+.value-item:last-child {
+  border-bottom: none;
+}
+
+.mode-name {
+  font-weight: 500;
+  font-size: 12px;
+  color: #666;
+  margin-right: 8px;
+  min-width: 80px;
+}
+
+.value-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-value, .value-text {
+  font-family: monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.color-value:hover, .value-text:hover {
+  background-color: #f0f0f0;
+}
+
+.color-preview {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Component hierarchy styling */
+.component-list {
+  max-height: 700px;
+  overflow-y: auto;
+  border-radius: 6px;
+  background-color: #fff;
+  border: 1px solid #eaeaea;
+}
+
+.component-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.component-item:hover {
+  background-color: #f5f5f5;
+}
+
+.component-set {
+  background-color: #f8f9fa;
+  margin-bottom: 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.component-set-header {
+  cursor: pointer;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.component-set-header:hover {
+  background-color: #edf2f7;
+}
+
+.component-set-toggle {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #0d99ff;
+  background-color: #e1f0ff;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.component-set-header.expanded .component-set-toggle {
+  transform: rotate(90deg);
+}
+
+.component-set-children {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.component-set-children.expanded {
+  max-height: 1000px;
+}
+
+.child-component {
+  border-left: 3px solid #0d99ff;
+  margin: 0 0 0 20px;
+  background-color: #fafbfc;
+}
+
+.component-set-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-left: 20px;
+}
+
+.child-component table {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.badge-component { background-color: #e1f0ff; color: #0d99ff; }
+.badge-component-set { background-color: #c9f7f0; color: #0a9882; }
+.badge-state { background-color: #f0e6ff; color: #7e3ff2; }
+.badge-type { background-color: #fff2e0; color: #ff8c00; }
+
+/* Component info layout */
+.component-name {
+  font-weight: 500;
+  margin-right: 10px;
+}
+
+.component-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.component-styles {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f5f7f9;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #555;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  font-family: monospace;
+}
+
+.component-styles.expanded {
+  white-space: pre-wrap;
+  overflow: auto;
+  max-height: 400px;
+  border: 1px solid #e0e0e0;
+  padding: 12px;
+  background-color: #f9f9f9;
+}
+
+.close-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  display: none;
+}
+
+.component-styles.expanded .close-button {
+  display: block;
+}
+
+/* JSON syntax highlighting */
+.json-key { color: #881391; }
+.json-string { color: #1a1aa6; }
+.json-number { color: #1c00cf; }
+.json-boolean { color: #0033b3; }
+.json-null { color: #808080; }
+      
+      /* ================== TAB STYLES ================== */
+      /* Tab system and search/filter styles */
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 16px;
+  background-color: #fff;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab {
+  padding: 12px 24px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  background-color: #f0f7ff;
+}
+
+.tab.active {
+  border-bottom: 2px solid #0d99ff;
+  color: #0d99ff;
+  background-color: #f0f7ff;
+}
+
+.tab-content {
+  display: none;
+  background-color: #fff;
+  border-radius: 0 0 8px 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Search and filters */
+.advanced-search-container {
+  margin-bottom: 16px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #eaeaea;
+}
+
+.search-container {
+  margin-bottom: 16px;
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 16px;
+  padding-right: 40px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.search-input:focus {
+  border-color: #0d99ff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
+}
+
+.filter-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-select {
+  padding: 9px 12px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  background-color: white;
+  font-size: 14px;
+  min-width: 140px;
+}
+
+.filter-select:focus {
+  border-color: #0d99ff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: #e1f0ff;
+  color: #0d99ff;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.filter-tag .remove-filter {
+  margin-left: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: rgba(13, 153, 255, 0.1);
+}
+
+.filter-tag .remove-filter:hover {
+  background-color: rgba(13, 153, 255, 0.2);
+}
+
+.stats-container {
+  display: flex;
+  align-items: center;
+  color: #666;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons .checkbox-group {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+.generate-test-button {
+  background-color: #4caf50;
+}
+
+.generate-test-button:hover {
+  background-color: #3d8b40;
+}
+
+.generate-test-button.loading {
+  background-color: #9e9e9e;
+  cursor: wait;
+}
+
+.generate-all-variants-button {
+  background-color: #e91e63;
+}
+
+.generate-all-variants-button:hover {
+  background-color: #c2185b;
+}
+
+.test-success-message {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-size: 14px;
+  display: none;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin-right: 5px;
+}
+
+.radio-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.radio-group input[type="radio"] {
+  margin-right: 8px;
+}
+      
+      /* Modal styles (keeping from original for now) */
       .modal {
         display: none;
         position: fixed;
@@ -635,35 +752,10 @@
         font-weight: 500;
       }
       
-      .form-group input {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
-        font-size: 14px;
-      }
-      
-      .form-group input:focus {
-        border-color: #0d99ff;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
-      }
-      
       .modal-footer {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
-      }
-
-      .checkbox-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .checkbox-group input[type="checkbox"] {
-        width: auto;
-        margin-right: 5px;
       }
 
       .security-note {
@@ -673,7 +765,7 @@
         padding: 10px;
         margin: 10px 0;
         font-size: 12px;
-        display: none; /* Hidden by default in compact mode */
+        display: none;
       }
 
       .security-note p {
@@ -696,7 +788,7 @@
         font-size: 12px;
         font-style: italic;
         color: #856404;
-        display: none; /* Will be shown conditionally */
+        display: none;
       }
 
       .saved-info {
@@ -735,7 +827,6 @@
         cursor: wait;
       }
 
-      /* Styles for GitLab credentials display and settings */
       .credentials-display {
         display: flex;
         align-items: center;
@@ -778,22 +869,6 @@
       .settings-icon:hover {
         background-color: #e1f0ff;
         color: #0d99ff;
-      }
-
-      textarea {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
-        font-size: 14px;
-        resize: vertical;
-        font-family: "Inter", sans-serif;
-      }
-
-      textarea:focus {
-        border-color: #0d99ff;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(13, 153, 255, 0.15);
       }
 
       .success-message {
@@ -842,7 +917,6 @@
         font-style: italic;
       }
 
-      /* Progress bar styles */
       .progress-bar-container {
         width: 100%;
         height: 8px;
@@ -875,7 +949,6 @@
         border: 1px solid #eaeaea;
       }
 
-      /* Configuration tab styles */
       .config-description {
         margin-bottom: 20px;
         color: #666;
@@ -906,31 +979,6 @@
         font-style: italic;
       }
 
-      .radio-group {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-
-      .radio-group input[type="radio"] {
-        margin-right: 8px;
-      }
-
-      .primary-button {
-        background-color: #4caf50;
-        color: white;
-        padding: 10px 16px;
-        border: none;
-        border-radius: 4px;
-        font-weight: 500;
-        cursor: pointer;
-      }
-
-      .primary-button:hover {
-        background-color: #3d8b40;
-      }
-
-      /* Simplified commit modal */
       .simple-commit-form {
         padding: 16px 0;
       }
@@ -963,6 +1011,7 @@
     </style>
   </head>
   <body>
+    
     <div class="container">
       <h2>aWall Synch</h2>
 
@@ -2268,7 +2317,7 @@
       function openGitLabModal() {
         document.getElementById("gitlab-modal").style.display = "block";
 
-        // Load saved settings from configuration tab (simplified)
+        // Load saved settings from configuration tab
         if (window.gitlabSettings) {
           // Fill in the hidden fields with stored config values
           if (window.gitlabSettings.projectId) {
@@ -2278,18 +2327,37 @@
           if (window.gitlabSettings.gitlabToken) {
             document.getElementById("gitlab-token").value = window.gitlabSettings.gitlabToken;
           }
+          
+          // Handle branch settings based on strategy
+          let displayBranchName = window.gitlabSettings.branchName || "main";
+          
+          // If using feature branch strategy, create a feature branch name
+          if (window.gitlabSettings.branchStrategy === "feature") {
+            const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').substring(0, 12);
+            const commitMsg = document.getElementById("commit-message").value.trim();
+            const branchBase = commitMsg
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '')
+              .substring(0, 20);
+            const prefix = window.gitlabSettings.featurePrefix || "feature/";
+            
+            // Set the branch name for commit
+            displayBranchName = `${prefix}${branchBase}-${timestamp}`;
+            document.getElementById("branch-name").value = displayBranchName;
+          } else {
+            // Using default branch
+            document.getElementById("branch-name").value = window.gitlabSettings.branchName || "main";
+          }
+          
+          // Display the branch name in the UI
+          document.getElementById("target-branch-display").textContent = displayBranchName;
 
-          // Use saved branch name or default to feature
-          document.getElementById("branch-name").value = window.gitlabSettings.branchName || "feature";
-          document.getElementById("target-branch-display").textContent = window.gitlabSettings.branchName || "feature";
-
-          // Set simple file path
-          document.getElementById("file-path").value = window.gitlabSettings.filePath || "variables.css";
+          // Set default file path
+          document.getElementById("file-path").value = window.gitlabSettings.filePath || "src/variables.css";
         } else {
-          // Default settings
-          document.getElementById("target-branch-display").textContent = "feature";
-          document.getElementById("branch-name").value = "feature";
-          document.getElementById("file-path").value = "variables.css";
+          // Display default branch if no settings
+          document.getElementById("target-branch-display").textContent = "main";
         }
       }      // Function to close the GitLab modal
       function closeGitLabModal() {
@@ -2333,7 +2401,7 @@
         const projectId = document.getElementById("gitlab-project-id").value.trim();
         const gitlabToken = document.getElementById("gitlab-token").value.trim();
         const filePath = document.getElementById("file-path").value.trim() || "src/variables.css";
-        const branchName = document.getElementById("branch-name").value.trim() || "feature";
+        const branchName = document.getElementById("branch-name").value.trim() || "feature/variables";
         const createMergeRequest = document.getElementById("create-merge-request").value === "true";
 
         // Get commit message from the visible form
@@ -2351,15 +2419,6 @@
           resetCommitButton();
           return;
         }
-
-        // Debug: Log token info (safely)
-        console.log("GitLab Commit Debug Info:");
-        console.log("- Project ID:", projectId);
-        console.log("- Token exists:", !!gitlabToken);
-        console.log("- Token length:", gitlabToken ? gitlabToken.length : 0);
-        console.log("- Branch:", branchName);
-        console.log("- File path:", filePath);
-        console.log("- Settings loaded:", !!window.gitlabSettings);
 
         if (!commitMessage) {
           alert("Please enter a commit message");
@@ -2467,12 +2526,22 @@
       document
         .getElementById("save-config-button")
         .addEventListener("click", function() {
-          // Get values from configuration fields (simplified)
+          // Get values from configuration fields
           const projectId = document.getElementById("config-project-id").value.trim();
           const token = document.getElementById("config-token").value.trim();
-          const defaultBranch = document.getElementById("config-default-branch").value.trim() || "main";
-          const cssPath = document.getElementById("config-css-path").value.trim() || "variables.css";
+          const defaultBranch = document.getElementById("config-default-branch").value.trim();
+          const cssPath = document.getElementById("config-css-path").value.trim();
+          const testPath = document.getElementById("config-test-path").value.trim();
+          const componentTestPath = document.getElementById("config-component-test-path").value.trim();
           const saveToken = document.getElementById("config-save-token").checked;
+
+          // Get branch strategy
+          const branchStrategy = document.getElementById("config-branch-strategy").value;
+          const featurePrefix = document.getElementById("config-feature-prefix").value.trim();
+
+          // Get commit strategy
+          const strategy = document.querySelector('input[name="commit-strategy"]:checked').value;
+          const createMergeRequest = strategy === "mr";
 
           // Validate required fields
           if (!projectId) {
@@ -2485,7 +2554,7 @@
             return;
           }
 
-          // Save the configuration to Figma's shared plugin data (simplified)
+          // Save the configuration to Figma's shared plugin data
           parent.postMessage(
             {
               pluginMessage: {
@@ -2494,8 +2563,13 @@
                 gitlabToken: token,
                 branchName: defaultBranch,
                 filePath: cssPath,
+                testPath: testPath,
+                componentTestPath: componentTestPath,
                 saveToken: saveToken,
-                shareWithTeam: true // Always share config settings with team
+                shareWithTeam: true, // Always share config settings with team
+                createMergeRequest: createMergeRequest,
+                branchStrategy: branchStrategy,
+                featurePrefix: featurePrefix
               },
             },
             "*"
@@ -2595,6 +2669,1008 @@
           document.getElementById("config-save-token").checked = window.gitlabSettings.saveToken !== false;
         }
       });
+    </script>
+  
+
+    <!-- ================== JAVASCRIPT MODULES ================== -->
+    <script>
+      // Plugin Messenger Service
+      /**
+ * Handles communication with the plugin
+ */
+class PluginMessenger {
+  constructor() {
+    this.listeners = new Map();
+    this.setupMessageListener();
+  }
+
+  /**
+   * Sets up the main message listener
+   */
+  setupMessageListener() {
+    window.addEventListener('message', (event) => {
+      const message = event.data.pluginMessage;
+      if (message && message.type) {
+        this.handleMessage(message);
+      }
+    });
+  }
+
+  /**
+   * Handles incoming messages from the plugin
+   */
+  handleMessage(message) {
+    const listeners = this.listeners.get(message.type) || [];
+    listeners.forEach(callback => {
+      try {
+        callback(message);
+      } catch (error) {
+        console.error(`Error in message listener for ${message.type}:`, error);
+      }
+    });
+  }
+
+  /**
+   * Registers a listener for a specific message type
+   */
+  on(messageType, callback) {
+    if (!this.listeners.has(messageType)) {
+      this.listeners.set(messageType, []);
+    }
+    this.listeners.get(messageType).push(callback);
+  }
+
+  /**
+   * Removes a listener for a specific message type
+   */
+  off(messageType, callback) {
+    const listeners = this.listeners.get(messageType);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Sends a message to the plugin
+   */
+  send(message) {
+    parent.postMessage({ pluginMessage: message }, "*");
+  }
+
+  /**
+   * Convenience methods for common actions
+   */
+  exportCSS(shouldDownload = true) {
+    this.send({
+      type: "export-css",
+      shouldDownload: shouldDownload
+    });
+  }
+
+  generateTest(componentId, componentName, generateAllVariants = false, commitToGitLab = false) {
+    this.send({
+      type: "generate-test",
+      componentId: componentId,
+      componentName: componentName,
+      generateAllVariants: generateAllVariants,
+      commitToGitLab: commitToGitLab
+    });
+  }
+
+  saveGitLabSettings(settings) {
+    this.send({
+      type: "save-gitlab-settings",
+      ...settings
+    });
+  }
+
+  commitToGitLab(options) {
+    this.send({
+      type: "commit-to-gitlab",
+      ...options
+    });
+  }
+
+  commitTestToGitLab(options) {
+    this.send({
+      type: "commit-test-to-gitlab",
+      ...options
+    });
+  }
+}
+
+// Create global instance
+window.pluginMessenger = new PluginMessenger();
+      
+      // Filter Service
+      /**
+ * Handles filtering logic for variables and components
+ */
+class FilterService {
+  constructor() {
+    this.activeFilters = {
+      search: '',
+      type: 'all',
+      collection: 'all'
+    };
+    this.originalData = [];
+    this.onFilterChangeCallback = null;
+  }
+
+  /**
+   * Sets the original data to filter
+   */
+  setData(data) {
+    this.originalData = data;
+  }
+
+  /**
+   * Sets a callback to be called when filters change
+   */
+  onFilterChange(callback) {
+    this.onFilterChangeCallback = callback;
+  }
+
+  /**
+   * Updates a filter and applies all filters
+   */
+  updateFilter(filterType, value) {
+    this.activeFilters[filterType] = value;
+    this.applyFilters();
+  }
+
+  /**
+   * Clears a specific filter
+   */
+  clearFilter(filterType) {
+    if (filterType === 'search') {
+      this.activeFilters.search = '';
+    } else if (filterType === 'type') {
+      this.activeFilters.type = 'all';
+    } else if (filterType === 'collection') {
+      this.activeFilters.collection = 'all';
+    }
+    this.applyFilters();
+  }
+
+  /**
+   * Applies all active filters to the data
+   */
+  applyFilters() {
+    const searchTerm = this.activeFilters.search.toLowerCase();
+    const typeFilter = this.activeFilters.type;
+    const collectionFilter = this.activeFilters.collection;
+
+    // Create a filtered copy of the variables data
+    let filteredData = [...this.originalData];
+
+    // Apply collection filter first if specified
+    if (collectionFilter !== 'all') {
+      filteredData = filteredData.filter(collection =>
+        collection.name === collectionFilter
+      );
+    }
+
+    // Then apply type and search filters to variables within collections
+    filteredData = filteredData.map(collection => {
+      return {
+        ...collection,
+        variables: collection.variables.filter(variable => {
+          // Filter by type
+          const typeMatch = typeFilter === 'all' || variable.resolvedType === typeFilter;
+
+          // Filter by search term (match name or values)
+          let searchMatch = true;
+          if (searchTerm) {
+            // Check if name matches
+            const nameMatch = variable.name.toLowerCase().includes(searchTerm);
+
+            // Check if any value matches (for strings, numerics, etc.)
+            let valueMatch = false;
+
+            // Look through all modes and their values
+            for (const mode of variable.valuesByMode) {
+              const value = mode.value;
+
+              if (typeof value === 'string' && value.toLowerCase().includes(searchTerm)) {
+                valueMatch = true;
+                break;
+              } else if (typeof value === 'number' && value.toString().includes(searchTerm)) {
+                valueMatch = true;
+                break;
+              } else if (
+                typeof value === 'object' &&
+                value !== null &&
+                'r' in value &&
+                'g' in value &&
+                'b' in value
+              ) {
+                // For colors, convert to hex and check if it matches
+                const r = Math.round(value.r * 255);
+                const g = Math.round(value.g * 255);
+                const b = Math.round(value.b * 255);
+                const a = value.a !== undefined ? value.a : 1;
+
+                const hexColor = this.rgbaToHex(r, g, b, a);
+                if (hexColor.toLowerCase().includes(searchTerm)) {
+                  valueMatch = true;
+                  break;
+                }
+              }
+            }
+
+            // Match if either name or value matches
+            searchMatch = nameMatch || valueMatch;
+          }
+
+          return typeMatch && searchMatch;
+        })
+      };
+    }).filter(collection => collection.variables.length > 0);
+
+    // Call the callback with filtered data
+    if (this.onFilterChangeCallback) {
+      this.onFilterChangeCallback(filteredData, this.getActiveFilterTags());
+    }
+  }
+
+  /**
+   * Gets active filter tags for display
+   */
+  getActiveFilterTags() {
+    const tags = [];
+
+    if (this.activeFilters.search) {
+      tags.push({
+        type: 'search',
+        label: `Search: "${this.activeFilters.search}"`
+      });
+    }
+
+    if (this.activeFilters.type !== 'all') {
+      tags.push({
+        type: 'type',
+        label: `Type: ${this.activeFilters.type}`
+      });
+    }
+
+    if (this.activeFilters.collection !== 'all') {
+      tags.push({
+        type: 'collection',
+        label: `Collection: ${this.activeFilters.collection}`
+      });
+    }
+
+    return tags;
+  }
+
+  /**
+   * Filters components by search term
+   */
+  filterComponents(componentsData, searchTerm) {
+    if (!searchTerm) {
+      return componentsData;
+    }
+
+    const lowerSearchTerm = searchTerm.toLowerCase();
+
+    return componentsData.filter(component =>
+      component.name.toLowerCase().includes(lowerSearchTerm) ||
+      (component.children &&
+        component.children.some(child =>
+          child.name.toLowerCase().includes(lowerSearchTerm)
+        ))
+    );
+  }
+
+  /**
+   * Convert RGBA to HEX color (helper method)
+   */
+  rgbaToHex(r, g, b, a = 1) {
+    const toHex = (value) => {
+      const hex = value.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    if (a === 1) {
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    const alphaHex = Math.round(a * 255);
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(alphaHex)}`;
+  }
+}
+
+// Create global instance
+window.filterService = new FilterService();
+      
+      // Download Service
+      /**
+ * Handles file downloads and exports
+ */
+class DownloadService {
+  /**
+   * Downloads CSS content as a file
+   */
+  static downloadCSS(cssString) {
+    if (!cssString) {
+      console.error("No CSS data to download");
+      alert("Error: No CSS data available to download.");
+      return;
+    }
+
+    try {
+      // Create a blob with the CSS content
+      const blob = new Blob([cssString], { type: "text/css" });
+      const url = URL.createObjectURL(blob);
+
+      // Create an anchor element for download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "figma-variables.css";
+
+      // Append to body, click, and cleanup
+      document.body.appendChild(a);
+      a.click();
+
+      // Give browser time to start the download before cleanup
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+
+      console.log("CSS download initiated", { size: cssString.length });
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Failed to download CSS file. Please try again.");
+    }
+  }
+
+  /**
+   * Downloads a test file
+   */
+  static downloadTest(componentName, testContent) {
+    // Create a kebab case version of the component name for the file name
+    const kebabName = componentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    const blob = new Blob([testContent], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${kebabName}.component.spec.ts`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Downloads a ZIP file with multiple components
+   */
+  static downloadComponentsZip(files, language) {
+    if (!files || files.length === 0) {
+      alert("No components available to export");
+      return;
+    }
+
+    // Create a new JSZip instance (JSZip needs to be loaded in HTML)
+    const zip = new JSZip();
+
+    // Add files to the ZIP based on the selected language
+    files.forEach((component) => {
+      const folderName = component.kebabName;
+      const folder = zip.folder(folderName);
+
+      if (language === "angular") {
+        // Add all Angular component files
+        folder.file(`${folderName}.component.html`, component.angularHtml);
+        folder.file(`${folderName}.component.ts`, component.angularTs);
+        folder.file(
+          `${folderName}.component.scss`,
+          `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`
+        );
+      } else if (language === "typescript") {
+        // Add only TypeScript file
+        folder.file(`${folderName}.component.ts`, component.angularTs);
+      } else if (language === "javascript") {
+        // Convert TypeScript to JavaScript (basic conversion)
+        const jsCode = component.angularTs
+          .replace(/: [A-Za-z<>[\]]+/g, "") // Remove type annotations
+          .replace(/interface [^}]+}/g, ""); // Remove interfaces
+
+        folder.file(`${folderName}.component.js`, jsCode);
+      }
+    });
+
+    // Generate and download the ZIP
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `figma-components-${language}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  /**
+   * Creates a downloadable file from content
+   */
+  static createDownload(content, filename, mimeType = 'text/plain') {
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      return true;
+    } catch (error) {
+      console.error('Download creation failed:', error);
+      return false;
+    }
+  }
+}
+
+// Make it globally available
+window.DownloadService = DownloadService;
+      
+      // Formatters
+      /**
+ * Utility functions for formatting data
+ */
+
+/**
+ * Format different value types for display
+ */
+function formatValue(value, type) {
+  if (value === null || value === undefined) return 'null';
+
+  if (type === 'FLOAT') {
+    // Format numbers with up to 2 decimal places
+    return typeof value === 'number' ? value.toFixed(2).replace(/\.00$/, '') : value;
+  } else if (type === 'BOOLEAN') {
+    return value ? 'true' : 'false';
+  } else if (type === 'STRING') {
+    return `"${value}"`;
+  } else {
+    return JSON.stringify(value);
+  }
+}
+
+/**
+ * Convert RGBA to HEX color
+ */
+function rgbaToHex(r, g, b, a = 1) {
+  const toHex = (value) => {
+    const hex = value.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  // If fully opaque, return hex without alpha
+  if (a === 1) {
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  // Otherwise include alpha channel
+  const alphaHex = Math.round(a * 255);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(alphaHex)}`;
+}
+
+/**
+ * Extract component type and state from name
+ */
+function parseComponentName(name) {
+  const result = {
+    name: name,
+    type: null,
+    state: null,
+  };
+
+  // Check for Type=X pattern
+  const typeMatch = name.match(/Type=([^,]+)/i);
+  if (typeMatch && typeMatch[1]) {
+    result.type = typeMatch[1].trim();
+  }
+
+  // Check for State=X pattern
+  const stateMatch = name.match(/State=([^,]+)/i);
+  if (stateMatch && stateMatch[1]) {
+    result.state = stateMatch[1].trim();
+  }
+
+  return result;
+}
+
+/**
+ * Format component styles for readability
+ */
+function formatStyles(styles) {
+  if (!styles) return "";
+
+  // Try to parse and format the JSON
+  try {
+    if (typeof styles === "string") {
+      styles = JSON.parse(styles);
+    }
+
+    // Format the JSON with proper indentation
+    const styleStr = JSON.stringify(styles, null, 2);
+    
+    // Apply syntax highlighting to the JSON
+    const highlightedJson = highlightJson(styleStr);
+    
+    // Show more content in the collapsed view (up to 300 characters)
+    // and add a "Click to expand" indicator
+    if (styleStr.length > 300) {
+      return highlightedJson.substring(0, 300) + "... (Click to expand)";
+    }
+    
+    return highlightedJson;
+  } catch (e) {
+    return String(styles);
+  }
+}
+
+/**
+ * Function to highlight JSON syntax
+ */
+function highlightJson(json) {
+  // First, ensure proper indentation for the opening brace
+  json = json.replace(/^\s*{\s*/, '{\n  ');
+  
+  return json
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+      let cls = 'json-number';
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'json-key';
+        } else {
+          cls = 'json-string';
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'json-boolean';
+      } else if (/null/.test(match)) {
+        cls = 'json-null';
+      }
+      return '<span class="' + cls + '">' + match + '</span>';
+    });
+}
+
+/**
+ * Create a kebab-case string from any string
+ */
+function toKebabCase(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+/**
+ * Create a PascalCase string from any string
+ */
+function toPascalCase(str) {
+  return str.replace(/[^a-zA-Z0-9]/g, "");
+}
+
+/**
+ * Generate a timestamp for branch names
+ */
+function generateTimestamp() {
+  return new Date().toISOString().replace(/[-:.TZ]/g, '').substring(0, 12);
+}
+
+/**
+ * Create a feature branch name from commit message
+ */
+function createFeatureBranchName(commitMessage, prefix = "feature/") {
+  const timestamp = generateTimestamp();
+  const branchBase = commitMessage
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 20);
+  
+  return `${prefix}${branchBase}-${timestamp}`;
+}
+
+// Make functions globally available
+window.formatters = {
+  formatValue,
+  rgbaToHex,
+  parseComponentName,
+  formatStyles,
+  highlightJson,
+  toKebabCase,
+  toPascalCase,
+  generateTimestamp,
+  createFeatureBranchName
+};
+      
+      // DOM Helpers
+      /**
+ * DOM manipulation utilities
+ */
+
+/**
+ * Copy text to clipboard
+ */
+function copyToClipboard(text, element) {
+  navigator.clipboard.writeText(text).then(
+    function() {
+      // Show feedback
+      const originalText = element.textContent;
+      element.textContent = "Copied!";
+
+      // Reset after 1.5 seconds
+      setTimeout(() => {
+        element.textContent = originalText;
+      }, 1500);
+    }
+  );
+}
+
+/**
+ * Toggle display of multiple values
+ */
+function toggleValues(element) {
+  const valuesList = element.nextElementSibling;
+  const toggleIcon = element.querySelector('.toggle-icon');
+
+  if (valuesList.style.display === 'none' || !valuesList.style.display) {
+    valuesList.style.display = 'block';
+    toggleIcon.textContent = '▲';
+  } else {
+    valuesList.style.display = 'none';
+    toggleIcon.textContent = '▼';
+  }
+}
+
+/**
+ * Toggle component set expansion
+ */
+function toggleComponentSet(index) {
+  const headerEl = document.querySelector(
+    `.component-set-header[data-index="${index}"]`
+  );
+  const childrenEl = document.getElementById(`children-${index}`);
+
+  if (childrenEl.classList.contains("expanded")) {
+    childrenEl.classList.remove("expanded");
+    headerEl.classList.remove("expanded");
+    headerEl.querySelector(".component-set-toggle").textContent = "+";
+  } else {
+    childrenEl.classList.add("expanded");
+    headerEl.classList.add("expanded");
+    headerEl.querySelector(".component-set-toggle").textContent = "›";
+  }
+}
+
+/**
+ * Toggle styles display
+ */
+function toggleStyles(element) {
+  element.classList.toggle("expanded");
+  
+  // If we're expanding, scroll the element into view
+  if (element.classList.contains("expanded")) {
+    setTimeout(() => {
+      element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  }
+}
+
+/**
+ * Show/hide elements with smooth transitions
+ */
+function fadeIn(element, duration = 300) {
+  element.style.opacity = '0';
+  element.style.display = 'block';
+  
+  const startTime = performance.now();
+  
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    element.style.opacity = progress;
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+  
+  requestAnimationFrame(animate);
+}
+
+function fadeOut(element, duration = 300) {
+  const startTime = performance.now();
+  const startOpacity = parseFloat(window.getComputedStyle(element).opacity);
+  
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    element.style.opacity = startOpacity * (1 - progress);
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      element.style.display = 'none';
+    }
+  }
+  
+  requestAnimationFrame(animate);
+}
+
+/**
+ * Create and show a toast notification
+ */
+function showToast(message, type = 'info', duration = 3000) {
+  // Remove any existing toast
+  const existingToast = document.querySelector('.toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  
+  // Add toast styles if not already defined
+  if (!document.querySelector('#toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'toast-styles';
+    style.textContent = `
+      .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 4px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .toast-info { background-color: #2196f3; }
+      .toast-success { background-color: #4caf50; }
+      .toast-warning { background-color: #ff9800; }
+      .toast-error { background-color: #f44336; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Add to DOM and show
+  document.body.appendChild(toast);
+  
+  // Trigger fade in
+  setTimeout(() => {
+    toast.style.opacity = '1';
+  }, 10);
+
+  // Auto remove after duration
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  }, duration);
+}
+
+/**
+ * Debounce function calls
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Get element by ID with error handling
+ */
+function safeGetElement(id) {
+  const element = document.getElementById(id);
+  if (!element) {
+    console.warn(`Element with ID '${id}' not found`);
+  }
+  return element;
+}
+
+/**
+ * Set button loading state
+ */
+function setButtonLoading(button, isLoading, loadingText = 'Loading...') {
+  if (isLoading) {
+    button.dataset.originalText = button.textContent;
+    button.textContent = loadingText;
+    button.disabled = true;
+    button.classList.add('loading');
+  } else {
+    button.textContent = button.dataset.originalText || button.textContent;
+    button.disabled = false;
+    button.classList.remove('loading');
+  }
+}
+
+// Make functions globally available
+window.domHelpers = {
+  copyToClipboard,
+  toggleValues,
+  toggleComponentSet,
+  toggleStyles,
+  fadeIn,
+  fadeOut,
+  showToast,
+  debounce,
+  safeGetElement,
+  setButtonLoading
+};
+
+// Also make individual functions global for backward compatibility
+window.copyToClipboard = copyToClipboard;
+window.toggleValues = toggleValues;
+window.toggleComponentSet = toggleComponentSet;
+window.toggleStyles = toggleStyles;
+      
+      // Main application logic (extracted from original)
+      let variablesData = [];
+      let componentsData = [];
+      let currentCSSData = null;
+      window.gitlabSettings = null;
+
+      // Initialize services
+      function initializeApp() {
+        // Set up plugin messenger listeners
+        window.pluginMessenger.on('document-data', (message) => {
+          variablesData = message.variablesData;
+          componentsData = message.componentsData;
+
+          renderVariables(variablesData);
+          renderComponents(componentsData);
+
+          // Enable buttons if there are variables
+          const exportButton = document.getElementById("export-css-button");
+          const commitButton = document.getElementById("commit-repo-button");
+          
+          if (variablesData && variablesData.some(collection => collection.variables.length > 0)) {
+            exportButton.disabled = false;
+            commitButton.disabled = false;
+          } else {
+            exportButton.disabled = true;
+            commitButton.disabled = true;
+          }
+        });
+
+        window.pluginMessenger.on('gitlab-settings-loaded', (message) => {
+          window.gitlabSettings = message.settings;
+          console.log("GitLab settings loaded");
+        });
+
+        window.pluginMessenger.on('css-export', (message) => {
+          currentCSSData = message.cssData;
+          
+          const exportButton = document.getElementById("export-css-button");
+          exportButton.disabled = false;
+          exportButton.textContent = "Export Variables as CSS";
+
+          if (message.shouldDownload) {
+            window.DownloadService.downloadCSS(message.cssData);
+          }
+        });
+
+        window.pluginMessenger.on('test-generated', (message) => {
+          window.DownloadService.downloadTest(message.componentName, message.testContent);
+          
+          // Show success message logic here
+          const buttons = document.querySelectorAll('button.loading');
+          buttons.forEach(button => {
+            if (button.textContent === 'Generating...') {
+              button.classList.remove('loading');
+              button.textContent = button.dataset.originalText || 'Generate Test';
+              button.disabled = false;
+
+              const successMessage = button.parentElement.nextElementSibling;
+              if (successMessage && successMessage.classList.contains('test-success-message')) {
+                if (message.commitToGitLab) {
+                  successMessage.textContent = "Test generated and committed to GitLab!";
+                } else {
+                  successMessage.textContent = "Test generated successfully!";
+                }
+                successMessage.style.display = 'block';
+
+                setTimeout(() => {
+                  successMessage.style.display = 'none';
+                  successMessage.textContent = "Test generated successfully!";
+                }, 3000);
+              }
+            }
+          });
+        });
+
+        // Set up other event listeners...
+        setupEventListeners();
+      }
+
+      function setupEventListeners() {
+        // Tab switching
+        document.querySelectorAll(".tab").forEach((tab) => {
+          tab.addEventListener("click", () => {
+            document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+            document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+
+            tab.classList.add("active");
+            document.getElementById(tab.dataset.tab + "-content").classList.add("active");
+          });
+        });
+
+        // Export CSS button
+        document.getElementById("export-css-button").addEventListener("click", () => {
+          const button = document.getElementById("export-css-button");
+          button.disabled = true;
+          const originalText = button.textContent;
+          button.textContent = "Exporting...";
+
+          window.pluginMessenger.exportCSS(true);
+
+          setTimeout(() => {
+            if (button.textContent === "Exporting...") {
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          }, 5000);
+        });
+
+        // Other event listeners...
+      }
+
+      // Render functions (simplified versions)
+      function renderVariables(data) {
+        const container = document.getElementById("variables-container");
+        // Add your variable rendering logic here
+        console.log("Rendering variables:", data);
+      }
+
+      function renderComponents(data) {
+        const container = document.getElementById("components-container");
+        // Add your component rendering logic here  
+        console.log("Rendering components:", data);
+      }
+
+      // Initialize the app
+      document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
   </body>
 </html>

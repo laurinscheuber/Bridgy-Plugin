@@ -463,11 +463,19 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             const collections = yield figma.variables.getLocalVariableCollectionsAsync();
             let cssContent = "/* Figma Variables Export */\n";
             cssContent += `/* Generated: ${new Date().toLocaleString()} */\n\n`;
+            // Create separate sections for base tokens and semantic tokens
+            let baseTokensContent = "";
+            let semanticTokensContent = "\n  /* Semantic Variables */\n";
             cssContent += ":root {\n";
             // Process each collection
+            let processedCollections = new Set();
             for (const collection of collections) {
                 let hasValidVariables = false;
-                let collectionContent = `  /* ${collection.name} */\n`;
+                // Add minimal collection header to base tokens section if not already added
+                if (!processedCollections.has(collection.name)) {
+                    baseTokensContent += `\n  /* ${collection.name} */\n`;
+                    processedCollections.add(collection.name);
+                }
                 // Get all variables in the collection
                 for (const variableId of collection.variableIds) {
                     const variable = yield figma.variables.getVariableByIdAsync(variableId);
@@ -476,17 +484,46 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                     // Get the default mode (first mode)
                     const defaultModeId = collection.modes[0].modeId;
                     const value = variable.valuesByMode[defaultModeId];
-                    // Skip variables that reference other variables
+                    // Handle variable aliases (references to other variables)
                     if (value &&
                         typeof value === "object" &&
                         "type" in value &&
                         value.type === "VARIABLE_ALIAS") {
+                        // Get the referenced variable
+                        const referencedVariableId = value.id;
+                        const referencedVariable = yield figma.variables.getVariableByIdAsync(referencedVariableId);
+                        if (!referencedVariable)
+                            continue;
+                        // Format the referenced variable name
+                        const referencedVarCollection = yield figma.variables.getVariableCollectionByIdAsync(referencedVariable.variableCollectionId);
+                        if (!referencedVarCollection)
+                            continue;
+                        // Create the full reference path with collection name prefix
+                        const referencedVarCollectionName = referencedVarCollection.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-");
+                        const referencedVarName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                        const fullReferencePath = `${referencedVarCollectionName}-${referencedVarName}`;
+                        // Format the variable name (replace spaces and special characters)
+                        const formattedName = variable.name
+                            .replace(/[^a-zA-Z0-9]/g, "-")
+                            .toLowerCase();
+                        // Format the current collection name
+                        const collectionName = collection.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-");
+                        const fullVarName = `${collectionName}-${formattedName}`;
+                        // Add the CSS variable reference to semantic tokens section without excessive comments
+                        semanticTokensContent += `  --${fullVarName}: var(--${fullReferencePath});\n`;
+                        hasValidVariables = true;
                         continue;
                     }
                     // Format the variable name (replace spaces and special characters)
-                    const formattedName = variable.name
+                    const varName = variable.name
                         .replace(/[^a-zA-Z0-9]/g, "-")
                         .toLowerCase();
+                    // Format the collection name for prefix
+                    const collectionPrefix = collection.name
+                        .toLowerCase()
+                        .replace(/[^a-zA-Z0-9]/g, "-");
+                    // Combine for the full variable name
+                    const formattedName = `${collectionPrefix}-${varName}`;
                     // Format the value based on the variable type
                     let formattedValue = "";
                     if (variable.resolvedType === "COLOR") {
@@ -541,15 +578,34 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                     else {
                         continue; // Skip unknown types
                     }
-                    // Add the CSS variable
-                    collectionContent += `  --${formattedName}: ${formattedValue};\n`;
+                    // Add to base tokens section without excessive comments
+                    if (variable.resolvedType === "COLOR" &&
+                        typeof value === "object" &&
+                        "r" in value && "g" in value && "b" in value) {
+                        const r = Math.round(value.r * 255);
+                        const g = Math.round(value.g * 255);
+                        const b = Math.round(value.b * 255);
+                        const a = 'a' in value ? value.a : 1;
+                        // Convert to hex for reference
+                        const toHex = (val) => {
+                            const hex = val.toString(16);
+                            return hex.length === 1 ? '0' + hex : hex;
+                        };
+                        // Keep only the base variable definition without additional commentary
+                        baseTokensContent += `  --${formattedName}: ${formattedValue};\n`;
+                    }
+                    else {
+                        // Other variable types (numbers, strings, booleans)
+                        baseTokensContent += `  --${formattedName}: ${formattedValue};\n`;
+                    }
                     hasValidVariables = true;
                 }
-                // Only add the collection content if it has valid variables
-                if (hasValidVariables) {
-                    cssContent += collectionContent + "\n";
-                }
+                // Collection content is now processed into baseTokensContent
+                // and semanticTokensContent, no need to append here anymore
             }
+            // Combine the base tokens and semantic tokens
+            cssContent += baseTokensContent + "\n";
+            cssContent += semanticTokensContent;
             // Close the root selector
             cssContent += "}\n\n";
             // Add media query for dark mode if needed
@@ -562,6 +618,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             figma.ui.postMessage({
                 type: "css-export",
                 cssData: cssContent,
+                shouldDownload: msg.shouldDownload
             });
         }
         catch (error) {
@@ -581,6 +638,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             const componentId = msg.componentId || "";
             const component = componentMap.get(componentId);
             const generateAllVariants = msg.generateAllVariants === true;
+            const commitToGitLab = msg.commitToGitLab === true;
             if (!component) {
                 figma.ui.postMessage({
                     type: "error",
@@ -595,6 +653,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 type: "test-generated",
                 componentName: msg.componentName || component.name,
                 testContent: testContent,
+                commitToGitLab: commitToGitLab,
                 isComponentSet: component.type === "COMPONENT_SET",
                 hasAllVariants: generateAllVariants,
             });
@@ -615,6 +674,8 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 saveToken: msg.saveToken || false, // Whether to save the token
                 savedAt: new Date().toISOString(),
                 savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user",
+                branchName: msg.branchName || "feature",
+                filePath: msg.filePath || "variables.css"
             };
             // If user didn't opt to save the token, don't store it
             if (!settings.saveToken) {
@@ -647,20 +708,32 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             });
         }
     }
-    else if (msg.type === "commit-to-gitlab") {
+    else if (msg.type === "commit-test-to-gitlab") {
         try {
             if (!msg.projectId ||
                 !msg.gitlabToken ||
                 !msg.commitMessage ||
-                !msg.cssData) {
-                throw new Error("Missing required fields for GitLab commit");
+                !msg.testContent ||
+                !msg.filePath) {
+                throw new Error("Missing required fields for GitLab test commit");
             }
+            // Update UI with progress
+            figma.ui.postMessage({
+                type: "commit-progress",
+                progress: 10,
+                message: "Preparing to commit test file...",
+            });
             // Construct the GitLab API URL using the project ID
             const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
-            // If filePath is empty string, use the default path
-            const filePath = msg.filePath === "" ? "src/variables.css" : (msg.filePath || "src/variables.css");
+            const filePath = msg.filePath;
+            const branchName = msg.branchName || "feature";
             // First, check if the file exists
-            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/files/${encodeURIComponent(filePath)}?ref=main`;
+            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${branchName}`;
+            figma.ui.postMessage({
+                type: "commit-progress",
+                progress: 20,
+                message: "Checking if file exists...",
+            });
             const checkResponse = yield fetch(checkFileUrl, {
                 method: "GET",
                 headers: {
@@ -675,31 +748,40 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 // Get the current content info for update
                 fileData = yield checkResponse.json();
                 action = "update";
+                figma.ui.postMessage({
+                    type: "commit-progress",
+                    progress: 40,
+                    message: "Updating existing test file...",
+                });
+            }
+            else {
+                figma.ui.postMessage({
+                    type: "commit-progress",
+                    progress: 40,
+                    message: "Creating new test file...",
+                });
             }
             // Prepare the commit data
             const commitAction = {
                 action: action,
                 file_path: filePath,
-                content: msg.cssData,
+                content: msg.testContent,
+                encoding: "text"
             };
-            // For file updates, we need to either use the last_commit_id or force option
-            if (action === "update") {
-                // Always include encoding for proper content handling
-                commitAction.encoding = "text";
-                // If we have the last commit ID, use it for proper versioning
-                if (fileData && fileData.last_commit_id) {
-                    commitAction.last_commit_id = fileData.last_commit_id;
-                }
-            }
-            else {
-                // For new files, still specify encoding for consistency
-                commitAction.encoding = "text";
+            // For file updates, if we have the last commit ID, use it for proper versioning
+            if (action === "update" && fileData && fileData.last_commit_id) {
+                commitAction.last_commit_id = fileData.last_commit_id;
             }
             const commitData = {
-                branch: "main", // Default to main branch
+                branch: branchName,
                 commit_message: msg.commitMessage,
                 actions: [commitAction],
             };
+            figma.ui.postMessage({
+                type: "commit-progress",
+                progress: 70,
+                message: "Committing to GitLab...",
+            });
             // Make the API request to GitLab
             const response = yield fetch(gitlabApiUrl, {
                 method: "POST",
@@ -711,19 +793,234 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             });
             if (!response.ok) {
                 const errorData = yield response.json();
-                throw new Error(errorData.message || "Failed to commit to GitLab");
+                // Enhanced error handling for common GitLab issues
+                if (response.status === 403) {
+                    throw new Error(`403 Forbidden - You are not allowed to push into branch '${branchName}'. This could be due to:\n\n1. Insufficient token permissions\n2. Branch protection rules\n3. Repository access restrictions\n\nPlease check:\n- Your GitLab token has 'write_repository' scope\n- You have Developer/Maintainer role on the project\n- The branch '${branchName}' allows pushes`);
+                }
+                else if (response.status === 401) {
+                    throw new Error("401 Unauthorized - Invalid or expired GitLab token. Please check your token in the Configuration tab.");
+                }
+                else if (response.status === 404) {
+                    throw new Error(`404 Not Found - Project ID '${msg.projectId}' not found. Please verify the project ID in the Configuration tab.`);
+                }
+                throw new Error(errorData.message || `Failed to commit test to GitLab (${response.status})`);
             }
+            figma.ui.postMessage({
+                type: "commit-progress",
+                progress: 100,
+                message: "Test file committed successfully!",
+            });
+            // Send success message back to UI
+            figma.ui.postMessage({
+                type: "commit-test-success",
+                filePath: filePath
+            });
+        }
+        catch (error) {
+            console.error("Error committing test to GitLab:", error);
+            figma.ui.postMessage({
+                type: "commit-error",
+                error: error.message || "Unknown error occurred while committing test",
+            });
+        }
+    }
+    else if (msg.type === "commit-to-gitlab") {
+        try {
+            // Enhanced logging for debugging
+            console.log("=== GitLab Commit Debug Start ===");
+            console.log("Message received:", {
+                type: msg.type,
+                projectId: msg.projectId,
+                hasToken: !!msg.gitlabToken,
+                tokenLength: msg.gitlabToken ? msg.gitlabToken.length : 0,
+                commitMessage: msg.commitMessage,
+                filePath: msg.filePath,
+                hasCssData: !!msg.cssData,
+                cssDataLength: msg.cssData ? msg.cssData.length : 0
+            });
+            if (!msg.projectId ||
+                !msg.gitlabToken ||
+                !msg.commitMessage ||
+                !msg.cssData) {
+                throw new Error("Missing required fields for GitLab commit");
+            }
+            // Construct the GitLab API URL using the project ID
+            const gitlabApiUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/commits`;
+            const filePath = msg.filePath || 'variables.css'; // Revert to simple file path
+            console.log("GitLab API Details:", {
+                apiUrl: gitlabApiUrl,
+                filePath: filePath,
+                tokenPrefix: msg.gitlabToken.substring(0, 8) + "..." // Safe token logging
+            });
+            // Step 1: Test basic project access
+            console.log("Step 1: Testing project access...");
+            const projectTestUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}`;
+            const projectTestResponse = yield fetch(projectTestUrl, {
+                method: 'GET',
+                headers: {
+                    'PRIVATE-TOKEN': msg.gitlabToken
+                }
+            });
+            console.log("Project access test:", {
+                status: projectTestResponse.status,
+                statusText: projectTestResponse.statusText,
+                ok: projectTestResponse.ok
+            });
+            if (!projectTestResponse.ok) {
+                const projectError = yield projectTestResponse.json();
+                console.error("Project access failed:", projectError);
+                throw new Error(`Cannot access project: ${projectTestResponse.status} ${projectTestResponse.statusText}`);
+            }
+            const projectInfo = yield projectTestResponse.json();
+            console.log("Project info:", {
+                name: projectInfo.name,
+                defaultBranch: projectInfo.default_branch,
+                permissions: projectInfo.permissions
+            });
+            // Step 2: Check file existence
+            const targetBranch = msg.branchName || 'feature';
+            console.log("Step 2: Checking file existence...");
+            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${targetBranch}`;
+            console.log("File check URL:", checkFileUrl);
+            const checkResponse = yield fetch(checkFileUrl, {
+                method: 'GET',
+                headers: {
+                    'PRIVATE-TOKEN': msg.gitlabToken
+                }
+            });
+            console.log("File existence check:", {
+                status: checkResponse.status,
+                statusText: checkResponse.statusText,
+                ok: checkResponse.ok
+            });
+            // Determine if we should create or update the file
+            const fileExists = checkResponse.ok;
+            const action = fileExists ? 'update' : 'create';
+            console.log("File action determined:", {
+                fileExists: fileExists,
+                action: action
+            });
+            // Step 3: Check branch permissions
+            console.log("Step 3: Testing branch access...");
+            const branchTestUrl = `https://gitlab.fhnw.ch/api/v4/projects/${msg.projectId}/repository/branches/${targetBranch}`;
+            const branchTestResponse = yield fetch(branchTestUrl, {
+                method: 'GET',
+                headers: {
+                    'PRIVATE-TOKEN': msg.gitlabToken
+                }
+            });
+            console.log("Branch access test:", {
+                status: branchTestResponse.status,
+                statusText: branchTestResponse.statusText,
+                ok: branchTestResponse.ok
+            });
+            if (branchTestResponse.ok) {
+                const branchInfo = yield branchTestResponse.json();
+                console.log("Branch info:", {
+                    name: branchInfo.name,
+                    protected: branchInfo.protected,
+                    can_push: branchInfo.can_push,
+                    developers_can_push: branchInfo.developers_can_push,
+                    developers_can_merge: branchInfo.developers_can_merge
+                });
+                if (branchInfo.protected && !branchInfo.can_push) {
+                    console.warn("WARNING: Branch is protected and user cannot push!");
+                }
+            }
+            // Prepare the commit data (simplified version)
+            const commitData = {
+                branch: msg.branchName || 'feature',
+                commit_message: msg.commitMessage,
+                actions: [
+                    {
+                        action: action,
+                        file_path: filePath,
+                        content: msg.cssData
+                    }
+                ]
+            };
+            console.log("Commit data prepared:", {
+                branch: commitData.branch,
+                message: commitData.commit_message,
+                actionType: commitData.actions[0].action,
+                filePath: commitData.actions[0].file_path,
+                contentLength: commitData.actions[0].content.length
+            });
+            // Step 4: Attempt the commit
+            console.log("Step 4: Attempting GitLab commit...");
+            const response = yield fetch(gitlabApiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "PRIVATE-TOKEN": msg.gitlabToken,
+                },
+                body: JSON.stringify(commitData),
+            });
+            console.log("Commit response:", {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                headers: 'Headers object (cannot enumerate in this environment)'
+            });
+            if (!response.ok) {
+                let errorData;
+                try {
+                    errorData = yield response.json();
+                    console.error("GitLab API Error Response:", errorData);
+                }
+                catch (jsonError) {
+                    console.error("Failed to parse error response as JSON:", jsonError);
+                    errorData = { message: `HTTP ${response.status} ${response.statusText}` };
+                }
+                // Enhanced error handling for common GitLab issues
+                if (response.status === 403) {
+                    console.error("=== 403 FORBIDDEN ERROR ANALYSIS ===");
+                    console.error("This means the API call was authenticated but not authorized");
+                    console.error("Possible causes:");
+                    console.error("1. Token missing 'write_repository' or 'api' scope");
+                    console.error("2. User role insufficient (needs Developer+ for unprotected, Maintainer+ for protected)");
+                    console.error("3. Branch protection rules blocking the push");
+                    console.error("4. Repository settings preventing commits");
+                    console.error("Error details:", errorData);
+                    throw new Error(`403 Forbidden - You are not allowed to push into this branch. This could be due to:\n\n1. Insufficient token permissions\n2. Branch protection rules\n3. Repository access restrictions\n\nPlease check:\n- Your GitLab token has 'write_repository' scope\n- You have Developer/Maintainer role on the project\n- The target branch allows pushes\n\nDetailed error: ${errorData.message || 'No additional details'}`);
+                }
+                else if (response.status === 401) {
+                    console.error("=== 401 UNAUTHORIZED ERROR ===");
+                    console.error("Token authentication failed");
+                    console.error("Error details:", errorData);
+                    throw new Error("401 Unauthorized - Invalid or expired GitLab token. Please check your token in the Configuration tab.");
+                }
+                else if (response.status === 404) {
+                    console.error("=== 404 NOT FOUND ERROR ===");
+                    console.error("Project or resource not found");
+                    console.error("Error details:", errorData);
+                    throw new Error(`404 Not Found - Project ID '${msg.projectId}' not found. Please verify the project ID in the Configuration tab.`);
+                }
+                console.error("=== UNEXPECTED ERROR ===");
+                console.error("Status:", response.status);
+                console.error("Error data:", errorData);
+                throw new Error(errorData.message || `Failed to commit to GitLab (${response.status})`);
+            }
+            const successData = yield response.json();
+            console.log("=== COMMIT SUCCESS ===");
+            console.log("Success response:", successData);
             // Send success message back to UI
             figma.ui.postMessage({
                 type: "commit-success",
             });
         }
         catch (error) {
-            console.error("Error committing to GitLab:", error);
+            console.error("=== GitLab Commit Error ===");
+            console.error("Error object:", error);
+            console.error("Error message:", error.message);
+            console.error("Error stack:", error.stack);
             figma.ui.postMessage({
                 type: "commit-error",
                 error: error.message || "Unknown error occurred",
             });
+        }
+        finally {
+            console.log("=== GitLab Commit Debug End ===");
         }
     }
 });
