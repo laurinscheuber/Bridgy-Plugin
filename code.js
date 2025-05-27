@@ -105,9 +105,9 @@
             }
           });
         }
-        static commitToGitLab(projectId, gitlabToken, commitMessage, filePath, cssData) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const featureBranch = "feature/variables";
+        static commitToGitLab(projectId_1, gitlabToken_1, commitMessage_1, filePath_1, cssData_1) {
+          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, commitMessage, filePath, cssData, branchName = "feature/variables") {
+            const featureBranch = branchName;
             const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
             const defaultBranch = projectData.default_branch;
             yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
@@ -809,6 +809,9 @@ ${generateStyleChecks(styleChecks)}
               yield GitLabService.saveSettings({
                 projectId: msg.projectId || "",
                 gitlabToken: msg.gitlabToken,
+                filePath: msg.filePath || "src/variables.css",
+                strategy: msg.strategy || "merge-request",
+                branchName: msg.branchName || "feature/variables",
                 saveToken: msg.saveToken || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user"
@@ -823,7 +826,7 @@ ${generateStyleChecks(styleChecks)}
               if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
                 throw new Error("Missing required fields for GitLab commit");
               }
-              const result = yield GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData);
+              const result = yield GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
               figma.ui.postMessage({
                 type: "commit-success",
                 message: "Successfully committed changes to the feature branch",

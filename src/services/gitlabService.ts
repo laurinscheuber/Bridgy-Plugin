@@ -67,9 +67,10 @@ export class GitLabService {
     gitlabToken: string,
     commitMessage: string,
     filePath: string,
-    cssData: string
+    cssData: string,
+    branchName: string = "feature/variables"
   ): Promise<{ mergeRequestUrl?: string }> {
-    const featureBranch = "feature/variables";
+    const featureBranch = branchName;
 
     // Get project information
     const projectData = await this.fetchProjectInfo(projectId, gitlabToken);

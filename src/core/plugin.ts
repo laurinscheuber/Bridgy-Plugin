@@ -139,6 +139,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           {
             projectId: msg.projectId || "",
             gitlabToken: msg.gitlabToken,
+            filePath: msg.filePath || "src/variables.css",
+            strategy: msg.strategy || "merge-request",
+            branchName: msg.branchName || "feature/variables",
             saveToken: msg.saveToken || false,
             savedAt: new Date().toISOString(),
             savedBy: figma.currentUser?.name || "Unknown user",
@@ -163,7 +166,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           msg.gitlabToken,
           msg.commitMessage,
           msg.filePath || "variables.css",
-          msg.cssData
+          msg.cssData,
+          msg.branchName || "feature/variables"
         );
 
         figma.ui.postMessage({
