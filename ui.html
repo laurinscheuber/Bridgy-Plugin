@@ -827,9 +827,6 @@
     <!-- Remove success message -->
     <div id="success-message" class="success-message">
       <p>Successfully committed to GitLab repository!</p>
-      <a id="merge-request-link" class="merge-request-link" href="#" target="_blank" style="display: none;">
-        View Merge Request →
-      </a>
     </div>
 
     <!-- Remove error message -->
@@ -968,9 +965,6 @@
             const successHTML = `
               <div class="success-message" style="display: block;">
                 ${message.message || "Successfully committed to GitLab repository!"}
-                <a href="${message.mergeRequestUrl}" class="merge-request-link" target="_blank">
-                  View Merge Request →
-                </a>
               </div>
             `;
 
