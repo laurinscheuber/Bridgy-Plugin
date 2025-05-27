@@ -134,7 +134,7 @@
               if (legacyDocumentSettings) {
                 try {
                   const settings = JSON.parse(legacyDocumentSettings);
-                  console.log("Found legacy document settings, migrating to project-specific storage");
+                  console.log("Found legacy document settings in this file, migrating to project-specific storage");
                   yield this.saveSettings(settings, true);
                   figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
                   return settings;
@@ -147,6 +147,25 @@
             } catch (error) {
               console.error("Error loading GitLab settings:", error);
               return null;
+            }
+          });
+        }
+        static resetSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const figmaFileId = figma.root.id;
+              const settingsKey = `gitlab-settings-${figmaFileId}`;
+              console.log(`Resetting all GitLab settings for file: ${figmaFileId}`);
+              figma.root.setSharedPluginData("aWallSync", settingsKey, "");
+              figma.root.setSharedPluginData("aWallSync", `${settingsKey}-meta`, "");
+              yield figma.clientStorage.deleteAsync(settingsKey);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+              figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+              yield figma.clientStorage.deleteAsync("gitlab-settings");
+              console.log("All GitLab settings have been reset successfully");
+            } catch (error) {
+              console.error("Error resetting GitLab settings:", error);
+              throw new Error(`Error resetting GitLab settings: ${error.message || "Unknown error"}`);
             }
           });
         }
@@ -876,6 +895,13 @@ ${generateStyleChecks(styleChecks)}
                 type: "commit-success",
                 message: "Successfully committed changes to the feature branch",
                 mergeRequestUrl: result === null || result === void 0 ? void 0 : result.mergeRequestUrl
+              });
+              break;
+            case "reset-gitlab-settings":
+              yield GitLabService.resetSettings();
+              figma.ui.postMessage({
+                type: "gitlab-settings-reset",
+                success: true
               });
               break;
             default:

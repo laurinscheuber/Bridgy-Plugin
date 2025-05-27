@@ -103,12 +103,12 @@ export class GitLabService {
         return { ...personalSettings, isPersonal: true };
       }
 
-      // Migration: Check for legacy document settings (old global settings in this file)
+      // Migration: Check for legacy document settings (old global settings in this file only)
       const legacyDocumentSettings = figma.root.getSharedPluginData("aWallSync", "gitlab-settings");
       if (legacyDocumentSettings) {
         try {
           const settings = JSON.parse(legacyDocumentSettings);
-          console.log("Found legacy document settings, migrating to project-specific storage");
+          console.log("Found legacy document settings in this file, migrating to project-specific storage");
           // Save as project-specific settings
           await this.saveSettings(settings, true);
           // Remove old global settings to prevent confusion
@@ -124,6 +124,32 @@ export class GitLabService {
     } catch (error) {
       console.error("Error loading GitLab settings:", error);
       return null;
+    }
+  }
+
+  static async resetSettings(): Promise<void> {
+    try {
+      const figmaFileId = figma.root.id;
+      const settingsKey = `gitlab-settings-${figmaFileId}`;
+
+      console.log(`Resetting all GitLab settings for file: ${figmaFileId}`);
+
+      // Remove shared document storage
+      figma.root.setSharedPluginData("aWallSync", settingsKey, "");
+      figma.root.setSharedPluginData("aWallSync", `${settingsKey}-meta`, "");
+
+      // Remove personal client storage
+      await figma.clientStorage.deleteAsync(settingsKey);
+      await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+
+      // Also remove any legacy global settings (cleanup)
+      figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+      await figma.clientStorage.deleteAsync("gitlab-settings");
+
+      console.log("All GitLab settings have been reset successfully");
+    } catch (error: any) {
+      console.error("Error resetting GitLab settings:", error);
+      throw new Error(`Error resetting GitLab settings: ${error.message || "Unknown error"}`);
     }
   }
 

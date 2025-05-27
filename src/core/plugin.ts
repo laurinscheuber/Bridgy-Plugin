@@ -177,6 +177,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         });
         break;
 
+      case "reset-gitlab-settings":
+        await GitLabService.resetSettings();
+        figma.ui.postMessage({
+          type: "gitlab-settings-reset",
+          success: true
+        });
+        break;
+
       default:
         console.warn("Unknown message type:", msg.type);
     }
