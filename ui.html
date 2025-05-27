@@ -860,6 +860,17 @@
           <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 4px; padding: 10px; margin: 10px 0; font-size: 14px; color: #1565c0;">
             <p style="margin: 0;">ℹ️ Info: only be changed by Dev Team</p>
           </div>
+
+          <!-- Configuration Metadata -->
+          <div id="config-metadata" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 10px; margin: 10px 0; font-size: 12px; color: #6c757d; display: none;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
+              </svg>
+              <span id="config-metadata-text">Last saved: Loading...</span>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button onclick="closeSettingsModal()">Cancel</button>
@@ -1765,6 +1776,9 @@
           },
         }, "*");
 
+        // Update metadata display
+        displayConfigMetadata();
+
         alert("Configuration saved successfully!");
         closeSettingsModal();
       }
@@ -1784,6 +1798,42 @@
           const branchSection = document.getElementById("config-branch-section");
           const strategy = document.getElementById("config-strategy").value;
           branchSection.style.display = strategy === "merge-request" ? "block" : "none";
+
+          // Display metadata if available
+          displayConfigMetadata();
+        }
+      }
+
+      // Function to display configuration metadata
+      function displayConfigMetadata() {
+        const metadataElement = document.getElementById("config-metadata");
+        const metadataTextElement = document.getElementById("config-metadata-text");
+
+        if (window.gitlabSettings && (window.gitlabSettings.savedAt || window.gitlabSettings.savedBy)) {
+          metadataElement.style.display = "block";
+
+          let metadataText = "";
+
+          if (window.gitlabSettings.savedAt) {
+            const savedDate = new Date(window.gitlabSettings.savedAt);
+            const formattedDate = savedDate.toLocaleDateString();
+            const formattedTime = savedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            metadataText += `Last saved: ${formattedDate} at ${formattedTime}`;
+          }
+
+          if (window.gitlabSettings.savedBy) {
+            metadataText += window.gitlabSettings.savedAt ? ` by ${window.gitlabSettings.savedBy}` : `Saved by: ${window.gitlabSettings.savedBy}`;
+          }
+
+          if (window.gitlabSettings.isPersonal) {
+            metadataText += " (Personal settings)";
+          } else {
+            metadataText += " (Shared with team)";
+          }
+
+          metadataTextElement.textContent = metadataText;
+        } else {
+          metadataElement.style.display = "none";
         }
       }
 
