@@ -1607,6 +1607,16 @@
       function closeGitLabModal() {
         const modal = document.getElementById("gitlab-modal");
         if (modal) {
+          // Remove any success or error messages
+          const successMessage = modal.querySelector(".success-message");
+          if (successMessage) {
+            successMessage.remove();
+          }
+          const errorMessage = modal.querySelector(".error-message");
+          if (errorMessage) {
+            errorMessage.remove();
+          }
+          
           modal.style.display = "none";
         }
         resetCommitButton();
