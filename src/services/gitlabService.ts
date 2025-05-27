@@ -10,23 +10,29 @@ export class GitLabService {
         delete settings.gitlabToken;
       }
 
-      // Determine where to save based on sharing preference
-      if (shareWithTeam) {
-        // Save to document storage (available to all team members)
-        figma.root.setSharedPluginData(
-          "aWallSync",
-          "gitlab-settings",
-          JSON.stringify(settings)
-        );
-        console.log("GitLab settings saved to document storage");
+      // Create project-specific storage key using Figma root node ID (unique per file)
+      const figmaFileId = figma.root.id;
+      const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-        // Also save to client storage as a backup
-        await figma.clientStorage.setAsync("gitlab-settings", settings);
-      } else {
-        // Save only to client storage (personal)
-        await figma.clientStorage.setAsync("gitlab-settings", settings);
-        console.log("GitLab settings saved to client storage only");
-      }
+      // Always save to document storage (shared with team for this specific Figma file)
+      // This ensures settings are truly per-project and shared with team members
+      figma.root.setSharedPluginData(
+        "aWallSync",
+        settingsKey,
+        JSON.stringify(settings)
+      );
+      console.log(`GitLab settings saved to document storage for file: ${figmaFileId} (shared: ${shareWithTeam})`);
+
+      // Also track who saved the settings
+      figma.root.setSharedPluginData(
+        "aWallSync",
+        `${settingsKey}-meta`,
+        JSON.stringify({
+          sharedWithTeam: shareWithTeam,
+          savedAt: settings.savedAt,
+          savedBy: settings.savedBy
+        })
+      );
     } catch (error: any) {
       console.error("Error saving GitLab settings:", error);
       throw new Error(`Error saving GitLab settings: ${error.message || "Unknown error"}`);
@@ -35,26 +41,56 @@ export class GitLabService {
 
   static async loadSettings(): Promise<GitLabSettings | null> {
     try {
-      // Try to load settings from the document (available to all team members)
-      const documentSettings = await figma.root.getSharedPluginData(
+      // Create project-specific storage key using Figma root node ID (unique per file)
+      const figmaFileId = figma.root.id;
+      const settingsKey = `gitlab-settings-${figmaFileId}`;
+
+      console.log(`Loading GitLab settings for file: ${figmaFileId}`);
+
+      // Load settings from document storage (project-specific and shared with team)
+      const documentSettings = figma.root.getSharedPluginData(
         "aWallSync",
-        "gitlab-settings"
+        settingsKey
       );
       if (documentSettings) {
         try {
           const settings = JSON.parse(documentSettings);
+
+          // Load metadata if available
+          const metaData = figma.root.getSharedPluginData("aWallSync", `${settingsKey}-meta`);
+          if (metaData) {
+            try {
+              const meta = JSON.parse(metaData);
+              settings.isPersonal = !meta.sharedWithTeam;
+            } catch (metaParseError) {
+              console.warn("Error parsing settings metadata:", metaParseError);
+            }
+          }
+
+          console.log("Loaded settings from document storage");
           return settings;
         } catch (parseError) {
           console.error("Error parsing document settings:", parseError);
         }
       }
 
-      // Fallback to client storage if document storage doesn't have settings
-      const clientSettings = await figma.clientStorage.getAsync("gitlab-settings");
-      if (clientSettings) {
-        return { ...clientSettings, isPersonal: true };
+      // Migration: Check for legacy document settings (old global settings in this file)
+      const legacyDocumentSettings = figma.root.getSharedPluginData("aWallSync", "gitlab-settings");
+      if (legacyDocumentSettings) {
+        try {
+          const settings = JSON.parse(legacyDocumentSettings);
+          console.log("Found legacy document settings, migrating to project-specific storage");
+          // Save as project-specific settings
+          await this.saveSettings(settings, true);
+          // Remove old global settings to prevent confusion
+          figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+          return settings;
+        } catch (parseError) {
+          console.error("Error parsing legacy document settings:", parseError);
+        }
       }
 
+      console.log("No settings found for this project");
       return null;
     } catch (error) {
       console.error("Error loading GitLab settings:", error);
