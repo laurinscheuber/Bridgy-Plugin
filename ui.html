@@ -778,9 +778,9 @@
           <!-- Progress indicator for GitLab operations -->
           <div id="commit-progress-container" style="display: none;">
             <div class="progress-bar-container">
-              <div class="progress-bar" id="commit-progress-bar"></div>
+              <div id="commit-progress" class="progress-bar"></div>
             </div>
-            <div class="progress-status" id="commit-progress-status">Preparing...</div>
+            <div id="progress-status" class="progress-status"></div>
           </div>
           <div class="form-group">
             <label for="commit-message">Commit Message</label>
@@ -822,6 +822,20 @@
           <button id="commit-submit-button" class="commit-button" onclick="commitToGitLab()">Commit</button>
         </div>
       </div>
+    </div>
+
+    <!-- Remove success message -->
+    <div id="success-message" class="success-message">
+      <p>Successfully committed to GitLab repository!</p>
+      <a id="merge-request-link" class="merge-request-link" href="#" target="_blank" style="display: none;">
+        View Merge Request →
+      </a>
+    </div>
+
+    <!-- Remove error message -->
+    <div id="error-message" class="error-message">
+      <p><strong>Error committing to GitLab:</strong> <span id="error-details"></span></p>
+      <p class="error-help">Please check your credentials and try again.</p>
     </div>
 
     <script>
@@ -919,8 +933,8 @@
           });
         } else if (message.type === "commit-progress") {
           // Handle progress updates for GitLab operations
-          const progressBar = document.getElementById("commit-progress-bar");
-          const progressStatus = document.getElementById("commit-progress-status");
+          const progressBar = document.getElementById("commit-progress");
+          const progressStatus = document.getElementById("progress-status");
 
           if (progressBar && progressStatus) {
             // Update the progress bar
@@ -1591,24 +1605,22 @@
 
       // Function to close the GitLab modal
       function closeGitLabModal() {
-        document.getElementById("gitlab-modal").style.display = "none";
+        const modal = document.getElementById("gitlab-modal");
+        if (modal) {
+          modal.style.display = "none";
+        }
         resetCommitButton();
       }
 
       // Function to reset the commit button state
       function resetCommitButton() {
         const button = document.getElementById("commit-submit-button");
-        button.classList.remove("loading");
-        button.textContent = "Commit";
-        button.disabled = false;
-
-        // Hide progress container
-        const progressContainer = document.getElementById("commit-progress-container");
-        progressContainer.style.display = "none";
-
-        // Reset progress bar
-        const progressBar = document.getElementById("commit-progress-bar");
-        progressBar.style.width = "0%";
+        if (button) {
+          button.classList.remove("loading");
+          button.textContent = "Commit";
+          button.disabled = false;
+          button.onclick = commitToGitLab; // Reset the onclick handler
+        }
       }
 
       // Function to commit to GitLab
@@ -1617,15 +1629,6 @@
         button.classList.add("loading");
         button.textContent = "Committing...";
         button.disabled = true;
-
-        // Show progress container
-        const progressContainer = document.getElementById("commit-progress-container");
-        const progressBar = document.getElementById("commit-progress-bar");
-        const progressStatus = document.getElementById("commit-progress-status");
-
-        progressContainer.style.display = "block";
-        progressBar.style.width = "5%";
-        progressStatus.textContent = "Preparing commit...";
 
         const projectId = document.getElementById("gitlab-project-id").value.trim();
         const gitlabToken = document.getElementById("gitlab-token").value.trim();
@@ -1681,10 +1684,6 @@
 
         // First, ensure we have the latest CSS data
         if (!currentCSSData) {
-          // Update progress
-          progressBar.style.width = "10%";
-          progressStatus.textContent = "Generating CSS variables...";
-
           // Request CSS export first
           parent.postMessage({ pluginMessage: { type: "export-css" } }, "*");
 
@@ -1692,10 +1691,6 @@
           const checkCSSData = setInterval(() => {
             if (currentCSSData) {
               clearInterval(checkCSSData);
-
-              // Update progress
-              progressBar.style.width = "30%";
-              progressStatus.textContent = "CSS generated. Starting GitLab commit...";
 
               // Now that we have CSS data, proceed with the commit
               parent.postMessage(
