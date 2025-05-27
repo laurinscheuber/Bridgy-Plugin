@@ -5,25 +5,37 @@ export class GitLabService {
 
   static async saveSettings(settings: GitLabSettings, shareWithTeam: boolean): Promise<void> {
     try {
-      // If user didn't opt to save the token, don't store it
-      if (!settings.saveToken) {
-        delete settings.gitlabToken;
-      }
-
-      // Create project-specific storage key using Figma root node ID (unique per file)
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      // Always save to document storage (shared with team for this specific Figma file)
-      // This ensures settings are truly per-project and shared with team members
-      figma.root.setSharedPluginData(
-        "aWallSync",
-        settingsKey,
-        JSON.stringify(settings)
-      );
-      console.log(`GitLab settings saved to document storage for file: ${figmaFileId} (shared: ${shareWithTeam})`);
+      if (shareWithTeam) {
+        // Save to document storage (shared with team)
+        const settingsToSave = { ...settings };
 
-      // Also track who saved the settings
+        // If user didn't opt to save the token, don't store it in shared settings
+        if (!settings.saveToken) {
+          delete settingsToSave.gitlabToken;
+        }
+
+        figma.root.setSharedPluginData(
+          "aWallSync",
+          settingsKey,
+          JSON.stringify(settingsToSave)
+        );
+        console.log(`GitLab settings saved to shared document storage for file: ${figmaFileId}`);
+
+        // If token should be saved, also save it personally for this user
+        if (settings.saveToken && settings.gitlabToken) {
+          await figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
+          console.log("Token saved to personal storage");
+        }
+      } else {
+        // Save only to personal storage (not shared with team)
+        await figma.clientStorage.setAsync(settingsKey, settings);
+        console.log(`GitLab settings saved to personal storage only for file: ${figmaFileId}`);
+      }
+
+      // Track metadata
       figma.root.setSharedPluginData(
         "aWallSync",
         `${settingsKey}-meta`,
@@ -47,14 +59,24 @@ export class GitLabService {
 
       console.log(`Loading GitLab settings for file: ${figmaFileId}`);
 
-      // Load settings from document storage (project-specific and shared with team)
+      // Try to load shared settings from document storage first
       const documentSettings = figma.root.getSharedPluginData(
         "aWallSync",
         settingsKey
       );
+
       if (documentSettings) {
         try {
           const settings = JSON.parse(documentSettings);
+
+          // Try to load personal token if settings indicate it should be saved
+          if (settings.saveToken && !settings.gitlabToken) {
+            const personalToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+            if (personalToken) {
+              settings.gitlabToken = personalToken;
+              console.log("Loaded personal token from client storage");
+            }
+          }
 
           // Load metadata if available
           const metaData = figma.root.getSharedPluginData("aWallSync", `${settingsKey}-meta`);
@@ -67,11 +89,18 @@ export class GitLabService {
             }
           }
 
-          console.log("Loaded settings from document storage");
+          console.log("Loaded settings from shared document storage");
           return settings;
         } catch (parseError) {
           console.error("Error parsing document settings:", parseError);
         }
+      }
+
+      // Fallback: try to load personal settings
+      const personalSettings = await figma.clientStorage.getAsync(settingsKey);
+      if (personalSettings) {
+        console.log("Loaded settings from personal storage");
+        return { ...personalSettings, isPersonal: true };
       }
 
       // Migration: Check for legacy document settings (old global settings in this file)
