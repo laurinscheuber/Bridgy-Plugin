@@ -139,6 +139,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           {
             projectId: msg.projectId || "",
             gitlabToken: msg.gitlabToken,
+            filePath: msg.filePath || "src/variables.css",
+            strategy: msg.strategy || "merge-request",
+            branchName: msg.branchName || "feature/variables",
             saveToken: msg.saveToken || false,
             savedAt: new Date().toISOString(),
             savedBy: figma.currentUser?.name || "Unknown user",
@@ -158,17 +161,27 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           throw new Error("Missing required fields for GitLab commit");
         }
 
-        await GitLabService.commitToGitLab(
+        const result = await GitLabService.commitToGitLab(
           msg.projectId,
           msg.gitlabToken,
           msg.commitMessage,
           msg.filePath || "variables.css",
-          msg.cssData
+          msg.cssData,
+          msg.branchName || "feature/variables"
         );
 
         figma.ui.postMessage({
           type: "commit-success",
           message: "Successfully committed changes to the feature branch",
+          mergeRequestUrl: result?.mergeRequestUrl
+        });
+        break;
+
+      case "reset-gitlab-settings":
+        await GitLabService.resetSettings();
+        figma.ui.postMessage({
+          type: "gitlab-settings-reset",
+          success: true
         });
         break;
 

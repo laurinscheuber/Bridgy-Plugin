@@ -29,6 +29,9 @@ export interface Component {
 export interface GitLabSettings {
   projectId: string;
   gitlabToken?: string;
+  filePath?: string;
+  strategy?: string;
+  branchName?: string;
   saveToken: boolean;
   savedAt: string;
   savedBy: string;
@@ -55,6 +58,8 @@ export interface PluginMessage {
   gitlabToken?: string;
   commitMessage?: string;
   filePath?: string;
+  strategy?: string;
+  branchName?: string;
   cssData?: string;
   shareWithTeam?: boolean;
   saveToken?: boolean;

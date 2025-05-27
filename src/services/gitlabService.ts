@@ -5,28 +5,46 @@ export class GitLabService {
 
   static async saveSettings(settings: GitLabSettings, shareWithTeam: boolean): Promise<void> {
     try {
-      // If user didn't opt to save the token, don't store it
-      if (!settings.saveToken) {
-        delete settings.gitlabToken;
-      }
+      const figmaFileId = figma.root.id;
+      const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      // Determine where to save based on sharing preference
       if (shareWithTeam) {
-        // Save to document storage (available to all team members)
+        // Save to document storage (shared with team)
+        const settingsToSave = { ...settings };
+
+        // If user didn't opt to save the token, don't store it in shared settings
+        if (!settings.saveToken) {
+          delete settingsToSave.gitlabToken;
+        }
+
         figma.root.setSharedPluginData(
           "aWallSync",
-          "gitlab-settings",
-          JSON.stringify(settings)
+          settingsKey,
+          JSON.stringify(settingsToSave)
         );
-        console.log("GitLab settings saved to document storage");
+        console.log(`GitLab settings saved to shared document storage for file: ${figmaFileId}`);
 
-        // Also save to client storage as a backup
-        await figma.clientStorage.setAsync("gitlab-settings", settings);
+        // If token should be saved, also save it personally for this user
+        if (settings.saveToken && settings.gitlabToken) {
+          await figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
+          console.log("Token saved to personal storage");
+        }
       } else {
-        // Save only to client storage (personal)
-        await figma.clientStorage.setAsync("gitlab-settings", settings);
-        console.log("GitLab settings saved to client storage only");
+        // Save only to personal storage (not shared with team)
+        await figma.clientStorage.setAsync(settingsKey, settings);
+        console.log(`GitLab settings saved to personal storage only for file: ${figmaFileId}`);
       }
+
+      // Track metadata
+      figma.root.setSharedPluginData(
+        "aWallSync",
+        `${settingsKey}-meta`,
+        JSON.stringify({
+          sharedWithTeam: shareWithTeam,
+          savedAt: settings.savedAt,
+          savedBy: settings.savedBy
+        })
+      );
     } catch (error: any) {
       console.error("Error saving GitLab settings:", error);
       throw new Error(`Error saving GitLab settings: ${error.message || "Unknown error"}`);
@@ -35,30 +53,103 @@ export class GitLabService {
 
   static async loadSettings(): Promise<GitLabSettings | null> {
     try {
-      // Try to load settings from the document (available to all team members)
-      const documentSettings = await figma.root.getSharedPluginData(
+      // Create project-specific storage key using Figma root node ID (unique per file)
+      const figmaFileId = figma.root.id;
+      const settingsKey = `gitlab-settings-${figmaFileId}`;
+
+      console.log(`Loading GitLab settings for file: ${figmaFileId}`);
+
+      // Try to load shared settings from document storage first
+      const documentSettings = figma.root.getSharedPluginData(
         "aWallSync",
-        "gitlab-settings"
+        settingsKey
       );
+
       if (documentSettings) {
         try {
           const settings = JSON.parse(documentSettings);
+
+          // Try to load personal token if settings indicate it should be saved
+          if (settings.saveToken && !settings.gitlabToken) {
+            const personalToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+            if (personalToken) {
+              settings.gitlabToken = personalToken;
+              console.log("Loaded personal token from client storage");
+            }
+          }
+
+          // Load metadata if available
+          const metaData = figma.root.getSharedPluginData("aWallSync", `${settingsKey}-meta`);
+          if (metaData) {
+            try {
+              const meta = JSON.parse(metaData);
+              settings.isPersonal = !meta.sharedWithTeam;
+            } catch (metaParseError) {
+              console.warn("Error parsing settings metadata:", metaParseError);
+            }
+          }
+
+          console.log("Loaded settings from shared document storage");
           return settings;
         } catch (parseError) {
           console.error("Error parsing document settings:", parseError);
         }
       }
 
-      // Fallback to client storage if document storage doesn't have settings
-      const clientSettings = await figma.clientStorage.getAsync("gitlab-settings");
-      if (clientSettings) {
-        return { ...clientSettings, isPersonal: true };
+      // Fallback: try to load personal settings
+      const personalSettings = await figma.clientStorage.getAsync(settingsKey);
+      if (personalSettings) {
+        console.log("Loaded settings from personal storage");
+        return { ...personalSettings, isPersonal: true };
       }
 
+      // Migration: Check for legacy document settings (old global settings in this file only)
+      const legacyDocumentSettings = figma.root.getSharedPluginData("aWallSync", "gitlab-settings");
+      if (legacyDocumentSettings) {
+        try {
+          const settings = JSON.parse(legacyDocumentSettings);
+          console.log("Found legacy document settings in this file, migrating to project-specific storage");
+          // Save as project-specific settings
+          await this.saveSettings(settings, true);
+          // Remove old global settings to prevent confusion
+          figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+          return settings;
+        } catch (parseError) {
+          console.error("Error parsing legacy document settings:", parseError);
+        }
+      }
+
+      console.log("No settings found for this project");
       return null;
     } catch (error) {
       console.error("Error loading GitLab settings:", error);
       return null;
+    }
+  }
+
+  static async resetSettings(): Promise<void> {
+    try {
+      const figmaFileId = figma.root.id;
+      const settingsKey = `gitlab-settings-${figmaFileId}`;
+
+      console.log(`Resetting all GitLab settings for file: ${figmaFileId}`);
+
+      // Remove shared document storage
+      figma.root.setSharedPluginData("aWallSync", settingsKey, "");
+      figma.root.setSharedPluginData("aWallSync", `${settingsKey}-meta`, "");
+
+      // Remove personal client storage
+      await figma.clientStorage.deleteAsync(settingsKey);
+      await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+
+      // Also remove any legacy global settings (cleanup)
+      figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+      await figma.clientStorage.deleteAsync("gitlab-settings");
+
+      console.log("All GitLab settings have been reset successfully");
+    } catch (error: any) {
+      console.error("Error resetting GitLab settings:", error);
+      throw new Error(`Error resetting GitLab settings: ${error.message || "Unknown error"}`);
     }
   }
 
@@ -67,9 +158,10 @@ export class GitLabService {
     gitlabToken: string,
     commitMessage: string,
     filePath: string,
-    cssData: string
-  ): Promise<void> {
-    const featureBranch = "feature/variables";
+    cssData: string,
+    branchName: string = "feature/variables"
+  ): Promise<{ mergeRequestUrl?: string }> {
+    const featureBranch = branchName;
 
     // Get project information
     const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
@@ -97,6 +189,23 @@ export class GitLabService {
       action,
       fileData?.last_commit_id
     );
+
+    // Check for existing merge request
+    const existingMR = await this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+    
+    if (!existingMR) {
+      // Create new merge request if none exists
+      const newMR = await this.createMergeRequest(
+        projectId,
+        gitlabToken,
+        featureBranch,
+        defaultBranch,
+        commitMessage
+      );
+      return { mergeRequestUrl: newMR.web_url };
+    }
+
+    return { mergeRequestUrl: existingMR.web_url };
   }
 
   private static async fetchProjectInfo(projectId: string, gitlabToken: string) {
@@ -205,5 +314,58 @@ export class GitLabService {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to commit to GitLab");
     }
+  }
+
+  private static async findExistingMergeRequest(
+    projectId: string,
+    gitlabToken: string,
+    sourceBranch: string
+  ): Promise<any> {
+    const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests?source_branch=${sourceBranch}&state=opened`;
+    const response = await fetch(mrUrl, {
+      method: "GET",
+      headers: {
+        "PRIVATE-TOKEN": gitlabToken,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch merge requests");
+    }
+
+    const mergeRequests = await response.json();
+    return mergeRequests.length > 0 ? mergeRequests[0] : null;
+  }
+
+  private static async createMergeRequest(
+    projectId: string,
+    gitlabToken: string,
+    sourceBranch: string,
+    targetBranch: string,
+    title: string
+  ): Promise<any> {
+    const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
+    const response = await fetch(mrUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PRIVATE-TOKEN": gitlabToken,
+      },
+      body: JSON.stringify({
+        source_branch: sourceBranch,
+        target_branch: targetBranch,
+        title: title,
+        description: "Automatically created merge request for CSS variables update",
+        remove_source_branch: true,
+        squash: true
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to create merge request");
+    }
+
+    return await response.json();
   }
 } 
