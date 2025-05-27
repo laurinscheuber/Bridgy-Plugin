@@ -1,286 +1,551 @@
 "use strict";
-// aWall Synch plugin
-// This file holds the main code for the plugin. It has access to
-// the *figma document* via the figma global object.
-// You can access browser APIs in the <script> tag inside "ui.html"
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-// Show the UI (required for inspect panel plugins)
-figma.showUI(__html__, { width: 850, height: 800 });
-// Store component data for later use
-let componentMap = new Map();
-// Collect all variables and components from the document
-function collectDocumentData() {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Collection variables
-        const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
-        const variablesData = [];
-        for (const collection of variableCollections) {
-            const variablesPromises = collection.variableIds.map((id) => __awaiter(this, void 0, void 0, function* () {
-                const variable = yield figma.variables.getVariableByIdAsync(id);
-                if (!variable)
-                    return null;
-                const valuesByModeEntries = [];
-                // Handle valuesByMode in a TypeScript-friendly way
-                for (const modeId in variable.valuesByMode) {
-                    const value = variable.valuesByMode[modeId];
-                    const mode = collection.modes.find((m) => m.modeId === modeId);
-                    valuesByModeEntries.push({
-                        modeName: mode ? mode.name : "Unknown",
-                        value: value,
-                    });
-                }
-                return {
-                    id: variable.id,
-                    name: variable.name,
-                    resolvedType: variable.resolvedType,
-                    valuesByMode: valuesByModeEntries,
-                };
-            }));
-            const variablesResult = yield Promise.all(variablesPromises);
-            const variables = variablesResult.filter((item) => item !== null);
-            variablesData.push({
-                name: collection.name,
-                variables: variables,
-            });
+(() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __esm = (fn, res) => function __init() {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  };
+  var __commonJS = (cb, mod) => function __require() {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
+
+  // dist/services/gitlabService.js
+  var __awaiter, GitLabService;
+  var init_gitlabService = __esm({
+    "dist/services/gitlabService.js"() {
+      "use strict";
+      __awaiter = function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
         }
-        // Collecting components with hierarchy
-        const componentsData = [];
-        const componentSets = [];
-        componentMap = new Map();
-        // First pass to collect all components and component sets
-        function collectNodes(node) {
-            return __awaiter(this, void 0, void 0, function* () {
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      GitLabService = class {
+        static saveSettings(settings, shareWithTeam) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              if (!settings.saveToken) {
+                delete settings.gitlabToken;
+              }
+              if (shareWithTeam) {
+                figma.root.setSharedPluginData("aWallSync", "gitlab-settings", JSON.stringify(settings));
+                console.log("GitLab settings saved to document storage");
+                yield figma.clientStorage.setAsync("gitlab-settings", settings);
+              } else {
+                yield figma.clientStorage.setAsync("gitlab-settings", settings);
+                console.log("GitLab settings saved to client storage only");
+              }
+            } catch (error) {
+              console.error("Error saving GitLab settings:", error);
+              throw new Error(`Error saving GitLab settings: ${error.message || "Unknown error"}`);
+            }
+          });
+        }
+        static loadSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const documentSettings = yield figma.root.getSharedPluginData("aWallSync", "gitlab-settings");
+              if (documentSettings) {
+                try {
+                  const settings = JSON.parse(documentSettings);
+                  return settings;
+                } catch (parseError) {
+                  console.error("Error parsing document settings:", parseError);
+                }
+              }
+              const clientSettings = yield figma.clientStorage.getAsync("gitlab-settings");
+              if (clientSettings) {
+                return Object.assign(Object.assign({}, clientSettings), { isPersonal: true });
+              }
+              return null;
+            } catch (error) {
+              console.error("Error loading GitLab settings:", error);
+              return null;
+            }
+          });
+        }
+        static commitToGitLab(projectId, gitlabToken, commitMessage, filePath, cssData) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const featureBranch = "feature/variables";
+            const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
+            const defaultBranch = projectData.default_branch;
+            yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
+            const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
+            yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id);
+          });
+        }
+        static fetchProjectInfo(projectId, gitlabToken) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const projectUrl = `${this.GITLAB_API_BASE}/projects/${projectId}`;
+            const response = yield fetch(projectUrl, {
+              method: "GET",
+              headers: {
+                "PRIVATE-TOKEN": gitlabToken
+              }
+            });
+            if (!response.ok) {
+              throw new Error("Failed to fetch project information");
+            }
+            return yield response.json();
+          });
+        }
+        static createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/branches`;
+            const response = yield fetch(createBranchUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "PRIVATE-TOKEN": gitlabToken
+              },
+              body: JSON.stringify({
+                branch: featureBranch,
+                ref: defaultBranch
+              })
+            });
+            if (!response.ok) {
+              const errorData = yield response.json();
+              if (errorData.message !== "Branch already exists") {
+                throw new Error(errorData.message || "Failed to create branch");
+              }
+            }
+          });
+        }
+        static prepareFileCommit(projectId, gitlabToken, filePath, featureBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const checkFileUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${featureBranch}`;
+            const response = yield fetch(checkFileUrl, {
+              method: "GET",
+              headers: {
+                "PRIVATE-TOKEN": gitlabToken
+              }
+            });
+            const fileExists = response.ok;
+            let fileData = null;
+            let action = "create";
+            if (fileExists) {
+              fileData = yield response.json();
+              action = "update";
+            }
+            return { fileData, action };
+          });
+        }
+        static createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, lastCommitId) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const commitUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/commits`;
+            const commitAction = Object.assign({ action, file_path: filePath, content: cssData, encoding: "text" }, lastCommitId && { last_commit_id: lastCommitId });
+            const response = yield fetch(commitUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "PRIVATE-TOKEN": gitlabToken
+              },
+              body: JSON.stringify({
+                branch: featureBranch,
+                commit_message: commitMessage,
+                actions: [commitAction]
+              })
+            });
+            if (!response.ok) {
+              const errorData = yield response.json();
+              throw new Error(errorData.message || "Failed to commit to GitLab");
+            }
+          });
+        }
+      };
+      GitLabService.GITLAB_API_BASE = "https://gitlab.fhnw.ch/api/v4";
+    }
+  });
+
+  // dist/services/cssExportService.js
+  var __awaiter2, CSSExportService;
+  var init_cssExportService = __esm({
+    "dist/services/cssExportService.js"() {
+      "use strict";
+      __awaiter2 = function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      CSSExportService = class {
+        static exportVariables() {
+          return __awaiter2(this, void 0, void 0, function* () {
+            try {
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              let cssContent = "/* Figma Variables Export */\n";
+              cssContent += `/* Generated: ${(/* @__PURE__ */ new Date()).toLocaleString()} */
+
+`;
+              cssContent += ":root {\n";
+              for (const collection of collections) {
+                let hasValidVariables = false;
+                let collectionContent = `  /* ${collection.name} */
+`;
+                for (const variableId of collection.variableIds) {
+                  const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                  if (!variable)
+                    continue;
+                  const defaultModeId = collection.modes[0].modeId;
+                  const value = variable.valuesByMode[defaultModeId];
+                  if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
+                    continue;
+                  }
+                  const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                  const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
+                  if (formattedValue === null)
+                    continue;
+                  collectionContent += `  --${formattedName}: ${formattedValue};
+`;
+                  hasValidVariables = true;
+                }
+                if (hasValidVariables) {
+                  cssContent += collectionContent + "\n";
+                }
+              }
+              cssContent += "}\n\n";
+              cssContent += "@media (prefers-color-scheme: dark) {\n";
+              cssContent += "  :root {\n";
+              cssContent += "    /* Dark mode overrides can be added here */\n";
+              cssContent += "  }\n";
+              cssContent += "}\n";
+              cssContent += this.addUsageExamples();
+              return cssContent;
+            } catch (error) {
+              console.error("Error exporting CSS:", error);
+              throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
+            }
+          });
+        }
+        static formatVariableValue(type, value, name) {
+          switch (type) {
+            case "COLOR":
+              if (value && typeof value === "object" && "r" in value && "g" in value && "b" in value) {
+                const color = value;
+                return `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              }
+              return null;
+            case "FLOAT":
+              if (typeof value === "number" && !isNaN(value)) {
+                if (name.toLowerCase().includes("size") || name.toLowerCase().includes("padding") || name.toLowerCase().includes("margin") || name.toLowerCase().includes("radius") || name.toLowerCase().includes("gap") || name.toLowerCase().includes("stroke")) {
+                  return `${value}px`;
+                }
+                return String(value);
+              }
+              return null;
+            case "STRING":
+              if (typeof value === "string") {
+                return `"${value}"`;
+              }
+              return null;
+            case "BOOLEAN":
+              if (typeof value === "boolean") {
+                return value ? "true" : "false";
+              }
+              return null;
+            default:
+              return null;
+          }
+        }
+        static addUsageExamples() {
+          return `/* ---------------------------------------------------------- */
+/* Usage Examples */
+/* ---------------------------------------------------------- */
+
+/* Example usage of variables */
+.example-element {
+  color: var(--primary-color);
+  background-color: var(--background-color);
+  padding: var(--spacing-medium);
+  border-radius: var(--border-radius);
+  font-family: var(--font-family);
+}
+`;
+        }
+      };
+    }
+  });
+
+  // dist/utils/componentUtils.js
+  function parseComponentName(name) {
+    const result = {
+      name,
+      type: null,
+      state: null
+    };
+    const typeMatch = name.match(/Type=([^,]+)/i);
+    if (typeMatch && typeMatch[1]) {
+      result.type = typeMatch[1].trim();
+    }
+    const stateMatch = name.match(/State=([^,]+)/i);
+    if (stateMatch && stateMatch[1]) {
+      result.state = stateMatch[1].trim();
+    }
+    return result;
+  }
+  function generateStyleChecks(styleChecks) {
+    if (styleChecks.length === 0) {
+      return "        // No style properties to check";
+    }
+    return styleChecks.map((check) => {
+      return `        // Check ${check.property}
+        expect(computedStyle.${check.property}).toBe('${check.value}');`;
+    }).join("\n\n");
+  }
+  function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
+    const styleCheckCode = styleChecks.length > 0 ? styleChecks.map((check) => {
+      return `      // Check ${check.property}
+      expect(computedStyle.${check.property}).toBe('${check.value}');`;
+    }).join("\n\n") : "      // No style properties to check";
+    const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
+    return `import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ${pascalName}Component } from './${kebabName}.component';
+
+describe('${pascalName}Component', () => {
+  let component: ${pascalName}Component;
+  let fixture: ComponentFixture<${pascalName}Component>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [ ${pascalName}Component ]
+    })
+    .compileComponents();
+  });
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(${pascalName}Component);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should have correct styles', () => {
+    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
+    if (element) {
+      const computedStyle = window.getComputedStyle(element);
+      
+${styleCheckCode}
+    } else {
+      console.warn('No suitable element found to test styles');
+    }
+  });
+});`;
+  }
+  var init_componentUtils = __esm({
+    "dist/utils/componentUtils.js"() {
+      "use strict";
+    }
+  });
+
+  // dist/services/componentService.js
+  var __awaiter3, ComponentService;
+  var init_componentService = __esm({
+    "dist/services/componentService.js"() {
+      "use strict";
+      init_componentUtils();
+      __awaiter3 = function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      ComponentService = class _ComponentService {
+        static collectComponents() {
+          return __awaiter3(this, void 0, void 0, function* () {
+            const componentsData = [];
+            const componentSets = [];
+            this.componentMap = /* @__PURE__ */ new Map();
+            function collectNodes(node) {
+              return __awaiter3(this, void 0, void 0, function* () {
                 var _a;
                 if ("type" in node) {
-                    if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
-                        const componentStyles = yield node.getCSSAsync();
-                        const componentData = {
-                            id: node.id,
-                            name: node.name,
-                            type: node.type,
-                            styles: componentStyles,
-                            pageName: node.parent && "name" in node.parent ? node.parent.name : "Unknown",
-                            parentId: (_a = node.parent) === null || _a === void 0 ? void 0 : _a.id,
-                            children: [],
-                        };
-                        componentMap.set(node.id, componentData);
-                        if (node.type === "COMPONENT_SET") {
-                            componentSets.push(componentData);
-                        }
-                        else {
-                            componentsData.push(componentData);
-                        }
+                  if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                    const componentStyles = yield node.getCSSAsync();
+                    const componentData = {
+                      id: node.id,
+                      name: node.name,
+                      type: node.type,
+                      styles: componentStyles,
+                      pageName: node.parent && "name" in node.parent ? node.parent.name : "Unknown",
+                      parentId: (_a = node.parent) === null || _a === void 0 ? void 0 : _a.id,
+                      children: []
+                    };
+                    _ComponentService.componentMap.set(node.id, componentData);
+                    if (node.type === "COMPONENT_SET") {
+                      componentSets.push(componentData);
+                    } else {
+                      componentsData.push(componentData);
                     }
-                    if ("children" in node) {
-                        for (const child of node.children) {
-                            yield collectNodes(child);
-                        }
+                  }
+                  if ("children" in node) {
+                    for (const child of node.children) {
+                      yield collectNodes(child);
                     }
+                  }
                 }
-            });
-        }
-        // Traverse all pages to find components
-        for (const page of figma.root.children) {
-            yield collectNodes(page);
-        }
-        // Second pass to establish parent-child relationships for component sets
-        for (const component of componentsData) {
-            if (component.parentId) {
-                const parent = componentMap.get(component.parentId);
+              });
+            }
+            for (const page of figma.root.children) {
+              yield collectNodes(page);
+            }
+            for (const component of componentsData) {
+              if (component.parentId) {
+                const parent = this.componentMap.get(component.parentId);
                 if (parent && parent.type === "COMPONENT_SET") {
-                    parent.children.push(component);
-                    component.isChild = true; // Mark as child for UI rendering
+                  parent.children.push(component);
+                  component.isChild = true;
                 }
+              }
             }
+            return [...componentSets, ...componentsData.filter((comp) => !comp.isChild)];
+          });
         }
-        // Create final hierarchical data with only top-level components and component sets
-        const hierarchicalComponents = [
-            ...componentSets,
-            ...componentsData.filter((comp) => !comp.isChild),
-        ];
-        // Send the data to the UI
-        figma.ui.postMessage({
-            type: "document-data",
-            variablesData,
-            componentsData: hierarchicalComponents,
-        });
-    });
-}
-// Load saved GitLab settings if available
-function loadSavedGitLabSettings() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            // Try to load settings from the document (available to all team members)
-            const documentSettings = yield figma.root.getSharedPluginData("aWallSync", "gitlab-settings");
-            if (documentSettings) {
-                try {
-                    const settings = JSON.parse(documentSettings);
-                    figma.ui.postMessage({
-                        type: "gitlab-settings-loaded",
-                        settings: settings,
-                    });
-                    console.log("GitLab settings loaded from document storage");
-                    return;
-                }
-                catch (parseError) {
-                    console.error("Error parsing document settings:", parseError);
-                }
-            }
-            // Fallback to client storage if document storage doesn't have settings
-            const clientSettings = yield figma.clientStorage.getAsync("gitlab-settings");
-            if (clientSettings) {
-                figma.ui.postMessage({
-                    type: "gitlab-settings-loaded",
-                    settings: clientSettings,
-                    isPersonal: true,
-                });
-                console.log("GitLab settings loaded from client storage");
-            }
+        static getComponentById(id) {
+          return this.componentMap.get(id);
         }
-        catch (error) {
-            console.error("Error loading GitLab settings:", error);
-            // Silently fail - we'll just prompt the user for settings
-        }
-    });
-}
-// Run the collection when the plugin starts
-collectDocumentData();
-// Load saved GitLab settings
-loadSavedGitLabSettings();
-// Keep the codegen functionality for generating code in the Code tab
-figma.codegen.on("generate", (_event) => {
-    try {
-        return [
-            {
-                language: "PLAINTEXT",
-                code: "aWall Synch - Use the plugin interface to view variables and components",
-                title: "aWall Synch",
-            },
-        ];
-    }
-    catch (error) {
-        console.error("Plugin error:", error);
-        return [
-            {
-                language: "PLAINTEXT",
-                code: "Error occurred during code generation",
-                title: "Error",
-            },
-        ];
-    }
-});
-// Generate Jest test for a component
-function generateJestTest(component, generateAllVariants = false) {
-    // Extract component name and create a kebab case version for file naming
-    const componentName = component.name;
-    const kebabName = componentName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-    // Determine if this is a component set or a regular component
-    const isComponentSet = component.type === "COMPONENT_SET";
-    // If this is a component set and we want to generate tests for all variants
-    if (isComponentSet &&
-        generateAllVariants &&
-        component.children &&
-        component.children.length > 0) {
-        return generateComponentSetTest(component);
-    }
-    // Parse the styles to extract the relevant CSS properties
-    let styles;
-    try {
-        styles =
-            typeof component.styles === "string"
-                ? JSON.parse(component.styles)
-                : component.styles;
-    }
-    catch (e) {
-        console.error("Error parsing component styles:", e);
-        styles = {};
-    }
-    // Extract all CSS properties that are present in the styles object
-    const styleChecks = [];
-    // Process all style properties
-    for (const key in styles) {
-        if (Object.prototype.hasOwnProperty.call(styles, key)) {
-            // Convert kebab-case to camelCase for JavaScript property access
-            const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-            styleChecks.push({
+        static generateTest(component, generateAllVariants = false) {
+          const componentName = component.name;
+          const kebabName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          const isComponentSet = component.type === "COMPONENT_SET";
+          if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
+            return this.generateComponentSetTest(component);
+          }
+          let styles;
+          try {
+            styles = typeof component.styles === "string" ? JSON.parse(component.styles) : component.styles;
+          } catch (e) {
+            console.error("Error parsing component styles:", e);
+            styles = {};
+          }
+          const styleChecks = [];
+          for (const key in styles) {
+            if (Object.prototype.hasOwnProperty.call(styles, key)) {
+              const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              styleChecks.push({
                 property: camelCaseKey,
-                value: styles[key],
-            });
-        }
-    }
-    // For component sets, we'll create a test that checks the default variant
-    // For regular components, we'll create a standard test
-    let testContent = "";
-    if (isComponentSet) {
-        // For component sets, we need to find the default variant
-        // This is a simplified approach - in a real implementation, you might need to
-        // determine the default variant more accurately
-        const defaultVariant = component.children && component.children.length > 0
-            ? component.children[0]
-            : null;
-        if (defaultVariant) {
-            // Use the default variant's styles
-            let variantStyles;
-            try {
-                variantStyles =
-                    typeof defaultVariant.styles === "string"
-                        ? JSON.parse(defaultVariant.styles)
-                        : defaultVariant.styles;
+                value: styles[key]
+              });
             }
-            catch (e) {
+          }
+          if (isComponentSet) {
+            const defaultVariant = component.children && component.children.length > 0 ? component.children[0] : null;
+            if (defaultVariant) {
+              let variantStyles;
+              try {
+                variantStyles = typeof defaultVariant.styles === "string" ? JSON.parse(defaultVariant.styles) : defaultVariant.styles;
+              } catch (e) {
                 console.error("Error parsing variant styles:", e);
                 variantStyles = {};
-            }
-            // Extract all CSS properties that are present in the variant styles object
-            const variantStyleChecks = [];
-            // Process all style properties
-            for (const key in variantStyles) {
+              }
+              const variantStyleChecks = [];
+              for (const key in variantStyles) {
                 if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-                    // Convert kebab-case to camelCase for JavaScript property access
-                    const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-                    variantStyleChecks.push({
-                        property: camelCaseKey,
-                        value: variantStyles[key],
-                    });
+                  const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                  variantStyleChecks.push({
+                    property: camelCaseKey,
+                    value: variantStyles[key]
+                  });
                 }
+              }
+              return createTestWithStyleChecks(componentName, kebabName, variantStyleChecks);
             }
-            testContent = createTestWithStyleChecks(componentName, kebabName, variantStyleChecks);
+          }
+          return createTestWithStyleChecks(componentName, kebabName, styleChecks);
         }
-        else {
-            // If no default variant is found, create a standard test
-            testContent = createTestWithStyleChecks(componentName, kebabName, styleChecks);
-        }
-    }
-    else {
-        // For regular components, create a standard test
-        testContent = createTestWithStyleChecks(componentName, kebabName, styleChecks);
-    }
-    return testContent;
-}
-// Generate comprehensive test for a component set with all variants
-function generateComponentSetTest(componentSet) {
-    if (!componentSet.children || componentSet.children.length === 0) {
-        return generateJestTest(componentSet); // Fallback to standard test if no variants
-    }
-    const componentName = componentSet.name;
-    const kebabName = componentName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-    const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
-    // Start building the test file
-    let testContent = `import { ComponentFixture, TestBed } from '@angular/core/testing';
+        static generateComponentSetTest(componentSet) {
+          if (!componentSet.children || componentSet.children.length === 0) {
+            return this.generateTest(componentSet);
+          }
+          const componentName = componentSet.name;
+          const kebabName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
+          let testContent = `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
 describe('${pascalName}Component', () => {
@@ -305,43 +570,28 @@ describe('${pascalName}Component', () => {
   });
 
 `;
-    // Add tests for each variant
-    componentSet.children.forEach((variant, index) => {
-        // Extract state and type information from the variant name
-        const parsedName = parseVariantName(variant.name);
-        const variantDesc = parsedName.state
-            ? `in '${parsedName.state}' state`
-            : parsedName.type
-                ? `of type '${parsedName.type}'`
-                : `variant ${index + 1}`;
-        // Parse the variant styles
-        let variantStyles;
-        try {
-            variantStyles =
-                typeof variant.styles === "string"
-                    ? JSON.parse(variant.styles)
-                    : variant.styles;
-        }
-        catch (e) {
-            console.error("Error parsing variant styles:", e);
-            variantStyles = {};
-        }
-        // Extract all CSS properties for this variant
-        const styleChecks = [];
-        for (const key in variantStyles) {
-            if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
+          componentSet.children.forEach((variant, index) => {
+            const parsedName = parseComponentName(variant.name);
+            const variantDesc = parsedName.state ? `in '${parsedName.state}' state` : parsedName.type ? `of type '${parsedName.type}'` : `variant ${index + 1}`;
+            let variantStyles;
+            try {
+              variantStyles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
+            } catch (e) {
+              console.error("Error parsing variant styles:", e);
+              variantStyles = {};
+            }
+            const styleChecks = [];
+            for (const key in variantStyles) {
+              if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
                 const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
                 styleChecks.push({
-                    property: camelCaseKey,
-                    value: variantStyles[key],
+                  property: camelCaseKey,
+                  value: variantStyles[key]
                 });
+              }
             }
-        }
-        // Generate test for this variant
-        const stateVar = parsedName.state
-            ? parsedName.state.toLowerCase().replace(/\s+/g, "")
-            : "default";
-        testContent += `  describe('${variantDesc}', () => {
+            const stateVar = parsedName.state ? parsedName.state.toLowerCase().replace(/\s+/g, "") : "default";
+            testContent += `  describe('${variantDesc}', () => {
     it('should have correct styles', () => {
       // Set component to the ${variantDesc} state
       component.state = '${stateVar}';
@@ -359,411 +609,193 @@ ${generateStyleChecks(styleChecks)}
   });
 
 `;
-    });
-    // Close the main describe block
-    testContent += `});
+          });
+          testContent += `});
 `;
-    return testContent;
-}
-// Helper function to parse variant names to extract type and state
-function parseVariantName(name) {
-    const result = {
-        name: name,
-        type: null,
-        state: null,
-    };
-    // Check for Type=X pattern
-    const typeMatch = name.match(/Type=([^,]+)/i);
-    if (typeMatch && typeMatch[1]) {
-        result.type = typeMatch[1].trim();
-    }
-    // Check for State=X pattern
-    const stateMatch = name.match(/State=([^,]+)/i);
-    if (stateMatch && stateMatch[1]) {
-        result.state = stateMatch[1].trim();
-    }
-    return result;
-}
-// Helper function to generate style checks
-function generateStyleChecks(styleChecks) {
-    if (styleChecks.length === 0) {
-        return "        // No style properties to check";
-    }
-    return styleChecks
-        .map((check) => {
-        return `        // Check ${check.property}
-        expect(computedStyle.${check.property}).toBe('${check.value}');`;
-    })
-        .join("\n\n");
-}
-// Helper function to create a test with dynamic style checks
-function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
-    // Generate the style check code based on the available style checks
-    let styleCheckCode = "";
-    if (styleChecks.length > 0) {
-        styleCheckCode = styleChecks
-            .map((check) => {
-            return `      // Check ${check.property}
-      expect(computedStyle.${check.property}).toBe('${check.value}');`;
-        })
-            .join("\n\n");
-    }
-    else {
-        styleCheckCode = "      // No style properties to check";
-    }
-    return `import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ${componentName.replace(/[^a-zA-Z0-9]/g, "")}Component } from './${kebabName}.component';
-
-describe('${componentName.replace(/[^a-zA-Z0-9]/g, "")}Component', () => {
-  let component: ${componentName.replace(/[^a-zA-Z0-9]/g, "")}Component;
-  let fixture: ComponentFixture<${componentName.replace(/[^a-zA-Z0-9]/g, "")}Component>;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      declarations: [ ${componentName.replace(/[^a-zA-Z0-9]/g, "")}Component ]
-    })
-    .compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(${componentName.replace(/[^a-zA-Z0-9]/g, "")}Component);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('should have correct styles', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (element) {
-      const computedStyle = window.getComputedStyle(element);
-      
-${styleCheckCode}
-    } else {
-      console.warn('No suitable element found to test styles');
+          return testContent;
+        }
+      };
+      ComponentService.componentMap = /* @__PURE__ */ new Map();
     }
   });
-});
-`;
-}
-// Handle messages from the UI
-figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    if (msg.type === "export-css") {
-        try {
-            // Get all variable collections
-            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-            let cssContent = "/* Figma Variables Export */\n";
-            cssContent += `/* Generated: ${new Date().toLocaleString()} */\n\n`;
-            cssContent += ":root {\n";
-            // Process each collection
-            for (const collection of collections) {
-                let hasValidVariables = false;
-                let collectionContent = `  /* ${collection.name} */\n`;
-                // Get all variables in the collection
-                for (const variableId of collection.variableIds) {
-                    const variable = yield figma.variables.getVariableByIdAsync(variableId);
-                    if (!variable)
-                        continue;
-                    // Get the default mode (first mode)
-                    const defaultModeId = collection.modes[0].modeId;
-                    const value = variable.valuesByMode[defaultModeId];
-                    // Skip variables that reference other variables
-                    if (value &&
-                        typeof value === "object" &&
-                        "type" in value &&
-                        value.type === "VARIABLE_ALIAS") {
-                        continue;
-                    }
-                    // Format the variable name (replace spaces and special characters)
-                    const formattedName = variable.name
-                        .replace(/[^a-zA-Z0-9]/g, "-")
-                        .toLowerCase();
-                    // Format the value based on the variable type
-                    let formattedValue = "";
-                    if (variable.resolvedType === "COLOR") {
-                        if (value &&
-                            typeof value === "object" &&
-                            "r" in value &&
-                            "g" in value &&
-                            "b" in value) {
-                            const color = value;
-                            formattedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-                        }
-                        else {
-                            continue; // Skip invalid color values
-                        }
-                    }
-                    else if (variable.resolvedType === "FLOAT") {
-                        if (typeof value === "number" && !isNaN(value)) {
-                            // Add 'px' unit for size-related values
-                            if (variable.name.toLowerCase().includes("size") ||
-                                variable.name.toLowerCase().includes("padding") ||
-                                variable.name.toLowerCase().includes("margin") ||
-                                variable.name.toLowerCase().includes("radius") ||
-                                variable.name.toLowerCase().includes("gap") ||
-                                variable.name.toLowerCase().includes("stroke")) {
-                                formattedValue = `${value}px`;
-                            }
-                            else {
-                                formattedValue = String(value);
-                            }
-                        }
-                        else {
-                            continue; // Skip invalid float values
-                        }
-                    }
-                    else if (variable.resolvedType === "STRING") {
-                        if (typeof value === "string") {
-                            // Handle font names and other string values
-                            formattedValue = `"${value}"`;
-                        }
-                        else {
-                            continue; // Skip invalid string values
-                        }
-                    }
-                    else if (variable.resolvedType === "BOOLEAN") {
-                        if (typeof value === "boolean") {
-                            formattedValue = value ? "true" : "false";
-                        }
-                        else {
-                            continue; // Skip invalid boolean values
-                        }
-                    }
-                    else {
-                        continue; // Skip unknown types
-                    }
-                    // Add the CSS variable
-                    collectionContent += `  --${formattedName}: ${formattedValue};\n`;
-                    hasValidVariables = true;
-                }
-                // Only add the collection content if it has valid variables
-                if (hasValidVariables) {
-                    cssContent += collectionContent + "\n";
-                }
+
+  // dist/core/plugin.js
+  var require_plugin = __commonJS({
+    "dist/core/plugin.js"(exports) {
+      "use strict";
+      init_gitlabService();
+      init_cssExportService();
+      init_componentService();
+      var __awaiter4 = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
             }
-            // Close the root selector
-            cssContent += "}\n\n";
-            // Add media query for dark mode if needed
-            cssContent += "@media (prefers-color-scheme: dark) {\n";
-            cssContent += "  :root {\n";
-            cssContent += "    /* Dark mode overrides can be added here */\n";
-            cssContent += "  }\n";
-            cssContent += "}\n";
-            // Add usage examples and documentation
-            cssContent +=
-                "\n/* ---------------------------------------------------------- */\n";
-            cssContent += "/* Usage Examples */\n";
-            cssContent +=
-                "/* ---------------------------------------------------------- */\n\n";
-            cssContent += "/* Example usage of variables */\n";
-            cssContent += ".example-element {\n";
-            cssContent += "  color: var(--primary-color);\n";
-            cssContent += "  background-color: var(--background-color);\n";
-            cssContent += "  padding: var(--spacing-medium);\n";
-            cssContent += "  border-radius: var(--border-radius);\n";
-            cssContent += "  font-family: var(--font-family);\n";
-            cssContent += "}\n";
-            // Send the CSS content back to the UI
-            figma.ui.postMessage({
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      figma.showUI(__html__, { width: 850, height: 800 });
+      function collectDocumentData() {
+        return __awaiter4(this, void 0, void 0, function* () {
+          const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
+          const variablesData = [];
+          for (const collection of variableCollections) {
+            const variablesPromises = collection.variableIds.map((id) => __awaiter4(this, void 0, void 0, function* () {
+              const variable = yield figma.variables.getVariableByIdAsync(id);
+              if (!variable)
+                return null;
+              const valuesByModeEntries = [];
+              for (const modeId in variable.valuesByMode) {
+                const value = variable.valuesByMode[modeId];
+                const mode = collection.modes.find((m) => m.modeId === modeId);
+                valuesByModeEntries.push({
+                  modeName: mode ? mode.name : "Unknown",
+                  value
+                });
+              }
+              return {
+                id: variable.id,
+                name: variable.name,
+                resolvedType: variable.resolvedType,
+                valuesByMode: valuesByModeEntries
+              };
+            }));
+            const variablesResult = yield Promise.all(variablesPromises);
+            const variables = variablesResult.filter((item) => item !== null);
+            variablesData.push({
+              name: collection.name,
+              variables
+            });
+          }
+          const componentsData = yield ComponentService.collectComponents();
+          figma.ui.postMessage({
+            type: "document-data",
+            variablesData,
+            componentsData
+          });
+        });
+      }
+      function loadSavedGitLabSettings() {
+        return __awaiter4(this, void 0, void 0, function* () {
+          try {
+            const settings = yield GitLabService.loadSettings();
+            if (settings) {
+              figma.ui.postMessage({
+                type: "gitlab-settings-loaded",
+                settings
+              });
+              console.log("GitLab settings loaded");
+            }
+          } catch (error) {
+            console.error("Error loading GitLab settings:", error);
+          }
+        });
+      }
+      collectDocumentData();
+      loadSavedGitLabSettings();
+      figma.codegen.on("generate", (_event) => {
+        try {
+          return [
+            {
+              language: "PLAINTEXT",
+              code: "aWall Synch - Use the plugin interface to view variables and components",
+              title: "aWall Synch"
+            }
+          ];
+        } catch (error) {
+          console.error("Plugin error:", error);
+          return [
+            {
+              language: "PLAINTEXT",
+              code: "Error occurred during code generation",
+              title: "Error"
+            }
+          ];
+        }
+      });
+      figma.ui.onmessage = (msg) => __awaiter4(void 0, void 0, void 0, function* () {
+        var _a;
+        try {
+          switch (msg.type) {
+            case "export-css":
+              const cssContent = yield CSSExportService.exportVariables();
+              figma.ui.postMessage({
                 type: "css-export",
                 cssData: cssContent,
-            });
-        }
-        catch (error) {
-            console.error("Error exporting CSS:", error);
-            figma.ui.postMessage({
-                type: "error",
-                message: `Error exporting CSS: ${error.message || "Unknown error"}`,
-            });
-        }
-    }
-    else if (msg.type === "export-angular") {
-        // Existing Angular export functionality
-    }
-    else if (msg.type === "generate-test") {
-        try {
-            // Get the component data
-            const componentId = msg.componentId || "";
-            const component = componentMap.get(componentId);
-            const generateAllVariants = msg.generateAllVariants === true;
-            if (!component) {
-                figma.ui.postMessage({
-                    type: "error",
-                    message: `Component with ID ${componentId} not found`,
-                });
-                return;
-            }
-            // Generate the test
-            const testContent = generateJestTest(component, generateAllVariants);
-            // Send the test content back to the UI
-            figma.ui.postMessage({
+                shouldDownload: msg.shouldDownload
+              });
+              break;
+            case "generate-test":
+              const component = ComponentService.getComponentById(msg.componentId || "");
+              if (!component) {
+                throw new Error(`Component with ID ${msg.componentId} not found`);
+              }
+              const testContent = ComponentService.generateTest(component, msg.generateAllVariants);
+              figma.ui.postMessage({
                 type: "test-generated",
                 componentName: msg.componentName || component.name,
-                testContent: testContent,
+                testContent,
                 isComponentSet: component.type === "COMPONENT_SET",
-                hasAllVariants: generateAllVariants,
-            });
-        }
-        catch (error) {
-            console.error("Error generating test:", error);
-            figma.ui.postMessage({
-                type: "error",
-                message: `Error generating test: ${error.message || "Unknown error"}`,
-            });
-        }
-    }
-    else if (msg.type === "save-gitlab-settings") {
-        try {
-            const settings = {
-                projectId: msg.projectId,
+                hasAllVariants: msg.generateAllVariants
+              });
+              break;
+            case "save-gitlab-settings":
+              yield GitLabService.saveSettings({
+                projectId: msg.projectId || "",
                 gitlabToken: msg.gitlabToken,
-                saveToken: msg.saveToken || false, // Whether to save the token
-                savedAt: new Date().toISOString(),
-                savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user",
-            };
-            // If user didn't opt to save the token, don't store it
-            if (!settings.saveToken) {
-                delete settings.gitlabToken;
-            }
-            // Determine where to save based on sharing preference
-            if (msg.shareWithTeam) {
-                // Save to document storage (available to all team members)
-                figma.root.setSharedPluginData("aWallSync", "gitlab-settings", JSON.stringify(settings));
-                console.log("GitLab settings saved to document storage");
-                // Also save to client storage as a backup
-                yield figma.clientStorage.setAsync("gitlab-settings", settings);
-            }
-            else {
-                // Save only to client storage (personal)
-                yield figma.clientStorage.setAsync("gitlab-settings", settings);
-                console.log("GitLab settings saved to client storage only");
-            }
-            figma.ui.postMessage({
+                saveToken: msg.saveToken || false,
+                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+                savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user"
+              }, msg.shareWithTeam || false);
+              figma.ui.postMessage({
                 type: "gitlab-settings-saved",
                 success: true,
-                sharedWithTeam: msg.shareWithTeam,
-            });
-        }
-        catch (error) {
-            console.error("Error saving GitLab settings:", error);
-            figma.ui.postMessage({
-                type: "error",
-                message: `Error saving GitLab settings: ${error.message || "Unknown error"}`,
-            });
-        }
-    }
-    else if (msg.type === "commit-to-gitlab") {
-        try {
-            if (!msg.projectId ||
-                !msg.gitlabToken ||
-                !msg.commitMessage ||
-                !msg.cssData) {
+                sharedWithTeam: msg.shareWithTeam
+              });
+              break;
+            case "commit-to-gitlab":
+              if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
                 throw new Error("Missing required fields for GitLab commit");
-            }
-            const projectId = msg.projectId;
-            const gitlabToken = msg.gitlabToken;
-            const filePath = msg.filePath || "variables.css";
-            const featureBranch = "feature/variables";
-            // First, get the default branch
-            const projectUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}`;
-            const projectResponse = yield fetch(projectUrl, {
-                method: "GET",
-                headers: {
-                    "PRIVATE-TOKEN": gitlabToken,
-                },
-            });
-            if (!projectResponse.ok) {
-                throw new Error("Failed to fetch project information");
-            }
-            const projectData = yield projectResponse.json();
-            const defaultBranch = projectData.default_branch;
-            // Create a new branch from the default branch if it doesn't exist
-            const createBranchUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/branches`;
-            const createBranchResponse = yield fetch(createBranchUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "PRIVATE-TOKEN": gitlabToken,
-                },
-                body: JSON.stringify({
-                    branch: featureBranch,
-                    ref: defaultBranch,
-                }),
-            });
-            if (!createBranchResponse.ok) {
-                const errorData = yield createBranchResponse.json();
-                // If branch already exists, that's fine - we'll use it
-                if (errorData.message !== "Branch already exists") {
-                    throw new Error(errorData.message || "Failed to create branch");
-                }
-            }
-            // Check if the file exists in the feature branch
-            const checkFileUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${featureBranch}`;
-            const checkResponse = yield fetch(checkFileUrl, {
-                method: "GET",
-                headers: {
-                    "PRIVATE-TOKEN": gitlabToken,
-                },
-            });
-            // Determine if we should create or update the file
-            const fileExists = checkResponse.ok;
-            let fileData = null;
-            let action = "create";
-            if (fileExists) {
-                // Get the current content info for update
-                fileData = yield checkResponse.json();
-                action = "update";
-            }
-            // Prepare the commit data
-            const commitAction = {
-                action: action,
-                file_path: filePath,
-                content: msg.cssData,
-            };
-            // For file updates, we need to either use the last_commit_id or force option
-            if (action === "update") {
-                commitAction.encoding = "text";
-                if (fileData && fileData.last_commit_id) {
-                    commitAction.last_commit_id = fileData.last_commit_id;
-                }
-            }
-            else {
-                commitAction.encoding = "text";
-            }
-            // Commit to the feature branch
-            const commitUrl = `https://gitlab.fhnw.ch/api/v4/projects/${projectId}/repository/commits`;
-            const commitData = {
-                branch: featureBranch,
-                commit_message: msg.commitMessage,
-                actions: [commitAction],
-            };
-            const commitResponse = yield fetch(commitUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "PRIVATE-TOKEN": gitlabToken,
-                },
-                body: JSON.stringify(commitData),
-            });
-            if (!commitResponse.ok) {
-                const errorData = yield commitResponse.json();
-                throw new Error(errorData.message || "Failed to commit to GitLab");
-            }
-            // Send success message back to UI
-            figma.ui.postMessage({
+              }
+              yield GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData);
+              figma.ui.postMessage({
                 type: "commit-success",
-                message: "Successfully committed changes to the feature branch",
-            });
+                message: "Successfully committed changes to the feature branch"
+              });
+              break;
+            default:
+              console.warn("Unknown message type:", msg.type);
+          }
+        } catch (error) {
+          console.error("Error handling message:", error);
+          figma.ui.postMessage({
+            type: "error",
+            message: error.message || "Unknown error occurred"
+          });
         }
-        catch (error) {
-            console.error("Error in GitLab operations:", error);
-            figma.ui.postMessage({
-                type: "commit-error",
-                error: error.message || "Unknown error occurred",
-            });
-        }
+      });
     }
-});
+  });
+
+  // dist/index.js
+  var import_plugin = __toESM(require_plugin());
+})();
