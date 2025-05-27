@@ -68,7 +68,7 @@ export class GitLabService {
     commitMessage: string,
     filePath: string,
     cssData: string
-  ): Promise<void> {
+  ): Promise<{ mergeRequestUrl?: string }> {
     const featureBranch = "feature/variables";
 
     // Get project information
@@ -97,6 +97,23 @@ export class GitLabService {
       action,
       fileData?.last_commit_id
     );
+
+    // Check for existing merge request
+    const existingMR = await this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+    
+    if (!existingMR) {
+      // Create new merge request if none exists
+      const newMR = await this.createMergeRequest(
+        projectId,
+        gitlabToken,
+        featureBranch,
+        defaultBranch,
+        commitMessage
+      );
+      return { mergeRequestUrl: newMR.web_url };
+    }
+
+    return { mergeRequestUrl: existingMR.web_url };
   }
 
   private static async fetchProjectInfo(projectId: string, gitlabToken: string) {
@@ -205,5 +222,58 @@ export class GitLabService {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to commit to GitLab");
     }
+  }
+
+  private static async findExistingMergeRequest(
+    projectId: string,
+    gitlabToken: string,
+    sourceBranch: string
+  ): Promise<any> {
+    const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests?source_branch=${sourceBranch}&state=opened`;
+    const response = await fetch(mrUrl, {
+      method: "GET",
+      headers: {
+        "PRIVATE-TOKEN": gitlabToken,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch merge requests");
+    }
+
+    const mergeRequests = await response.json();
+    return mergeRequests.length > 0 ? mergeRequests[0] : null;
+  }
+
+  private static async createMergeRequest(
+    projectId: string,
+    gitlabToken: string,
+    sourceBranch: string,
+    targetBranch: string,
+    title: string
+  ): Promise<any> {
+    const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
+    const response = await fetch(mrUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PRIVATE-TOKEN": gitlabToken,
+      },
+      body: JSON.stringify({
+        source_branch: sourceBranch,
+        target_branch: targetBranch,
+        title: title,
+        description: "Automatically created merge request for CSS variables update",
+        remove_source_branch: true,
+        squash: true
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to create merge request");
+    }
+
+    return await response.json();
   }
 } 

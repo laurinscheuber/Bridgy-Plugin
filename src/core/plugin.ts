@@ -158,7 +158,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           throw new Error("Missing required fields for GitLab commit");
         }
 
-        await GitLabService.commitToGitLab(
+        const result = await GitLabService.commitToGitLab(
           msg.projectId,
           msg.gitlabToken,
           msg.commitMessage,
@@ -169,6 +169,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         figma.ui.postMessage({
           type: "commit-success",
           message: "Successfully committed changes to the feature branch",
+          mergeRequestUrl: result?.mergeRequestUrl
         });
         break;
 

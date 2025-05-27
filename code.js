@@ -113,6 +113,12 @@
             yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
             const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
             yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id);
+            const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+            if (!existingMR) {
+              const newMR = yield this.createMergeRequest(projectId, gitlabToken, featureBranch, defaultBranch, commitMessage);
+              return { mergeRequestUrl: newMR.web_url };
+            }
+            return { mergeRequestUrl: existingMR.web_url };
           });
         }
         static fetchProjectInfo(projectId, gitlabToken) {
@@ -191,6 +197,47 @@
               const errorData = yield response.json();
               throw new Error(errorData.message || "Failed to commit to GitLab");
             }
+          });
+        }
+        static findExistingMergeRequest(projectId, gitlabToken, sourceBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests?source_branch=${sourceBranch}&state=opened`;
+            const response = yield fetch(mrUrl, {
+              method: "GET",
+              headers: {
+                "PRIVATE-TOKEN": gitlabToken
+              }
+            });
+            if (!response.ok) {
+              throw new Error("Failed to fetch merge requests");
+            }
+            const mergeRequests = yield response.json();
+            return mergeRequests.length > 0 ? mergeRequests[0] : null;
+          });
+        }
+        static createMergeRequest(projectId, gitlabToken, sourceBranch, targetBranch, title) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
+            const response = yield fetch(mrUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "PRIVATE-TOKEN": gitlabToken
+              },
+              body: JSON.stringify({
+                source_branch: sourceBranch,
+                target_branch: targetBranch,
+                title,
+                description: "Automatically created merge request for CSS variables update",
+                remove_source_branch: true,
+                squash: true
+              })
+            });
+            if (!response.ok) {
+              const errorData = yield response.json();
+              throw new Error(errorData.message || "Failed to create merge request");
+            }
+            return yield response.json();
           });
         }
       };
@@ -776,10 +823,11 @@ ${generateStyleChecks(styleChecks)}
               if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
                 throw new Error("Missing required fields for GitLab commit");
               }
-              yield GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData);
+              const result = yield GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData);
               figma.ui.postMessage({
                 type: "commit-success",
-                message: "Successfully committed changes to the feature branch"
+                message: "Successfully committed changes to the feature branch",
+                mergeRequestUrl: result === null || result === void 0 ? void 0 : result.mergeRequestUrl
               });
               break;
             default:
