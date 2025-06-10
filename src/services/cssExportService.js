@@ -1,7 +1,5 @@
-import { VariableCollection } from '../types';
-
 export class CSSExportService {
-  static async exportVariables(): Promise<string> {
+  static async exportVariables() {
     try {
       // Get all variable collections
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -67,13 +65,13 @@ export class CSSExportService {
       cssContent += this.addUsageExamples();
 
       return cssContent;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error exporting CSS:", error);
       throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
     }
   }
 
-  private static formatVariableValue(type: string, value: any, name: string): string | null {
+  static formatVariableValue(type, value, name) {
     switch (type) {
       case "COLOR":
         if (
@@ -83,7 +81,7 @@ export class CSSExportService {
           "g" in value &&
           "b" in value
         ) {
-          const color = value as RGB;
+          const color = value;
           return `rgb(${Math.round(color.r * 255)}, ${Math.round(
             color.g * 255
           )}, ${Math.round(color.b * 255)})`;
@@ -124,7 +122,7 @@ export class CSSExportService {
     }
   }
 
-  private static addUsageExamples(): string {
+  static addUsageExamples() {
     return `/* ---------------------------------------------------------- */
 /* Usage Examples */
 /* ---------------------------------------------------------- */

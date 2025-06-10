@@ -1,9 +1,7 @@
-import { GitLabSettings } from '../types';
-
 export class GitLabService {
-  private static readonly GITLAB_API_BASE = 'https://gitlab.fhnw.ch/api/v4';
+  static GITLAB_API_BASE = 'https://gitlab.fhnw.ch/api/v4';
 
-  static async saveSettings(settings: GitLabSettings, shareWithTeam: boolean): Promise<void> {
+  static async saveSettings(settings, shareWithTeam) {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
@@ -45,13 +43,13 @@ export class GitLabService {
           savedBy: settings.savedBy
         })
       );
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error saving GitLab settings:", error);
       throw new Error(`Error saving GitLab settings: ${error.message || "Unknown error"}`);
     }
   }
 
-  static async loadSettings(): Promise<GitLabSettings | null> {
+  static async loadSettings() {
     try {
       // Create project-specific storage key using Figma root node ID (unique per file)
       const figmaFileId = figma.root.id;
@@ -127,7 +125,7 @@ export class GitLabService {
     }
   }
 
-  static async resetSettings(): Promise<void> {
+  static async resetSettings() {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
@@ -147,20 +145,20 @@ export class GitLabService {
       await figma.clientStorage.deleteAsync("gitlab-settings");
 
       console.log("All GitLab settings have been reset successfully");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error resetting GitLab settings:", error);
       throw new Error(`Error resetting GitLab settings: ${error.message || "Unknown error"}`);
     }
   }
 
   static async commitToGitLab(
-    projectId: string,
-    gitlabToken: string,
-    commitMessage: string,
-    filePath: string,
-    cssData: string,
-    branchName: string = "feature/variables"
-  ): Promise<{ mergeRequestUrl?: string }> {
+    projectId,
+    gitlabToken,
+    commitMessage,
+    filePath,
+    cssData,
+    branchName = "feature/variables"
+  ) {
     const featureBranch = branchName;
 
     // Get project information
@@ -208,7 +206,7 @@ export class GitLabService {
     return { mergeRequestUrl: existingMR.web_url };
   }
 
-  private static async fetchProjectInfo(projectId: string, gitlabToken: string) {
+  static async fetchProjectInfo(projectId, gitlabToken) {
     const projectUrl = `${this.GITLAB_API_BASE}/projects/${projectId}`;
     const response = await fetch(projectUrl, {
       method: "GET",
@@ -224,11 +222,11 @@ export class GitLabService {
     return await response.json();
   }
 
-  private static async createFeatureBranch(
-    projectId: string,
-    gitlabToken: string,
-    featureBranch: string,
-    defaultBranch: string
+  static async createFeatureBranch(
+    projectId,
+    gitlabToken,
+    featureBranch,
+    defaultBranch
   ) {
     const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/branches`;
     const response = await fetch(createBranchUrl, {
@@ -252,11 +250,11 @@ export class GitLabService {
     }
   }
 
-  private static async prepareFileCommit(
-    projectId: string,
-    gitlabToken: string,
-    filePath: string,
-    featureBranch: string
+  static async prepareFileCommit(
+    projectId,
+    gitlabToken,
+    filePath,
+    featureBranch
   ) {
     const checkFileUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${featureBranch}`;
     const response = await fetch(checkFileUrl, {
@@ -278,15 +276,15 @@ export class GitLabService {
     return { fileData, action };
   }
 
-  private static async createCommit(
-    projectId: string,
-    gitlabToken: string,
-    featureBranch: string,
-    commitMessage: string,
-    filePath: string,
-    cssData: string,
-    action: string,
-    lastCommitId?: string
+  static async createCommit(
+    projectId,
+    gitlabToken,
+    featureBranch,
+    commitMessage,
+    filePath,
+    cssData,
+    action,
+    lastCommitId
   ) {
     const commitUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/commits`;
     const commitAction = {
@@ -316,11 +314,11 @@ export class GitLabService {
     }
   }
 
-  private static async findExistingMergeRequest(
-    projectId: string,
-    gitlabToken: string,
-    sourceBranch: string
-  ): Promise<any> {
+  static async findExistingMergeRequest(
+    projectId,
+    gitlabToken,
+    sourceBranch
+  ) {
     const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests?source_branch=${sourceBranch}&state=opened`;
     const response = await fetch(mrUrl, {
       method: "GET",
@@ -337,13 +335,13 @@ export class GitLabService {
     return mergeRequests.length > 0 ? mergeRequests[0] : null;
   }
 
-  private static async createMergeRequest(
-    projectId: string,
-    gitlabToken: string,
-    sourceBranch: string,
-    targetBranch: string,
-    title: string
-  ): Promise<any> {
+  static async createMergeRequest(
+    projectId,
+    gitlabToken,
+    sourceBranch,
+    targetBranch,
+    title
+  ) {
     const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
     const response = await fetch(mrUrl, {
       method: "POST",

@@ -1,7 +1,5 @@
-import { ParsedComponentName, StyleCheck } from '../types';
-
-export function parseComponentName(name: string): ParsedComponentName {
-  const result: ParsedComponentName = {
+export function parseComponentName(name) {
+  const result = {
     name: name,
     type: null,
     state: null,
@@ -22,7 +20,7 @@ export function parseComponentName(name: string): ParsedComponentName {
   return result;
 }
 
-export function generateStyleChecks(styleChecks: StyleCheck[]): string {
+export function generateStyleChecks(styleChecks) {
   if (styleChecks.length === 0) {
     return "        // No style properties to check";
   }
@@ -36,10 +34,10 @@ export function generateStyleChecks(styleChecks: StyleCheck[]): string {
 }
 
 export function createTestWithStyleChecks(
-  componentName: string,
-  kebabName: string,
-  styleChecks: StyleCheck[]
-): string {
+  componentName,
+  kebabName,
+  styleChecks
+) {
   const styleCheckCode = styleChecks.length > 0
     ? styleChecks
         .map((check) => {

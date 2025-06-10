@@ -1,4 +1,3 @@
-import { PluginMessage } from '../types';
 import { GitLabService } from '../services/gitlabService';
 import { CSSExportService } from '../services/cssExportService';
 import { ComponentService } from '../services/componentService';
@@ -7,7 +6,7 @@ import { ComponentService } from '../services/componentService';
 figma.showUI(__html__, { width: 850, height: 800 });
 
 // Store component data for later use
-let componentMap = new Map<string, any>();
+let componentMap = new Map();
 
 // Collect all variables and components from the document
 async function collectDocumentData() {
@@ -106,7 +105,7 @@ figma.codegen.on("generate", (_event) => {
 });
 
 // Handle messages from the UI
-figma.ui.onmessage = async (msg: PluginMessage) => {
+figma.ui.onmessage = async (msg) => {
   try {
     switch (msg.type) {
       case "export-css":
@@ -188,7 +187,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       default:
         console.warn("Unknown message type:", msg.type);
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error handling message:", error);
     figma.ui.postMessage({
       type: "error",

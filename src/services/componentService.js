@@ -1,20 +1,19 @@
-import { Component } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks } from '../utils/componentUtils';
 
 export class ComponentService {
-  private static componentMap = new Map<string, Component>();
+  static componentMap = new Map();
 
-  static async collectComponents(): Promise<Component[]> {
-    const componentsData: Component[] = [];
-    const componentSets: Component[] = [];
-    this.componentMap = new Map<string, Component>();
+  static async collectComponents() {
+    const componentsData = [];
+    const componentSets = [];
+    this.componentMap = new Map();
 
     // First pass to collect all components and component sets
-    async function collectNodes(node: BaseNode) {
+    async function collectNodes(node) {
       if ("type" in node) {
         if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
           const componentStyles = await node.getCSSAsync();
-          const componentData: Component = {
+          const componentData = {
             id: node.id,
             name: node.name,
             type: node.type,
@@ -61,11 +60,11 @@ export class ComponentService {
     return [...componentSets, ...componentsData.filter((comp) => !comp.isChild)];
   }
 
-  static getComponentById(id: string): Component | undefined {
+  static getComponentById(id) {
     return this.componentMap.get(id);
   }
 
-  static generateTest(component: Component, generateAllVariants = false): string {
+  static generateTest(component, generateAllVariants = false) {
     // Extract component name and create a kebab case version for file naming
     const componentName = component.name;
     const kebabName = componentName
@@ -146,7 +145,7 @@ export class ComponentService {
     return createTestWithStyleChecks(componentName, kebabName, styleChecks);
   }
 
-  private static generateComponentSetTest(componentSet: Component): string {
+  static generateComponentSetTest(componentSet) {
     if (!componentSet.children || componentSet.children.length === 0) {
       return this.generateTest(componentSet); // Fallback to standard test if no variants
     }
@@ -186,7 +185,7 @@ describe('${pascalName}Component', () => {
 `;
 
     // Add tests for each variant
-    componentSet.children.forEach((variant: Component, index: number) => {
+    componentSet.children.forEach((variant, index) => {
       // Extract state and type information from the variant name
       const parsedName = parseComponentName(variant.name);
       const variantDesc = parsedName.state
