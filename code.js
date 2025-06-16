@@ -575,6 +575,7 @@ ${styleCheckCode}
                     }
                   }
                   if ("children" in node) {
+                    // Using a for..of loop for yield compatibility
                     for (const child of node.children) {
                       yield collectNodes(child);
                     }
@@ -582,10 +583,11 @@ ${styleCheckCode}
                 }
               });
             }
+            // Using a for..of loop for yield compatibility
             for (const page of figma.root.children) {
               yield collectNodes(page);
             }
-            for (const component of componentsData) {
+            componentsData.forEach(component => {
               if (component.parentId) {
                 const parent = this.componentMap.get(component.parentId);
                 if (parent && parent.type === "COMPONENT_SET") {
@@ -593,8 +595,12 @@ ${styleCheckCode}
                   component.isChild = true;
                 }
               }
-            }
-            return [...componentSets, ...componentsData.filter((comp) => !comp.isChild)];
+            });
+            // Using functional methods for final result
+            return [
+              ...componentSets,
+              ...componentsData.filter(comp => !comp.isChild)
+            ];
           });
         }
         static getComponentById(id) {
@@ -614,16 +620,13 @@ ${styleCheckCode}
             console.error("Error parsing component styles:", e);
             styles = {};
           }
-          const styleChecks = [];
-          for (const key in styles) {
-            if (Object.prototype.hasOwnProperty.call(styles, key)) {
-              const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-              styleChecks.push({
-                property: camelCaseKey,
-                value: styles[key]
-              });
-            }
-          }
+          // Using Object.entries for functional iteration over styles
+          const styleChecks = Object.entries(styles)
+            .filter(([key]) => Object.prototype.hasOwnProperty.call(styles, key))
+            .map(([key, value]) => ({
+              property: key.replace(/-([a-z])/g, (g) => g[1].toUpperCase()),
+              value
+            }));
           if (isComponentSet) {
             const defaultVariant = component.children && component.children.length > 0 ? component.children[0] : null;
             if (defaultVariant) {
@@ -691,16 +694,13 @@ describe('${pascalName}Component', () => {
               console.error("Error parsing variant styles:", e);
               variantStyles = {};
             }
-            const styleChecks = [];
-            for (const key in variantStyles) {
-              if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-                const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-                styleChecks.push({
-                  property: camelCaseKey,
-                  value: variantStyles[key]
-                });
-              }
-            }
+            // Using Object.entries for functional iteration over variant styles
+            const styleChecks = Object.entries(variantStyles)
+              .filter(([key]) => Object.prototype.hasOwnProperty.call(variantStyles, key))
+              .map(([key, value]) => ({
+                property: key.replace(/-([a-z])/g, (g) => g[1].toUpperCase()),
+                value
+              }));
             const stateVar = parsedName.state ? parsedName.state.toLowerCase().replace(/\s+/g, "") : "default";
             testContent += `  describe('${variantDesc}', () => {
     it('should have correct styles', () => {
@@ -774,15 +774,15 @@ ${generateStyleChecks(styleChecks)}
               const variable = yield figma.variables.getVariableByIdAsync(id);
               if (!variable)
                 return null;
-              const valuesByModeEntries = [];
-              for (const modeId in variable.valuesByMode) {
+              // Using functional method for non-async operations
+              const valuesByModeEntries = Object.keys(variable.valuesByMode).map(modeId => {
                 const value = variable.valuesByMode[modeId];
                 const mode = collection.modes.find((m) => m.modeId === modeId);
-                valuesByModeEntries.push({
+                return {
                   modeName: mode ? mode.name : "Unknown",
                   value
-                });
-              }
+                };
+              });
               return {
                 id: variable.id,
                 name: variable.name,
@@ -790,8 +790,9 @@ ${generateStyleChecks(styleChecks)}
                 valuesByMode: valuesByModeEntries
               };
             }));
+            // Using functional methods for promise handling
             const variablesResult = yield Promise.all(variablesPromises);
-            const variables = variablesResult.filter((item) => item !== null);
+            const variables = variablesResult.filter(Boolean); // More concise filter for non-null values
             variablesData.push({
               name: collection.name,
               variables

@@ -40,4 +40,5 @@ Thumbs.db
 # Claude guidance file
 CLAUDE.md
 
-**/.claude/settings.local.json
+# Claude folder
+.claude/
