@@ -1,7 +1,50 @@
-import { VariableCollection } from '../types';
+// testColorTransparency.js
+// Test helper to demonstrate transparent color handling in CSSExportService
 
-export class CSSExportService {
-  static async exportVariables(): Promise<string> {
+// Mock the Figma API
+global.figma = {
+  variables: {
+    getLocalVariableCollectionsAsync: async () => {
+      return [
+        {
+          name: "Colors",
+          modes: [{ modeId: "mode1", name: "Default" }],
+          variableIds: ["color1", "color2", "color3"]
+        }
+      ];
+    },
+    getVariableByIdAsync: async (id) => {
+      const variables = {
+        "color1": {
+          name: "Primary Color",
+          resolvedType: "COLOR",
+          valuesByMode: { 
+            "mode1": { r: 0.2, g: 0.4, b: 0.8, a: 1 } 
+          }
+        },
+        "color2": {
+          name: "Secondary Color Transparent",
+          resolvedType: "COLOR",
+          valuesByMode: { 
+            "mode1": { r: 0.8, g: 0.2, b: 0.4, a: 0.5 } 
+          }
+        },
+        "color3": {
+          name: "Tertiary Color Semitransparent",
+          resolvedType: "COLOR",
+          valuesByMode: { 
+            "mode1": { r: 0.3, g: 0.7, b: 0.1, a: 0.75 } 
+          }
+        }
+      };
+      return variables[id];
+    }
+  }
+};
+
+// Import the CSSExportService
+const CSSExportService = {
+  exportVariables: async function() {
     try {
       // Get all variable collections
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -54,26 +97,16 @@ export class CSSExportService {
       }
 
       // Close the root selector
-      cssContent += "}\n\n";
-
-      // Add media query for dark mode if needed
-      cssContent += "@media (prefers-color-scheme: dark) {\n";
-      cssContent += "  :root {\n";
-      cssContent += "    /* Dark mode overrides can be added here */\n";
-      cssContent += "  }\n";
       cssContent += "}\n";
 
-      // Add usage examples and documentation
-      cssContent += this.addUsageExamples();
-
       return cssContent;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error exporting CSS:", error);
       throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
     }
-  }
+  },
 
-  private static formatVariableValue(type: string, value: any, name: string): string | null {
+  formatVariableValue: function(type, value, name) {
     switch (type) {
       case "COLOR":
         if (
@@ -83,7 +116,7 @@ export class CSSExportService {
           "g" in value &&
           "b" in value
         ) {
-          const color = value as RGB & { a?: number };
+          const color = value;
           const r = Math.round(color.r * 255);
           const g = Math.round(color.g * 255);
           const b = Math.round(color.b * 255);
@@ -131,20 +164,25 @@ export class CSSExportService {
         return null;
     }
   }
+};
 
-  private static addUsageExamples(): string {
-    return `/* ---------------------------------------------------------- */
-/* Usage Examples */
-/* ---------------------------------------------------------- */
-
-/* Example usage of variables */
-.example-element {
-  color: var(--primary-color);
-  background-color: var(--background-color);
-  padding: var(--spacing-medium);
-  border-radius: var(--border-radius);
-  font-family: var(--font-family);
-}
-`;
+// Run the test
+async function runTest() {
+  try {
+    console.log("Testing CSSExportService color transparency handling...\n");
+    const css = await CSSExportService.exportVariables();
+    console.log(css);
+    console.log("\nTest completed successfully!");
+    
+    // Check for transparent values
+    const hasRgba = css.includes("rgba(");
+    console.log(`\nTransparent colors detected: ${hasRgba ? "YES" : "NO"}`);
+    console.log("Note that transparent colors should appear as rgba() values,");
+    console.log("while solid colors should use rgb() format.");
+  } catch (error) {
+    console.error("Test failed:", error);
   }
 }
+
+// Execute the test
+runTest();
