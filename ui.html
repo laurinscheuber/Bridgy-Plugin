@@ -1413,6 +1413,67 @@
     </div>
 
     <script>
+      // Define unit settings functions early to ensure they're available
+      window.saveUnitsSettings = function() {
+        console.log("★★★ saveUnitsSettings called ★★★");
+        alert("Save function called!");
+        
+        const collections = {};
+        const groups = {};
+        
+        const dropdowns = document.querySelectorAll('.unit-dropdown');
+        console.log("Found", dropdowns.length, "dropdowns");
+        
+        dropdowns.forEach(dropdown => {
+          const type = dropdown.dataset.type;
+          const value = dropdown.value;
+          console.log(`Found dropdown: type=${type}, value=${value}`);
+          
+          // Only save non-empty values (empty = use smart defaults)
+          if (value !== '') {
+            if (type === 'collection') {
+              const name = dropdown.dataset.name;
+              collections[name] = value;
+              console.log(`Added collection: ${name} = ${value}`);
+            } else if (type === 'group') {
+              const collectionName = dropdown.dataset.collection;
+              const groupName = dropdown.dataset.group;
+              const key = `${collectionName}/${groupName}`;
+              groups[key] = value;
+              console.log(`Added group: ${key} = ${value}`);
+            }
+          }
+        });
+        
+        console.log("Sending unit settings:", { collections, groups });
+        parent.postMessage({
+          pluginMessage: {
+            type: "update-unit-settings",
+            collections: collections,
+            groups: groups
+          }
+        }, "*");
+      };
+      
+      window.resetUnitsSettings = function() {
+        console.log("★★★ resetUnitsSettings called ★★★");
+        alert("Reset function called!");
+        
+        if (confirm("Are you sure you want to reset all unit settings to smart defaults?")) {
+          // Clear all dropdowns to smart defaults (empty value)
+          const dropdowns = document.querySelectorAll('.unit-dropdown');
+          console.log("Found", dropdowns.length, "dropdowns to reset");
+          
+          dropdowns.forEach(dropdown => {
+            dropdown.value = ''; // Select empty option (Smart defaults)
+            console.log(`Reset dropdown to empty value`);
+          });
+          
+          // Save the reset settings
+          window.saveUnitsSettings();
+        }
+      };
+
       // Tab switching
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => {
@@ -3213,67 +3274,6 @@
       document.addEventListener("click", function(event) {
         console.log("GLOBAL CLICK:", event.target.id, event.target.tagName, event.target.textContent);
       });
-      
-      // Units functions - define them on window for global access
-      window.saveUnitsSettings = function() {
-        console.log("★★★ saveUnitsSettings called ★★★");
-        alert("Save function called!");
-        
-        const collections = {};
-        const groups = {};
-        
-        const dropdowns = document.querySelectorAll('.unit-dropdown');
-        console.log("Found", dropdowns.length, "dropdowns");
-        
-        dropdowns.forEach(dropdown => {
-          const type = dropdown.dataset.type;
-          const value = dropdown.value;
-          console.log(`Found dropdown: type=${type}, value=${value}`);
-          
-          // Only save non-empty values (empty = use smart defaults)
-          if (value !== '') {
-            if (type === 'collection') {
-              const name = dropdown.dataset.name;
-              collections[name] = value;
-              console.log(`Added collection: ${name} = ${value}`);
-            } else if (type === 'group') {
-              const collectionName = dropdown.dataset.collection;
-              const groupName = dropdown.dataset.group;
-              const key = `${collectionName}/${groupName}`;
-              groups[key] = value;
-              console.log(`Added group: ${key} = ${value}`);
-            }
-          }
-        });
-        
-        console.log("Sending unit settings:", { collections, groups });
-        parent.postMessage({
-          pluginMessage: {
-            type: "update-unit-settings",
-            collections: collections,
-            groups: groups
-          }
-        }, "*");
-      };
-      
-      window.resetUnitsSettings = function() {
-        console.log("★★★ resetUnitsSettings called ★★★");
-        alert("Reset function called!");
-        
-        if (confirm("Are you sure you want to reset all unit settings to smart defaults?")) {
-          // Clear all dropdowns to smart defaults (empty value)
-          const dropdowns = document.querySelectorAll('.unit-dropdown');
-          console.log("Found", dropdowns.length, "dropdowns to reset");
-          
-          dropdowns.forEach(dropdown => {
-            dropdown.value = ''; // Select empty option (Smart defaults)
-            console.log(`Reset dropdown to empty value`);
-          });
-          
-          // Save the reset settings
-          window.saveUnitsSettings();
-        }
-      };
     </script>
   </body>
 </html>
