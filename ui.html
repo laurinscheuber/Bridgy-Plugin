@@ -1291,7 +1291,7 @@
 
           <div class="form-group">
             <label for="config-test-file-path">Component Test File Path Template</label>
-            <input type="text" id="config-test-file-path" placeholder="components/{componentName}.component.spec.ts" />
+            <input type="text" id="config-test-file-path" placeholder="components/test-{componentName}.component.spec.ts" />
             <div style="font-size: 12px; color: #666; margin-top: 4px;">
               <i>Use {componentName} as a placeholder for the component name</i>
             </div>
@@ -1763,7 +1763,7 @@
                 commitMessage: commitMessage,
                 componentName: message.componentName,
                 testContent: message.testContent,
-                testFilePath: window.gitlabSettings.testFilePath || "components/{componentName}.component.spec.ts",
+                testFilePath: window.gitlabSettings.testFilePath || "components/test-{componentName}.component.spec.ts",
                 branchName: window.gitlabSettings.testBranchName || "feature/component-tests"
               }
             }, "*");
@@ -2862,7 +2862,7 @@
         document.getElementById("config-project-id").value = "";
         document.getElementById("config-file-path").value = "src/variables.css";
         document.getElementById("config-export-format").value = "css";
-        document.getElementById("config-test-file-path").value = "components/{componentName}.component.spec.ts";
+        document.getElementById("config-test-file-path").value = "components/test-{componentName}.component.spec.ts";
         document.getElementById("config-token").value = "";
         document.getElementById("config-strategy").value = "merge-request";
         document.getElementById("config-branch").value = "feature/variables";
@@ -2962,7 +2962,7 @@
           document.getElementById("config-project-id").value = window.gitlabSettings.projectId || "";
           document.getElementById("config-file-path").value = window.gitlabSettings.filePath || "src/variables.css";
           document.getElementById("config-export-format").value = window.gitlabSettings.exportFormat || "css";
-          document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/{componentName}.component.spec.ts";
+          document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/test-{componentName}.component.spec.ts";
           document.getElementById("config-token").value = window.gitlabSettings.gitlabToken || "";
           document.getElementById("config-strategy").value = window.gitlabSettings.strategy || "merge-request";
           document.getElementById("config-branch").value = window.gitlabSettings.branchName || "feature/variables";
