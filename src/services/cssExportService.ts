@@ -1,76 +1,205 @@
 import { VariableCollection } from '../types';
 
 export class CSSExportService {
+  private static allVariables = new Map<string, any>();
+
   static async exportVariables(): Promise<string> {
     try {
+      // Clear cache
+      this.allVariables.clear();
+
       // Get all variable collections
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      let cssContent = "/* Figma Variables Export */\n";
-      cssContent += `/* Generated: ${new Date().toLocaleString()} */\n\n`;
-      cssContent += ":root {\n";
+      
+      // First pass: collect all variables for reference lookup
+      await this.collectAllVariables(collections);
 
-      // Process each collection
+      // Categorize variables by type and purpose (matching UI logic)
+      const categorizedVariables: any = {
+        // Definition variables (base tokens)
+        colorPalette: [],
+        radius: [],
+        padding: [],
+        spacing: [],
+        sizing: [],
+        opacity: [],
+        typography: [],
+        colorScheme: [],
+        other: [],
+        
+        // Component variables (comes last)
+        components: []
+      };
+
+      // Process each collection and categorize variables
       for (const collection of collections) {
-        let hasValidVariables = false;
-        let collectionContent = `  /* ${collection.name} */\n`;
-
-        // Get all variables in the collection
         for (const variableId of collection.variableIds) {
           const variable = await figma.variables.getVariableByIdAsync(variableId);
           if (!variable) continue;
 
-          // Get the default mode (first mode)
           const defaultModeId = collection.modes[0].modeId;
           const value = variable.valuesByMode[defaultModeId];
+          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
 
-          // Skip variables that reference other variables
-          if (
-            value &&
-            typeof value === "object" &&
-            "type" in value &&
-            value.type === "VARIABLE_ALIAS"
-          ) {
-            continue;
+          // Use same categorization logic as UI
+          const category = this.categorizeVariableByPurpose(variable, collection);
+
+          let cssValue: string;
+          const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
+          
+          if (isAlias) {
+            const referencedVariable = this.allVariables.get(value.id);
+            if (referencedVariable) {
+              const referencedName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+              cssValue = `var(--${referencedName})`;
+            } else {
+              continue;
+            }
+          } else {
+            const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
+            if (formattedValue === null) continue;
+            cssValue = formattedValue;
           }
 
-          // Format the variable name (replace spaces and special characters)
-          const formattedName = variable.name
-            .replace(/[^a-zA-Z0-9]/g, "-")
-            .toLowerCase();
-
-          // Format the value based on the variable type
-          const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
-          if (formattedValue === null) continue;
-
-          // Add the CSS variable
-          collectionContent += `  --${formattedName}: ${formattedValue};\n`;
-          hasValidVariables = true;
-        }
-
-        // Only add the collection content if it has valid variables
-        if (hasValidVariables) {
-          cssContent += collectionContent + "\n";
+          categorizedVariables[category].push({
+            name: formattedName,
+            value: cssValue
+          });
         }
       }
 
-      // Close the root selector
-      cssContent += "}\n\n";
+      // Build structured CSS content in same order as UI
+      let cssContent = ":root {\n";
+      
+      // Definition sections first (same order as UI)
+      const definitionSections = [
+        { key: 'colorPalette', title: 'Color Palette' },
+        { key: 'radius', title: 'Border Radius' },
+        { key: 'padding', title: 'Padding' },
+        { key: 'spacing', title: 'Spacing' },
+        { key: 'sizing', title: 'Sizing' },
+        { key: 'opacity', title: 'Opacity' },
+        { key: 'typography', title: 'Typography' },
+        { key: 'colorScheme', title: 'Color Scheme' },
+        { key: 'other', title: 'Other' }
+      ];
 
-      // Add media query for dark mode if needed
-      cssContent += "@media (prefers-color-scheme: dark) {\n";
-      cssContent += "  :root {\n";
-      cssContent += "    /* Dark mode overrides can be added here */\n";
-      cssContent += "  }\n";
+      definitionSections.forEach(section => {
+        if (categorizedVariables[section.key].length > 0) {
+          cssContent += this.buildVariableSection(categorizedVariables[section.key], section.title);
+        }
+      });
+
+      // Component variables last
+      if (categorizedVariables.components.length > 0) {
+        cssContent += this.buildVariableSection(categorizedVariables.components, "Component Variables");
+      }
+
       cssContent += "}\n";
-
-      // Add usage examples and documentation
-      cssContent += this.addUsageExamples();
 
       return cssContent;
     } catch (error: any) {
       console.error("Error exporting CSS:", error);
       throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
     }
+  }
+
+  // Collect all variables for resolution purposes
+  private static async collectAllVariables(collections: any[]): Promise<void> {
+    for (const collection of collections) {
+      for (const variableId of collection.variableIds) {
+        const variable = await figma.variables.getVariableByIdAsync(variableId);
+        if (variable) {
+          this.allVariables.set(variable.id, variable);
+        }
+      }
+    }
+  }
+
+  // Categorize variables by their purpose and type (same logic as UI)
+  private static categorizeVariableByPurpose(variable: any, collection: any): string {
+    const name = variable.name.toLowerCase();
+    
+    // Component variables (must contain component-specific keywords with "/" separator)
+    if ((name.includes("button/") || name.includes("card/") || name.includes("modal/") || 
+        name.includes("input/") || name.includes("form/") || name.includes("nav/") ||
+        name.includes("header/") || name.includes("footer/") || name.includes("sidebar/") ||
+        name.includes("widget/") || name.includes("dropdown/") || name.includes("label/") ||
+        name.includes("increment/") || name.includes("functional/") || name.includes("icon/") ||
+        name.includes("ghost/") || name.includes("delete/")) ||
+        // Also catch component names at the start with specific patterns
+        (name.match(/^(primary|secondary|teritary|delete|functional)-(button|icon|ghost|dropdown)/))) {
+      return "components";
+    }
+    
+    // Definition variables by type
+    if (variable.resolvedType === "COLOR") {
+      // Check if it's a semantic color or base palette color
+      // We check the default mode value specifically (consistent with processing)
+      const defaultModeId = collection.modes[0].modeId;
+      const defaultValue = variable.valuesByMode[defaultModeId];
+      const hasAlias = defaultValue && typeof defaultValue === "object" && defaultValue.type === "VARIABLE_ALIAS";
+      
+      // If it has an alias (references another variable), it goes to Color Scheme regardless of name
+      if (hasAlias) {
+        return "colorScheme";
+      }
+      
+      // Base palette colors (only direct values, no aliases)
+      const isBasePaletteColor = name.match(/^(gray|grey|red|blue|green|yellow|orange|purple|magenta|cyan|pink|brown|ultramarine|darkblue)([\/\-]|$)/) ||
+                               name.match(/^monochrome[\/\-](white|black)$/);
+      
+      // Semantic color patterns
+      const isSemanticColor = name === 'white' || name === 'black' ||
+                             ['background', 'primary-color', 'secondary', 'teritary', 'critical'].some(keyword => 
+                             name === keyword || name.startsWith(keyword + '-') || name.endsWith('-' + keyword)) ||
+                             name.includes('-text') || name.includes('text-') ||
+                             (name.includes('primary') && !name.includes('/')) ||
+                             (name.includes('secondary') && !name.includes('/')) ||
+                             (name.includes('teritary') && !name.includes('/'));
+      
+      if (isSemanticColor) {
+        return "colorScheme";
+      } else if (isBasePaletteColor) {
+        return "colorPalette";
+      } else {
+        return "colorPalette";
+      }
+    }
+    
+    if (variable.resolvedType === "FLOAT") {
+      if (name.includes("radius")) return "radius";
+      if (name.includes("padding")) return "padding";
+      if (name.includes("spacing") || name.includes("gap") || name.includes("margin")) return "spacing";
+      if (name.includes("size") || name.includes("width") || name.includes("height")) return "sizing";
+      if (name.includes("opacity")) return "opacity";
+    }
+    
+    if (variable.resolvedType === "STRING") {
+      if (name.includes("font") || name.includes("text") || name.includes("weight") || 
+          name.includes("style") || name.startsWith("weight-") || name.startsWith("wieght-")) return "typography";
+    }
+
+    if (variable.resolvedType === "BOOLEAN") {
+      return "other";
+    }
+    
+    return "other";
+  }
+
+  // Build a variable section with clean formatting
+  private static buildVariableSection(variables: any[], sectionName: string): string {
+    if (variables.length === 0) {
+      return "";
+    }
+    
+    let content = `\n  /* ===== ${sectionName.toUpperCase()} ===== */\n`;
+    
+    variables.forEach((variable: any) => {
+      content += `  --${variable.name}: ${variable.value};\n`;
+    });
+    
+    return content;
   }
 
   private static formatVariableValue(type: string, value: any, name: string): string | null {
@@ -132,19 +261,4 @@ export class CSSExportService {
     }
   }
 
-  private static addUsageExamples(): string {
-    return `/* ---------------------------------------------------------- */
-/* Usage Examples */
-/* ---------------------------------------------------------- */
-
-/* Example usage of variables */
-.example-element {
-  color: var(--primary-color);
-  background-color: var(--background-color);
-  padding: var(--spacing-medium);
-  border-radius: var(--border-radius);
-  font-family: var(--font-family);
-}
-`;
-  }
 }
