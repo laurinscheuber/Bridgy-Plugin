@@ -216,8 +216,9 @@
             });
             if (!response.ok) {
               const errorData = yield response.json();
+              console.error(`Branch creation failed for '${featureBranch}' from '${defaultBranch}':`, errorData);
               if (errorData.message !== "Branch already exists") {
-                throw new Error(errorData.message || "Failed to create branch");
+                throw new Error(`Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`);
               }
             }
           });
@@ -308,10 +309,11 @@
           return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.component.spec.ts", branchName = "feature/component-tests") {
             const normalizedComponentName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
             const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
-            const featureBranch = `${branchName}/${normalizedComponentName}`;
+            const featureBranch = `${branchName}-${normalizedComponentName}`;
             console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
             const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
-            const defaultBranch = projectData.default_branch;
+            const defaultBranch = projectData.default_branch || "main";
+            console.log(`Project default branch: ${defaultBranch}, creating feature branch: ${featureBranch}`);
             yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
             const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
             yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, testContent, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id);

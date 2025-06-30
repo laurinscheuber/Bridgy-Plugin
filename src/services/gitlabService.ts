@@ -245,9 +245,10 @@ export class GitLabService {
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error(`Branch creation failed for '${featureBranch}' from '${defaultBranch}':`, errorData);
       // If branch already exists, that's fine - we'll use it
       if (errorData.message !== "Branch already exists") {
-        throw new Error(errorData.message || "Failed to create branch");
+        throw new Error(`Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`);
       }
     }
   }
@@ -388,14 +389,16 @@ export class GitLabService {
     // Replace all occurrences of {componentName} in the file path
     const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
     
-    // Create component-specific branch name
-    const featureBranch = `${branchName}/${normalizedComponentName}`;
+    // Create component-specific branch name - use dashes instead of slashes to avoid GitLab issues
+    const featureBranch = `${branchName}-${normalizedComponentName}`;
 
     console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
 
     // Get project information
     const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
-    const defaultBranch = projectData.default_branch;
+    const defaultBranch = projectData.default_branch || 'main';
+    
+    console.log(`Project default branch: ${defaultBranch}, creating feature branch: ${featureBranch}`);
 
     // Create or get feature branch
     await this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
