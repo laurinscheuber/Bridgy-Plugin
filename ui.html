@@ -534,6 +534,202 @@
       .json-null {
         color: #808080;
       }
+      
+      /* Enhanced Component Styles */
+      .component-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        background: white;
+        transition: all 0.2s ease;
+        overflow: hidden;
+      }
+      .component-card:hover {
+        border-color: #0d99ff;
+        box-shadow: 0 4px 12px rgba(13, 153, 255, 0.1);
+      }
+      .component-header {
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .component-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+      }
+      .component-preview {
+        width: 48px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border: 1px solid #e0e0e0;
+      }
+      .component-meta {
+        flex: 1;
+      }
+      .component-name {
+        font-weight: 600;
+        color: #333;
+        margin: 0 0 4px 0;
+        font-size: 14px;
+      }
+      .component-details {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #666;
+      }
+      .component-badge {
+        background: #f0f0f0;
+        color: #666;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+      .component-badge.set {
+        background: #e8f4ff;
+        color: #0d99ff;
+      }
+      .component-badge.state {
+        background: #fff2e8;
+        color: #e67e22;
+      }
+      .component-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .component-toggle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+      .component-toggle:hover {
+        background: #e8f4ff;
+        border-color: #0d99ff;
+        color: #0d99ff;
+      }
+      .component-toggle.expanded {
+        transform: rotate(180deg);
+        background: #0d99ff;
+        color: white;
+        border-color: #0d99ff;
+      }
+      .component-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+        background: #fafbfc;
+      }
+      .component-content.expanded {
+        max-height: 500px;
+      }
+      .component-variants {
+        padding: 16px;
+        border-bottom: 1px solid #eee;
+      }
+      .variant-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+      }
+      .variant-item {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+        transition: all 0.2s ease;
+      }
+      .variant-item:hover {
+        border-color: #0d99ff;
+        box-shadow: 0 2px 8px rgba(13, 153, 255, 0.1);
+      }
+      .variant-preview {
+        width: 100%;
+        height: 40px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        border: 1px solid #e0e0e0;
+      }
+      .variant-name {
+        font-size: 12px;
+        color: #666;
+        text-align: center;
+      }
+      .component-styles-section {
+        padding: 16px;
+        border-bottom: 1px solid #eee;
+      }
+      .styles-toggle {
+        background: none;
+        border: none;
+        color: #0d99ff;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 4px 0;
+        text-decoration: underline;
+      }
+      .component-actions-section {
+        padding: 16px;
+        display: flex;
+        gap: 12px;
+        background: white;
+      }
+      .action-button {
+        flex: 1;
+        padding: 10px 16px;
+        border: 1px solid #e0e0e0;
+        background: white;
+        color: #333;
+        border-radius: 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .action-button:hover {
+        border-color: #0d99ff;
+        color: #0d99ff;
+        background: #f8faff;
+      }
+      .action-button.primary {
+        background: #0d99ff;
+        color: white;
+        border-color: #0d99ff;
+      }
+      .action-button.primary:hover {
+        background: #0c8ae6;
+      }
+      
       /* Button styling */
       button {
         padding: 8px 16px;
@@ -2312,173 +2508,190 @@
       // Render components for test generation (Figma components only)
       function renderComponents(data) {
         const container = document.getElementById("components-container");
-
-        // Get component variable groups for preview
-        const componentGroups = groupComponentVariables();
         
-        if (data.length === 0 && componentGroups.length === 0) {
+        if (data.length === 0) {
           container.innerHTML =
             '<div class="no-items">No components found in this document.</div>';
           return;
         }
 
-        let html = `<div class="component-list">`;
+        let html = '';
         
-        // Show component variable previews first if available
-        if (componentGroups.length > 0) {
-          html += '<h3 style="margin: 0 0 16px 0; color: #333;">Component Variable Previews</h3>';
-          
-          componentGroups.forEach((group, index) => {
-            const groupId = `comp-preview-${index}`;
-            const displayName = group.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            
-            html += `
-              <div class="component-preview-group">
-                ${renderComponentPreview(group)}
-              </div>
-            `;
-          });
-          
-          html += '<h3 style="margin: 24px 0 16px 0; color: #333;">Figma Components</h3>';
-        }
-
-        // Render Figma components for test generation
+        // Render each component with the new enhanced design
         data.forEach((component, index) => {
-          if (component.type === "COMPONENT_SET") {
-            const parsedName = parseComponentName(component.name);
-
-            html += `
-            <div class="component-set">
-              <div class="component-set-header" data-index="${index}" onclick="toggleComponentSet(${index})">
-                <div class="component-set-toggle">+</div>
-                <div class="component-meta">
-                  <span class="component-name">${parsedName.name}</span>
-                  <span class="badge badge-component-set">Component Set</span>
-                  ${
-                    parsedName.type
-                      ? `<span class="badge badge-type">${parsedName.type}</span>`
-                      : ""
-                  }
+          const parsedName = parseComponentName(component.name);
+          const isComponentSet = component.type === "COMPONENT_SET";
+          
+          // Generate preview styles for the component
+          const previewStyles = generateComponentPreview(component);
+          
+          html += `
+            <div class="component-card" data-component-id="${component.id}">
+              <div class="component-header" onclick="toggleComponent('${component.id}')">
+                <div class="component-info">
+                  <div class="component-preview" style="${previewStyles.inline}">
+                    ${previewStyles.text}
+                  </div>
+                  <div class="component-meta">
+                    <h4 class="component-name">${parsedName.name}</h4>
+                    <div class="component-details">
+                      <span class="component-badge ${isComponentSet ? 'set' : ''}">${isComponentSet ? 'Component Set' : 'Component'}</span>
+                      ${parsedName.type ? `<span class="component-badge">${parsedName.type}</span>` : ''}
+                      ${parsedName.state ? `<span class="component-badge state">${parsedName.state}</span>` : ''}
+                      ${isComponentSet && component.children ? `<span class="component-badge">${component.children.length} variants</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div class="component-actions">
+                  <div class="component-toggle" id="toggle-${component.id}">
+                    <span>▼</span>
+                  </div>
                 </div>
               </div>
-              <div class="component-set-actions">
-                <div style="display: flex; gap: 8px;">
-                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test for All Variants</button>
-                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
-                </div>
-                <div class="test-success-message">Test generated successfully!</div>
-              </div>
-              <div class="component-set-children" id="children-${index}">
-            `;
-
-            if (component.children && component.children.length > 0) {
-              component.children.forEach((child) => {
-                const childParsed = parseComponentName(child.name);
+              
+              <div class="component-content" id="content-${component.id}">
+                ${isComponentSet ? renderComponentSetContent(component) : renderSingleComponentContent(component)}
                 
-                html += `
-                <div class="child-component">
-                  <table style="width: 100%;">
-                    <tbody>
-                      <tr>
-                        <td>
-                          <div class="component-meta">
-                            <span class="component-name">${childParsed.name}</span>
-                            <span class="badge badge-component">Component</span>
-                            ${
-                              childParsed.type
-                                ? `<span class="badge badge-type">${childParsed.type}</span>`
-                                : ""
-                            }
-                            ${
-                              childParsed.state
-                                ? `<span class="badge badge-state">${childParsed.state}</span>`
-                                : ""
-                            }
-                          </div>
-                          <div class="component-styles" onclick="toggleStyles(this)">
-                            ${formatStyles(child.styles)}
-                            <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
-                          </div>
-                          <div class="action-buttons">
-                            <button class="generate-test-button" onclick="generateTest('${child.id}', '${child.name}', this)">Generate Test</button>
-                            <button class="commit-button" onclick="generateTest('${child.id}', '${child.name}', this, false, true)">Commit Test</button>
-                          </div>
-                          <div class="test-success-message">Test generated successfully!</div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div class="component-actions-section">
+                  ${renderComponentActions(component, isComponentSet)}
                 </div>
-                `;
-              });
-            } else {
-              html += `<div class="child-component"><div class="no-items">No child components</div></div>`;
-            }
-
-            html += `</div></div>`;
-          } else {
-            const parsedName = parseComponentName(component.name);
-
-            html += `
-            <div class="component-item">
-              <div class="component-meta">
-                <span class="component-name">${parsedName.name}</span>
-                <span class="badge badge-component">Component</span>
-                ${
-                  parsedName.type
-                    ? `<span class="badge badge-type">${parsedName.type}</span>`
-                    : ""
-                }
-                ${
-                  parsedName.state
-                    ? `<span class="badge badge-state">${parsedName.state}</span>`
-                    : ""
-                }
               </div>
-              <div class="component-styles" onclick="toggleStyles(this)">
-                ${formatStyles(component.styles)}
-                <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
-              </div>
-              <div class="action-buttons">
-                <button class="generate-test-button" onclick="generateTest('${component.id}', '${component.name}', this)">Generate Test</button>
-                <button class="commit-button" onclick="generateTest('${component.id}', '${component.name}', this, false, true)">Commit Test</button>
-              </div>
-              <div class="test-success-message">Test generated successfully!</div>
             </div>
-            `;
-          }
+          `;
         });
 
-        html += `</div>`;
         container.innerHTML = html;
-
-        // Add toggle functions to the global scope
-        window.toggleComponentSet = function (index) {
-          const headerEl = document.querySelector(
-            `.component-set-header[data-index="${index}"]`
-          );
-          const childrenEl = document.getElementById(`children-${index}`);
-
-          if (childrenEl.classList.contains("expanded")) {
-            childrenEl.classList.remove("expanded");
-            headerEl.classList.remove("expanded");
-            headerEl.querySelector(".component-set-toggle").textContent = "+";
+        
+        // Initialize component functionality
+        initializeComponentInteractions();
+      }
+      
+      function generateComponentPreview(component) {
+        try {
+          let styles = component.styles;
+          if (typeof styles === 'string') {
+            styles = JSON.parse(styles);
+          }
+          
+          // Extract common button-like properties
+          const backgroundColor = styles['background-color'] || styles['background'] || '#f0f0f0';
+          const color = styles['color'] || '#333';
+          const borderRadius = styles['border-radius'] || '4px';
+          const border = styles['border'] || '1px solid #e0e0e0';
+          
+          return {
+            inline: `background: ${backgroundColor}; color: ${color}; border-radius: ${borderRadius}; border: ${border};`,
+            text: component.name.length > 8 ? component.name.substring(0, 6) + '...' : component.name
+          };
+        } catch (e) {
+          return {
+            inline: 'background: #f0f0f0; color: #333; border-radius: 4px; border: 1px solid #e0e0e0;',
+            text: component.name.length > 8 ? component.name.substring(0, 6) + '...' : component.name
+          };
+        }
+      }
+      
+      function renderComponentSetContent(componentSet) {
+        if (!componentSet.children || componentSet.children.length === 0) {
+          return '<div class="component-variants"><p style="color: #666; text-align: center; margin: 0;">No variants found</p></div>';
+        }
+        
+        let html = '<div class="component-variants">';
+        html += '<h5 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Variants</h5>';
+        html += '<div class="variant-grid">';
+        
+        componentSet.children.forEach(variant => {
+          const parsedVariant = parseComponentName(variant.name);
+          const previewStyles = generateComponentPreview(variant);
+          
+          html += `
+            <div class="variant-item">
+              <div class="variant-preview" style="${previewStyles.inline}">
+                ${previewStyles.text}
+              </div>
+              <div class="variant-name">${parsedVariant.state || parsedVariant.type || 'Default'}</div>
+            </div>
+          `;
+        });
+        
+        html += '</div></div>';
+        
+        // Add styles section
+        html += renderStylesSection(componentSet);
+        
+        return html;
+      }
+      
+      function renderSingleComponentContent(component) {
+        return renderStylesSection(component);
+      }
+      
+      function renderStylesSection(component) {
+        const formattedStyles = formatStyles(component.styles);
+        return `
+          <div class="component-styles-section">
+            <button class="styles-toggle" onclick="toggleComponentStyles('${component.id}')">
+              <span id="styles-toggle-text-${component.id}">Show styles</span>
+            </button>
+            <div class="component-styles" id="styles-${component.id}" style="display: none;">
+              ${formattedStyles}
+            </div>
+          </div>
+        `;
+      }
+      
+      function renderComponentActions(component, isComponentSet) {
+        return `
+          <button class="action-button" onclick="downloadComponent('${component.id}', '${component.name}', ${isComponentSet})">
+            <span>📥</span> Download
+          </button>
+          <button class="action-button" onclick="generateTest('${component.id}', '${component.name}', this, ${isComponentSet})">
+            <span>🧪</span> Generate Test
+          </button>
+          <button class="action-button primary" onclick="commitComponent('${component.id}', '${component.name}', ${isComponentSet})">
+            <span>🚀</span> Commit
+          </button>
+        `;
+      }
+      
+      function initializeComponentInteractions() {
+        // Set up global functions for component interactions
+        window.toggleComponent = function(componentId) {
+          const content = document.getElementById(`content-${componentId}`);
+          const toggle = document.getElementById(`toggle-${componentId}`);
+          
+          if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
+            toggle.classList.remove('expanded');
           } else {
-            childrenEl.classList.add("expanded");
-            headerEl.classList.add("expanded");
-            headerEl.querySelector(".component-set-toggle").textContent = "›";
+            content.classList.add('expanded');
+            toggle.classList.add('expanded');
           }
         };
-
-        window.toggleStyles = function (element) {
-          element.classList.toggle("expanded");
-
-          // If we're expanding, scroll the element into view
-          if (element.classList.contains("expanded")) {
-            setTimeout(() => {
-              element.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            }, 100);
+        
+        window.toggleComponentStyles = function(componentId) {
+          const stylesDiv = document.getElementById(`styles-${componentId}`);
+          const toggleText = document.getElementById(`styles-toggle-text-${componentId}`);
+          
+          if (stylesDiv.style.display === 'none') {
+            stylesDiv.style.display = 'block';
+            toggleText.textContent = 'Hide styles';
+          } else {
+            stylesDiv.style.display = 'none';
+            toggleText.textContent = 'Show styles';
           }
+        };
+        
+        window.downloadComponent = function(componentId, componentName, isComponentSet) {
+          console.log('Download component:', componentId, componentName, isComponentSet);
+          // Generate test for download
+          generateTest(componentId, componentName, null, isComponentSet, false, true);
+        };
+        
+        window.commitComponent = function(componentId, componentName, isComponentSet) {
+          console.log('Commit component:', componentId, componentName, isComponentSet);
+          // Generate test for commit
+          generateTest(componentId, componentName, null, isComponentSet, true);
         };
       }
 
