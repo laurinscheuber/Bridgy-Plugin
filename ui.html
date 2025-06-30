@@ -80,6 +80,177 @@
       .tab-content.active {
         display: block;
       }
+      
+      /* Component group styles */
+      .component-group {
+        margin-bottom: 24px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: #fff;
+      }
+      
+      .component-group-header {
+        padding: 16px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 8px 8px 0 0;
+      }
+      
+      .component-group-header:hover {
+        background: #f1f3f4;
+      }
+      
+      .component-group-header.expanded {
+        border-radius: 8px 8px 0 0;
+      }
+      
+      .component-group-title {
+        font-weight: 600;
+        font-size: 16px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .component-group-toggle {
+        font-size: 18px;
+        color: #666;
+        transition: transform 0.2s;
+      }
+      
+      .component-group-header.expanded .component-group-toggle {
+        transform: rotate(90deg);
+      }
+      
+      .component-group-content {
+        display: none;
+        padding: 16px;
+      }
+      
+      .component-group-content.expanded {
+        display: block;
+      }
+      
+      /* Interactive component preview */
+      .component-preview {
+        margin-bottom: 16px;
+        padding: 16px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+      }
+      
+      .preview-element {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: inherit;
+        border: 1px solid transparent;
+        background: #007bff;
+        color: white;
+        font-size: 14px;
+        font-weight: 500;
+        margin-right: 8px;
+      }
+      
+      .preview-element:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .preview-element:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      }
+      
+      .preview-element:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      
+      .state-labels {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #666;
+        display: flex;
+        gap: 8px;
+      }
+      
+      .state-label {
+        padding: 2px 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+      
+      /* Component variable details */
+      .component-variables {
+        margin-top: 16px;
+      }
+      
+      .variables-toggle {
+        background: none;
+        border: 1px solid #ddd;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 12px;
+      }
+      
+      .variables-toggle:hover {
+        background: #f8f9fa;
+      }
+      
+      .variables-list {
+        display: none;
+        background: #f8f9fa;
+        border-radius: 4px;
+        padding: 12px;
+        margin-top: 8px;
+      }
+      
+      .variables-list.expanded {
+        display: block;
+      }
+      
+      .variable-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: 12px;
+        border-bottom: 1px solid #e9ecef;
+      }
+      
+      .variable-item:last-child {
+        border-bottom: none;
+      }
+      
+      .variable-name {
+        font-family: monospace;
+        color: #666;
+      }
+      
+      .variable-value {
+        font-family: monospace;
+        color: #0066cc;
+        cursor: pointer;
+      }
+      
+      .variable-value:hover {
+        text-decoration: underline;
+      }
       .variable-collection {
         margin-bottom: 16px;
         background: #f9f9f9;
@@ -1465,12 +1636,64 @@
           }
         });
 
-        // Render component variables last
-        if (categorizedVariables.components.length > 0) {
-          html += renderVariableGroup(categorizedVariables.components, "Component Variables");
+        // Render component variables with interactive previews
+        const componentGroups = groupComponentVariables();
+        if (componentGroups.length > 0) {
+          html += '<h3 style="margin: 24px 0 16px 0; color: #333;">Component Variables</h3>';
+          
+          componentGroups.forEach((group, index) => {
+            const groupId = `var-group-${index}`;
+            const displayName = group.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            html += `
+              <div class="component-group">
+                <div class="component-group-header" onclick="toggleComponentGroup('${groupId}')">
+                  <div class="component-group-title">
+                    <span>${displayName}</span>
+                    <span class="badge badge-component">${group.variables.length} variables</span>
+                  </div>
+                  <div class="component-group-toggle">▶</div>
+                </div>
+                <div class="component-group-content" id="${groupId}">
+                  ${renderComponentPreview(group)}
+                  ${renderComponentVariables(group)}
+                </div>
+              </div>
+            `;
+          });
         }
 
         container.innerHTML = html;
+        
+        // Add toggle functions for component groups
+        window.toggleComponentGroup = function(groupId) {
+          const header = document.querySelector(`[onclick="toggleComponentGroup('${groupId}')"]`);
+          const content = document.getElementById(groupId);
+          const toggle = header.querySelector('.component-group-toggle');
+          
+          if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
+            header.classList.remove('expanded');
+            toggle.textContent = '▶';
+          } else {
+            content.classList.add('expanded');
+            header.classList.add('expanded');
+            toggle.textContent = '▼';
+          }
+        };
+        
+        window.toggleVariablesList = function(groupIndex) {
+          const list = document.getElementById(`variables-${groupIndex}`);
+          const toggle = document.querySelector(`[onclick="toggleVariablesList('${groupIndex}')"]`);
+          
+          if (list.classList.contains('expanded')) {
+            list.classList.remove('expanded');
+            toggle.textContent = 'Show Variables';
+          } else {
+            list.classList.add('expanded');
+            toggle.textContent = 'Hide Variables';
+          }
+        };
       }
 
       // Categorize variables by their purpose and type
@@ -1697,7 +1920,220 @@
           });
       }
 
-      // Render components in hierarchical view
+      // Group component variables by prefix (only real components)
+      function groupComponentVariables() {
+        const componentGroups = new Map();
+        
+        // Define what constitutes a real component prefix
+        const componentPrefixes = [
+          'button', 'primary-button', 'secondary-button', 'tertiary-button', 'delete-button',
+          'card', 'modal', 'input', 'form', 'nav', 'header', 'footer', 'sidebar',
+          'widget', 'dropdown', 'label', 'increment', 'functional', 'icon', 'ghost'
+        ];
+        
+        // Process each variable collection to find component variables
+        variablesData.forEach(collection => {
+          collection.variables.forEach(variable => {
+            const name = variable.name.toLowerCase();
+            
+            // Check if this is a component variable with prefix/path structure
+            const componentMatch = name.match(/^([^\/]+)\/(.+)$/);
+            if (componentMatch) {
+              const [, prefix, property] = componentMatch;
+              
+              // Only include if the prefix matches known component types
+              const isRealComponent = componentPrefixes.some(componentPrefix => 
+                prefix === componentPrefix || 
+                prefix.startsWith(componentPrefix + '-') ||
+                prefix.endsWith('-' + componentPrefix)
+              );
+              
+              if (isRealComponent) {
+                if (!componentGroups.has(prefix)) {
+                  componentGroups.set(prefix, {
+                    name: prefix,
+                    variables: [],
+                    styles: {}
+                  });
+                }
+                
+                const group = componentGroups.get(prefix);
+                group.variables.push({
+                  name: variable.name,
+                  property: property,
+                  type: variable.resolvedType,
+                  valuesByMode: variable.valuesByMode
+                });
+                
+                // Parse property for styling
+                if (property.includes('bg') && !property.includes(':')) {
+                  group.styles.backgroundColor = getVariableValue(variable);
+                } else if (property.includes('text') && !property.includes(':')) {
+                  group.styles.color = getVariableValue(variable);
+                } else if (property.includes('border-radius')) {
+                  group.styles.borderRadius = getVariableValue(variable);
+                } else if (property.includes('horizontal-padding')) {
+                  group.styles.paddingLeft = getVariableValue(variable);
+                  group.styles.paddingRight = getVariableValue(variable);
+                } else if (property.includes('vertical-padding')) {
+                  group.styles.paddingTop = getVariableValue(variable);
+                  group.styles.paddingBottom = getVariableValue(variable);
+                } else if (property.includes('bg:hover')) {
+                  group.styles.backgroundColorHover = getVariableValue(variable);
+                } else if (property.includes('bg:active')) {
+                  group.styles.backgroundColorActive = getVariableValue(variable);
+                } else if (property.includes('bg-opacity:disabled')) {
+                  group.styles.opacityDisabled = getVariableValue(variable);
+                }
+              }
+            }
+          });
+        });
+        
+        return Array.from(componentGroups.values());
+      }
+      
+      // Get variable value for styling
+      function getVariableValue(variable) {
+        // Get first mode value
+        const firstMode = Object.values(variable.valuesByMode)[0];
+        if (!firstMode) return null;
+        
+        const value = firstMode.value;
+        
+        if (variable.resolvedType === 'COLOR' && typeof value === 'object' && value.r !== undefined) {
+          const r = Math.round(value.r * 255);
+          const g = Math.round(value.g * 255);
+          const b = Math.round(value.b * 255);
+          const a = value.a !== undefined ? value.a : 1;
+          return `rgba(${r}, ${g}, ${b}, ${a})`;
+        } else if (variable.resolvedType === 'FLOAT') {
+          return `${value}px`;
+        } else if (typeof value === 'object' && value.type === 'VARIABLE_ALIAS') {
+          // Find referenced variable
+          const referencedVariable = findVariableById(value.id);
+          if (referencedVariable) {
+            return getVariableValue(referencedVariable);
+          }
+        }
+        
+        return value;
+      }
+      
+      // Find variable by ID
+      function findVariableById(id) {
+        for (const collection of variablesData) {
+          for (const variable of collection.variables) {
+            if (variable.id === id) {
+              return variable;
+            }
+          }
+        }
+        return null;
+      }
+      
+      // Render interactive component preview
+      function renderComponentPreview(group) {
+        const styles = group.styles;
+        const name = group.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        // Build inline styles for the preview element
+        let previewStyles = [];
+        if (styles.backgroundColor) previewStyles.push(`background-color: ${styles.backgroundColor}`);
+        if (styles.color) previewStyles.push(`color: ${styles.color}`);
+        if (styles.borderRadius) previewStyles.push(`border-radius: ${styles.borderRadius}`);
+        if (styles.paddingLeft && styles.paddingTop) {
+          previewStyles.push(`padding: ${styles.paddingTop} ${styles.paddingLeft}`);
+        }
+        
+        // Create hover and active styles
+        let hoverStyles = [];
+        if (styles.backgroundColorHover) hoverStyles.push(`background-color: ${styles.backgroundColorHover}`);
+        
+        let activeStyles = [];
+        if (styles.backgroundColorActive) activeStyles.push(`background-color: ${styles.backgroundColorActive}`);
+        
+        let disabledStyles = [];
+        if (styles.opacityDisabled) disabledStyles.push(`opacity: ${styles.opacityDisabled}`);
+        
+        return `
+          <div class="component-preview">
+            <div style="margin-bottom: 12px; font-weight: 500; color: #333;">Preview</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="preview-element" style="${previewStyles.join('; ')}" 
+                onmouseover="this.setAttribute('data-original-style', this.style.cssText); this.style.cssText = '${previewStyles.join('; ')}; ${hoverStyles.join('; ')}'"
+                onmouseout="this.style.cssText = this.getAttribute('data-original-style')"
+                onmousedown="this.style.cssText = '${previewStyles.join('; ')}; ${activeStyles.join('; ')}'"
+                onmouseup="this.style.cssText = this.getAttribute('data-original-style')">
+                ${name}
+              </button>
+              <button class="preview-element" style="${previewStyles.join('; ')}; ${disabledStyles.join('; ')}" disabled>
+                ${name} (Disabled)
+              </button>
+            </div>
+            <div class="state-labels">
+              <span class="state-label">Normal</span>
+              <span class="state-label">Hover</span>
+              <span class="state-label">Active</span>
+              <span class="state-label">Disabled</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Render component variables list
+      function renderComponentVariables(group) {
+        const groupIndex = Math.random().toString(36).substr(2, 9);
+        
+        let html = `
+          <div class="component-variables">
+            <button class="variables-toggle" onclick="toggleVariablesList('${groupIndex}')">
+              Show Variables (${group.variables.length})
+            </button>
+            <div class="variables-list" id="variables-${groupIndex}">
+        `;
+        
+        group.variables.forEach(variable => {
+          const value = getVariableDisplayValue(variable);
+          html += `
+            <div class="variable-item">
+              <span class="variable-name">${variable.name}</span>
+              <span class="variable-value" onclick="scrollToVariable('${variable.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}')">${value}</span>
+            </div>
+          `;
+        });
+        
+        html += `
+            </div>
+          </div>
+        `;
+        
+        return html;
+      }
+      
+      // Get display value for variable
+      function getVariableDisplayValue(variable) {
+        const firstMode = Object.values(variable.valuesByMode)[0];
+        if (!firstMode) return 'No value';
+        
+        const value = firstMode.value;
+        
+        if (typeof value === 'object' && value.type === 'VARIABLE_ALIAS') {
+          const referencedVariable = findVariableById(value.id);
+          return referencedVariable ? referencedVariable.name : value.id;
+        }
+        
+        if (variable.type === 'COLOR' && typeof value === 'object' && value.r !== undefined) {
+          const r = Math.round(value.r * 255);
+          const g = Math.round(value.g * 255);
+          const b = Math.round(value.b * 255);
+          return `rgb(${r}, ${g}, ${b})`;
+        }
+        
+        return String(value);
+      }
+
+      // Render components for test generation (Figma components only)
       function renderComponents(data) {
         const container = document.getElementById("components-container");
 
@@ -1709,13 +2145,11 @@
 
         let html = `<div class="component-list">`;
 
-        // Render each component with hierarchy
+        // Render Figma components for test generation
         data.forEach((component, index) => {
           if (component.type === "COMPONENT_SET") {
-            // Parse the component set name to extract type information
             const parsedName = parseComponentName(component.name);
 
-            // For component sets, create an expandable section
             html += `
             <div class="component-set">
               <div class="component-set-header" data-index="${index}" onclick="toggleComponentSet(${index})">
@@ -1740,12 +2174,10 @@
               <div class="component-set-children" id="children-${index}">
             `;
 
-            // Render child components
             if (component.children && component.children.length > 0) {
               component.children.forEach((child) => {
-                // Parse the child component name to extract type and state
                 const childParsed = parseComponentName(child.name);
-
+                
                 html += `
                 <div class="child-component">
                   <table style="width: 100%;">
@@ -1753,9 +2185,7 @@
                       <tr>
                         <td>
                           <div class="component-meta">
-                            <span class="component-name">${
-                              childParsed.name
-                            }</span>
+                            <span class="component-name">${childParsed.name}</span>
                             <span class="badge badge-component">Component</span>
                             ${
                               childParsed.type
@@ -1782,21 +2212,16 @@
                     </tbody>
                   </table>
                 </div>
-              `;
+                `;
               });
             } else {
               html += `<div class="child-component"><div class="no-items">No child components</div></div>`;
             }
 
-            html += `
-                </div>
-              </div>
-            `;
+            html += `</div></div>`;
           } else {
-            // Parse the standalone component name
             const parsedName = parseComponentName(component.name);
 
-            // For regular components, render normally
             html += `
             <div class="component-item">
               <div class="component-meta">
@@ -1823,12 +2248,11 @@
               </div>
               <div class="test-success-message">Test generated successfully!</div>
             </div>
-          `;
+            `;
           }
         });
 
         html += `</div>`;
-
         container.innerHTML = html;
 
         // Add toggle functions to the global scope
