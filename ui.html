@@ -1283,7 +1283,7 @@
 
           <div class="form-group">
             <label for="config-test-file-path">Component Test File Path Template</label>
-            <input type="text" id="config-test-file-path" placeholder="components/{componentName}/{componentName}.component.spec.ts" />
+            <input type="text" id="config-test-file-path" placeholder="components/{componentName}.component.spec.ts" />
             <div style="font-size: 12px; color: #666; margin-top: 4px;">
               <i>Use {componentName} as a placeholder for the component name</i>
             </div>
@@ -1310,6 +1310,7 @@
           <div id="config-test-branch-section" class="form-group">
             <label for="config-test-branch">Component Tests Branch Name</label>
             <input type="text" id="config-test-branch" placeholder="feature/component-tests" />
+            <p class="help-text">Each component will create a separate branch: {branch-name}/{component-name}</p>
           </div>
 
           <div class="form-group checkbox-group">
@@ -1753,7 +1754,7 @@
                 commitMessage: commitMessage,
                 componentName: message.componentName,
                 testContent: message.testContent,
-                testFilePath: window.gitlabSettings.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
+                testFilePath: window.gitlabSettings.testFilePath || "components/{componentName}.component.spec.ts",
                 branchName: window.gitlabSettings.testBranchName || "feature/component-tests"
               }
             }, "*");
@@ -2836,7 +2837,7 @@
         // Clear all form fields
         document.getElementById("config-project-id").value = "";
         document.getElementById("config-file-path").value = "src/variables.css";
-        document.getElementById("config-test-file-path").value = "components/{componentName}/{componentName}.component.spec.ts";
+        document.getElementById("config-test-file-path").value = "components/{componentName}.component.spec.ts";
         document.getElementById("config-token").value = "";
         document.getElementById("config-strategy").value = "merge-request";
         document.getElementById("config-branch").value = "feature/variables";
@@ -2929,7 +2930,7 @@
         if (window.gitlabSettings) {
           document.getElementById("config-project-id").value = window.gitlabSettings.projectId || "";
           document.getElementById("config-file-path").value = window.gitlabSettings.filePath || "src/variables.css";
-          document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/{componentName}/{componentName}.component.spec.ts";
+          document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/{componentName}.component.spec.ts";
           document.getElementById("config-token").value = window.gitlabSettings.gitlabToken || "";
           document.getElementById("config-strategy").value = window.gitlabSettings.strategy || "merge-request";
           document.getElementById("config-branch").value = window.gitlabSettings.branchName || "feature/variables";

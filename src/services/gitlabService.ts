@@ -376,7 +376,7 @@ export class GitLabService {
     commitMessage: string,
     componentName: string,
     testContent: string,
-    testFilePath: string = "components/{componentName}/{componentName}.component.spec.ts",
+    testFilePath: string = "components/{componentName}.component.spec.ts",
     branchName: string = "feature/component-tests"
   ): Promise<{ mergeRequestUrl?: string }> {
     // Replace {componentName} placeholder in file path if present
@@ -385,8 +385,11 @@ export class GitLabService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
-    const filePath = testFilePath.replace('{componentName}', normalizedComponentName);
-    const featureBranch = branchName;
+    // Replace all occurrences of {componentName} in the file path
+    const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
+    
+    // Create component-specific branch name
+    const featureBranch = `${branchName}/${normalizedComponentName}`;
 
     console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
 

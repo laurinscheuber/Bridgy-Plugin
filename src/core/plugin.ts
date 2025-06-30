@@ -151,7 +151,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             projectId: msg.projectId || "",
             gitlabToken: msg.gitlabToken,
             filePath: msg.filePath || "src/variables.css",
-            testFilePath: msg.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
+            testFilePath: msg.testFilePath || "components/{componentName}.component.spec.ts",
             strategy: msg.strategy || "merge-request",
             branchName: msg.branchName || "feature/variables",
             testBranchName: msg.testBranchName || "feature/component-tests",
@@ -207,7 +207,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           msg.commitMessage,
           msg.componentName,
           msg.testContent,
-          msg.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
+          msg.testFilePath || "components/{componentName}.component.spec.ts",
           msg.branchName || "feature/component-tests"
         );
 
