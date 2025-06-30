@@ -2522,16 +2522,10 @@
           const parsedName = parseComponentName(component.name);
           const isComponentSet = component.type === "COMPONENT_SET";
           
-          // Generate preview styles for the component
-          const previewStyles = generateComponentPreview(component);
-          
           html += `
             <div class="component-card" data-component-id="${component.id}">
               <div class="component-header" onclick="toggleComponent('${component.id}')">
                 <div class="component-info">
-                  <div class="component-preview" style="${previewStyles.inline}">
-                    ${previewStyles.text}
-                  </div>
                   <div class="component-meta">
                     <h4 class="component-name">${parsedName.name}</h4>
                     <div class="component-details">
@@ -2566,30 +2560,6 @@
         initializeComponentInteractions();
       }
       
-      function generateComponentPreview(component) {
-        try {
-          let styles = component.styles;
-          if (typeof styles === 'string') {
-            styles = JSON.parse(styles);
-          }
-          
-          // Extract common button-like properties
-          const backgroundColor = styles['background-color'] || styles['background'] || '#f0f0f0';
-          const color = styles['color'] || '#333';
-          const borderRadius = styles['border-radius'] || '4px';
-          const border = styles['border'] || '1px solid #e0e0e0';
-          
-          return {
-            inline: `background: ${backgroundColor}; color: ${color}; border-radius: ${borderRadius}; border: ${border};`,
-            text: component.name.length > 8 ? component.name.substring(0, 6) + '...' : component.name
-          };
-        } catch (e) {
-          return {
-            inline: 'background: #f0f0f0; color: #333; border-radius: 4px; border: 1px solid #e0e0e0;',
-            text: component.name.length > 8 ? component.name.substring(0, 6) + '...' : component.name
-          };
-        }
-      }
       
       function renderComponentSetContent(componentSet) {
         if (!componentSet.children || componentSet.children.length === 0) {
@@ -2617,13 +2587,12 @@
         
         variantsToShow.forEach(variant => {
           const parsedVariant = parseComponentName(variant.name);
-          const previewStyles = generateComponentPreview(variant);
           const stateName = parsedVariant.state || 'Default';
           
           html += `
             <div class="variant-item">
-              <div class="variant-preview" style="${previewStyles.inline}">
-                ${previewStyles.text}
+              <div class="variant-preview" style="background: #f0f0f0; color: #333; border-radius: 4px; border: 1px solid #e0e0e0;">
+                ${stateName}
               </div>
               <div class="variant-name">${stateName}</div>
             </div>
