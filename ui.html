@@ -1413,7 +1413,6 @@
       // Define unit settings functions early to ensure they're available
       window.saveUnitsSettings = function() {
         console.log("★★★ saveUnitsSettings called ★★★");
-        alert("Save function called!");
         
         const collections = {};
         const groups = {};
@@ -1454,7 +1453,6 @@
       
       window.resetUnitsSettings = function() {
         console.log("★★★ resetUnitsSettings called ★★★");
-        alert("Reset function called!");
         
         if (confirm("Are you sure you want to reset all unit settings to smart defaults?")) {
           // Clear all dropdowns to smart defaults (empty value)
@@ -1772,8 +1770,18 @@
           // Handle successful unit settings update
           console.log("Received unit-settings-updated:", message);
           if (message.success) {
-            alert("Unit settings saved successfully!");
-            document.getElementById("save-units-button").disabled = true;
+            // Show subtle success feedback by temporarily changing button text
+            const saveButton = document.getElementById("save-units-button");
+            const originalText = saveButton.textContent;
+            saveButton.textContent = "Saved!";
+            saveButton.style.backgroundColor = "#28a745";
+            saveButton.disabled = true;
+            
+            // Reset button appearance after 2 seconds
+            setTimeout(() => {
+              saveButton.textContent = originalText;
+              saveButton.style.backgroundColor = "";
+            }, 2000);
           }
         }
       };
