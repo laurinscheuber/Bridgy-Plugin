@@ -2596,20 +2596,36 @@
           return '<div class="component-variants"><p style="color: #666; text-align: center; margin: 0;">No variants found</p></div>';
         }
         
+        // Filter to show only normal/default and disabled states
+        const filteredVariants = componentSet.children.filter(variant => {
+          const parsedVariant = parseComponentName(variant.name);
+          const stateLower = (parsedVariant.state || '').toLowerCase();
+          
+          // Show default/normal states and disabled states only
+          return !parsedVariant.state || 
+                 stateLower.includes('default') || 
+                 stateLower.includes('normal') || 
+                 stateLower.includes('disabled');
+        });
+        
         let html = '<div class="component-variants">';
-        html += '<h5 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Variants</h5>';
+        html += '<h5 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Preview States</h5>';
         html += '<div class="variant-grid">';
         
-        componentSet.children.forEach(variant => {
+        // If no filtered variants, show the first one as default
+        const variantsToShow = filteredVariants.length > 0 ? filteredVariants : [componentSet.children[0]];
+        
+        variantsToShow.forEach(variant => {
           const parsedVariant = parseComponentName(variant.name);
           const previewStyles = generateComponentPreview(variant);
+          const stateName = parsedVariant.state || 'Default';
           
           html += `
             <div class="variant-item">
               <div class="variant-preview" style="${previewStyles.inline}">
                 ${previewStyles.text}
               </div>
-              <div class="variant-name">${parsedVariant.state || parsedVariant.type || 'Default'}</div>
+              <div class="variant-name">${stateName}</div>
             </div>
           `;
         });
@@ -2628,13 +2644,16 @@
       
       function renderStylesSection(component) {
         const formattedStyles = formatStyles(component.styles);
+        console.log('Component styles for', component.name, ':', component.styles);
+        console.log('Formatted styles:', formattedStyles);
+        
         return `
           <div class="component-styles-section">
             <button class="styles-toggle" onclick="toggleComponentStyles('${component.id}')">
               <span id="styles-toggle-text-${component.id}">Show styles</span>
             </button>
             <div class="component-styles" id="styles-${component.id}" style="display: none;">
-              ${formattedStyles}
+              ${formattedStyles || '<p style="color: #666; font-style: italic;">No styles available for this component</p>'}
             </div>
           </div>
         `;
@@ -2642,14 +2661,11 @@
       
       function renderComponentActions(component, isComponentSet) {
         return `
-          <button class="action-button" onclick="downloadComponent('${component.id}', '${component.name}', ${isComponentSet})">
-            <span>📥</span> Download
-          </button>
           <button class="action-button" onclick="generateTest('${component.id}', '${component.name}', this, ${isComponentSet})">
-            <span>🧪</span> Generate Test
+            <span>📥</span> Download Test
           </button>
           <button class="action-button primary" onclick="commitComponent('${component.id}', '${component.name}', ${isComponentSet})">
-            <span>🚀</span> Commit
+            <span>🚀</span> Commit Test
           </button>
         `;
       }
@@ -2680,12 +2696,6 @@
             stylesDiv.style.display = 'none';
             toggleText.textContent = 'Show styles';
           }
-        };
-        
-        window.downloadComponent = function(componentId, componentName, isComponentSet) {
-          console.log('Download component:', componentId, componentName, isComponentSet);
-          // Generate test for download
-          generateTest(componentId, componentName, null, isComponentSet, false, true);
         };
         
         window.commitComponent = function(componentId, componentName, isComponentSet) {
