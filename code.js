@@ -368,21 +368,10 @@
               this.allVariables.clear();
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
               yield this.collectAllVariables(collections);
-              const categorizedVariables = {
-                // Definition variables (base tokens)
-                colorPalette: [],
-                radius: [],
-                padding: [],
-                spacing: [],
-                sizing: [],
-                opacity: [],
-                typography: [],
-                colorScheme: [],
-                other: [],
-                // Component variables (comes last)
-                components: []
-              };
+              let cssContent = ":root {\n";
               for (const collection of collections) {
+                const collectionVariables = [];
+                const groupedVariables = /* @__PURE__ */ new Map();
                 for (const variableId of collection.variableIds) {
                   const variable = yield figma.variables.getVariableByIdAsync(variableId);
                   if (!variable)
@@ -390,7 +379,6 @@
                   const defaultModeId = collection.modes[0].modeId;
                   const value = variable.valuesByMode[defaultModeId];
                   const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-                  const category = this.categorizeVariableByPurpose(variable, collection);
                   let cssValue;
                   const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
                   if (isAlias) {
@@ -407,31 +395,43 @@
                       continue;
                     cssValue = formattedValue;
                   }
-                  categorizedVariables[category].push({
+                  const cssVariable = {
                     name: formattedName,
-                    value: cssValue
+                    value: cssValue,
+                    originalName: variable.name
+                  };
+                  const pathMatch = variable.name.match(/^([^\/]+)\//);
+                  if (pathMatch) {
+                    const prefix = pathMatch[1];
+                    if (!groupedVariables.has(prefix)) {
+                      groupedVariables.set(prefix, []);
+                    }
+                    groupedVariables.get(prefix).push(cssVariable);
+                  } else {
+                    collectionVariables.push(cssVariable);
+                  }
+                }
+                if (collectionVariables.length > 0 || groupedVariables.size > 0) {
+                  cssContent += `
+  /* ===== ${collection.name.toUpperCase()} ===== */
+`;
+                  collectionVariables.forEach((variable) => {
+                    cssContent += `  --${variable.name}: ${variable.value};
+`;
+                  });
+                  groupedVariables.forEach((variables, groupName) => {
+                    if (variables.length > 0) {
+                      const displayName = groupName.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+                      cssContent += `
+  /* ${displayName} */
+`;
+                      variables.forEach((variable) => {
+                        cssContent += `  --${variable.name}: ${variable.value};
+`;
+                      });
+                    }
                   });
                 }
-              }
-              let cssContent = ":root {\n";
-              const definitionSections = [
-                { key: "colorPalette", title: "Color Palette" },
-                { key: "radius", title: "Border Radius" },
-                { key: "padding", title: "Padding" },
-                { key: "spacing", title: "Spacing" },
-                { key: "sizing", title: "Sizing" },
-                { key: "opacity", title: "Opacity" },
-                { key: "typography", title: "Typography" },
-                { key: "colorScheme", title: "Color Scheme" },
-                { key: "other", title: "Other" }
-              ];
-              definitionSections.forEach((section) => {
-                if (categorizedVariables[section.key].length > 0) {
-                  cssContent += this.buildVariableSection(categorizedVariables[section.key], section.title);
-                }
-              });
-              if (categorizedVariables.components.length > 0) {
-                cssContent += this.buildVariableSection(categorizedVariables.components, "Component Variables");
               }
               cssContent += "}\n";
               return cssContent;
@@ -453,65 +453,6 @@
               }
             }
           });
-        }
-        // Categorize variables by their purpose and type (same logic as UI)
-        static categorizeVariableByPurpose(variable, collection) {
-          const name = variable.name.toLowerCase();
-          if (name.includes("button/") || name.includes("card/") || name.includes("modal/") || name.includes("input/") || name.includes("form/") || name.includes("nav/") || name.includes("header/") || name.includes("footer/") || name.includes("sidebar/") || name.includes("widget/") || name.includes("dropdown/") || name.includes("label/") || name.includes("increment/") || name.includes("functional/") || name.includes("icon/") || name.includes("ghost/") || name.includes("delete/") || // Also catch component names at the start with specific patterns
-          name.match(/^(primary|secondary|teritary|delete|functional)-(button|icon|ghost|dropdown)/)) {
-            return "components";
-          }
-          if (variable.resolvedType === "COLOR") {
-            const defaultModeId = collection.modes[0].modeId;
-            const defaultValue = variable.valuesByMode[defaultModeId];
-            const hasAlias = defaultValue && typeof defaultValue === "object" && defaultValue.type === "VARIABLE_ALIAS";
-            if (hasAlias) {
-              return "colorScheme";
-            }
-            const isBasePaletteColor = name.match(/^(gray|grey|red|blue|green|yellow|orange|purple|magenta|cyan|pink|brown|ultramarine|darkblue)([\/\-]|$)/) || name.match(/^monochrome[\/\-](white|black)$/);
-            const isSemanticColor = name === "white" || name === "black" || ["background", "primary-color", "secondary", "teritary", "critical"].some((keyword) => name === keyword || name.startsWith(keyword + "-") || name.endsWith("-" + keyword)) || name.includes("-text") || name.includes("text-") || name.includes("primary") && !name.includes("/") || name.includes("secondary") && !name.includes("/") || name.includes("teritary") && !name.includes("/");
-            if (isSemanticColor) {
-              return "colorScheme";
-            } else if (isBasePaletteColor) {
-              return "colorPalette";
-            } else {
-              return "colorPalette";
-            }
-          }
-          if (variable.resolvedType === "FLOAT") {
-            if (name.includes("radius"))
-              return "radius";
-            if (name.includes("padding"))
-              return "padding";
-            if (name.includes("spacing") || name.includes("gap") || name.includes("margin"))
-              return "spacing";
-            if (name.includes("size") || name.includes("width") || name.includes("height"))
-              return "sizing";
-            if (name.includes("opacity"))
-              return "opacity";
-          }
-          if (variable.resolvedType === "STRING") {
-            if (name.includes("font") || name.includes("text") || name.includes("weight") || name.includes("style") || name.startsWith("weight-") || name.startsWith("wieght-"))
-              return "typography";
-          }
-          if (variable.resolvedType === "BOOLEAN") {
-            return "other";
-          }
-          return "other";
-        }
-        // Build a variable section with clean formatting
-        static buildVariableSection(variables, sectionName) {
-          if (variables.length === 0) {
-            return "";
-          }
-          let content = `
-  /* ===== ${sectionName.toUpperCase()} ===== */
-`;
-          variables.forEach((variable) => {
-            content += `  --${variable.name}: ${variable.value};
-`;
-          });
-          return content;
         }
         static formatVariableValue(type, value, name) {
           switch (type) {

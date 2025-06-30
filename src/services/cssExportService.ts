@@ -14,25 +14,17 @@ export class CSSExportService {
       // First pass: collect all variables for reference lookup
       await this.collectAllVariables(collections);
 
-      // Categorize variables by type and purpose (matching UI logic)
-      const categorizedVariables: any = {
-        // Definition variables (base tokens)
-        colorPalette: [],
-        radius: [],
-        padding: [],
-        spacing: [],
-        sizing: [],
-        opacity: [],
-        typography: [],
-        colorScheme: [],
-        other: [],
+      // Build CSS content with actual collection structure
+      let cssContent = ":root {\n";
+      
+      // Sort collections alphabetically by name
+      const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+      
+      // Process each collection exactly as it appears in Figma
+      for (const collection of sortedCollections) {
+        const collectionVariables = [];
+        const groupedVariables = new Map<string, any[]>();
         
-        // Component variables (comes last)
-        components: []
-      };
-
-      // Process each collection and categorize variables
-      for (const collection of collections) {
         for (const variableId of collection.variableIds) {
           const variable = await figma.variables.getVariableByIdAsync(variableId);
           if (!variable) continue;
@@ -40,9 +32,6 @@ export class CSSExportService {
           const defaultModeId = collection.modes[0].modeId;
           const value = variable.valuesByMode[defaultModeId];
           const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-
-          // Use same categorization logic as UI
-          const category = this.categorizeVariableByPurpose(variable, collection);
 
           let cssValue: string;
           const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
@@ -61,38 +50,45 @@ export class CSSExportService {
             cssValue = formattedValue;
           }
 
-          categorizedVariables[category].push({
+          const cssVariable = {
             name: formattedName,
-            value: cssValue
+            value: cssValue,
+            originalName: variable.name
+          };
+
+          // Group by prefix if contains /
+          const pathMatch = variable.name.match(/^([^\/]+)\//);
+          if (pathMatch) {
+            const prefix = pathMatch[1];
+            if (!groupedVariables.has(prefix)) {
+              groupedVariables.set(prefix, []);
+            }
+            groupedVariables.get(prefix)!.push(cssVariable);
+          } else {
+            collectionVariables.push(cssVariable);
+          }
+        }
+        
+        // Add collection section if it has variables
+        if (collectionVariables.length > 0 || groupedVariables.size > 0) {
+          cssContent += `\n  /* ===== ${collection.name.toUpperCase()} ===== */\n`;
+          
+          // Add standalone variables first
+          collectionVariables.forEach((variable: any) => {
+            cssContent += `  --${variable.name}: ${variable.value};\n`;
+          });
+          
+          // Add grouped variables with subheadings
+          groupedVariables.forEach((variables, groupName) => {
+            if (variables.length > 0) {
+              const displayName = groupName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              cssContent += `\n  /* ${displayName} */\n`;
+              variables.forEach((variable: any) => {
+                cssContent += `  --${variable.name}: ${variable.value};\n`;
+              });
+            }
           });
         }
-      }
-
-      // Build structured CSS content in same order as UI
-      let cssContent = ":root {\n";
-      
-      // Definition sections first (same order as UI)
-      const definitionSections = [
-        { key: 'colorPalette', title: 'Color Palette' },
-        { key: 'radius', title: 'Border Radius' },
-        { key: 'padding', title: 'Padding' },
-        { key: 'spacing', title: 'Spacing' },
-        { key: 'sizing', title: 'Sizing' },
-        { key: 'opacity', title: 'Opacity' },
-        { key: 'typography', title: 'Typography' },
-        { key: 'colorScheme', title: 'Color Scheme' },
-        { key: 'other', title: 'Other' }
-      ];
-
-      definitionSections.forEach(section => {
-        if (categorizedVariables[section.key].length > 0) {
-          cssContent += this.buildVariableSection(categorizedVariables[section.key], section.title);
-        }
-      });
-
-      // Component variables last
-      if (categorizedVariables.components.length > 0) {
-        cssContent += this.buildVariableSection(categorizedVariables.components, "Component Variables");
       }
 
       cssContent += "}\n";
@@ -116,91 +112,7 @@ export class CSSExportService {
     }
   }
 
-  // Categorize variables by their purpose and type (same logic as UI)
-  private static categorizeVariableByPurpose(variable: any, collection: any): string {
-    const name = variable.name.toLowerCase();
-    
-    // Component variables (must contain component-specific keywords with "/" separator)
-    if ((name.includes("button/") || name.includes("card/") || name.includes("modal/") || 
-        name.includes("input/") || name.includes("form/") || name.includes("nav/") ||
-        name.includes("header/") || name.includes("footer/") || name.includes("sidebar/") ||
-        name.includes("widget/") || name.includes("dropdown/") || name.includes("label/") ||
-        name.includes("increment/") || name.includes("functional/") || name.includes("icon/") ||
-        name.includes("ghost/") || name.includes("delete/")) ||
-        // Also catch component names at the start with specific patterns
-        (name.match(/^(primary|secondary|teritary|delete|functional)-(button|icon|ghost|dropdown)/))) {
-      return "components";
-    }
-    
-    // Definition variables by type
-    if (variable.resolvedType === "COLOR") {
-      // Check if it's a semantic color or base palette color
-      // We check the default mode value specifically (consistent with processing)
-      const defaultModeId = collection.modes[0].modeId;
-      const defaultValue = variable.valuesByMode[defaultModeId];
-      const hasAlias = defaultValue && typeof defaultValue === "object" && defaultValue.type === "VARIABLE_ALIAS";
-      
-      // If it has an alias (references another variable), it goes to Color Scheme regardless of name
-      if (hasAlias) {
-        return "colorScheme";
-      }
-      
-      // Base palette colors (only direct values, no aliases)
-      const isBasePaletteColor = name.match(/^(gray|grey|red|blue|green|yellow|orange|purple|magenta|cyan|pink|brown|ultramarine|darkblue)([\/\-]|$)/) ||
-                               name.match(/^monochrome[\/\-](white|black)$/);
-      
-      // Semantic color patterns
-      const isSemanticColor = name === 'white' || name === 'black' ||
-                             ['background', 'primary-color', 'secondary', 'teritary', 'critical'].some(keyword => 
-                             name === keyword || name.startsWith(keyword + '-') || name.endsWith('-' + keyword)) ||
-                             name.includes('-text') || name.includes('text-') ||
-                             (name.includes('primary') && !name.includes('/')) ||
-                             (name.includes('secondary') && !name.includes('/')) ||
-                             (name.includes('teritary') && !name.includes('/'));
-      
-      if (isSemanticColor) {
-        return "colorScheme";
-      } else if (isBasePaletteColor) {
-        return "colorPalette";
-      } else {
-        return "colorPalette";
-      }
-    }
-    
-    if (variable.resolvedType === "FLOAT") {
-      if (name.includes("radius")) return "radius";
-      if (name.includes("padding")) return "padding";
-      if (name.includes("spacing") || name.includes("gap") || name.includes("margin")) return "spacing";
-      if (name.includes("size") || name.includes("width") || name.includes("height")) return "sizing";
-      if (name.includes("opacity")) return "opacity";
-    }
-    
-    if (variable.resolvedType === "STRING") {
-      if (name.includes("font") || name.includes("text") || name.includes("weight") || 
-          name.includes("style") || name.startsWith("weight-") || name.startsWith("wieght-")) return "typography";
-    }
 
-    if (variable.resolvedType === "BOOLEAN") {
-      return "other";
-    }
-    
-    return "other";
-  }
-
-  // Build a variable section with clean formatting
-  private static buildVariableSection(variables: any[], sectionName: string): string {
-    if (variables.length === 0) {
-      return "";
-    }
-    
-    let content = `\n  /* ===== ${sectionName.toUpperCase()} ===== */\n`;
-    
-    variables.forEach((variable: any) => {
-      content += `  --${variable.name}: ${variable.value};\n`;
-    });
-    
-    return content;
-  }
 
   private static formatVariableValue(type: string, value: any, name: string): string | null {
     switch (type) {

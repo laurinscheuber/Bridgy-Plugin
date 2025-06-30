@@ -15,7 +15,10 @@ async function collectDocumentData() {
   const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
   const variablesData = [];
 
-  for (const collection of variableCollections) {
+  // Sort collections alphabetically by name
+  const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
+  
+  for (const collection of sortedCollections) {
     const variablesPromises = collection.variableIds.map(async (id) => {
       const variable = await figma.variables.getVariableByIdAsync(id);
       if (!variable) return null;
