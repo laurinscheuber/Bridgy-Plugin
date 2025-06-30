@@ -30,8 +30,10 @@ export interface GitLabSettings {
   projectId: string;
   gitlabToken?: string;
   filePath?: string;
+  testFilePath?: string;
   strategy?: string;
   branchName?: string;
+  testBranchName?: string;
   saveToken: boolean;
   savedAt: string;
   savedBy: string;
@@ -58,12 +60,16 @@ export interface PluginMessage {
   gitlabToken?: string;
   commitMessage?: string;
   filePath?: string;
+  testFilePath?: string;
   strategy?: string;
   branchName?: string;
+  testBranchName?: string;
   cssData?: string;
+  testContent?: string;
   shareWithTeam?: boolean;
   saveToken?: boolean;
   generateAllVariants?: boolean;
   shouldDownload?: boolean;
   forceCreate?: boolean;
+  forCommit?: boolean;
 } 

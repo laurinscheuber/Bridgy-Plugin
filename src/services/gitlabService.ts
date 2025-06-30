@@ -342,7 +342,8 @@ export class GitLabService {
     gitlabToken: string,
     sourceBranch: string,
     targetBranch: string,
-    title: string
+    title: string,
+    description: string = "Automatically created merge request for CSS variables update"
   ): Promise<any> {
     const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
     const response = await fetch(mrUrl, {
@@ -355,7 +356,7 @@ export class GitLabService {
         source_branch: sourceBranch,
         target_branch: targetBranch,
         title: title,
-        description: "Automatically created merge request for CSS variables update",
+        description: description,
         remove_source_branch: true,
         squash: true
       }),
@@ -367,5 +368,72 @@ export class GitLabService {
     }
 
     return await response.json();
+  }
+
+  static async commitComponentTest(
+    projectId: string,
+    gitlabToken: string,
+    commitMessage: string,
+    componentName: string,
+    testContent: string,
+    testFilePath: string = "components/{componentName}/{componentName}.component.spec.ts",
+    branchName: string = "feature/component-tests"
+  ): Promise<{ mergeRequestUrl?: string }> {
+    // Replace {componentName} placeholder in file path if present
+    const normalizedComponentName = componentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    const filePath = testFilePath.replace('{componentName}', normalizedComponentName);
+    const featureBranch = branchName;
+
+    console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
+
+    // Get project information
+    const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
+    const defaultBranch = projectData.default_branch;
+
+    // Create or get feature branch
+    await this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
+
+    // Check if file exists and prepare commit
+    const { fileData, action } = await this.prepareFileCommit(
+      projectId,
+      gitlabToken,
+      filePath,
+      featureBranch
+    );
+
+    // Create the commit
+    await this.createCommit(
+      projectId,
+      gitlabToken,
+      featureBranch,
+      commitMessage,
+      filePath,
+      testContent,
+      action,
+      fileData?.last_commit_id
+    );
+
+    // Check for existing merge request
+    const existingMR = await this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+
+    if (!existingMR) {
+      // Create new merge request if none exists
+      const mrDescription = `Automatically created merge request for component test: ${componentName}`;
+      const newMR = await this.createMergeRequest(
+        projectId,
+        gitlabToken,
+        featureBranch,
+        defaultBranch,
+        commitMessage,
+        mrDescription
+      );
+      return { mergeRequestUrl: newMR.web_url };
+    }
+
+    return { mergeRequestUrl: existingMR.web_url };
   }
 } 

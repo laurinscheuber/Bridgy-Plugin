@@ -119,18 +119,26 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
 
       case "generate-test":
-        const component = ComponentService.getComponentById(msg.componentId || "");
+        if (!msg.componentId) {
+          throw new Error(`Missing required component ID`);
+        }
+
+        const component = ComponentService.getComponentById(msg.componentId);
         if (!component) {
           throw new Error(`Component with ID ${msg.componentId} not found`);
         }
 
-        const testContent = ComponentService.generateTest(component, msg.generateAllVariants);
+        const testContent = ComponentService.generateTest(
+          component,
+          msg.generateAllVariants
+        );
         figma.ui.postMessage({
           type: "test-generated",
           componentName: msg.componentName || component.name,
           testContent: testContent,
           isComponentSet: component.type === "COMPONENT_SET",
           hasAllVariants: msg.generateAllVariants,
+          forCommit: msg.forCommit
         });
         break;
 
@@ -140,8 +148,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             projectId: msg.projectId || "",
             gitlabToken: msg.gitlabToken,
             filePath: msg.filePath || "src/variables.css",
+            testFilePath: msg.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
             strategy: msg.strategy || "merge-request",
             branchName: msg.branchName || "feature/variables",
+            testBranchName: msg.testBranchName || "feature/component-tests",
             saveToken: msg.saveToken || false,
             savedAt: new Date().toISOString(),
             savedBy: figma.currentUser?.name || "Unknown user",
@@ -174,6 +184,36 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           type: "commit-success",
           message: "Successfully committed changes to the feature branch",
           mergeRequestUrl: result?.mergeRequestUrl
+        });
+        break;
+
+      case "commit-component-test":
+        if (
+          !msg.projectId ||
+          !msg.gitlabToken ||
+          !msg.commitMessage ||
+          !msg.testContent ||
+          !msg.componentName
+        ) {
+          throw new Error("Missing required fields for component test commit");
+        }
+
+        const testResult = await GitLabService.commitComponentTest(
+          msg.projectId,
+          msg.gitlabToken,
+          msg.commitMessage,
+          msg.componentName,
+          msg.testContent,
+          msg.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
+          msg.branchName || "feature/component-tests"
+        );
+
+        figma.ui.postMessage({
+          type: "test-commit-success",
+          message:
+            "Successfully committed component test to the feature branch",
+          componentName: msg.componentName,
+          mergeRequestUrl: testResult?.mergeRequestUrl,
         });
         break;
 
