@@ -1900,8 +1900,8 @@
             }
           });
 
-          // If no specific button was found, show an alert
-          if (!document.querySelector('button.textContent="Committing..."')) {
+          // If no buttons were found with loading state, show an alert
+          if (buttons.length === 0) {
             alert(`Successfully committed test for ${message.componentName}!`);
           }
         } else if (message.type === "unit-settings-data") {
