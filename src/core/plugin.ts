@@ -228,6 +228,28 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         });
         break;
 
+      case "get-unit-settings":
+        const unitSettingsData = await CSSExportService.getUnitSettingsData();
+        figma.ui.postMessage({
+          type: "unit-settings-data",
+          data: unitSettingsData
+        });
+        break;
+
+      case "update-unit-settings":
+        console.log("Received update-unit-settings:", msg.collections, msg.groups);
+        CSSExportService.updateUnitSettings({
+          collections: msg.collections,
+          groups: msg.groups
+        });
+        await CSSExportService.saveUnitSettings();
+        console.log("Unit settings saved successfully");
+        figma.ui.postMessage({
+          type: "unit-settings-updated",
+          success: true
+        });
+        break;
+
       default:
         console.warn("Unknown message type:", msg.type);
     }

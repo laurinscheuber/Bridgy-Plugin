@@ -913,6 +913,84 @@
         color: #0d99ff !important;
       }
 
+      /* Units settings styles */
+      .units-section {
+        margin-bottom: 32px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid #e0e0e0;
+      }
+      
+      .units-section h4 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        color: #333;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      
+      .units-group {
+        margin-bottom: 16px;
+        padding: 16px;
+        background: #fff;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+      }
+      
+      .units-group h5 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        color: #555;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .unit-setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      
+      .unit-setting-row:last-child {
+        border-bottom: none;
+      }
+      
+      .unit-setting-label {
+        font-weight: 500;
+        color: #333;
+        flex: 1;
+      }
+      
+      .unit-setting-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .unit-dropdown {
+        padding: 6px 10px;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        background-color: white;
+        font-size: 14px;
+        min-width: 80px;
+      }
+      
+      .unit-dropdown:focus {
+        border-color: #0d99ff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(13, 153, 255, 0.15);
+      }
+      
+      .default-unit-label {
+        font-size: 12px;
+        color: #666;
+        font-style: italic;
+      }
+
       /* Responsive modal adjustments */
       @media (max-height: 700px) {
         .modal-content {
@@ -961,6 +1039,7 @@
       <div class="tabs">
         <div class="tab active" data-tab="variables">Variables</div>
         <div class="tab" data-tab="components">Components</div>
+        <div class="tab" data-tab="units">Units</div>
       </div>
 
       <div class="tab-content active" id="variables-content">
@@ -997,6 +1076,29 @@
 
         <div id="components-container">
           <div class="loading">Loading components</div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="units-content">
+        <div style="margin-bottom: 24px;">
+          <h3 style="margin-top: 0; margin-bottom: 16px;">Variable Units Settings</h3>
+          <p style="color: #666; margin-bottom: 16px;">Configure units for numeric variables. Collections override defaults, groups override collections.</p>
+          
+          <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+            <button onclick="alert('JavaScript is working! Now trying units...')" style="background-color: #9c27b0;">
+              TEST - Click Me
+            </button>
+            <button id="reset-units-button" style="background-color: #f44336;" onclick="window.resetUnitsSettings()">
+              Reset to Smart Defaults
+            </button>
+            <button id="save-units-button" disabled onclick="window.saveUnitsSettings()">
+              Save Unit Settings
+            </button>
+          </div>
+        </div>
+
+        <div id="units-settings-container">
+          <div class="loading">Loading unit settings...</div>
         </div>
       </div>
 
@@ -1322,9 +1424,13 @@
             .forEach((c) => c.classList.remove("active"));
 
           tab.classList.add("active");
-          document
-            .getElementById(tab.dataset.tab + "-content")
-            .classList.add("active");
+          const tabContent = document.getElementById(tab.dataset.tab + "-content");
+          tabContent.classList.add("active");
+          
+          // Load units settings when Units tab is clicked
+          if (tab.dataset.tab === "units") {
+            loadUnitsSettings();
+          }
         });
       });
 
@@ -1333,6 +1439,10 @@
       let componentsData = [];
       let currentCSSData = null;
       window.gitlabSettings = null; // Store GitLab settings
+      let unitsData = null; // Store units settings data
+      
+      // Available units for dropdowns
+      const AVAILABLE_UNITS = ['', 'px', 'rem', 'em', '%', 'vw', 'vh', 'vmin', 'vmax', 'pt', 'pc', 'in', 'cm', 'mm', 'ex', 'ch', 'fr', 'none'];
 
       // Helper function to find variable name by ID
       function findVariableNameById(variableId) {
@@ -1595,6 +1705,17 @@
           // If no specific button was found, show an alert
           if (!document.querySelector('button.textContent="Committing..."')) {
             alert(`Successfully committed test for ${message.componentName}!`);
+          }
+        } else if (message.type === "unit-settings-data") {
+          // Handle units settings data
+          unitsData = message.data;
+          renderUnitsSettings(unitsData);
+        } else if (message.type === "unit-settings-updated") {
+          // Handle successful unit settings update
+          console.log("Received unit-settings-updated:", message);
+          if (message.success) {
+            alert("Unit settings saved successfully!");
+            document.getElementById("save-units-button").disabled = true;
           }
         }
       };
@@ -2894,6 +3015,161 @@
         }
       }
 
+      // Units-related functions
+      function loadUnitsSettings() {
+        parent.postMessage({
+          pluginMessage: {
+            type: "get-unit-settings"
+          }
+        }, "*");
+      }
+      
+      function renderUnitsSettings(data) {
+        const container = document.getElementById("units-settings-container");
+        
+        if (!data || (data.collections.length === 0 && data.groups.length === 0)) {
+          container.innerHTML = '<div class="no-items">No collections or groups found for unit configuration.</div>';
+          return;
+        }
+        
+        let html = '';
+        
+        // Collections section
+        if (data.collections.length > 0) {
+          html += `
+            <div class="units-section">
+              <h4>Collections</h4>
+              <p style="color: #666; font-size: 14px; margin-bottom: 16px;">Set default units for entire collections. These override global defaults.</p>
+          `;
+          
+          data.collections.forEach(collection => {
+            html += `
+              <div class="unit-setting-row">
+                <div class="unit-setting-label">${collection.name}</div>
+                <div class="unit-setting-control">
+                  <span class="default-unit-label">Default: ${collection.defaultUnit}</span>
+                  <select class="unit-dropdown" data-type="collection" data-name="${collection.name}">
+                    ${AVAILABLE_UNITS.map(unit => 
+                      `<option value="${unit}" ${unit === collection.currentUnit ? 'selected' : ''}>${unit === '' ? 'Smart defaults' : unit}</option>`
+                    ).join('')}
+                  </select>
+                </div>
+              </div>
+            `;
+          });
+          
+          html += '</div>';
+        }
+        
+        // Groups section
+        if (data.groups.length > 0) {
+          html += `
+            <div class="units-section">
+              <h4>Groups</h4>
+              <p style="color: #666; font-size: 14px; margin-bottom: 16px;">Set specific units for variable groups. These override collection settings.</p>
+          `;
+          
+          // Group by collection
+          const groupsByCollection = {};
+          data.groups.forEach(group => {
+            if (!groupsByCollection[group.collectionName]) {
+              groupsByCollection[group.collectionName] = [];
+            }
+            groupsByCollection[group.collectionName].push(group);
+          });
+          
+          Object.keys(groupsByCollection).sort().forEach(collectionName => {
+            html += `
+              <div class="units-group">
+                <h5>${collectionName}</h5>
+            `;
+            
+            groupsByCollection[collectionName].forEach(group => {
+              html += `
+                <div class="unit-setting-row">
+                  <div class="unit-setting-label">${group.groupName}</div>
+                  <div class="unit-setting-control">
+                    <span class="default-unit-label">Default: ${group.defaultUnit}</span>
+                    <select class="unit-dropdown" data-type="group" data-collection="${group.collectionName}" data-group="${group.groupName}">
+                      ${AVAILABLE_UNITS.map(unit => 
+                        `<option value="${unit}" ${unit === group.currentUnit ? 'selected' : ''}>${unit === '' ? 'Smart defaults' : unit}</option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                </div>
+              `;
+            });
+            
+            html += '</div>';
+          });
+          
+          html += '</div>';
+        }
+        
+        // Add smart defaults explanation section at the end
+        html += `
+          <div class="units-section" style="background: #f0f7ff; border: 1px solid #b3d9ff;">
+            <h4 style="color: #0d99ff;">📋 Smart Default Rules</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 16px;">
+              When no custom unit is set, these rules determine the unit automatically based on variable names:
+            </p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div>
+                <h5 style="margin-bottom: 8px; color: #555;">Unitless Values</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code>opacity</code> → <span style="color: #666;">none</span></div>
+                  <div><code>z-index</code> → <span style="color: #666;">none</span></div>
+                  <div><code>line-height</code> → <span style="color: #666;">none</span></div>
+                  <div><code>font-weight</code> → <span style="color: #666;">none</span></div>
+                  <div><code>flex</code> → <span style="color: #666;">none</span></div>
+                  <div><code>order</code> → <span style="color: #666;">none</span></div>
+                </div>
+              </div>
+              
+              <div>
+                <h5 style="margin-bottom: 8px; color: #555;">Percentage Values</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code>width</code> → <span style="color: #666;">%</span></div>
+                  <div><code>height</code> → <span style="color: #666;">%</span></div>
+                </div>
+                
+                <h5 style="margin: 16px 0 8px 0; color: #555;">Default</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code>everything else</code> → <span style="color: #666;">px</span></div>
+                </div>
+              </div>
+            </div>
+            
+            <div style="margin-top: 16px; padding: 12px; background: rgba(13, 153, 255, 0.1); border-radius: 6px; font-size: 13px; color: #0a85e9;">
+              <strong>Examples:</strong> 
+              <code>button-opacity</code> → none, 
+              <code>min-width-s</code> → %, 
+              <code>border-radius</code> → px, 
+              <code>gap-large</code> → px
+            </div>
+          </div>
+        `;
+        
+        container.innerHTML = html;
+        
+        // Add event listeners to dropdowns
+        document.querySelectorAll('.unit-dropdown').forEach(dropdown => {
+          dropdown.addEventListener('change', function() {
+            console.log("Dropdown changed, enabling save button");
+            const saveButton = document.getElementById("save-units-button");
+            if (saveButton) {
+              saveButton.disabled = false;
+              console.log("Save button enabled");
+            } else {
+              console.error("Save button not found!");
+            }
+          });
+        });
+      }
+      
+      // Functions moved to window object at end of script
+
       // Add event listener for the commit button
       document
         .getElementById("commit-repo-button")
@@ -2932,6 +3208,72 @@
         branchSection.style.display = display;
         testBranchSection.style.display = display;
       });
+
+      // Add basic click debugging
+      document.addEventListener("click", function(event) {
+        console.log("GLOBAL CLICK:", event.target.id, event.target.tagName, event.target.textContent);
+      });
+      
+      // Units functions - define them on window for global access
+      window.saveUnitsSettings = function() {
+        console.log("★★★ saveUnitsSettings called ★★★");
+        alert("Save function called!");
+        
+        const collections = {};
+        const groups = {};
+        
+        const dropdowns = document.querySelectorAll('.unit-dropdown');
+        console.log("Found", dropdowns.length, "dropdowns");
+        
+        dropdowns.forEach(dropdown => {
+          const type = dropdown.dataset.type;
+          const value = dropdown.value;
+          console.log(`Found dropdown: type=${type}, value=${value}`);
+          
+          // Only save non-empty values (empty = use smart defaults)
+          if (value !== '') {
+            if (type === 'collection') {
+              const name = dropdown.dataset.name;
+              collections[name] = value;
+              console.log(`Added collection: ${name} = ${value}`);
+            } else if (type === 'group') {
+              const collectionName = dropdown.dataset.collection;
+              const groupName = dropdown.dataset.group;
+              const key = `${collectionName}/${groupName}`;
+              groups[key] = value;
+              console.log(`Added group: ${key} = ${value}`);
+            }
+          }
+        });
+        
+        console.log("Sending unit settings:", { collections, groups });
+        parent.postMessage({
+          pluginMessage: {
+            type: "update-unit-settings",
+            collections: collections,
+            groups: groups
+          }
+        }, "*");
+      };
+      
+      window.resetUnitsSettings = function() {
+        console.log("★★★ resetUnitsSettings called ★★★");
+        alert("Reset function called!");
+        
+        if (confirm("Are you sure you want to reset all unit settings to smart defaults?")) {
+          // Clear all dropdowns to smart defaults (empty value)
+          const dropdowns = document.querySelectorAll('.unit-dropdown');
+          console.log("Found", dropdowns.length, "dropdowns to reset");
+          
+          dropdowns.forEach(dropdown => {
+            dropdown.value = ''; // Select empty option (Smart defaults)
+            console.log(`Reset dropdown to empty value`);
+          });
+          
+          // Save the reset settings
+          window.saveUnitsSettings();
+        }
+      };
     </script>
   </body>
 </html>

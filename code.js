@@ -329,10 +329,10 @@
     }
   });
 
-  // dist/services/cssExportService.js
-  var __awaiter2, CSSExportService;
-  var init_cssExportService = __esm({
-    "dist/services/cssExportService.js"() {
+  // dist/services/unitsService.js
+  var __awaiter2, UnitsService;
+  var init_unitsService = __esm({
+    "dist/services/unitsService.js"() {
       "use strict";
       __awaiter2 = function(thisArg, _arguments, P, generator) {
         function adopt(value) {
@@ -361,15 +361,169 @@
           step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
       };
-      CSSExportService = class {
-        static exportVariables() {
+      UnitsService = class {
+        static getDefaultUnit(variableName) {
+          const name = variableName.toLowerCase();
+          for (const pattern in this.DEFAULT_UNIT_PATTERNS) {
+            if (pattern !== "default" && name.includes(pattern)) {
+              return this.DEFAULT_UNIT_PATTERNS[pattern];
+            }
+          }
+          if (name.includes("opacity") || name.includes("alpha") || name.includes("z-index") || name.includes("line-height") || name.includes("font-weight") || name.includes("flex") || name.includes("order")) {
+            return "none";
+          }
+          return this.DEFAULT_UNIT_PATTERNS.default;
+        }
+        static getUnitForVariable(variableName, collectionName, groupName) {
+          if (groupName) {
+            const groupKey = `${collectionName}/${groupName}`;
+            if (this.unitSettings.groups[groupKey]) {
+              return this.unitSettings.groups[groupKey];
+            }
+          }
+          if (this.unitSettings.collections[collectionName]) {
+            return this.unitSettings.collections[collectionName];
+          }
+          return this.getDefaultUnit(variableName);
+        }
+        static updateUnitSettings(newSettings) {
+          if (newSettings.collections) {
+            this.unitSettings.collections = Object.assign({}, newSettings.collections);
+          }
+          if (newSettings.groups) {
+            this.unitSettings.groups = Object.assign({}, newSettings.groups);
+          }
+        }
+        static getUnitSettings() {
+          return Object.assign({}, this.unitSettings);
+        }
+        static resetUnitSettings() {
+          this.unitSettings = {
+            collections: {},
+            groups: {}
+          };
+        }
+        static formatValueWithUnit(value, unit) {
+          if (unit === "none" || unit === "") {
+            return String(value);
+          }
+          return `${value}${unit}`;
+        }
+        // Save unit settings to Figma storage
+        static saveUnitSettings() {
           return __awaiter2(this, void 0, void 0, function* () {
             try {
+              const figmaFileId = figma.root.id;
+              const settingsKey = `unit-settings-${figmaFileId}`;
+              yield figma.clientStorage.setAsync(settingsKey, this.unitSettings);
+              console.log("Unit settings saved successfully");
+            } catch (error) {
+              console.error("Error saving unit settings:", error);
+              throw error;
+            }
+          });
+        }
+        // Load unit settings from Figma storage
+        static loadUnitSettings() {
+          return __awaiter2(this, void 0, void 0, function* () {
+            try {
+              const figmaFileId = figma.root.id;
+              const settingsKey = `unit-settings-${figmaFileId}`;
+              const savedSettings = yield figma.clientStorage.getAsync(settingsKey);
+              if (savedSettings) {
+                this.unitSettings = savedSettings;
+                console.log("Unit settings loaded successfully");
+              }
+            } catch (error) {
+              console.error("Error loading unit settings:", error);
+            }
+          });
+        }
+      };
+      UnitsService.unitSettings = {
+        collections: {},
+        groups: {}
+      };
+      UnitsService.AVAILABLE_UNITS = [
+        "px",
+        "rem",
+        "em",
+        "%",
+        "vw",
+        "vh",
+        "vmin",
+        "vmax",
+        "pt",
+        "pc",
+        "in",
+        "cm",
+        "mm",
+        "ex",
+        "ch",
+        "fr",
+        "none"
+      ];
+      UnitsService.DEFAULT_UNIT_PATTERNS = {
+        // Unitless values
+        "opacity": "none",
+        "z-index": "none",
+        "line-height": "none",
+        "font-weight": "none",
+        "flex": "none",
+        "order": "none",
+        // Percentage values
+        "width": "%",
+        "height": "%",
+        // Default to px for most size-related values
+        "default": "px"
+      };
+    }
+  });
+
+  // dist/services/cssExportService.js
+  var __awaiter3, CSSExportService;
+  var init_cssExportService = __esm({
+    "dist/services/cssExportService.js"() {
+      "use strict";
+      init_unitsService();
+      __awaiter3 = function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      CSSExportService = class {
+        static exportVariables() {
+          return __awaiter3(this, void 0, void 0, function* () {
+            try {
               this.allVariables.clear();
+              yield UnitsService.loadUnitSettings();
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
               yield this.collectAllVariables(collections);
               let cssContent = ":root {\n";
-              for (const collection of collections) {
+              const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+              for (const collection of sortedCollections) {
                 const collectionVariables = [];
                 const groupedVariables = /* @__PURE__ */ new Map();
                 for (const variableId of collection.variableIds) {
@@ -390,7 +544,9 @@
                       continue;
                     }
                   } else {
-                    const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
+                    const pathMatch2 = variable.name.match(/^([^\/]+)\//);
+                    const groupName = pathMatch2 ? pathMatch2[1] : void 0;
+                    const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name, collection.name, groupName);
                     if (formattedValue === null)
                       continue;
                     cssValue = formattedValue;
@@ -443,7 +599,7 @@
         }
         // Collect all variables for resolution purposes
         static collectAllVariables(collections) {
-          return __awaiter2(this, void 0, void 0, function* () {
+          return __awaiter3(this, void 0, void 0, function* () {
             for (const collection of collections) {
               for (const variableId of collection.variableIds) {
                 const variable = yield figma.variables.getVariableByIdAsync(variableId);
@@ -454,7 +610,7 @@
             }
           });
         }
-        static formatVariableValue(type, value, name) {
+        static formatVariableValue(type, value, name, collectionName, groupName) {
           switch (type) {
             case "COLOR":
               if (value && typeof value === "object" && "r" in value && "g" in value && "b" in value) {
@@ -470,10 +626,8 @@
               return null;
             case "FLOAT":
               if (typeof value === "number" && !isNaN(value)) {
-                if (name.toLowerCase().includes("size") || name.toLowerCase().includes("padding") || name.toLowerCase().includes("margin") || name.toLowerCase().includes("radius") || name.toLowerCase().includes("gap") || name.toLowerCase().includes("stroke")) {
-                  return `${value}px`;
-                }
-                return String(value);
+                const unit = UnitsService.getUnitForVariable(name, collectionName, groupName);
+                return UnitsService.formatValueWithUnit(value, unit);
               }
               return null;
             case "STRING":
@@ -489,6 +643,68 @@
             default:
               return null;
           }
+        }
+        // Get unit settings data for the settings interface
+        static getUnitSettingsData() {
+          return __awaiter3(this, void 0, void 0, function* () {
+            yield UnitsService.loadUnitSettings();
+            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+            const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+            const collectionsData = [];
+            const groupsData = [];
+            const unitSettings = UnitsService.getUnitSettings();
+            for (const collection of sortedCollections) {
+              const hasCollectionSetting = unitSettings.collections[collection.name] !== void 0;
+              const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : "Smart defaults";
+              const currentUnit = unitSettings.collections[collection.name] || "";
+              collectionsData.push({
+                name: collection.name,
+                defaultUnit,
+                currentUnit
+              });
+              const groups = /* @__PURE__ */ new Set();
+              for (const variableId of collection.variableIds) {
+                const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                if (variable) {
+                  const pathMatch = variable.name.match(/^([^\/]+)\//);
+                  if (pathMatch) {
+                    groups.add(pathMatch[1]);
+                  }
+                }
+              }
+              for (const groupName of Array.from(groups).sort()) {
+                const groupKey = `${collection.name}/${groupName}`;
+                const hasGroupSetting = unitSettings.groups[groupKey] !== void 0;
+                const hasCollectionSetting2 = unitSettings.collections[collection.name] !== void 0;
+                let defaultUnit2;
+                if (hasGroupSetting) {
+                  defaultUnit2 = unitSettings.groups[groupKey];
+                } else if (hasCollectionSetting2) {
+                  defaultUnit2 = `Inherits: ${unitSettings.collections[collection.name]}`;
+                } else {
+                  defaultUnit2 = "Smart defaults";
+                }
+                const groupCurrentUnit = unitSettings.groups[groupKey] || "";
+                groupsData.push({
+                  collectionName: collection.name,
+                  groupName,
+                  defaultUnit: defaultUnit2,
+                  currentUnit: groupCurrentUnit
+                });
+              }
+            }
+            return { collections: collectionsData, groups: groupsData };
+          });
+        }
+        // Update unit settings
+        static updateUnitSettings(settings) {
+          UnitsService.updateUnitSettings(settings);
+        }
+        // Save unit settings
+        static saveUnitSettings() {
+          return __awaiter3(this, void 0, void 0, function* () {
+            yield UnitsService.saveUnitSettings();
+          });
         }
       };
       CSSExportService.allVariables = /* @__PURE__ */ new Map();
@@ -570,12 +786,12 @@ ${styleCheckCode}
   });
 
   // dist/services/componentService.js
-  var __awaiter3, ComponentService;
+  var __awaiter4, ComponentService;
   var init_componentService = __esm({
     "dist/services/componentService.js"() {
       "use strict";
       init_componentUtils();
-      __awaiter3 = function(thisArg, _arguments, P, generator) {
+      __awaiter4 = function(thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P ? value : new P(function(resolve) {
             resolve(value);
@@ -604,13 +820,13 @@ ${styleCheckCode}
       };
       ComponentService = class _ComponentService {
         static collectComponents() {
-          return __awaiter3(this, void 0, void 0, function* () {
+          return __awaiter4(this, void 0, void 0, function* () {
             yield this.collectAllVariables();
             const componentsData = [];
             const componentSets = [];
             this.componentMap = /* @__PURE__ */ new Map();
             function collectNodes(node) {
-              return __awaiter3(this, void 0, void 0, function* () {
+              return __awaiter4(this, void 0, void 0, function* () {
                 var _a;
                 if ("type" in node) {
                   if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
@@ -785,7 +1001,7 @@ ${generateStyleChecks(styleChecks)}
         }
         // Collect all variables for resolution purposes
         static collectAllVariables() {
-          return __awaiter3(this, void 0, void 0, function* () {
+          return __awaiter4(this, void 0, void 0, function* () {
             try {
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
               this.allVariables.clear();
@@ -854,7 +1070,7 @@ ${generateStyleChecks(styleChecks)}
       init_gitlabService();
       init_cssExportService();
       init_componentService();
-      var __awaiter4 = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+      var __awaiter5 = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P ? value : new P(function(resolve) {
             resolve(value);
@@ -883,11 +1099,12 @@ ${generateStyleChecks(styleChecks)}
       };
       figma.showUI(__html__, { width: 850, height: 800 });
       function collectDocumentData() {
-        return __awaiter4(this, void 0, void 0, function* () {
+        return __awaiter5(this, void 0, void 0, function* () {
           const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
           const variablesData = [];
-          for (const collection of variableCollections) {
-            const variablesPromises = collection.variableIds.map((id) => __awaiter4(this, void 0, void 0, function* () {
+          const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
+          for (const collection of sortedCollections) {
+            const variablesPromises = collection.variableIds.map((id) => __awaiter5(this, void 0, void 0, function* () {
               const variable = yield figma.variables.getVariableByIdAsync(id);
               if (!variable)
                 return null;
@@ -923,7 +1140,7 @@ ${generateStyleChecks(styleChecks)}
         });
       }
       function loadSavedGitLabSettings() {
-        return __awaiter4(this, void 0, void 0, function* () {
+        return __awaiter5(this, void 0, void 0, function* () {
           try {
             const settings = yield GitLabService.loadSettings();
             if (settings) {
@@ -960,7 +1177,7 @@ ${generateStyleChecks(styleChecks)}
           ];
         }
       });
-      figma.ui.onmessage = (msg) => __awaiter4(void 0, void 0, void 0, function* () {
+      figma.ui.onmessage = (msg) => __awaiter5(void 0, void 0, void 0, function* () {
         var _a;
         try {
           switch (msg.type) {
@@ -1036,6 +1253,26 @@ ${generateStyleChecks(styleChecks)}
               yield GitLabService.resetSettings();
               figma.ui.postMessage({
                 type: "gitlab-settings-reset",
+                success: true
+              });
+              break;
+            case "get-unit-settings":
+              const unitSettingsData = yield CSSExportService.getUnitSettingsData();
+              figma.ui.postMessage({
+                type: "unit-settings-data",
+                data: unitSettingsData
+              });
+              break;
+            case "update-unit-settings":
+              console.log("Received update-unit-settings:", msg.collections, msg.groups);
+              CSSExportService.updateUnitSettings({
+                collections: msg.collections,
+                groups: msg.groups
+              });
+              yield CSSExportService.saveUnitSettings();
+              console.log("Unit settings saved successfully");
+              figma.ui.postMessage({
+                type: "unit-settings-updated",
                 success: true
               });
               break;

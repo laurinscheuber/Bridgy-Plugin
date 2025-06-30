@@ -1,4 +1,5 @@
 import { VariableCollection } from '../types';
+import { UnitsService } from './unitsService';
 
 export class CSSExportService {
   private static allVariables = new Map<string, any>();
@@ -7,6 +8,9 @@ export class CSSExportService {
     try {
       // Clear cache
       this.allVariables.clear();
+
+      // Load unit settings
+      await UnitsService.loadUnitSettings();
 
       // Get all variable collections
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -45,7 +49,9 @@ export class CSSExportService {
               continue;
             }
           } else {
-            const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
+            const pathMatch = variable.name.match(/^([^\/]+)\//);
+            const groupName = pathMatch ? pathMatch[1] : undefined;
+            const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name, collection.name, groupName);
             if (formattedValue === null) continue;
             cssValue = formattedValue;
           }
@@ -114,7 +120,7 @@ export class CSSExportService {
 
 
 
-  private static formatVariableValue(type: string, value: any, name: string): string | null {
+  private static formatVariableValue(type: string, value: any, name: string, collectionName: string, groupName?: string): string | null {
     switch (type) {
       case "COLOR":
         if (
@@ -141,18 +147,8 @@ export class CSSExportService {
 
       case "FLOAT":
         if (typeof value === "number" && !isNaN(value)) {
-          // Add 'px' unit for size-related values
-          if (
-            name.toLowerCase().includes("size") ||
-            name.toLowerCase().includes("padding") ||
-            name.toLowerCase().includes("margin") ||
-            name.toLowerCase().includes("radius") ||
-            name.toLowerCase().includes("gap") ||
-            name.toLowerCase().includes("stroke")
-          ) {
-            return `${value}px`;
-          }
-          return String(value);
+          const unit = UnitsService.getUnitForVariable(name, collectionName, groupName);
+          return UnitsService.formatValueWithUnit(value, unit);
         }
         return null;
 
@@ -171,6 +167,80 @@ export class CSSExportService {
       default:
         return null;
     }
+  }
+
+  // Get unit settings data for the settings interface
+  static async getUnitSettingsData(): Promise<{
+    collections: Array<{name: string, defaultUnit: string, currentUnit: string}>,
+    groups: Array<{collectionName: string, groupName: string, defaultUnit: string, currentUnit: string}>
+  }> {
+    await UnitsService.loadUnitSettings();
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+    
+    const collectionsData = [];
+    const groupsData = [];
+    const unitSettings = UnitsService.getUnitSettings();
+    
+    for (const collection of sortedCollections) {
+      // Collection data - show actual smart default if no setting exists
+      const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
+      const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : 'Smart defaults';
+      const currentUnit = unitSettings.collections[collection.name] || '';
+      collectionsData.push({
+        name: collection.name,
+        defaultUnit,
+        currentUnit
+      });
+      
+      // Find all groups in this collection
+      const groups = new Set<string>();
+      for (const variableId of collection.variableIds) {
+        const variable = await figma.variables.getVariableByIdAsync(variableId);
+        if (variable) {
+          const pathMatch = variable.name.match(/^([^\/]+)\//);
+          if (pathMatch) {
+            groups.add(pathMatch[1]);
+          }
+        }
+      }
+      
+      // Group data
+      for (const groupName of Array.from(groups).sort()) {
+        const groupKey = `${collection.name}/${groupName}`;
+        const hasGroupSetting = unitSettings.groups[groupKey] !== undefined;
+        const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
+        
+        let defaultUnit: string;
+        if (hasGroupSetting) {
+          defaultUnit = unitSettings.groups[groupKey];
+        } else if (hasCollectionSetting) {
+          defaultUnit = `Inherits: ${unitSettings.collections[collection.name]}`;
+        } else {
+          defaultUnit = 'Smart defaults';
+        }
+        
+        const groupCurrentUnit: string = unitSettings.groups[groupKey] || '';
+        groupsData.push({
+          collectionName: collection.name,
+          groupName,
+          defaultUnit,
+          currentUnit: groupCurrentUnit
+        });
+      }
+    }
+    
+    return { collections: collectionsData, groups: groupsData };
+  }
+
+  // Update unit settings
+  static updateUnitSettings(settings: {collections?: {[key: string]: string}, groups?: {[key: string]: string}}): void {
+    UnitsService.updateUnitSettings(settings);
+  }
+
+  // Save unit settings
+  static async saveUnitSettings(): Promise<void> {
+    await UnitsService.saveUnitSettings();
   }
 
 }

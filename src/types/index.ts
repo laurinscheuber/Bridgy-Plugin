@@ -72,4 +72,6 @@ export interface PluginMessage {
   shouldDownload?: boolean;
   forceCreate?: boolean;
   forCommit?: boolean;
+  collections?: {[key: string]: string};
+  groups?: {[key: string]: string};
 } 
