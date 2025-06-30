@@ -113,11 +113,13 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
   try {
     switch (msg.type) {
       case "export-css":
-        const cssContent = await CSSExportService.exportVariables();
+        const format = msg.exportFormat || 'css';
+        const cssContent = await CSSExportService.exportVariables(format);
         figma.ui.postMessage({
           type: "css-export",
           cssData: cssContent,
           shouldDownload: msg.shouldDownload,
+          exportFormat: format,
         });
         break;
 
@@ -155,6 +157,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             strategy: msg.strategy || "merge-request",
             branchName: msg.branchName || "feature/variables",
             testBranchName: msg.testBranchName || "feature/component-tests",
+            exportFormat: msg.exportFormat || "css",
             saveToken: msg.saveToken || false,
             savedAt: new Date().toISOString(),
             savedBy: figma.currentUser?.name || "Unknown user",

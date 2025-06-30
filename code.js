@@ -507,13 +507,13 @@
       };
       CSSExportService = class {
         static exportVariables() {
-          return __awaiter3(this, void 0, void 0, function* () {
+          return __awaiter3(this, arguments, void 0, function* (format = "css") {
             try {
               this.allVariables.clear();
               yield UnitsService.loadUnitSettings();
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
               yield this.collectAllVariables(collections);
-              let cssContent = ":root {\n";
+              let content = format === "scss" ? "" : ":root {\n";
               const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
               for (const collection of sortedCollections) {
                 const collectionVariables = [];
@@ -531,7 +531,7 @@
                     const referencedVariable = this.allVariables.get(value.id);
                     if (referencedVariable) {
                       const referencedName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-                      cssValue = `var(--${referencedName})`;
+                      cssValue = format === "scss" ? `$${referencedName}` : `var(--${referencedName})`;
                     } else {
                       continue;
                     }
@@ -560,29 +560,41 @@
                   }
                 }
                 if (collectionVariables.length > 0 || groupedVariables.size > 0) {
-                  cssContent += `
-  /* ===== ${collection.name.toUpperCase()} ===== */
+                  content += `
+${format === "scss" ? "//" : "  /*"} ===== ${collection.name.toUpperCase()} ===== ${format === "scss" ? "" : "*/"}
 `;
                   collectionVariables.forEach((variable) => {
-                    cssContent += `  --${variable.name}: ${variable.value};
+                    if (format === "scss") {
+                      content += `$${variable.name}: ${variable.value};
 `;
+                    } else {
+                      content += `  --${variable.name}: ${variable.value};
+`;
+                    }
                   });
                   groupedVariables.forEach((variables, groupName) => {
                     if (variables.length > 0) {
                       const displayName = groupName.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-                      cssContent += `
-  /* ${displayName} */
+                      content += `
+${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "*/"}
 `;
                       variables.forEach((variable) => {
-                        cssContent += `  --${variable.name}: ${variable.value};
+                        if (format === "scss") {
+                          content += `$${variable.name}: ${variable.value};
 `;
+                        } else {
+                          content += `  --${variable.name}: ${variable.value};
+`;
+                        }
                       });
                     }
                   });
                 }
               }
-              cssContent += "}\n";
-              return cssContent;
+              if (format === "css") {
+                content += "}\n";
+              }
+              return content;
             } catch (error) {
               console.error("Error exporting CSS:", error);
               throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
@@ -1174,11 +1186,13 @@ ${generateStyleChecks(styleChecks)}
         try {
           switch (msg.type) {
             case "export-css":
-              const cssContent = yield CSSExportService.exportVariables();
+              const format = msg.exportFormat || "css";
+              const cssContent = yield CSSExportService.exportVariables(format);
               figma.ui.postMessage({
                 type: "css-export",
                 cssData: cssContent,
-                shouldDownload: msg.shouldDownload
+                shouldDownload: msg.shouldDownload,
+                exportFormat: format
               });
               break;
             case "generate-test":
@@ -1208,6 +1222,7 @@ ${generateStyleChecks(styleChecks)}
                 strategy: msg.strategy || "merge-request",
                 branchName: msg.branchName || "feature/variables",
                 testBranchName: msg.testBranchName || "feature/component-tests",
+                exportFormat: msg.exportFormat || "css",
                 saveToken: msg.saveToken || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user"

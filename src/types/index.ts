@@ -34,6 +34,7 @@ export interface GitLabSettings {
   strategy?: string;
   branchName?: string;
   testBranchName?: string;
+  exportFormat?: 'css' | 'scss';
   saveToken: boolean;
   savedAt: string;
   savedBy: string;
@@ -64,6 +65,7 @@ export interface PluginMessage {
   strategy?: string;
   branchName?: string;
   testBranchName?: string;
+  exportFormat?: 'css' | 'scss';
   cssData?: string;
   testContent?: string;
   shareWithTeam?: boolean;

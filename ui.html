@@ -1190,7 +1190,7 @@
         </div>
         <div style="display: flex; gap: 10px; margin-bottom: 16px;">
           <button id="export-css-button" disabled>
-            Export Variables as CSS
+            Export Variables
           </button>
           <button id="commit-repo-button" disabled>
             Commit to Repository
@@ -1277,8 +1277,16 @@
           </div>
 
           <div class="form-group">
-            <label for="config-file-path">CSS Variables File Path</label>
+            <label for="config-file-path">Variables File Path</label>
             <input type="text" id="config-file-path" placeholder="src/variables.css" />
+          </div>
+
+          <div class="form-group">
+            <label for="config-export-format">Export Format</label>
+            <select id="config-export-format">
+              <option value="css">CSS (variables.css)</option>
+              <option value="scss">SCSS (variables.scss)</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -1714,7 +1722,8 @@
           currentCSSData = message.cssData;
           // Only trigger download if this was an explicit export request
           if (message.shouldDownload) {
-            downloadCSS(message.cssData);
+            const format = message.exportFormat || 'css';
+            downloadCSS(message.cssData, format);
           }
         } else if (message.type === "angular-export-data") {
           // Trigger ZIP download with component data based on selected language
@@ -2628,12 +2637,15 @@
       }
 
       // Function to trigger CSS download
-      function downloadCSS(cssString) {
-        const blob = new Blob([cssString], { type: "text/css" });
+      function downloadCSS(cssString, format = 'css') {
+        const mimeType = format === 'scss' ? "text/scss" : "text/css";
+        const fileExtension = format === 'scss' ? 'scss' : 'css';
+        
+        const blob = new Blob([cssString], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "figma-variables.css";
+        a.download = `figma-variables.${fileExtension}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2644,14 +2656,26 @@
       document
         .getElementById("export-css-button")
         .addEventListener("click", () => {
+          // Get export format from settings
+          const exportFormat = window.gitlabSettings?.exportFormat || 'css';
+          
           // Send message to plugin code to request CSS export
           parent.postMessage({
             pluginMessage: {
               type: "export-css",
-              shouldDownload: true
+              shouldDownload: true,
+              exportFormat: exportFormat
             }
           }, "*");
         });
+
+      // Function to update export button text based on format
+      function updateExportButtonText() {
+        const exportButton = document.getElementById("export-css-button");
+        const format = window.gitlabSettings?.exportFormat || 'css';
+        const formatText = format.toUpperCase();
+        exportButton.textContent = `Export Variables as ${formatText}`;
+      }
 
       // Function to generate test for a component
       function generateTest(componentId, componentName, button, generateAllVariants = false, forCommit = false) {
@@ -2837,6 +2861,7 @@
         // Clear all form fields
         document.getElementById("config-project-id").value = "";
         document.getElementById("config-file-path").value = "src/variables.css";
+        document.getElementById("config-export-format").value = "css";
         document.getElementById("config-test-file-path").value = "components/{componentName}.component.spec.ts";
         document.getElementById("config-token").value = "";
         document.getElementById("config-strategy").value = "merge-request";
@@ -2869,6 +2894,7 @@
       function saveConfiguration() {
         const projectId = document.getElementById("config-project-id").value.trim();
         const filePath = document.getElementById("config-file-path").value.trim() || "src/variables.css";
+        const exportFormat = document.getElementById("config-export-format").value;
         const testFilePath = document.getElementById("config-test-file-path").value.trim() || "components/{componentName}/test.spec.ts";
         const token = document.getElementById("config-token").value.trim();
         const strategy = document.getElementById("config-strategy").value;
@@ -2891,6 +2917,7 @@
         window.gitlabSettings = {
           projectId: projectId,
           filePath: filePath,
+          exportFormat: exportFormat,
           testFilePath: testFilePath,
           gitlabToken: token,
           strategy: strategy,
@@ -2908,6 +2935,7 @@
             type: "save-gitlab-settings",
             projectId: projectId,
             filePath: filePath,
+            exportFormat: exportFormat,
             testFilePath: testFilePath,
             gitlabToken: token,
             strategy: strategy,
@@ -2920,6 +2948,9 @@
 
         // Update metadata display
         displayConfigMetadata();
+        
+        // Update export button text
+        updateExportButtonText();
 
         alert("Configuration saved successfully!");
         closeSettingsModal();
@@ -2930,6 +2961,7 @@
         if (window.gitlabSettings) {
           document.getElementById("config-project-id").value = window.gitlabSettings.projectId || "";
           document.getElementById("config-file-path").value = window.gitlabSettings.filePath || "src/variables.css";
+          document.getElementById("config-export-format").value = window.gitlabSettings.exportFormat || "css";
           document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/{componentName}.component.spec.ts";
           document.getElementById("config-token").value = window.gitlabSettings.gitlabToken || "";
           document.getElementById("config-strategy").value = window.gitlabSettings.strategy || "merge-request";
@@ -2949,6 +2981,9 @@
 
           // Display metadata if available
           displayConfigMetadata();
+          
+          // Update export button text
+          updateExportButtonText();
         } else {
           // No settings exist - ensure defaults are set
           document.getElementById("config-save-token").checked = true;
@@ -3163,8 +3198,14 @@
 
         // First, ensure we have the latest CSS data
         if (!currentCSSData) {
-          // Request CSS export first
-          parent.postMessage({ pluginMessage: { type: "export-css" } }, "*");
+          // Request CSS export first with format
+          const exportFormat = window.gitlabSettings?.exportFormat || 'css';
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: "export-css", 
+              exportFormat: exportFormat 
+            } 
+          }, "*");
 
           // Wait for CSS data to be available
           const checkCSSData = setInterval(() => {
@@ -3413,6 +3454,16 @@
         const display = this.value === "merge-request" ? "block" : "none";
         branchSection.style.display = display;
         testBranchSection.style.display = display;
+      });
+
+      // Add event listener for export format dropdown
+      document.getElementById("config-export-format").addEventListener("change", function() {
+        // Update local settings immediately
+        if (window.gitlabSettings) {
+          window.gitlabSettings.exportFormat = this.value;
+        }
+        // Update export button text
+        updateExportButtonText();
       });
 
       // Add basic click debugging

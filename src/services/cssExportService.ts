@@ -4,7 +4,7 @@ import { UnitsService } from './unitsService';
 export class CSSExportService {
   private static allVariables = new Map<string, any>();
 
-  static async exportVariables(): Promise<string> {
+  static async exportVariables(format: 'css' | 'scss' = 'css'): Promise<string> {
     try {
       // Clear cache
       this.allVariables.clear();
@@ -18,8 +18,8 @@ export class CSSExportService {
       // First pass: collect all variables for reference lookup
       await this.collectAllVariables(collections);
 
-      // Build CSS content with actual collection structure
-      let cssContent = ":root {\n";
+      // Build content with actual collection structure
+      let content = format === 'scss' ? '' : ':root {\n';
       
       // Sort collections alphabetically by name
       const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
@@ -44,7 +44,7 @@ export class CSSExportService {
             const referencedVariable = this.allVariables.get(value.id);
             if (referencedVariable) {
               const referencedName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-              cssValue = `var(--${referencedName})`;
+              cssValue = format === 'scss' ? `$${referencedName}` : `var(--${referencedName})`;
             } else {
               continue;
             }
@@ -77,29 +77,39 @@ export class CSSExportService {
         
         // Add collection section if it has variables
         if (collectionVariables.length > 0 || groupedVariables.size > 0) {
-          cssContent += `\n  /* ===== ${collection.name.toUpperCase()} ===== */\n`;
+          content += `\n${format === 'scss' ? '//' : '  /*'} ===== ${collection.name.toUpperCase()} ===== ${format === 'scss' ? '' : '*/'}\n`;
           
           // Add standalone variables first
           collectionVariables.forEach((variable: any) => {
-            cssContent += `  --${variable.name}: ${variable.value};\n`;
+            if (format === 'scss') {
+              content += `$${variable.name}: ${variable.value};\n`;
+            } else {
+              content += `  --${variable.name}: ${variable.value};\n`;
+            }
           });
           
           // Add grouped variables with subheadings
           groupedVariables.forEach((variables, groupName) => {
             if (variables.length > 0) {
               const displayName = groupName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-              cssContent += `\n  /* ${displayName} */\n`;
+              content += `\n${format === 'scss' ? '//' : '  /*'} ${displayName} ${format === 'scss' ? '' : '*/'}\n`;
               variables.forEach((variable: any) => {
-                cssContent += `  --${variable.name}: ${variable.value};\n`;
+                if (format === 'scss') {
+                  content += `$${variable.name}: ${variable.value};\n`;
+                } else {
+                  content += `  --${variable.name}: ${variable.value};\n`;
+                }
               });
             }
           });
         }
       }
 
-      cssContent += "}\n";
+      if (format === 'css') {
+        content += "}\n";
+      }
 
-      return cssContent;
+      return content;
     } catch (error: any) {
       console.error("Error exporting CSS:", error);
       throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
