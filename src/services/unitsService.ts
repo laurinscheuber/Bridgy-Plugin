@@ -25,18 +25,14 @@ export class UnitsService {
     'flex': 'none',
     'order': 'none',
     
-    // Percentage values
-    'width': '%',
-    'height': '%',
-    
-    // Default to px for most size-related values
+    // Default to px for all size-related values
     'default': 'px'
   };
 
   static getDefaultUnit(variableName: string): string {
     const name = variableName.toLowerCase();
     
-    // Check for specific patterns (unitless values first)
+    // Check for unitless values only
     if (name.includes('opacity') || name.includes('alpha') || 
         name.includes('z-index') || name.includes('line-height') ||
         name.includes('font-weight') || name.includes('flex') || 
@@ -44,12 +40,7 @@ export class UnitsService {
       return 'none';
     }
     
-    // Check for percentage values
-    if (name.includes('width') || name.includes('height')) {
-      return '%';
-    }
-    
-    // Everything else defaults to px (including border, padding, margin, radius, etc.)
+    // Everything else defaults to px (width, height, border, padding, margin, radius, etc.)
     return 'px';
   }
 

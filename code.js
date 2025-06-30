@@ -367,9 +367,6 @@
           if (name.includes("opacity") || name.includes("alpha") || name.includes("z-index") || name.includes("line-height") || name.includes("font-weight") || name.includes("flex") || name.includes("order")) {
             return "none";
           }
-          if (name.includes("width") || name.includes("height")) {
-            return "%";
-          }
           return "px";
         }
         static getUnitForVariable(variableName, collectionName, groupName) {
@@ -469,10 +466,7 @@
         "font-weight": "none",
         "flex": "none",
         "order": "none",
-        // Percentage values
-        "width": "%",
-        "height": "%",
-        // Default to px for most size-related values
+        // Default to px for all size-related values
         "default": "px"
       };
     }
