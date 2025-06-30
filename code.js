@@ -279,8 +279,8 @@
             return mergeRequests.length > 0 ? mergeRequests[0] : null;
           });
         }
-        static createMergeRequest(projectId, gitlabToken, sourceBranch, targetBranch, title) {
-          return __awaiter(this, void 0, void 0, function* () {
+        static createMergeRequest(projectId_1, gitlabToken_1, sourceBranch_1, targetBranch_1, title_1) {
+          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, sourceBranch, targetBranch, title, description = "Automatically created merge request for CSS variables update") {
             const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
             const response = yield fetch(mrUrl, {
               method: "POST",
@@ -292,7 +292,7 @@
                 source_branch: sourceBranch,
                 target_branch: targetBranch,
                 title,
-                description: "Automatically created merge request for CSS variables update",
+                description,
                 remove_source_branch: true,
                 squash: true
               })
@@ -302,6 +302,26 @@
               throw new Error(errorData.message || "Failed to create merge request");
             }
             return yield response.json();
+          });
+        }
+        static commitComponentTest(projectId_1, gitlabToken_1, commitMessage_1, componentName_1, testContent_1) {
+          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, commitMessage, componentName, testContent, testFilePath = "components/{componentName}/{componentName}.component.spec.ts", branchName = "feature/component-tests") {
+            const normalizedComponentName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            const filePath = testFilePath.replace("{componentName}", normalizedComponentName);
+            const featureBranch = branchName;
+            console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
+            const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
+            const defaultBranch = projectData.default_branch;
+            yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
+            const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
+            yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, testContent, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id);
+            const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+            if (!existingMR) {
+              const mrDescription = `Automatically created merge request for component test: ${componentName}`;
+              const newMR = yield this.createMergeRequest(projectId, gitlabToken, featureBranch, defaultBranch, commitMessage, mrDescription);
+              return { mergeRequestUrl: newMR.web_url };
+            }
+            return { mergeRequestUrl: existingMR.web_url };
           });
         }
       };
@@ -345,50 +365,153 @@
         static exportVariables() {
           return __awaiter2(this, void 0, void 0, function* () {
             try {
+              this.allVariables.clear();
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-              let cssContent = "/* Figma Variables Export */\n";
-              cssContent += `/* Generated: ${(/* @__PURE__ */ new Date()).toLocaleString()} */
-
-`;
-              cssContent += ":root {\n";
+              yield this.collectAllVariables(collections);
+              const categorizedVariables = {
+                // Definition variables (base tokens)
+                colorPalette: [],
+                radius: [],
+                padding: [],
+                spacing: [],
+                sizing: [],
+                opacity: [],
+                typography: [],
+                colorScheme: [],
+                other: [],
+                // Component variables (comes last)
+                components: []
+              };
               for (const collection of collections) {
-                let hasValidVariables = false;
-                let collectionContent = `  /* ${collection.name} */
-`;
                 for (const variableId of collection.variableIds) {
                   const variable = yield figma.variables.getVariableByIdAsync(variableId);
                   if (!variable)
                     continue;
                   const defaultModeId = collection.modes[0].modeId;
                   const value = variable.valuesByMode[defaultModeId];
-                  if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
-                    continue;
-                  }
                   const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-                  const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
-                  if (formattedValue === null)
-                    continue;
-                  collectionContent += `  --${formattedName}: ${formattedValue};
-`;
-                  hasValidVariables = true;
-                }
-                if (hasValidVariables) {
-                  cssContent += collectionContent + "\n";
+                  const category = this.categorizeVariableByPurpose(variable, collection);
+                  let cssValue;
+                  const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
+                  if (isAlias) {
+                    const referencedVariable = this.allVariables.get(value.id);
+                    if (referencedVariable) {
+                      const referencedName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                      cssValue = `var(--${referencedName})`;
+                    } else {
+                      continue;
+                    }
+                  } else {
+                    const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name);
+                    if (formattedValue === null)
+                      continue;
+                    cssValue = formattedValue;
+                  }
+                  categorizedVariables[category].push({
+                    name: formattedName,
+                    value: cssValue
+                  });
                 }
               }
-              cssContent += "}\n\n";
-              cssContent += "@media (prefers-color-scheme: dark) {\n";
-              cssContent += "  :root {\n";
-              cssContent += "    /* Dark mode overrides can be added here */\n";
-              cssContent += "  }\n";
+              let cssContent = ":root {\n";
+              const definitionSections = [
+                { key: "colorPalette", title: "Color Palette" },
+                { key: "radius", title: "Border Radius" },
+                { key: "padding", title: "Padding" },
+                { key: "spacing", title: "Spacing" },
+                { key: "sizing", title: "Sizing" },
+                { key: "opacity", title: "Opacity" },
+                { key: "typography", title: "Typography" },
+                { key: "colorScheme", title: "Color Scheme" },
+                { key: "other", title: "Other" }
+              ];
+              definitionSections.forEach((section) => {
+                if (categorizedVariables[section.key].length > 0) {
+                  cssContent += this.buildVariableSection(categorizedVariables[section.key], section.title);
+                }
+              });
+              if (categorizedVariables.components.length > 0) {
+                cssContent += this.buildVariableSection(categorizedVariables.components, "Component Variables");
+              }
               cssContent += "}\n";
-              cssContent += this.addUsageExamples();
               return cssContent;
             } catch (error) {
               console.error("Error exporting CSS:", error);
               throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
             }
           });
+        }
+        // Collect all variables for resolution purposes
+        static collectAllVariables(collections) {
+          return __awaiter2(this, void 0, void 0, function* () {
+            for (const collection of collections) {
+              for (const variableId of collection.variableIds) {
+                const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                if (variable) {
+                  this.allVariables.set(variable.id, variable);
+                }
+              }
+            }
+          });
+        }
+        // Categorize variables by their purpose and type (same logic as UI)
+        static categorizeVariableByPurpose(variable, collection) {
+          const name = variable.name.toLowerCase();
+          if (name.includes("button/") || name.includes("card/") || name.includes("modal/") || name.includes("input/") || name.includes("form/") || name.includes("nav/") || name.includes("header/") || name.includes("footer/") || name.includes("sidebar/") || name.includes("widget/") || name.includes("dropdown/") || name.includes("label/") || name.includes("increment/") || name.includes("functional/") || name.includes("icon/") || name.includes("ghost/") || name.includes("delete/") || // Also catch component names at the start with specific patterns
+          name.match(/^(primary|secondary|teritary|delete|functional)-(button|icon|ghost|dropdown)/)) {
+            return "components";
+          }
+          if (variable.resolvedType === "COLOR") {
+            const defaultModeId = collection.modes[0].modeId;
+            const defaultValue = variable.valuesByMode[defaultModeId];
+            const hasAlias = defaultValue && typeof defaultValue === "object" && defaultValue.type === "VARIABLE_ALIAS";
+            if (hasAlias) {
+              return "colorScheme";
+            }
+            const isBasePaletteColor = name.match(/^(gray|grey|red|blue|green|yellow|orange|purple|magenta|cyan|pink|brown|ultramarine|darkblue)([\/\-]|$)/) || name.match(/^monochrome[\/\-](white|black)$/);
+            const isSemanticColor = name === "white" || name === "black" || ["background", "primary-color", "secondary", "teritary", "critical"].some((keyword) => name === keyword || name.startsWith(keyword + "-") || name.endsWith("-" + keyword)) || name.includes("-text") || name.includes("text-") || name.includes("primary") && !name.includes("/") || name.includes("secondary") && !name.includes("/") || name.includes("teritary") && !name.includes("/");
+            if (isSemanticColor) {
+              return "colorScheme";
+            } else if (isBasePaletteColor) {
+              return "colorPalette";
+            } else {
+              return "colorPalette";
+            }
+          }
+          if (variable.resolvedType === "FLOAT") {
+            if (name.includes("radius"))
+              return "radius";
+            if (name.includes("padding"))
+              return "padding";
+            if (name.includes("spacing") || name.includes("gap") || name.includes("margin"))
+              return "spacing";
+            if (name.includes("size") || name.includes("width") || name.includes("height"))
+              return "sizing";
+            if (name.includes("opacity"))
+              return "opacity";
+          }
+          if (variable.resolvedType === "STRING") {
+            if (name.includes("font") || name.includes("text") || name.includes("weight") || name.includes("style") || name.startsWith("weight-") || name.startsWith("wieght-"))
+              return "typography";
+          }
+          if (variable.resolvedType === "BOOLEAN") {
+            return "other";
+          }
+          return "other";
+        }
+        // Build a variable section with clean formatting
+        static buildVariableSection(variables, sectionName) {
+          if (variables.length === 0) {
+            return "";
+          }
+          let content = `
+  /* ===== ${sectionName.toUpperCase()} ===== */
+`;
+          variables.forEach((variable) => {
+            content += `  --${variable.name}: ${variable.value};
+`;
+          });
+          return content;
         }
         static formatVariableValue(type, value, name) {
           switch (type) {
@@ -426,22 +549,8 @@
               return null;
           }
         }
-        static addUsageExamples() {
-          return `/* ---------------------------------------------------------- */
-/* Usage Examples */
-/* ---------------------------------------------------------- */
-
-/* Example usage of variables */
-.example-element {
-  color: var(--primary-color);
-  background-color: var(--background-color);
-  padding: var(--spacing-medium);
-  border-radius: var(--border-radius);
-  font-family: var(--font-family);
-}
-`;
-        }
       };
+      CSSExportService.allVariables = /* @__PURE__ */ new Map();
     }
   });
 
@@ -555,6 +664,7 @@ ${styleCheckCode}
       ComponentService = class _ComponentService {
         static collectComponents() {
           return __awaiter3(this, void 0, void 0, function* () {
+            yield this.collectAllVariables();
             const componentsData = [];
             const componentSets = [];
             this.componentMap = /* @__PURE__ */ new Map();
@@ -564,11 +674,12 @@ ${styleCheckCode}
                 if ("type" in node) {
                   if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
                     const componentStyles = yield node.getCSSAsync();
+                    const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles);
                     const componentData = {
                       id: node.id,
                       name: node.name,
                       type: node.type,
-                      styles: componentStyles,
+                      styles: resolvedStyles,
                       pageName: node.parent && "name" in node.parent ? node.parent.name : "Unknown",
                       parentId: (_a = node.parent) === null || _a === void 0 ? void 0 : _a.id,
                       children: []
@@ -731,8 +842,67 @@ ${generateStyleChecks(styleChecks)}
 `;
           return testContent;
         }
+        // Collect all variables for resolution purposes
+        static collectAllVariables() {
+          return __awaiter3(this, void 0, void 0, function* () {
+            try {
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              this.allVariables.clear();
+              for (const collection of collections) {
+                for (const variableId of collection.variableIds) {
+                  const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                  if (variable) {
+                    this.allVariables.set(variable.id, variable);
+                    const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                    this.allVariables.set(formattedName, variable);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error("Error collecting variables:", error);
+            }
+          });
+        }
+        // Process component styles to resolve variable names for better readability
+        static resolveStyleVariables(styles) {
+          if (!styles || typeof styles !== "object") {
+            return styles;
+          }
+          const resolvedStyles = Object.assign({}, styles);
+          for (const property in styles) {
+            if (styles.hasOwnProperty(property)) {
+              const value = styles[property];
+              if (typeof value === "string") {
+                resolvedStyles[property] = this.replaceVariableIdsWithNames(value);
+              }
+            }
+          }
+          return resolvedStyles;
+        }
+        // Replace variable IDs in CSS values with readable variable names
+        static replaceVariableIdsWithNames(cssValue) {
+          return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
+            for (const variable of this.allVariables.values()) {
+              if (variable.id === variableId.replace(/:/g, ":")) {
+                const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                return `var(--${formattedName})`;
+              }
+            }
+            return match;
+          }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
+            const varId = match.replace(/var\(--([^)]+)\)/, "$1");
+            for (const variable of this.allVariables.values()) {
+              if (variable.id.includes(varId) || varId.includes(variable.id)) {
+                const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                return `var(--${formattedName})`;
+              }
+            }
+            return match;
+          });
+        }
       };
       ComponentService.componentMap = /* @__PURE__ */ new Map();
+      ComponentService.allVariables = /* @__PURE__ */ new Map();
     }
   });
 
@@ -862,7 +1032,10 @@ ${generateStyleChecks(styleChecks)}
               });
               break;
             case "generate-test":
-              const component = ComponentService.getComponentById(msg.componentId || "");
+              if (!msg.componentId) {
+                throw new Error(`Missing required component ID`);
+              }
+              const component = ComponentService.getComponentById(msg.componentId);
               if (!component) {
                 throw new Error(`Component with ID ${msg.componentId} not found`);
               }
@@ -872,7 +1045,8 @@ ${generateStyleChecks(styleChecks)}
                 componentName: msg.componentName || component.name,
                 testContent,
                 isComponentSet: component.type === "COMPONENT_SET",
-                hasAllVariants: msg.generateAllVariants
+                hasAllVariants: msg.generateAllVariants,
+                forCommit: msg.forCommit
               });
               break;
             case "save-gitlab-settings":
@@ -880,8 +1054,10 @@ ${generateStyleChecks(styleChecks)}
                 projectId: msg.projectId || "",
                 gitlabToken: msg.gitlabToken,
                 filePath: msg.filePath || "src/variables.css",
+                testFilePath: msg.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
                 strategy: msg.strategy || "merge-request",
                 branchName: msg.branchName || "feature/variables",
+                testBranchName: msg.testBranchName || "feature/component-tests",
                 saveToken: msg.saveToken || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user"
@@ -901,6 +1077,18 @@ ${generateStyleChecks(styleChecks)}
                 type: "commit-success",
                 message: "Successfully committed changes to the feature branch",
                 mergeRequestUrl: result === null || result === void 0 ? void 0 : result.mergeRequestUrl
+              });
+              break;
+            case "commit-component-test":
+              if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
+                throw new Error("Missing required fields for component test commit");
+              }
+              const testResult = yield GitLabService.commitComponentTest(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}/{componentName}.component.spec.ts", msg.branchName || "feature/component-tests");
+              figma.ui.postMessage({
+                type: "test-commit-success",
+                message: "Successfully committed component test to the feature branch",
+                componentName: msg.componentName,
+                mergeRequestUrl: testResult === null || testResult === void 0 ? void 0 : testResult.mergeRequestUrl
               });
               break;
             case "reset-gitlab-settings":
