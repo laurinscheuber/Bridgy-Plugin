@@ -9,14 +9,14 @@
       body {
         font-family: "Inter", sans-serif;
         margin: 0;
-        padding: 20px;
+        padding: 16px;
         color: #333;
         background-color: #f7f8fa;
       }
       .container {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 16px;
         max-width: 1200px;
         margin: 0 auto;
       }
@@ -28,11 +28,19 @@
       }
       h2 {
         margin-top: 0;
+        margin-bottom: 16px;
         color: #333;
         font-size: 20px;
         font-weight: 600;
       }
       h3 {
+        margin-top: 16px;
+        margin-bottom: 8px;
+        color: #444;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      h4 {
         margin-top: 16px;
         margin-bottom: 8px;
         color: #555;
@@ -66,22 +74,22 @@
         display: none;
         background-color: #fff;
         border-radius: 0 0 8px 8px;
-        padding: 20px;
+        padding: 16px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       .tab-content.active {
         display: block;
       }
       .variable-collection {
-        margin-bottom: 24px;
+        margin-bottom: 16px;
         background: #f9f9f9;
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 16px;
         border: 1px solid #eaeaea;
       }
       .collection-name {
         font-weight: 600;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         color: #444;
         font-size: 16px;
       }
@@ -144,7 +152,7 @@
         border: 1px solid #eaeaea;
       }
       .component-item {
-        padding: 10px;
+        padding: 16px;
         border-bottom: 1px solid #eee;
       }
       .component-item:hover {
@@ -153,17 +161,17 @@
       .no-items {
         color: #999;
         font-style: italic;
-        padding: 24px;
+        padding: 32px 16px;
         text-align: center;
         background-color: #f9f9f9;
-        border-radius: 6px;
+        border-radius: 8px;
       }
       .loading {
         text-align: center;
-        padding: 40px;
+        padding: 32px 16px;
         color: #777;
         background-color: #f9f9f9;
-        border-radius: 6px;
+        border-radius: 8px;
       }
       .loading:after {
         content: "...";
@@ -198,7 +206,7 @@
       }
       .component-set-header {
         cursor: pointer;
-        padding: 12px;
+        padding: 16px;
         display: flex;
         align-items: center;
         transition: background-color 0.2s;
@@ -338,26 +346,34 @@
       }
       /* Button styling */
       button {
-        padding: 10px 16px;
+        padding: 8px 16px;
         background-color: #0d99ff;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         font-weight: 500;
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: all 0.2s ease;
+        font-size: 14px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       button:hover {
         background-color: #0a85e9;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
       }
       button:disabled {
         background-color: #c8d3dc;
         cursor: not-allowed;
+        box-shadow: none;
       }
       .action-buttons {
         display: flex;
         gap: 8px;
-        margin-top: 8px;
+        margin-top: 16px;
       }
       .generate-test-button {
         background-color: #4caf50;
@@ -368,6 +384,7 @@
       .generate-test-button.loading {
         background-color: #9e9e9e;
         cursor: wait;
+        box-shadow: none;
       }
       .generate-all-variants-button {
         background-color: #e91e63;
@@ -378,11 +395,12 @@
       .test-success-message {
         background-color: #e8f5e9;
         color: #2e7d32;
-        padding: 8px 12px;
-        border-radius: 4px;
-        margin-top: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        margin-top: 16px;
         font-size: 14px;
         display: none;
+        border: 1px solid #c8e6c9;
       }
       select {
         padding: 9px 12px;
@@ -408,7 +426,7 @@
         position: relative;
         background-color: #fff;
         margin: 5% auto;
-        padding: 20px;
+        padding: 32px;
         width: 80%;
         max-width: 500px;
         max-height: 90vh;
@@ -420,28 +438,30 @@
       }
 
       .modal-header {
-        margin-bottom: 20px;
+        margin-bottom: 16px;
       }
 
       .modal-header h3 {
         margin: 0;
-        color: #333;
+        color: #444;
+        font-size: 18px;
+        font-weight: 600;
       }
 
       .modal-body {
-        margin-bottom: 20px;
+        margin-bottom: 16px;
         overflow-y: auto;
         flex: 1;
         min-height: 0;
       }
 
       .form-group {
-        margin-bottom: 15px;
+        margin-bottom: 16px;
       }
 
       .form-group label {
         display: block;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
         color: #555;
         font-weight: 500;
       }
@@ -463,27 +483,28 @@
       .modal-footer {
         display: flex;
         justify-content: flex-end;
-        gap: 10px;
+        gap: 16px;
       }
 
       .checkbox-group {
         display: flex;
         align-items: center;
         gap: 8px;
+        margin-bottom: 16px;
       }
 
       .checkbox-group input[type="checkbox"] {
         width: auto;
-        margin-right: 5px;
+        margin-right: 8px;
       }
 
       .security-note {
         background-color: #fff3cd;
         border: 1px solid #ffeeba;
-        border-radius: 4px;
-        padding: 10px;
-        margin: 10px 0;
-        font-size: 12px;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+        font-size: 14px;
         display: none; /* Hidden by default in compact mode */
       }
 
@@ -501,18 +522,18 @@
       .security-note-compact {
         background-color: #fff3cd;
         border: 1px solid #ffeeba;
-        border-radius: 4px;
-        padding: 8px 10px;
-        margin: 10px 0;
-        font-size: 12px;
+        border-radius: 8px;
+        padding: 8px 16px;
+        margin: 16px 0;
+        font-size: 14px;
         font-style: italic;
         color: #856404;
         display: none; /* Will be shown conditionally */
       }
 
       .saved-info {
-        margin-top: 10px;
-        padding-top: 10px;
+        margin-top: 16px;
+        padding-top: 16px;
         border-top: 1px dashed #ffeeba;
         font-style: italic;
         color: #856404;
@@ -520,8 +541,8 @@
 
       .close-modal {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 16px;
+        right: 16px;
         background: none;
         border: none;
         font-size: 20px;
@@ -549,6 +570,7 @@
         min-width: 80px;
         width: auto;
         white-space: nowrap;
+        box-shadow: none;
       }
 
       /* Styles for GitLab credentials display and settings */
@@ -583,12 +605,14 @@
         border: none;
         color: #666;
         cursor: pointer;
-        padding: 5px;
-        border-radius: 4px;
+        padding: 8px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         transition: background-color 0.2s;
+        height: auto;
+        box-shadow: none;
       }
 
       .settings-icon:hover {
@@ -615,15 +639,16 @@
       .success-message {
         background-color: #e8f5e9;
         color: #2e7d32;
-        padding: 8px 12px;
-        border-radius: 4px;
-        margin-top: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        margin-top: 16px;
         font-size: 14px;
         display: none;
+        border: 1px solid #c8e6c9;
       }
 
       .merge-request-link {
-        margin-top: 10px;
+        margin-top: 16px;
         display: block;
         text-decoration: none;
         color: #0d99ff;
@@ -637,9 +662,9 @@
       .error-message {
         background-color: #ffeeee;
         color: #c62828;
-        padding: 12px;
-        border-radius: 4px;
-        margin-top: 8px;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
         font-size: 14px;
         border: 1px solid #ffcdd2;
       }
@@ -654,8 +679,9 @@
 
       .error-help {
         color: #666;
-        font-size: 13px;
+        font-size: 14px;
         font-style: italic;
+        margin-top: 8px;
       }
 
       /* Progress bar styles */
@@ -723,17 +749,17 @@
   </head>
   <body>
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h2 style="margin: 0;">aWall Synch</h2>
         <div style="display: flex; gap: 8px;">
-          <button id="help-icon-btn" onclick="openUserGuide()" style="background: none; border: none; color: #666; cursor: pointer; padding: 8px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s;" title="User Guide">
+          <button id="help-icon-btn" onclick="openUserGuide()" class="settings-icon" title="User Guide">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
               <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="2"/>
               <circle cx="12" cy="17" r="1" fill="currentColor"/>
             </svg>
           </button>
-          <button id="settings-icon-btn" onclick="openSettingsModal()" style="background: none; border: none; color: #666; cursor: pointer; padding: 8px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s;" title="Settings">
+          <button id="settings-icon-btn" onclick="openSettingsModal()" class="settings-icon" title="Settings">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2"/>
               <path d="M19.4 15C19.2669 15.3016 19.2272 15.6362 19.286 15.9606C19.3448 16.285 19.4995 16.5843 19.73 16.82L19.79 16.88C19.976 17.0657 20.1235 17.2863 20.2241 17.5291C20.3248 17.7719 20.3766 18.0322 20.3766 18.295C20.3766 18.5578 20.3248 18.8181 20.2241 19.0609C20.1235 19.3037 19.976 19.5243 19.79 19.71C19.6043 19.896 19.3837 20.0435 19.1409 20.1441C18.8981 20.2448 18.6378 20.2966 18.375 20.2966C18.1122 20.2966 17.8519 20.2448 17.6091 20.1441C17.3663 20.0435 17.1457 19.896 16.96 19.71L16.9 19.65C16.6643 19.4195 16.365 19.2648 16.0406 19.206C15.7162 19.1472 15.3816 19.1869 15.08 19.32C14.7842 19.4468 14.532 19.6572 14.3543 19.9255C14.1766 20.1938 14.0813 20.5082 14.08 20.83V21C14.08 21.5304 13.8693 22.0391 13.4942 22.4142C13.1191 22.7893 12.6104 23 12.08 23C11.5496 23 11.0409 22.7893 10.6658 22.4142C10.2907 22.0391 10.08 21.5304 10.08 21V20.91C10.0723 20.579 9.96512 20.258 9.77251 19.9887C9.5799 19.7194 9.31074 19.5143 9 19.4C8.69838 19.2669 8.36381 19.2272 8.03941 19.286C7.71502 19.3448 7.41568 19.4995 7.18 19.73L7.12 19.79C6.93425 19.976 6.71368 20.1235 6.47088 20.2241C6.22808 20.3248 5.96783 20.3766 5.705 20.3766C5.44217 20.3766 5.18192 20.3248 4.93912 20.2241C4.69632 20.1235 4.47575 19.976 4.29 19.79C4.10405 19.6043 3.95653 19.3837 3.85588 19.1409C3.75523 18.8981 3.70343 18.6378 3.70343 18.375C3.70343 18.1122 3.75523 17.8519 3.85588 17.6091C3.95653 17.3663 4.10405 17.1457 4.29 16.96L4.35 16.9C4.58054 16.6643 4.73519 16.365 4.794 16.0406C4.85282 15.7162 4.81312 15.3816 4.68 15.08C4.55324 14.7842 4.34276 14.532 4.07447 14.3543C3.80618 14.1766 3.49179 14.0813 3.17 14.08H3C2.46957 14.08 1.96086 13.8693 1.58579 13.4942C1.21071 13.1191 1 12.6104 1 12.08C1 11.5496 1.21071 11.0409 1.58579 10.6658C1.96086 10.2907 2.46957 10.08 3 10.08H3.09C3.42099 10.0723 3.742 9.96512 4.0113 9.77251C4.28059 9.5799 4.48572 9.31074 4.6 9C4.73312 8.69838 4.77282 8.36381 4.714 8.03941C4.65519 7.71502 4.50054 7.41568 4.27 7.18L4.21 7.12C4.02405 6.93425 3.87653 6.71368 3.77588 6.47088C3.67523 6.22808 3.62343 5.96783 3.62343 5.705C3.62343 5.44217 3.67523 5.18192 3.77588 4.93912C3.87653 4.69632 4.02405 4.47575 4.21 4.29C4.39575 4.10405 4.61632 3.95653 4.85912 3.85588C5.10192 3.75523 5.36217 3.70343 5.625 3.70343C5.88783 3.70343 6.14808 3.75523 6.39088 3.85588C6.63368 3.95653 6.85425 4.10405 7.04 4.29L7.1 4.35C7.33568 4.58054 7.63502 4.73519 7.95941 4.794C8.28381 4.85282 8.61838 4.81312 8.92 4.68H9C9.29577 4.55324 9.54802 4.34276 9.72569 4.07447C9.90337 3.80618 9.99872 3.49179 10 3.17V3C10 2.46957 10.2107 1.96086 10.5858 1.58579C10.9609 1.21071 11.4696 1 12 1C12.5304 1 13.0391 1.21071 13.4142 1.58579C13.7893 1.96086 14 2.46957 14 3V3.09C14.0013 3.41179 14.0966 3.72618 14.2743 3.99447C14.452 4.26276 14.7042 4.47324 15 4.6C15.3016 4.73312 15.6362 4.77282 15.9606 4.714C16.285 4.65519 16.5843 4.50054 16.82 4.27L16.88 4.21C17.0657 4.02405 17.2863 3.87653 17.5291 3.77588C17.7719 3.67523 18.0322 3.62343 18.295 3.62343C18.5578 3.62343 18.8181 3.67523 19.0609 3.77588C19.3037 3.87653 19.5243 4.02405 19.71 4.21C19.896 4.39575 20.0435 4.61632 20.1441 4.85912C20.2448 5.10192 20.2966 5.36217 20.2966 5.625C20.2966 5.88783 20.2448 6.14808 20.1441 6.39088C20.0435 6.63368 19.896 6.85425 19.71 7.04L19.65 7.1C19.4195 7.33568 19.2648 7.63502 19.206 7.95941C19.1472 8.28381 19.1869 8.61838 19.32 8.92V9C19.4468 9.29577 19.6572 9.54802 19.9255 9.72569C20.1938 9.90337 20.5082 9.99872 20.83 10H21C21.5304 10 22.0391 10.2107 22.4142 10.5858C22.7893 10.9609 23 11.4696 23 12C23 12.5304 22.7893 13.0391 22.4142 13.4142C22.0391 13.7893 21.5304 14 21 14H20.91C20.5882 14.0013 20.2738 14.0966 20.0055 14.2743C19.7372 14.452 19.5268 14.7042 19.4 15Z" stroke="currentColor" stroke-width="2"/>
@@ -825,8 +851,16 @@
           </div>
 
           <div class="form-group">
-            <label for="config-file-path">File Path</label>
+            <label for="config-file-path">CSS Variables File Path</label>
             <input type="text" id="config-file-path" placeholder="src/variables.css" />
+          </div>
+
+          <div class="form-group">
+            <label for="config-test-file-path">Component Test File Path Template</label>
+            <input type="text" id="config-test-file-path" placeholder="components/{componentName}/{componentName}.component.spec.ts" />
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              <i>Use {componentName} as a placeholder for the component name</i>
+            </div>
           </div>
 
           <div class="form-group">
@@ -843,8 +877,13 @@
           </div>
 
           <div id="config-branch-section" class="form-group">
-            <label for="config-branch">Branch Name (if strategy is MR)</label>
+            <label for="config-branch">CSS Variables Branch Name</label>
             <input type="text" id="config-branch" placeholder="feature/variables" />
+          </div>
+
+          <div id="config-test-branch-section" class="form-group">
+            <label for="config-test-branch">Component Tests Branch Name</label>
+            <input type="text" id="config-test-branch" placeholder="feature/component-tests" />
           </div>
 
           <div class="form-group checkbox-group">
@@ -1105,6 +1144,33 @@
       let currentCSSData = null;
       window.gitlabSettings = null; // Store GitLab settings
 
+      // Helper function to find variable name by ID
+      function findVariableNameById(variableId) {
+        for (const collection of variablesData) {
+          for (const variable of collection.variables) {
+            if (variable.id === variableId) {
+              return variable.name;
+            }
+          }
+        }
+        return null;
+      }
+
+      // Function to scroll to a variable
+      function scrollToVariable(variableName) {
+        const element = document.getElementById(`var-${variableName}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add a temporary highlight effect
+          element.style.backgroundColor = '#fff3cd';
+          element.style.border = '2px solid #ffc107';
+          setTimeout(() => {
+            element.style.backgroundColor = '';
+            element.style.border = '';
+          }, 2000);
+        }
+      }
+
       // Listen for messages from the plugin
       window.onmessage = (event) => {
         const message = event.data.pluginMessage;
@@ -1156,32 +1222,74 @@
           const language = message.language || "angular";
           downloadComponentsZip(message.files, language);
         } else if (message.type === "test-generated") {
-          // Download the generated test
-          downloadTest(message.componentName, message.testContent);
+          // Handle test generation result
+          if (message.forCommit) {
+            // For commit, send the commit-component-test message
+            if (!window.gitlabSettings) {
+              alert("Please configure your GitLab settings in the Settings tab first.");
 
-          // Show success message
-          const buttons = document.querySelectorAll('button.loading');
-          buttons.forEach(button => {
-            if (button.textContent === 'Generating...') {
-              button.classList.remove('loading');
-              // Restore the original button text
-              button.textContent = button.dataset.originalText ||
-                (button.classList.contains('generate-all-variants-button') ?
-                 'Generate Test for All Variants' : 'Generate Test');
-              button.disabled = false;
+              // Reset button state
+              const buttons = document.querySelectorAll('button.loading');
+              buttons.forEach(button => {
+                if (button.textContent === 'Committing...') {
+                  button.classList.remove('loading');
+                  button.textContent = button.dataset.originalText || 'Commit Test';
+                  button.disabled = false;
+                }
+              });
 
-              // Show success message
-              const successMessage = button.parentElement.nextElementSibling;
-              if (successMessage && successMessage.classList.contains('test-success-message')) {
-                successMessage.style.display = 'block';
-
-                // Hide success message after 3 seconds
-                setTimeout(() => {
-                  successMessage.style.display = 'none';
-                }, 3000);
-              }
+              // Open settings modal
+              openSettingsModal();
+              return;
             }
-          });
+
+            // Get commit message
+            const commitMessage = `feat: add component test for ${message.componentName}`;
+
+            // Send to plugin for commit
+            parent.postMessage({
+              pluginMessage: {
+                type: "commit-component-test",
+                projectId: window.gitlabSettings.projectId,
+                gitlabToken: window.gitlabSettings.gitlabToken,
+                commitMessage: commitMessage,
+                componentName: message.componentName,
+                testContent: message.testContent,
+                testFilePath: window.gitlabSettings.testFilePath || "components/{componentName}/{componentName}.component.spec.ts",
+                branchName: window.gitlabSettings.testBranchName || "feature/component-tests"
+              }
+            }, "*");
+
+            // Don't reset button state yet - wait for commit response
+          } else {
+            // For download, just download the test
+            downloadTest(message.componentName, message.testContent);
+
+            // Show success message and reset button state
+            const buttons = document.querySelectorAll('button.loading');
+            buttons.forEach(button => {
+              if (button.textContent === 'Generating...') {
+                button.classList.remove('loading');
+                // Restore the original button text
+                button.textContent = button.dataset.originalText ||
+                  (button.classList.contains('generate-all-variants-button') ?
+                   'Generate Test for All Variants' : 'Generate Test');
+                button.disabled = false;
+
+                // Show success message
+                const successMessage = button.parentElement.nextElementSibling;
+                if (successMessage && successMessage.classList.contains('test-success-message')) {
+                  successMessage.textContent = 'Test generated successfully!';
+                  successMessage.style.display = 'block';
+
+                  // Hide success message after 3 seconds
+                  setTimeout(() => {
+                    successMessage.style.display = 'none';
+                  }, 3000);
+                }
+              }
+            });
+          }
         } else if (message.type === "commit-progress") {
           // Handle progress updates for GitLab operations
           const progressBar = document.getElementById("commit-progress");
@@ -1268,25 +1376,178 @@
           footer.insertAdjacentHTML("beforebegin", errorHTML);
 
           resetCommitButton();
+        } else if (message.type === "test-commit-success") {
+          // Handle successful component test commit
+          console.log("Test commit success received for:", message.componentName);
+
+          // Find any loading commit buttons and update them
+          const buttons = document.querySelectorAll('button.loading');
+          buttons.forEach(button => {
+            if (button.textContent === 'Committing...') {
+              button.classList.remove('loading');
+              button.textContent = button.dataset.originalText || 'Commit Test';
+              button.disabled = false;
+
+              // Show success message
+              const successMessage = button.parentElement.nextElementSibling;
+              if (successMessage && successMessage.classList.contains('test-success-message')) {
+                successMessage.textContent = `Successfully committed test for ${message.componentName}!`;
+                successMessage.style.display = 'block';
+
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                  successMessage.style.display = 'none';
+                }, 3000);
+              }
+            }
+          });
+
+          // If no specific button was found, show an alert
+          if (!document.querySelector('button.textContent="Committing..."')) {
+            alert(`Successfully committed test for ${message.componentName}!`);
+          }
         }
       };
 
       // Render variables
       function renderVariables(data) {
-        const container = document.getElementById("variables-container");
-
         if (data.length === 0) {
-          container.innerHTML =
+          document.getElementById("variables-container").innerHTML =
             '<div class="no-items">No variables found in this document.</div>';
           return;
         }
 
+        // Categorize variables by type and purpose
+        const categorizedVariables = {
+          // Definition variables (base tokens)
+          colorPalette: [],
+          radius: [],
+          padding: [],
+          spacing: [],
+          sizing: [],
+          opacity: [],
+          typography: [],
+          colorScheme: [],
+          other: [],
+          
+          // Component variables (comes last)
+          components: []
+        };
+
+        data.forEach(collection => {
+          collection.variables.forEach(variable => {
+            const varWithCollection = {...variable, collection: collection.name};
+            const category = categorizeVariableByPurpose(variable);
+            categorizedVariables[category].push(varWithCollection);
+          });
+        });
+
+        // Render variables in order: definitions first, then components
+        const container = document.getElementById("variables-container");
         let html = "";
 
-        data.forEach((collection) => {
-          html += `
+        // Render definition sections first
+        const definitionSections = [
+          { key: 'colorPalette', title: 'Color Palette' },
+          { key: 'radius', title: 'Border Radius' },
+          { key: 'padding', title: 'Padding' },
+          { key: 'spacing', title: 'Spacing' },
+          { key: 'sizing', title: 'Sizing' },
+          { key: 'opacity', title: 'Opacity' },
+          { key: 'typography', title: 'Typography' },
+          { key: 'colorScheme', title: 'Color Scheme' },
+          { key: 'other', title: 'Other' }
+        ];
+
+        definitionSections.forEach(section => {
+          if (categorizedVariables[section.key].length > 0) {
+            html += renderVariableGroup(categorizedVariables[section.key], section.title);
+          }
+        });
+
+        // Render component variables last
+        if (categorizedVariables.components.length > 0) {
+          html += renderVariableGroup(categorizedVariables.components, "Component Variables");
+        }
+
+        container.innerHTML = html;
+      }
+
+      // Categorize variables by their purpose and type
+      function categorizeVariableByPurpose(variable) {
+        const name = variable.name.toLowerCase();
+        
+        // Component variables (must contain component-specific keywords with "/" separator)
+        if ((name.includes("button/") || name.includes("card/") || name.includes("modal/") || 
+            name.includes("input/") || name.includes("form/") || name.includes("nav/") ||
+            name.includes("header/") || name.includes("footer/") || name.includes("sidebar/") ||
+            name.includes("widget/") || name.includes("dropdown/") || name.includes("label/") ||
+            name.includes("increment/") || name.includes("functional/") || name.includes("icon/") ||
+            name.includes("ghost/") || name.includes("delete/")) ||
+            // Also catch component names at the start with specific patterns
+            (name.match(/^(primary|secondary|teritary|delete|functional)-(button|icon|ghost|dropdown)/))) {
+          return "components";
+        }
+        
+        // Definition variables by type
+        if (variable.resolvedType === "COLOR") {
+          // Check if it's a semantic color or base palette color
+          const hasAlias = variable.valuesByMode.some(mode => 
+            mode.value && typeof mode.value === "object" && mode.value.type === "VARIABLE_ALIAS"
+          );
+          
+          // If it has an alias (references another variable), it goes to Color Scheme regardless of name
+          if (hasAlias) {
+            return "colorScheme";
+          }
+          
+          // Base palette colors (only direct values, no aliases)
+          const isBasePaletteColor = name.match(/^(gray|grey|red|blue|green|yellow|orange|purple|magenta|cyan|pink|brown|ultramarine|darkblue)([\/\-]|$)/) ||
+                                   name.match(/^monochrome[\/\-](white|black)$/);
+          
+          // Semantic color patterns
+          const isSemanticColor = name === 'white' || name === 'black' ||
+                                 ['background', 'primary-color', 'secondary', 'teritary', 'critical'].some(keyword => 
+                                 name === keyword || name.startsWith(keyword + '-') || name.endsWith('-' + keyword)) ||
+                                 name.includes('-text') || name.includes('text-') ||
+                                 (name.includes('primary') && !name.includes('/')) ||
+                                 (name.includes('secondary') && !name.includes('/')) ||
+                                 (name.includes('teritary') && !name.includes('/'));
+          
+          if (isSemanticColor) {
+            return "colorScheme";
+          } else if (isBasePaletteColor) {
+            return "colorPalette";
+          } else {
+            return "colorPalette";
+          }
+        }
+        
+        if (variable.resolvedType === "FLOAT") {
+          if (name.includes("radius")) return "radius";
+          if (name.includes("padding")) return "padding";
+          if (name.includes("spacing") || name.includes("gap") || name.includes("margin")) return "spacing";
+          if (name.includes("size") || name.includes("width") || name.includes("height")) return "sizing";
+          if (name.includes("opacity")) return "opacity";
+        }
+        
+        if (variable.resolvedType === "STRING") {
+          if (name.includes("font") || name.includes("text") || name.includes("weight") || 
+              name.includes("style") || name.startsWith("weight-") || name.startsWith("wieght-")) return "typography";
+        }
+
+        if (variable.resolvedType === "BOOLEAN") {
+          return "other";
+        }
+        
+        return "other";
+      }
+
+      // Render a group of variables with a title
+      function renderVariableGroup(variables, title) {
+        let html = `
           <div class="variable-collection">
-            <div class="collection-name">${collection.name}</div>
+            <div class="collection-name">${title}</div>
             <table>
               <thead>
                 <tr>
@@ -1298,60 +1559,66 @@
               <tbody>
         `;
 
-          if (collection.variables.length === 0) {
-            html += `<tr><td colspan="3">No variables in this collection</td></tr>`;
-          } else {
-            collection.variables.forEach((variable) => {
+        variables.forEach((variable) => {
+          const sanitizedId = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          html += `
+            <tr id="var-${sanitizedId}">
+              <td>${variable.name}</td>
+              <td>${variable.resolvedType}</td>
+              <td>
+          `;
+
+          variable.valuesByMode.forEach((mode) => {
+            const value = mode.value;
+            const showModeName = variable.valuesByMode.length > 1;
+
+            // Check if this is a variable alias
+            if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
+              const referencedVariableName = findVariableNameById(value.id);
+              const sanitizedName = referencedVariableName ? referencedVariableName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase() : null;
               html += `
-              <tr>
-                <td>${variable.name}</td>
-                <td>${variable.resolvedType}</td>
-                <td>
-            `;
-
-              variable.valuesByMode.forEach((mode) => {
-                const value = mode.value;
-
-                // Display color values with a preview
-                if (
-                  variable.resolvedType === "COLOR" &&
-                  typeof value === "object" &&
-                  value.r !== undefined
-                ) {
-                  const r = Math.round(value.r * 255);
-                  const g = Math.round(value.g * 255);
-                  const b = Math.round(value.b * 255);
-                  const a = value.a !== undefined ? value.a : 1;
-
-                  html += `
-                  <div>
-                    <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
-                    ${mode.modeName}: rgba(${r},${g},${b},${a})
-                  </div>
-                `;
-                } else {
-                  html += `<div>${mode.modeName}: ${JSON.stringify(
-                    value
-                  )}</div>`;
-                }
-              });
+                <div>
+                  ${showModeName ? mode.modeName + ': ' : ''}<span 
+                    style="color: #007bff; font-weight: 500; cursor: pointer; text-decoration: underline;" 
+                    onclick="scrollToVariable('${sanitizedName}')"
+                    title="Click to jump to ${referencedVariableName}"
+                  >${referencedVariableName || value.id}</span>
+                </div>
+              `;
+            }
+            // Display color values with a preview
+            else if (variable.resolvedType === "COLOR" && typeof value === "object" && value.r !== undefined) {
+              const r = Math.round(value.r * 255);
+              const g = Math.round(value.g * 255);
+              const b = Math.round(value.b * 255);
+              const a = value.a !== undefined ? value.a : 1;
 
               html += `
-                </td>
-              </tr>
-            `;
-            });
-          }
+                <div>
+                  <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
+                  ${showModeName ? mode.modeName + ': ' : ''}rgba(${r},${g},${b},${a})
+                </div>
+              `;
+            } else {
+              html += `<div>${showModeName ? mode.modeName + ': ' : ''}${JSON.stringify(value)}</div>`;
+            }
+          });
 
           html += `
+              </td>
+            </tr>
+          `;
+        });
+
+        html += `
               </tbody>
             </table>
           </div>
         `;
-        });
 
-        container.innerHTML = html;
+        return html;
       }
+
 
       // Extract component type and state from name
       function parseComponentName(name) {
@@ -1464,7 +1731,10 @@
                 </div>
               </div>
               <div class="component-set-actions">
-                <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test for All Variants</button>
+                <div style="display: flex; gap: 8px;">
+                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test for All Variants</button>
+                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
+                </div>
                 <div class="test-success-message">Test generated successfully!</div>
               </div>
               <div class="component-set-children" id="children-${index}">
@@ -1504,6 +1774,7 @@
                           </div>
                           <div class="action-buttons">
                             <button class="generate-test-button" onclick="generateTest('${child.id}', '${child.name}', this)">Generate Test</button>
+                            <button class="commit-button" onclick="generateTest('${child.id}', '${child.name}', this, false, true)">Commit Test</button>
                           </div>
                           <div class="test-success-message">Test generated successfully!</div>
                         </td>
@@ -1548,6 +1819,7 @@
               </div>
               <div class="action-buttons">
                 <button class="generate-test-button" onclick="generateTest('${component.id}', '${component.name}', this)">Generate Test</button>
+                <button class="commit-button" onclick="generateTest('${component.id}', '${component.name}', this, false, true)">Commit Test</button>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
             </div>
@@ -1616,11 +1888,11 @@
         });
 
       // Function to generate test for a component
-      function generateTest(componentId, componentName, button, generateAllVariants = false) {
+      function generateTest(componentId, componentName, button, generateAllVariants = false, forCommit = false) {
         // Show loading state
         button.classList.add('loading');
         const originalText = button.textContent;
-        button.textContent = 'Generating...';
+        button.textContent = forCommit ? 'Committing...' : 'Generating...';
         button.disabled = true;
 
         // Hide any previous success messages
@@ -1636,7 +1908,8 @@
               type: "generate-test",
               componentId: componentId,
               componentName: componentName,
-              generateAllVariants: generateAllVariants
+              generateAllVariants: generateAllVariants,
+              forCommit: forCommit
             },
           },
           "*"
@@ -1798,9 +2071,11 @@
         // Clear all form fields
         document.getElementById("config-project-id").value = "";
         document.getElementById("config-file-path").value = "src/variables.css";
+        document.getElementById("config-test-file-path").value = "components/{componentName}/{componentName}.component.spec.ts";
         document.getElementById("config-token").value = "";
         document.getElementById("config-strategy").value = "merge-request";
         document.getElementById("config-branch").value = "feature/variables";
+        document.getElementById("config-test-branch").value = "feature/component-tests";
         document.getElementById("config-save-token").checked = true;
         document.getElementById("config-share-team").checked = true;
 
@@ -1828,9 +2103,11 @@
       function saveConfiguration() {
         const projectId = document.getElementById("config-project-id").value.trim();
         const filePath = document.getElementById("config-file-path").value.trim() || "src/variables.css";
+        const testFilePath = document.getElementById("config-test-file-path").value.trim() || "components/{componentName}/test.spec.ts";
         const token = document.getElementById("config-token").value.trim();
         const strategy = document.getElementById("config-strategy").value;
         const branch = document.getElementById("config-branch").value.trim() || "feature/variables";
+        const testBranch = document.getElementById("config-test-branch").value.trim() || "feature/component-tests";
         const saveToken = document.getElementById("config-save-token").checked;
         const shareTeam = document.getElementById("config-share-team").checked;
 
@@ -1848,9 +2125,11 @@
         window.gitlabSettings = {
           projectId: projectId,
           filePath: filePath,
+          testFilePath: testFilePath,
           gitlabToken: token,
           strategy: strategy,
           branchName: branch,
+          testBranchName: testBranch,
           saveToken: saveToken,
           isPersonal: !shareTeam,
           savedAt: new Date().toISOString(),
@@ -1863,9 +2142,11 @@
             type: "save-gitlab-settings",
             projectId: projectId,
             filePath: filePath,
+            testFilePath: testFilePath,
             gitlabToken: token,
             strategy: strategy,
             branchName: branch,
+            testBranchName: testBranch,
             saveToken: saveToken,
             shareWithTeam: shareTeam
           },
@@ -1883,18 +2164,22 @@
         if (window.gitlabSettings) {
           document.getElementById("config-project-id").value = window.gitlabSettings.projectId || "";
           document.getElementById("config-file-path").value = window.gitlabSettings.filePath || "src/variables.css";
+          document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/{componentName}/{componentName}.component.spec.ts";
           document.getElementById("config-token").value = window.gitlabSettings.gitlabToken || "";
           document.getElementById("config-strategy").value = window.gitlabSettings.strategy || "merge-request";
           document.getElementById("config-branch").value = window.gitlabSettings.branchName || "feature/variables";
+          document.getElementById("config-test-branch").value = window.gitlabSettings.testBranchName || "feature/component-tests";
 
           // Handle checkboxes with proper defaults
           document.getElementById("config-save-token").checked = window.gitlabSettings.hasOwnProperty('saveToken') ? window.gitlabSettings.saveToken : true;
           document.getElementById("config-share-team").checked = window.gitlabSettings.hasOwnProperty('isPersonal') ? !window.gitlabSettings.isPersonal : true;
 
-          // Show/hide branch field based on strategy
-          const branchSection = document.getElementById("config-branch-section");
+          // Show/hide branch fields based on strategy
           const strategy = document.getElementById("config-strategy").value;
-          branchSection.style.display = strategy === "merge-request" ? "block" : "none";
+          const display = strategy === "merge-request" ? "block" : "none";
+
+          document.getElementById("config-branch-section").style.display = display;
+          document.getElementById("config-test-branch-section").style.display = display;
 
           // Display metadata if available
           displayConfigMetadata();
@@ -2207,7 +2492,11 @@
       // Add event listener for strategy dropdown in Config tab
       document.getElementById("config-strategy").addEventListener("change", function() {
         const branchSection = document.getElementById("config-branch-section");
-        branchSection.style.display = this.value === "merge-request" ? "block" : "none";
+        const testBranchSection = document.getElementById("config-test-branch-section");
+
+        const display = this.value === "merge-request" ? "block" : "none";
+        branchSection.style.display = display;
+        testBranchSection.style.display = display;
       });
     </script>
   </body>
