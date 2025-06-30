@@ -36,14 +36,7 @@ export class UnitsService {
   static getDefaultUnit(variableName: string): string {
     const name = variableName.toLowerCase();
     
-    // Check for specific patterns
-    for (const pattern in this.DEFAULT_UNIT_PATTERNS) {
-      if (pattern !== 'default' && name.includes(pattern)) {
-        return this.DEFAULT_UNIT_PATTERNS[pattern as keyof typeof this.DEFAULT_UNIT_PATTERNS];
-      }
-    }
-    
-    // Special case for opacity-like values
+    // Check for specific patterns (unitless values first)
     if (name.includes('opacity') || name.includes('alpha') || 
         name.includes('z-index') || name.includes('line-height') ||
         name.includes('font-weight') || name.includes('flex') || 
@@ -51,7 +44,13 @@ export class UnitsService {
       return 'none';
     }
     
-    return this.DEFAULT_UNIT_PATTERNS.default;
+    // Check for percentage values
+    if (name.includes('width') || name.includes('height')) {
+      return '%';
+    }
+    
+    // Everything else defaults to px (including border, padding, margin, radius, etc.)
+    return 'px';
   }
 
   static getUnitForVariable(variableName: string, collectionName: string, groupName?: string): string {

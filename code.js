@@ -364,15 +364,13 @@
       UnitsService = class {
         static getDefaultUnit(variableName) {
           const name = variableName.toLowerCase();
-          for (const pattern in this.DEFAULT_UNIT_PATTERNS) {
-            if (pattern !== "default" && name.includes(pattern)) {
-              return this.DEFAULT_UNIT_PATTERNS[pattern];
-            }
-          }
           if (name.includes("opacity") || name.includes("alpha") || name.includes("z-index") || name.includes("line-height") || name.includes("font-weight") || name.includes("flex") || name.includes("order")) {
             return "none";
           }
-          return this.DEFAULT_UNIT_PATTERNS.default;
+          if (name.includes("width") || name.includes("height")) {
+            return "%";
+          }
+          return "px";
         }
         static getUnitForVariable(variableName, collectionName, groupName) {
           if (groupName) {
