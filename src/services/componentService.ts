@@ -3,8 +3,11 @@ import { parseComponentName, generateStyleChecks, createTestWithStyleChecks } fr
 
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
+  private static allVariables = new Map<string, any>();
 
   static async collectComponents(): Promise<Component[]> {
+    // Collect all variables for resolution
+    await this.collectAllVariables();
     const componentsData: Component[] = [];
     const componentSets: Component[] = [];
     this.componentMap = new Map<string, Component>();
@@ -14,11 +17,14 @@ export class ComponentService {
       if ("type" in node) {
         if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
           const componentStyles = await node.getCSSAsync();
+          // Resolve variable references in styles
+          const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles);
+          
           const componentData: Component = {
             id: node.id,
             name: node.name,
             type: node.type,
-            styles: componentStyles,
+            styles: resolvedStyles,
             pageName: node.parent && "name" in node.parent ? node.parent.name : "Unknown",
             parentId: node.parent?.id,
             children: [],
@@ -245,5 +251,74 @@ ${generateStyleChecks(styleChecks)}
 `;
 
     return testContent;
+  }
+
+  // Collect all variables for resolution purposes
+  private static async collectAllVariables(): Promise<void> {
+    try {
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      this.allVariables.clear();
+      
+      for (const collection of collections) {
+        for (const variableId of collection.variableIds) {
+          const variable = await figma.variables.getVariableByIdAsync(variableId);
+          if (variable) {
+            this.allVariables.set(variable.id, variable);
+            // Also map by formatted name for easier lookup
+            const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+            this.allVariables.set(formattedName, variable);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error collecting variables:", error);
+    }
+  }
+
+  // Process component styles to resolve variable names for better readability
+  private static resolveStyleVariables(styles: any): any {
+    if (!styles || typeof styles !== 'object') {
+      return styles;
+    }
+
+    const resolvedStyles = { ...styles };
+    
+    // Convert CSS with variable IDs to readable variable names
+    for (const property in styles) {
+      if (styles.hasOwnProperty(property)) {
+        const value = styles[property];
+        if (typeof value === 'string') {
+          // Replace variable IDs with readable names
+          resolvedStyles[property] = this.replaceVariableIdsWithNames(value);
+        }
+      }
+    }
+
+    return resolvedStyles;
+  }
+
+  // Replace variable IDs in CSS values with readable variable names
+  private static replaceVariableIdsWithNames(cssValue: string): string {
+    // Match patterns like: VariableID:123:456/1.0 or var(--internal-variable-id)
+    return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
+      // Find the variable by ID
+      for (const variable of this.allVariables.values()) {
+        if (variable.id === variableId.replace(/:/g, ':')) {
+          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          return `var(--${formattedName})`;
+        }
+      }
+      return match; // Return original if not found
+    }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
+      // Handle internal Figma variable references
+      const varId = match.replace(/var\(--([^)]+)\)/, '$1');
+      for (const variable of this.allVariables.values()) {
+        if (variable.id.includes(varId) || varId.includes(variable.id)) {
+          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          return `var(--${formattedName})`;
+        }
+      }
+      return match; // Return original if not found
+    });
   }
 } 
