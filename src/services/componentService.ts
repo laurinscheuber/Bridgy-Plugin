@@ -157,100 +157,34 @@ export class ComponentService {
       return this.generateTest(componentSet); // Fallback to standard test if no variants
     }
 
-    const componentName = componentSet.name;
-    const kebabName = componentName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-    const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
+    // Only use the first variant (default variant)
+    const defaultVariant = componentSet.children[0];
+    
+    // Parse the default variant styles
+    let variantStyles;
+    try {
+      variantStyles = typeof defaultVariant.styles === "string" ? JSON.parse(defaultVariant.styles) : defaultVariant.styles;
+    } catch (e) {
+      console.error("Error parsing default variant styles:", e);
+      variantStyles = {};
+    }
 
-    // Start building the test file
-    let testContent = `import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ${pascalName}Component } from './${kebabName}.component';
-
-describe('${pascalName}Component', () => {
-  let component: ${pascalName}Component;
-  let fixture: ComponentFixture<${pascalName}Component>;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      declarations: [ ${pascalName}Component ]
-    })
-    .compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(${pascalName}Component);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-`;
-
-    // Add tests for each variant
-    componentSet.children.forEach((variant: Component, index: number) => {
-      // Extract state and type information from the variant name
-      const parsedName = parseComponentName(variant.name);
-      const variantDesc = parsedName.state
-        ? `in '${parsedName.state}' state`
-        : parsedName.type
-        ? `of type '${parsedName.type}'`
-        : `variant ${index + 1}`;
-
-      // Parse the variant styles
-      let variantStyles;
-      try {
-        variantStyles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
-      } catch (e) {
-        console.error("Error parsing variant styles:", e);
-        variantStyles = {};
+    // Extract all CSS properties for the default variant
+    const styleChecks = [];
+    for (const key in variantStyles) {
+      if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
+        const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        styleChecks.push({
+          property: camelCaseKey,
+          value: variantStyles[key],
+        });
       }
+    }
 
-      // Extract all CSS properties for this variant
-      const styleChecks = [];
-      for (const key in variantStyles) {
-        if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-          const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-          styleChecks.push({
-            property: camelCaseKey,
-            value: variantStyles[key],
-          });
-        }
-      }
-
-      // Generate test for this variant
-      const stateVar = parsedName.state
-        ? parsedName.state.toLowerCase().replace(/\s+/g, "")
-        : "default";
-      testContent += `  describe('${variantDesc}', () => {
-    it('should have correct styles', () => {
-      // Set component to the ${variantDesc} state
-      component.state = '${stateVar}';
-      fixture.detectChanges();
-
-      const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-      if (element) {
-        const computedStyle = window.getComputedStyle(element);
-
-${generateStyleChecks(styleChecks)}
-      } else {
-        console.warn('No suitable element found to test styles');
-      }
-    });
-  });
-
-`;
-    });
-
-    // Close the main describe block
-    testContent += `});
-`;
-
-    return testContent;
+    // Generate test for the default variant only
+    return createTestWithStyleChecks(componentSet.name, 
+      componentSet.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), 
+      styleChecks);
   }
 
   // Collect all variables for resolution purposes

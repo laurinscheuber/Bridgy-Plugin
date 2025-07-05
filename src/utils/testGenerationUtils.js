@@ -302,7 +302,7 @@ describe('${pascalName}Component', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ ${pascalName}Component ]
+      imports: [ ${pascalName}Component ]
     })
     .compileComponents();
   });
@@ -414,7 +414,7 @@ describe('${pascalName}Component', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ ${pascalName}Component ]
+      imports: [ ${pascalName}Component ]
     })
     .compileComponents();
   });

@@ -2754,8 +2754,8 @@
               </div>
               <div class="component-set-actions">
                 <div style="display: flex; gap: 8px;">
-                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test for All Variants</button>
-                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
+                  <button class="generate-test-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, false)">Generate Test</button>
+                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, false, true)">Commit Test</button>
                 </div>
                 <div class="test-success-message">Test generated successfully!</div>
               </div>
@@ -2790,10 +2790,7 @@
                             ${formatStyles(child.styles)}
                             <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
                           </div>
-                          <div class="action-buttons">
-                            <button class="generate-test-button" onclick="generateTest('${child.id}', '${child.name}', this)">Generate Test</button>
-                            <button class="commit-button" onclick="generateTest('${child.id}', '${child.name}', this, false, true)">Commit Test</button>
-                          </div>
+                          <!-- No action-buttons for child variants of a component set -->
                           <div class="test-success-message">Test generated successfully!</div>
                         </td>
                       </tr>

@@ -718,31 +718,6 @@ ${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "
   });
 
   // dist/utils/componentUtils.js
-  function parseComponentName(name) {
-    const result = {
-      name,
-      type: null,
-      state: null
-    };
-    const typeMatch = name.match(/Type=([^,]+)/i);
-    if (typeMatch && typeMatch[1]) {
-      result.type = typeMatch[1].trim();
-    }
-    const stateMatch = name.match(/State=([^,]+)/i);
-    if (stateMatch && stateMatch[1]) {
-      result.state = stateMatch[1].trim();
-    }
-    return result;
-  }
-  function generateStyleChecks(styleChecks) {
-    if (styleChecks.length === 0) {
-      return "        // No style properties to check";
-    }
-    return styleChecks.map((check) => {
-      return `        // Check ${check.property}
-        expect(computedStyle.${check.property}).toBe('${check.value}');`;
-    }).join("\n\n");
-  }
   function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
     const styleCheckCode = styleChecks.length > 0 ? styleChecks.map((check) => {
       return `      // Check ${check.property}
@@ -758,7 +733,7 @@ describe('${pascalName}Component', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ ${pascalName}Component ]
+      imports: [ ${pascalName}Component ]
     })
     .compileComponents();
   });
@@ -933,77 +908,25 @@ ${styleCheckCode}
           if (!componentSet.children || componentSet.children.length === 0) {
             return this.generateTest(componentSet);
           }
-          const componentName = componentSet.name;
-          const kebabName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-          const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
-          let testContent = `import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ${pascalName}Component } from './${kebabName}.component';
-
-describe('${pascalName}Component', () => {
-  let component: ${pascalName}Component;
-  let fixture: ComponentFixture<${pascalName}Component>;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      declarations: [ ${pascalName}Component ]
-    })
-    .compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(${pascalName}Component);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-`;
-          componentSet.children.forEach((variant, index) => {
-            const parsedName = parseComponentName(variant.name);
-            const variantDesc = parsedName.state ? `in '${parsedName.state}' state` : parsedName.type ? `of type '${parsedName.type}'` : `variant ${index + 1}`;
-            let variantStyles;
-            try {
-              variantStyles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
-            } catch (e) {
-              console.error("Error parsing variant styles:", e);
-              variantStyles = {};
+          const defaultVariant = componentSet.children[0];
+          let variantStyles;
+          try {
+            variantStyles = typeof defaultVariant.styles === "string" ? JSON.parse(defaultVariant.styles) : defaultVariant.styles;
+          } catch (e) {
+            console.error("Error parsing default variant styles:", e);
+            variantStyles = {};
+          }
+          const styleChecks = [];
+          for (const key in variantStyles) {
+            if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
+              const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              styleChecks.push({
+                property: camelCaseKey,
+                value: variantStyles[key]
+              });
             }
-            const styleChecks = [];
-            for (const key in variantStyles) {
-              if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-                const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-                styleChecks.push({
-                  property: camelCaseKey,
-                  value: variantStyles[key]
-                });
-              }
-            }
-            const stateVar = parsedName.state ? parsedName.state.toLowerCase().replace(/\s+/g, "") : "default";
-            testContent += `  describe('${variantDesc}', () => {
-    it('should have correct styles', () => {
-      // Set component to the ${variantDesc} state
-      component.state = '${stateVar}';
-      fixture.detectChanges();
-
-      const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-      if (element) {
-        const computedStyle = window.getComputedStyle(element);
-
-${generateStyleChecks(styleChecks)}
-      } else {
-        console.warn('No suitable element found to test styles');
-      }
-    });
-  });
-
-`;
-          });
-          testContent += `});
-`;
-          return testContent;
+          }
+          return createTestWithStyleChecks(componentSet.name, componentSet.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), styleChecks);
         }
         // Collect all variables for resolution purposes
         static collectAllVariables() {
