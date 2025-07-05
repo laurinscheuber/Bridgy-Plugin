@@ -1,4 +1,3 @@
-import dataService from '../services/dataService';
 import { GitLabService } from '../services/gitlabService';
 import { CSSExportService } from '../services/cssExportService';
 import { ComponentService } from '../services/componentService';
@@ -6,33 +5,61 @@ import { ComponentService } from '../services/componentService';
 // Show the UI (required for inspect panel plugins)
 figma.showUI(__html__, { width: 850, height: 800 });
 
-// Bootstrap the plugin
-async function bootstrap() {
-  console.log('Bootstrapping plugin...');
+// Store component data for later use
+let componentMap = new Map();
+
+// Collect all variables and components from the document
+async function collectDocumentData() {
+  // Collection variables
+  const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
+  const variablesData = [];
+
+  // Sort collections alphabetically by name
+  const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
   
-  try {
-    // Initialize the data service first
-    await dataService.initialize();
-    console.log('Data service initialized');
-    
-    // Send the collected data to the UI
-    figma.ui.postMessage({
-      type: "document-data",
-      variablesData: dataService.getVariablesData(),
-      componentsData: dataService.getComponentsData(),
+  for (const collection of sortedCollections) {
+    const variablesPromises = collection.variableIds.map(async (id) => {
+      const variable = await figma.variables.getVariableByIdAsync(id);
+      if (!variable) return null;
+
+      const valuesByModeEntries = [];
+
+      // Handle valuesByMode in a TypeScript-friendly way
+      for (const modeId in variable.valuesByMode) {
+        const value = variable.valuesByMode[modeId];
+        const mode = collection.modes.find((m) => m.modeId === modeId);
+        valuesByModeEntries.push({
+          modeName: mode ? mode.name : "Unknown",
+          value: value,
+        });
+      }
+
+      return {
+        id: variable.id,
+        name: variable.name,
+        resolvedType: variable.resolvedType,
+        valuesByMode: valuesByModeEntries,
+      };
     });
-    
-    // Load saved GitLab settings
-    await loadSavedGitLabSettings();
-    
-    console.log('Plugin bootstrapped successfully');
-  } catch (error) {
-    console.error('Failed to bootstrap plugin:', error);
-    figma.ui.postMessage({
-      type: "error",
-      message: "Failed to initialize plugin data: " + (error.message || "Unknown error"),
+
+    const variablesResult = await Promise.all(variablesPromises);
+    const variables = variablesResult.filter((item) => item !== null);
+
+    variablesData.push({
+      name: collection.name,
+      variables: variables,
     });
   }
+
+  // Collect components
+  const componentsData = await ComponentService.collectComponents();
+
+  // Send the data to the UI
+  figma.ui.postMessage({
+    type: "document-data",
+    variablesData,
+    componentsData,
+  });
 }
 
 // Load saved GitLab settings if available
@@ -52,8 +79,11 @@ async function loadSavedGitLabSettings() {
   }
 }
 
-// Start the plugin
-bootstrap();
+// Run the collection when the plugin starts
+collectDocumentData();
+
+// Load saved GitLab settings
+loadSavedGitLabSettings();
 
 // Keep the codegen functionality for generating code in the Code tab
 figma.codegen.on("generate", (_event) => {
@@ -106,15 +136,6 @@ figma.ui.onmessage = async (msg) => {
         });
         break;
 
-      case "refresh-document-data":
-        // Reinitialize the data service if a refresh is requested
-        await dataService.initialize();
-        figma.ui.postMessage({
-          type: "document-data",
-          variablesData: dataService.getVariablesData(),
-          componentsData: dataService.getComponentsData(),
-        });
-        break;
 
       case "save-gitlab-settings":
         await GitLabService.saveSettings(
