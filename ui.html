@@ -1150,6 +1150,97 @@
           margin-bottom: 10px;
         }
       }
+
+      /* Validation Issues Styles */
+      .validation-issues {
+        background-color: #fff5f5;
+        border: 1px solid #fed7d7;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .validation-issues h3 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        color: #e74c3c;
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+      }
+
+      .validation-issues-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .validation-issue-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background-color: #fff;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+
+      .validation-issue-item strong {
+        color: #721c24;
+      }
+
+      .issue-description {
+        color: #856404;
+        font-style: italic;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+
+      .issue-link {
+        color: #0d99ff;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+      }
+
+      .issue-link:hover {
+        background-color: #e1f0ff;
+        text-decoration: underline;
+      }
+
+      .validation-help {
+        padding: 8px;
+        background-color: #fff;
+        border-radius: 4px;
+        border: 1px solid #f5c6cb;
+      }
+
+      .validation-help small {
+        color: #856404;
+        font-size: 12px;
+      }
+
+      /* Validation warning styles for groups */
+      .has-validation-issues {
+        border-left: 4px solid #e74c3c !important;
+        background-color: #fff5f5 !important;
+      }
+
+      .has-validation-issues .subgroup-title {
+        color: #e74c3c !important;
+      }
+
+      .validation-warning {
+        color: #e74c3c;
+        margin-left: 8px;
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
@@ -1673,6 +1764,42 @@
         }
       }
 
+      // Function to scroll to a group
+      function scrollToGroup(collection, group) {
+        const element = document.getElementById(`group-${collection}-${group}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add a temporary highlight effect
+          element.style.backgroundColor = '#fff3cd';
+          element.style.border = '2px solid #ffc107';
+          setTimeout(() => {
+            element.style.backgroundColor = '';
+            element.style.border = '';
+          }, 2000);
+        }
+      }
+
+      // Function to scroll to a group by ID
+      function scrollToGroupById(elementId) {
+        console.log('scrollToGroupById called with:', elementId);
+        const element = document.getElementById(elementId);
+        console.log('Found element:', element);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add a temporary highlight effect
+          element.style.backgroundColor = '#fff3cd';
+          element.style.border = '2px solid #ffc107';
+          setTimeout(() => {
+            element.style.backgroundColor = '';
+            element.style.border = '';
+          }, 2000);
+        } else {
+          console.log('Element not found. Available elements with group- prefix:');
+          const allElements = document.querySelectorAll('[id^="group-"]');
+          allElements.forEach(el => console.log('  -', el.id));
+        }
+      }
+
       // Listen for messages from the plugin
       window.onmessage = (event) => {
         // Add proper null/undefined checking to prevent errors
@@ -1949,6 +2076,90 @@
         const container = document.getElementById("variables-container");
         let html = "";
 
+        // Analyze data for validation issues
+        const validationIssues = [];
+
+        // Render each collection as it comes from Figma
+        data.forEach(collection => {
+          if (collection.variables.length > 0) {
+            // Group variables by path prefix (anything before /)
+            const groupedVars = new Map();
+            const standaloneVars = [];
+            
+            collection.variables.forEach(variable => {
+              const pathMatch = variable.name.match(/^([^\/]+)\//);
+              if (pathMatch) {
+                const prefix = pathMatch[1];
+                if (!groupedVars.has(prefix)) {
+                  groupedVars.set(prefix, []);
+                }
+                groupedVars.get(prefix).push(variable);
+              } else {
+                standaloneVars.push(variable);
+              }
+            });
+            
+            // Check for mixed direct values and links in groups
+            groupedVars.forEach((variables, prefix) => {
+              let hasDirectValues = false;
+              let hasLinks = false;
+              
+              variables.forEach(variable => {
+                variable.valuesByMode.forEach(mode => {
+                  if (typeof mode.value === "object" && mode.value.type === "VARIABLE_ALIAS") {
+                    hasLinks = true;
+                  } else {
+                    hasDirectValues = true;
+                  }
+                });
+              });
+              
+              if (hasDirectValues && hasLinks) {
+                const sanitizedId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, '-')}-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                console.log('Creating validation issue:', {
+                  collection: collection.name,
+                  prefix: prefix,
+                  sanitizedId: sanitizedId
+                });
+                validationIssues.push({
+                  collection: collection.name,
+                  group: prefix,
+                  displayName: prefix.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                  issue: 'mixed-values-and-links',
+                  sanitizedId: sanitizedId
+                });
+              }
+            });
+          }
+        });
+
+        // Add validation view at the top if there are issues
+        if (validationIssues.length > 0) {
+          html += `
+            <div class="validation-issues">
+              <h3 style="color: #e74c3c; margin-bottom: 12px;">
+                <span style="margin-right: 8px;">⚠️</span>
+                Variable Configuration Issues
+              </h3>
+              <div class="validation-issues-list">
+                ${validationIssues.map(issue => `
+                  <div class="validation-issue-item">
+                    <strong>${issue.collection}</strong> → <strong>${issue.displayName}</strong>
+                    <span class="issue-description">Contains both direct values and variable links</span>
+                    <a href="#" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}'); return false;">
+                      Go to section
+                    </a>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="validation-help">
+                <small>Groups should contain either all direct values or all variable links, not both.</small>
+                <button onclick="console.log('Test button clicked'); scrollToGroupById('test-id');" style="margin-left: 10px; font-size: 10px;">Test Scroll</button>
+              </div>
+            </div>
+          `;
+        }
+
         // Render each collection as it comes from Figma
         data.forEach(collection => {
           if (collection.variables.length > 0) {
@@ -1984,9 +2195,37 @@
             // Render grouped variables
             groupedVars.forEach((variables, prefix) => {
               const displayName = prefix.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              
+              // Check if this group has mixed values and links
+              let hasDirectValues = false;
+              let hasLinks = false;
+              
+              variables.forEach(variable => {
+                variable.valuesByMode.forEach(mode => {
+                  if (typeof mode.value === "object" && mode.value.type === "VARIABLE_ALIAS") {
+                    hasLinks = true;
+                  } else {
+                    hasDirectValues = true;
+                  }
+                });
+              });
+              
+              const hasMixedValues = hasDirectValues && hasLinks;
+              const groupId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, '-')}-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              
+              console.log('Creating group element:', {
+                collection: collection.name,
+                prefix: prefix,
+                groupId: groupId,
+                hasMixedValues: hasMixedValues
+              });
+              
               html += `
-                <div class="variable-subgroup">
-                  <h4 class="subgroup-title">${displayName}</h4>
+                <div class="variable-subgroup ${hasMixedValues ? 'has-validation-issues' : ''}" id="${groupId}">
+                  <h4 class="subgroup-title">
+                    ${displayName}
+                    ${hasMixedValues ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>' : ''}
+                  </h4>
               `;
               const varsWithCollection = variables.map(v => ({...v, collection: collection.name}));
               html += renderVariableTable(varsWithCollection);
