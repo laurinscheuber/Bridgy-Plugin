@@ -718,6 +718,32 @@ ${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "
   });
 
   // dist/utils/componentUtils.js
+  function hexToRgb(hex) {
+    const cleanHex = hex.replace("#", "");
+    if (!/^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(cleanHex)) {
+      return hex;
+    }
+    let fullHex = cleanHex;
+    if (cleanHex.length === 3) {
+      fullHex = cleanHex.split("").map((char) => char + char).join("");
+    }
+    const r = parseInt(fullHex.substring(0, 2), 16);
+    const g = parseInt(fullHex.substring(2, 4), 16);
+    const b = parseInt(fullHex.substring(4, 6), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  function normalizeColorForTesting(color) {
+    if (!color || typeof color !== "string") {
+      return color;
+    }
+    if (color.startsWith("rgb(") || color.startsWith("rgba(")) {
+      return color;
+    }
+    if (color.startsWith("#") || /^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(color)) {
+      return hexToRgb(color);
+    }
+    return color;
+  }
   function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
     function stripCssVarFallback(value) {
       return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
@@ -804,6 +830,35 @@ ${styleCheckCode}
         });
       };
       ComponentService = class _ComponentService {
+        /**
+         * Checks if a CSS property is color-related
+         */
+        static isColorProperty(property) {
+          const colorProperties = [
+            "color",
+            "backgroundColor",
+            "borderColor",
+            "borderTopColor",
+            "borderRightColor",
+            "borderBottomColor",
+            "borderLeftColor",
+            "outlineColor",
+            "textDecorationColor",
+            "caretColor",
+            "fill",
+            "stroke"
+          ];
+          return colorProperties.indexOf(property) !== -1;
+        }
+        /**
+         * Normalizes style values, especially colors for consistent testing
+         */
+        static normalizeStyleValue(property, value) {
+          if (this.isColorProperty(property) && typeof value === "string") {
+            return normalizeColorForTesting(value);
+          }
+          return value;
+        }
         static collectComponents() {
           return __awaiter4(this, void 0, void 0, function* () {
             yield this.collectAllVariables();
@@ -882,7 +937,7 @@ ${styleCheckCode}
               }
               styleChecks.push({
                 property: camelCaseKey,
-                value: styles[key]
+                value: this.normalizeStyleValue(camelCaseKey, styles[key])
               });
             }
           }
@@ -905,7 +960,7 @@ ${styleCheckCode}
                   }
                   variantStyleChecks.push({
                     property: camelCaseKey,
-                    value: variantStyles[key]
+                    value: this.normalizeStyleValue(camelCaseKey, variantStyles[key])
                   });
                 }
               }
@@ -935,7 +990,7 @@ ${styleCheckCode}
               }
               styleChecks.push({
                 property: camelCaseKey,
-                value: variantStyles[key]
+                value: this.normalizeStyleValue(camelCaseKey, variantStyles[key])
               });
             }
           }

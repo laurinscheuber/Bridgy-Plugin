@@ -1,9 +1,31 @@
 import { Component } from '../types';
-import { parseComponentName, generateStyleChecks, createTestWithStyleChecks } from '../utils/componentUtils';
+import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting } from '../utils/componentUtils';
 
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
   private static allVariables = new Map<string, any>();
+
+  /**
+   * Checks if a CSS property is color-related
+   */
+  private static isColorProperty(property: string): boolean {
+    const colorProperties = [
+      'color', 'backgroundColor', 'borderColor', 'borderTopColor', 
+      'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+      'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke'
+    ];
+    return colorProperties.indexOf(property) !== -1;
+  }
+
+  /**
+   * Normalizes style values, especially colors for consistent testing
+   */
+  private static normalizeStyleValue(property: string, value: any): any {
+    if (this.isColorProperty(property) && typeof value === 'string') {
+      return normalizeColorForTesting(value);
+    }
+    return value;
+  }
 
   static async collectComponents(): Promise<Component[]> {
     // Collect all variables for resolution
@@ -112,7 +134,7 @@ export class ComponentService {
 
         styleChecks.push({
           property: camelCaseKey,
-          value: styles[key],
+          value: this.normalizeStyleValue(camelCaseKey, styles[key]),
         });
       }
     }
@@ -149,7 +171,7 @@ export class ComponentService {
 
             variantStyleChecks.push({
               property: camelCaseKey,
-              value: variantStyles[key],
+              value: this.normalizeStyleValue(camelCaseKey, variantStyles[key]),
             });
           }
         }
@@ -191,7 +213,7 @@ export class ComponentService {
         }
         styleChecks.push({
           property: camelCaseKey,
-          value: variantStyles[key],
+          value: this.normalizeStyleValue(camelCaseKey, variantStyles[key]),
         });
       }
     }

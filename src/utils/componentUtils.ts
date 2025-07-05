@@ -1,5 +1,59 @@
 import { ParsedComponentName, StyleCheck } from '../types';
 
+/**
+ * Converts hex color to RGB format
+ * @param hex - Hex color string (e.g., "#ff0000" or "ff0000")
+ * @returns RGB string (e.g., "rgb(255, 0, 0)") or original value if not valid hex
+ */
+export function hexToRgb(hex: string): string {
+  // Remove # if present and validate hex format
+  const cleanHex = hex.replace('#', '');
+  
+  // Check if it's a valid 3 or 6 character hex
+  if (!/^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(cleanHex)) {
+    return hex; // Return original if not valid hex
+  }
+  
+  let fullHex = cleanHex;
+  
+  // Convert 3-character hex to 6-character hex
+  if (cleanHex.length === 3) {
+    fullHex = cleanHex.split('').map(char => char + char).join('');
+  }
+  
+  // Parse RGB values
+  const r = parseInt(fullHex.substring(0, 2), 16);
+  const g = parseInt(fullHex.substring(2, 4), 16);
+  const b = parseInt(fullHex.substring(4, 6), 16);
+  
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Normalizes color values to RGB format for consistent test comparisons
+ * Converts hex colors to RGB, leaves RGB colors as-is
+ * @param color - Color value (hex, rgb, rgba, etc.)
+ * @returns Normalized color string
+ */
+export function normalizeColorForTesting(color: string): string {
+  if (!color || typeof color !== 'string') {
+    return color;
+  }
+  
+  // If it's already rgb/rgba, return as-is
+  if (color.startsWith('rgb(') || color.startsWith('rgba(')) {
+    return color;
+  }
+  
+  // If it's hex, convert to RGB
+  if (color.startsWith('#') || /^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(color)) {
+    return hexToRgb(color);
+  }
+  
+  // Return original for other formats (named colors, etc.)
+  return color;
+}
+
 export function parseComponentName(name: string): ParsedComponentName {
   const result: ParsedComponentName = {
     name: name,
