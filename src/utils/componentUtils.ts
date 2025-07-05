@@ -27,10 +27,16 @@ export function generateStyleChecks(styleChecks: StyleCheck[]): string {
     return "        // No style properties to check";
   }
 
+  function stripCssVarFallback(value: string): string {
+    // Replace all var(--..., fallback) with just the fallback
+    return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
+  }
+
   return styleChecks
     .map((check) => {
+      const expected = stripCssVarFallback(String(check.value));
       return `        // Check ${check.property}
-        expect(computedStyle.${check.property}).toBe('${check.value}');`;
+        expect(computedStyle.${check.property}).toBe('${expected}');`;
     })
     .join("\n\n");
 }
@@ -40,11 +46,16 @@ export function createTestWithStyleChecks(
   kebabName: string,
   styleChecks: StyleCheck[]
 ): string {
+  function stripCssVarFallback(value: string): string {
+    return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
+  }
+
   const styleCheckCode = styleChecks.length > 0
     ? styleChecks
         .map((check) => {
+          const expected = stripCssVarFallback(String(check.value));
           return `      // Check ${check.property}
-      expect(computedStyle.${check.property}).toBe('${check.value}');`;
+      expect(computedStyle.${check.property}).toBe('${expected}');`;
         })
         .join("\n\n")
     : "      // No style properties to check";

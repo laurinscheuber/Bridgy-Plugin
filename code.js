@@ -719,9 +719,13 @@ ${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "
 
   // dist/utils/componentUtils.js
   function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
+    function stripCssVarFallback(value) {
+      return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
+    }
     const styleCheckCode = styleChecks.length > 0 ? styleChecks.map((check) => {
+      const expected = stripCssVarFallback(String(check.value));
       return `      // Check ${check.property}
-      expect(computedStyle.${check.property}).toBe('${check.value}');`;
+      expect(computedStyle.${check.property}).toBe('${expected}');`;
     }).join("\n\n") : "      // No style properties to check";
     const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
     return `import { ComponentFixture, TestBed } from '@angular/core/testing';
