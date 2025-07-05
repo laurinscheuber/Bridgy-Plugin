@@ -103,7 +103,12 @@ export class ComponentService {
     for (const key in styles) {
       if (Object.prototype.hasOwnProperty.call(styles, key)) {
         // Convert kebab-case to camelCase for JavaScript property access
-        const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        
+        // Handle special cases where CSS property names need to be mapped to correct JS property names
+        if (camelCaseKey === 'background') {
+          camelCaseKey = 'backgroundColor';
+        }
 
         styleChecks.push({
           property: camelCaseKey,
@@ -135,7 +140,12 @@ export class ComponentService {
         for (const key in variantStyles) {
           if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
             // Convert kebab-case to camelCase for JavaScript property access
-            const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+            let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+            
+            // Handle special cases where CSS property names need to be mapped to correct JS property names
+            if (camelCaseKey === 'background') {
+              camelCaseKey = 'backgroundColor';
+            }
 
             variantStyleChecks.push({
               property: camelCaseKey,
@@ -173,7 +183,12 @@ export class ComponentService {
     const styleChecks = [];
     for (const key in variantStyles) {
       if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-        const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        
+        // Handle special cases where CSS property names need to be mapped to correct JS property names
+        if (camelCaseKey === 'background') {
+          camelCaseKey = 'backgroundColor';
+        }
         styleChecks.push({
           property: camelCaseKey,
           value: variantStyles[key],

@@ -876,7 +876,10 @@ ${styleCheckCode}
           const styleChecks = [];
           for (const key in styles) {
             if (Object.prototype.hasOwnProperty.call(styles, key)) {
-              const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              if (camelCaseKey === "background") {
+                camelCaseKey = "backgroundColor";
+              }
               styleChecks.push({
                 property: camelCaseKey,
                 value: styles[key]
@@ -896,7 +899,10 @@ ${styleCheckCode}
               const variantStyleChecks = [];
               for (const key in variantStyles) {
                 if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-                  const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                  let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                  if (camelCaseKey === "background") {
+                    camelCaseKey = "backgroundColor";
+                  }
                   variantStyleChecks.push({
                     property: camelCaseKey,
                     value: variantStyles[key]
@@ -923,7 +929,10 @@ ${styleCheckCode}
           const styleChecks = [];
           for (const key in variantStyles) {
             if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-              const camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              if (camelCaseKey === "background") {
+                camelCaseKey = "backgroundColor";
+              }
               styleChecks.push({
                 property: camelCaseKey,
                 value: variantStyles[key]
