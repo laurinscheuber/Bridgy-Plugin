@@ -54,6 +54,22 @@ export function normalizeColorForTesting(color: string): string {
   return color;
 }
 
+/**
+ * Normalizes complex CSS values that may contain colors (like box-shadow, border, etc.)
+ * @param value - CSS value that may contain colors
+ * @returns Normalized CSS value with hex colors converted to RGB
+ */
+export function normalizeComplexColorValue(value: string): string {
+  if (!value || typeof value !== 'string') {
+    return value;
+  }
+  
+  // Replace hex colors in the value with RGB equivalents
+  return value.replace(/#[0-9A-Fa-f]{3,6}(?![0-9A-Fa-f])/g, (match) => {
+    return hexToRgb(match);
+  });
+}
+
 export function parseComponentName(name: string): ParsedComponentName {
   const result: ParsedComponentName = {
     name: name,

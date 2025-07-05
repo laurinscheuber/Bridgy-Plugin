@@ -1,29 +1,81 @@
 import { Component } from '../types';
-import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting } from '../utils/componentUtils';
+import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
   private static allVariables = new Map<string, any>();
 
   /**
-   * Checks if a CSS property is color-related
+   * Checks if a CSS property is a simple color property (contains only color values)
    */
-  private static isColorProperty(property: string): boolean {
-    const colorProperties = [
-      'color', 'backgroundColor', 'borderColor', 'borderTopColor', 
-      'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-      'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke'
+  private static isSimpleColorProperty(property: string): boolean {
+    const simpleColorProperties = [
+      'accentColor',
+      'backgroundColor',
+      'borderColor',
+      'borderTopColor',
+      'borderRightColor',
+      'borderBottomColor',
+      'borderLeftColor',
+      'borderBlockColor',
+      'borderInlineColor',
+      'borderBlockStartColor',
+      'borderBlockEndColor',
+      'borderInlineStartColor',
+      'borderInlineEndColor',
+      'caretColor',
+      'color',
+      'outlineColor',
+      'textDecorationColor',
+      'textEmphasisColor',
+      'columnRuleColor',
+      'fill',
+      'stroke',
+      'floodColor',
+      'lightingColor',
+      'stopColor',
+      'scrollbarColor',
+      'selectionBackgroundColor',
+      'selectionColor'
     ];
-    return colorProperties.indexOf(property) !== -1;
+    return simpleColorProperties.indexOf(property) !== -1;
+  }
+
+  /**
+   * Checks if a CSS property is a complex property that may contain colors
+   */
+  private static isComplexColorProperty(property: string): boolean {
+    const complexColorProperties = [
+      'background',
+      'border',
+      'borderTop',
+      'borderRight',
+      'borderBottom',
+      'borderLeft',
+      'outline',
+      'boxShadow',
+      'textShadow',
+      'dropShadow'
+    ];
+    return complexColorProperties.indexOf(property) !== -1;
   }
 
   /**
    * Normalizes style values, especially colors for consistent testing
    */
   private static normalizeStyleValue(property: string, value: any): any {
-    if (this.isColorProperty(property) && typeof value === 'string') {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    if (this.isSimpleColorProperty(property)) {
       return normalizeColorForTesting(value);
     }
+    
+    if (this.isComplexColorProperty(property)) {
+      return normalizeComplexColorValue(value);
+    }
+    
     return value;
   }
 

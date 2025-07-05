@@ -744,6 +744,14 @@ ${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "
     }
     return color;
   }
+  function normalizeComplexColorValue(value) {
+    if (!value || typeof value !== "string") {
+      return value;
+    }
+    return value.replace(/#[0-9A-Fa-f]{3,6}(?![0-9A-Fa-f])/g, (match) => {
+      return hexToRgb(match);
+    });
+  }
   function createTestWithStyleChecks(componentName, kebabName, styleChecks) {
     function stripCssVarFallback(value) {
       return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
@@ -831,31 +839,70 @@ ${styleCheckCode}
       };
       ComponentService = class _ComponentService {
         /**
-         * Checks if a CSS property is color-related
+         * Checks if a CSS property is a simple color property (contains only color values)
          */
-        static isColorProperty(property) {
-          const colorProperties = [
-            "color",
+        static isSimpleColorProperty(property) {
+          const simpleColorProperties = [
+            "accentColor",
             "backgroundColor",
             "borderColor",
             "borderTopColor",
             "borderRightColor",
             "borderBottomColor",
             "borderLeftColor",
+            "borderBlockColor",
+            "borderInlineColor",
+            "borderBlockStartColor",
+            "borderBlockEndColor",
+            "borderInlineStartColor",
+            "borderInlineEndColor",
+            "caretColor",
+            "color",
             "outlineColor",
             "textDecorationColor",
-            "caretColor",
+            "textEmphasisColor",
+            "columnRuleColor",
             "fill",
-            "stroke"
+            "stroke",
+            "floodColor",
+            "lightingColor",
+            "stopColor",
+            "scrollbarColor",
+            "selectionBackgroundColor",
+            "selectionColor"
           ];
-          return colorProperties.indexOf(property) !== -1;
+          return simpleColorProperties.indexOf(property) !== -1;
+        }
+        /**
+         * Checks if a CSS property is a complex property that may contain colors
+         */
+        static isComplexColorProperty(property) {
+          const complexColorProperties = [
+            "background",
+            "border",
+            "borderTop",
+            "borderRight",
+            "borderBottom",
+            "borderLeft",
+            "outline",
+            "boxShadow",
+            "textShadow",
+            "dropShadow"
+          ];
+          return complexColorProperties.indexOf(property) !== -1;
         }
         /**
          * Normalizes style values, especially colors for consistent testing
          */
         static normalizeStyleValue(property, value) {
-          if (this.isColorProperty(property) && typeof value === "string") {
+          if (typeof value !== "string") {
+            return value;
+          }
+          if (this.isSimpleColorProperty(property)) {
             return normalizeColorForTesting(value);
+          }
+          if (this.isComplexColorProperty(property)) {
+            return normalizeComplexColorValue(value);
           }
           return value;
         }
