@@ -675,6 +675,12 @@
       .generate-all-variants-button:hover {
         background-color: #c2185b;
       }
+      .commit-all-variants-button {
+        background-color: #9c27b0;
+      }
+      .commit-all-variants-button:hover {
+        background-color: #7b1fa2;
+      }
       .test-success-message {
         background-color: #e8f5e9;
         color: #2e7d32;
@@ -2531,9 +2537,11 @@
                 </div>
               </div>
               <div class="component-set-actions">
-                <div style="display: flex; gap: 8px;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                   <button class="generate-test-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, false)">Generate Test</button>
                   <button class="commit-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, false, true)">Commit Test</button>
+                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate All Variants</button>
+                  <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit All Variants</button>
                 </div>
                 <div class="test-success-message">Test generated successfully!</div>
               </div>
@@ -2667,9 +2675,9 @@
       }
 
       // Add event listener for the export button
-      document
-        .getElementById("export-css-button")
-        .addEventListener("click", () => {
+      const exportCssButton = document.getElementById("export-css-button");
+      if (exportCssButton) {
+        exportCssButton.addEventListener("click", () => {
           // Get export format from settings
           const exportFormat = window.gitlabSettings?.exportFormat || 'css';
           
@@ -2682,6 +2690,7 @@
             }
           }, "*");
         });
+      }
 
       // Function to update export button text based on format
       function updateExportButtonText() {
@@ -2792,9 +2801,9 @@
       }
 
       // Search functionality
-      document
-        .getElementById("variable-search")
-        .addEventListener("input", (e) => {
+      const variableSearchElement = document.getElementById("variable-search");
+      if (variableSearchElement) {
+        variableSearchElement.addEventListener("input", (e) => {
           const searchTerm = e.target.value.toLowerCase();
 
           const filteredData = variablesData
@@ -2810,10 +2819,11 @@
 
           renderVariables(filteredData);
         });
+      }
 
-      document
-        .getElementById("component-search")
-        .addEventListener("input", (e) => {
+      const componentSearchElement = document.getElementById("component-search");
+      if (componentSearchElement) {
+        componentSearchElement.addEventListener("input", (e) => {
           const searchTerm = e.target.value.toLowerCase();
 
           // Search in both component name and children names
@@ -2828,6 +2838,7 @@
 
           renderComponents(filteredData);
         });
+      }
 
       // Function to open settings modal
       function openSettingsModal() {
@@ -3432,53 +3443,72 @@
       // Functions moved to window object at end of script
 
       // Add event listener for the commit button
-      document
-        .getElementById("commit-repo-button")
-        .addEventListener("click", openGitLabModal);
+      const commitRepoButton = document.getElementById("commit-repo-button");
+      if (commitRepoButton) {
+        commitRepoButton.addEventListener("click", openGitLabModal);
+      }
 
       // Toggle merge request options when checkbox is clicked
-      document.getElementById("create-merge-request").addEventListener("change", function() {
-        const mergeRequestOptions = document.getElementById("merge-request-options");
-        if (this.checked) {
-          mergeRequestOptions.style.display = "block";
+      const createMRElement = document.getElementById("create-merge-request");
+      if (createMRElement) {
+        createMRElement.addEventListener("change", function() {
+          const mergeRequestOptions = document.getElementById("merge-request-options");
+          if (mergeRequestOptions) {
+            if (this.checked) {
+              mergeRequestOptions.style.display = "block";
 
-          // Pre-fill the merge request title with the commit message
-          const commitMessage = document.getElementById("commit-message").value;
-          if (commitMessage) {
-            document.getElementById("mr-title").value = commitMessage;
+              // Pre-fill the merge request title with the commit message
+              const commitMessage = document.getElementById("commit-message").value;
+              const mrTitleElement = document.getElementById("mr-title");
+              if (commitMessage && mrTitleElement) {
+                mrTitleElement.value = commitMessage;
+              }
+            } else {
+              mergeRequestOptions.style.display = "none";
+            }
           }
-        } else {
-          mergeRequestOptions.style.display = "none";
-        }
-      });
+        });
+      }
 
       // Update MR title when commit message changes if checkbox is checked
-      document.getElementById("commit-message").addEventListener("input", function() {
-        const createMR = document.getElementById("create-merge-request");
-        if (createMR.checked) {
-          document.getElementById("mr-title").value = this.value;
-        }
-      });
+      const commitMessageElement = document.getElementById("commit-message");
+      if (commitMessageElement) {
+        commitMessageElement.addEventListener("input", function() {
+          const createMR = document.getElementById("create-merge-request");
+          const mrTitleElement = document.getElementById("mr-title");
+          if (createMR && createMR.checked && mrTitleElement) {
+            mrTitleElement.value = this.value;
+          }
+        });
+      }
 
       // Add event listener for strategy dropdown in Config tab
-      document.getElementById("config-strategy").addEventListener("change", function() {
-        const branchSection = document.getElementById("config-branch-section");
-        const testBranchSection = document.getElementById("config-test-branch-section");
+      const configStrategyElement = document.getElementById("config-strategy");
+      if (configStrategyElement) {
+        configStrategyElement.addEventListener("change", function() {
+          const branchSection = document.getElementById("config-branch-section");
+          const testBranchSection = document.getElementById("config-test-branch-section");
 
-        const display = this.value === "merge-request" ? "block" : "none";
-        branchSection.style.display = display;
-        testBranchSection.style.display = display;
-      });
+          if (branchSection && testBranchSection) {
+            const display = this.value === "merge-request" ? "block" : "none";
+            branchSection.style.display = display;
+            testBranchSection.style.display = display;
+          }
+        });
+      }
 
       // Add event listener for export format dropdown
-      document.getElementById("config-export-format").addEventListener("change", function() {
-        // Update local settings immediately
-        if (window.gitlabSettings) {
-          window.gitlabSettings.exportFormat = this.value;
-        }
-        // Update export button text
-        updateExportButtonText();
-      });
+      const configExportFormatElement = document.getElementById("config-export-format");
+      if (configExportFormatElement) {
+        configExportFormatElement.addEventListener("change", function() {
+          // Update local settings immediately
+          if (window.gitlabSettings) {
+            window.gitlabSettings.exportFormat = this.value;
+          }
+          // Update export button text
+          updateExportButtonText();
+        });
+      }
 
       // Add basic click debugging
       document.addEventListener("click", function(event) {
