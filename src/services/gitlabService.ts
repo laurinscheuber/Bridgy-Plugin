@@ -1,9 +1,12 @@
-import { GitLabSettings } from '../types';
+import { GitLabSettings } from "../types";
 
 export class GitLabService {
-  private static readonly GITLAB_API_BASE = 'https://gitlab.fhnw.ch/api/v4';
+  private static readonly GITLAB_API_BASE = "https://gitlab.fhnw.ch/api/v4";
 
-  static async saveSettings(settings: GitLabSettings, shareWithTeam: boolean): Promise<void> {
+  static async saveSettings(
+    settings: GitLabSettings,
+    shareWithTeam: boolean
+  ): Promise<void> {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
@@ -18,36 +21,45 @@ export class GitLabService {
         }
 
         figma.root.setSharedPluginData(
-          "aWallSync",
+          "DesignSync",
           settingsKey,
           JSON.stringify(settingsToSave)
         );
-        console.log(`GitLab settings saved to shared document storage for file: ${figmaFileId}`);
+        console.log(
+          `GitLab settings saved to shared document storage for file: ${figmaFileId}`
+        );
 
         // If token should be saved, also save it personally for this user
         if (settings.saveToken && settings.gitlabToken) {
-          await figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
+          await figma.clientStorage.setAsync(
+            `${settingsKey}-token`,
+            settings.gitlabToken
+          );
           console.log("Token saved to personal storage");
         }
       } else {
         // Save only to personal storage (not shared with team)
         await figma.clientStorage.setAsync(settingsKey, settings);
-        console.log(`GitLab settings saved to personal storage only for file: ${figmaFileId}`);
+        console.log(
+          `GitLab settings saved to personal storage only for file: ${figmaFileId}`
+        );
       }
 
       // Track metadata
       figma.root.setSharedPluginData(
-        "aWallSync",
+        "DesignSync",
         `${settingsKey}-meta`,
         JSON.stringify({
           sharedWithTeam: shareWithTeam,
           savedAt: settings.savedAt,
-          savedBy: settings.savedBy
+          savedBy: settings.savedBy,
         })
       );
     } catch (error: any) {
       console.error("Error saving GitLab settings:", error);
-      throw new Error(`Error saving GitLab settings: ${error.message || "Unknown error"}`);
+      throw new Error(
+        `Error saving GitLab settings: ${error.message || "Unknown error"}`
+      );
     }
   }
 
@@ -61,7 +73,7 @@ export class GitLabService {
 
       // Try to load shared settings from document storage first
       const documentSettings = figma.root.getSharedPluginData(
-        "aWallSync",
+        "DesignSync",
         settingsKey
       );
 
@@ -71,7 +83,9 @@ export class GitLabService {
 
           // Try to load personal token if settings indicate it should be saved
           if (settings.saveToken && !settings.gitlabToken) {
-            const personalToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+            const personalToken = await figma.clientStorage.getAsync(
+              `${settingsKey}-token`
+            );
             if (personalToken) {
               settings.gitlabToken = personalToken;
               console.log("Loaded personal token from client storage");
@@ -79,7 +93,10 @@ export class GitLabService {
           }
 
           // Load metadata if available
-          const metaData = figma.root.getSharedPluginData("aWallSync", `${settingsKey}-meta`);
+          const metaData = figma.root.getSharedPluginData(
+            "DesignSync",
+            `${settingsKey}-meta`
+          );
           if (metaData) {
             try {
               const meta = JSON.parse(metaData);
@@ -104,15 +121,20 @@ export class GitLabService {
       }
 
       // Migration: Check for legacy document settings (old global settings in this file only)
-      const legacyDocumentSettings = figma.root.getSharedPluginData("aWallSync", "gitlab-settings");
+      const legacyDocumentSettings = figma.root.getSharedPluginData(
+        "DesignSync",
+        "gitlab-settings"
+      );
       if (legacyDocumentSettings) {
         try {
           const settings = JSON.parse(legacyDocumentSettings);
-          console.log("Found legacy document settings in this file, migrating to project-specific storage");
+          console.log(
+            "Found legacy document settings in this file, migrating to project-specific storage"
+          );
           // Save as project-specific settings
           await this.saveSettings(settings, true);
           // Remove old global settings to prevent confusion
-          figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+          figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
           return settings;
         } catch (parseError) {
           console.error("Error parsing legacy document settings:", parseError);
@@ -135,21 +157,23 @@ export class GitLabService {
       console.log(`Resetting all GitLab settings for file: ${figmaFileId}`);
 
       // Remove shared document storage
-      figma.root.setSharedPluginData("aWallSync", settingsKey, "");
-      figma.root.setSharedPluginData("aWallSync", `${settingsKey}-meta`, "");
+      figma.root.setSharedPluginData("DesignSync", settingsKey, "");
+      figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
 
       // Remove personal client storage
       await figma.clientStorage.deleteAsync(settingsKey);
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
 
       // Also remove any legacy global settings (cleanup)
-      figma.root.setSharedPluginData("aWallSync", "gitlab-settings", "");
+      figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
       await figma.clientStorage.deleteAsync("gitlab-settings");
 
       console.log("All GitLab settings have been reset successfully");
     } catch (error: any) {
       console.error("Error resetting GitLab settings:", error);
-      throw new Error(`Error resetting GitLab settings: ${error.message || "Unknown error"}`);
+      throw new Error(
+        `Error resetting GitLab settings: ${error.message || "Unknown error"}`
+      );
     }
   }
 
@@ -168,7 +192,12 @@ export class GitLabService {
     const defaultBranch = projectData.default_branch;
 
     // Create or get feature branch
-    await this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
+    await this.createFeatureBranch(
+      projectId,
+      gitlabToken,
+      featureBranch,
+      defaultBranch
+    );
 
     // Check if file exists and prepare commit
     const { fileData, action } = await this.prepareFileCommit(
@@ -191,8 +220,12 @@ export class GitLabService {
     );
 
     // Check for existing merge request
-    const existingMR = await this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
-    
+    const existingMR = await this.findExistingMergeRequest(
+      projectId,
+      gitlabToken,
+      featureBranch
+    );
+
     if (!existingMR) {
       // Create new merge request if none exists
       const newMR = await this.createMergeRequest(
@@ -208,7 +241,10 @@ export class GitLabService {
     return { mergeRequestUrl: existingMR.web_url };
   }
 
-  private static async fetchProjectInfo(projectId: string, gitlabToken: string) {
+  private static async fetchProjectInfo(
+    projectId: string,
+    gitlabToken: string
+  ) {
     const projectUrl = `${this.GITLAB_API_BASE}/projects/${projectId}`;
     const response = await fetch(projectUrl, {
       method: "GET",
@@ -245,10 +281,17 @@ export class GitLabService {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error(`Branch creation failed for '${featureBranch}' from '${defaultBranch}':`, errorData);
+      console.error(
+        `Branch creation failed for '${featureBranch}' from '${defaultBranch}':`,
+        errorData
+      );
       // If branch already exists, that's fine - we'll use it
       if (errorData.message !== "Branch already exists") {
-        throw new Error(`Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`);
+        throw new Error(
+          `Failed to create branch '${featureBranch}': ${
+            errorData.message || "Unknown error"
+          }`
+        );
       }
     }
   }
@@ -259,7 +302,11 @@ export class GitLabService {
     filePath: string,
     featureBranch: string
   ) {
-    const checkFileUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}?ref=${featureBranch}`;
+    const checkFileUrl = `${
+      this.GITLAB_API_BASE
+    }/projects/${projectId}/repository/files/${encodeURIComponent(
+      filePath
+    )}?ref=${featureBranch}`;
     const response = await fetch(checkFileUrl, {
       method: "GET",
       headers: {
@@ -359,7 +406,7 @@ export class GitLabService {
         title: title,
         description: description,
         remove_source_branch: true,
-        squash: true
+        squash: true,
       }),
     });
 
@@ -383,25 +430,37 @@ export class GitLabService {
     // Replace {componentName} placeholder in file path if present
     const normalizedComponentName = componentName
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
 
     // Replace all occurrences of {componentName} in the file path
-    const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
-    
+    const filePath = testFilePath.replace(
+      /{componentName}/g,
+      normalizedComponentName
+    );
+
     // Create component-specific branch name - use dashes instead of slashes to avoid GitLab issues
     const featureBranch = `${branchName}-${normalizedComponentName}`;
 
-    console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
+    console.log(
+      `Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`
+    );
 
     // Get project information
     const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
-    const defaultBranch = projectData.default_branch || 'main';
-    
-    console.log(`Project default branch: ${defaultBranch}, creating feature branch: ${featureBranch}`);
+    const defaultBranch = projectData.default_branch || "main";
+
+    console.log(
+      `Project default branch: ${defaultBranch}, creating feature branch: ${featureBranch}`
+    );
 
     // Create or get feature branch
-    await this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
+    await this.createFeatureBranch(
+      projectId,
+      gitlabToken,
+      featureBranch,
+      defaultBranch
+    );
 
     // Check if file exists and prepare commit
     const { fileData, action } = await this.prepareFileCommit(
@@ -424,7 +483,11 @@ export class GitLabService {
     );
 
     // Check for existing merge request
-    const existingMR = await this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+    const existingMR = await this.findExistingMergeRequest(
+      projectId,
+      gitlabToken,
+      featureBranch
+    );
 
     if (!existingMR) {
       // Create new merge request if none exists
@@ -442,4 +505,4 @@ export class GitLabService {
 
     return { mergeRequestUrl: existingMR.web_url };
   }
-} 
+}

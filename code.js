@@ -95,7 +95,7 @@
                   delete settingsToSave.gitlabToken;
                 }
                 figma.root.setSharedPluginData(
-                  "aWallSync",
+                  "DesignSync",
                   settingsKey,
                   JSON.stringify(settingsToSave)
                 );
@@ -116,7 +116,7 @@
                 );
               }
               figma.root.setSharedPluginData(
-                "aWallSync",
+                "DesignSync",
                 `${settingsKey}-meta`,
                 JSON.stringify({
                   sharedWithTeam: shareWithTeam,
@@ -141,7 +141,7 @@
               const settingsKey = `gitlab-settings-${figmaFileId}`;
               console.log(`Loading GitLab settings for file: ${figmaFileId}`);
               const documentSettings = figma.root.getSharedPluginData(
-                "aWallSync",
+                "DesignSync",
                 settingsKey
               );
               if (documentSettings) {
@@ -157,7 +157,7 @@
                     }
                   }
                   const metaData = figma.root.getSharedPluginData(
-                    "aWallSync",
+                    "DesignSync",
                     `${settingsKey}-meta`
                   );
                   if (metaData) {
@@ -187,7 +187,7 @@
                 });
               }
               const legacyDocumentSettings = figma.root.getSharedPluginData(
-                "aWallSync",
+                "DesignSync",
                 "gitlab-settings"
               );
               if (legacyDocumentSettings) {
@@ -198,7 +198,7 @@
                   );
                   yield this.saveSettings(settings, true);
                   figma.root.setSharedPluginData(
-                    "aWallSync",
+                    "DesignSync",
                     "gitlab-settings",
                     ""
                   );
@@ -226,16 +226,16 @@
               console.log(
                 `Resetting all GitLab settings for file: ${figmaFileId}`
               );
-              figma.root.setSharedPluginData("aWallSync", settingsKey, "");
+              figma.root.setSharedPluginData("DesignSync", settingsKey, "");
               figma.root.setSharedPluginData(
-                "aWallSync",
+                "DesignSync",
                 `${settingsKey}-meta`,
                 ""
               );
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
               figma.root.setSharedPluginData(
-                "aWallSync",
+                "DesignSync",
                 "gitlab-settings",
                 ""
               );
