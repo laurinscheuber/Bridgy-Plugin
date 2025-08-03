@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>aWall Synch UI</title>
+    <title>DesignSync UI</title>
     <!-- Add JSZip library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
@@ -80,7 +80,7 @@
       .tab-content.active {
         display: block;
       }
-      
+
       /* Component group styles */
       .component-group {
         margin-bottom: 24px;
@@ -88,7 +88,7 @@
         border-radius: 8px;
         background: #fff;
       }
-      
+
       .component-group-header {
         padding: 16px;
         background: #f8f9fa;
@@ -99,15 +99,15 @@
         align-items: center;
         border-radius: 8px 8px 0 0;
       }
-      
+
       .component-group-header:hover {
         background: #f1f3f4;
       }
-      
+
       .component-group-header.expanded {
         border-radius: 8px 8px 0 0;
       }
-      
+
       .component-group-title {
         font-weight: 600;
         font-size: 16px;
@@ -116,27 +116,26 @@
         align-items: center;
         gap: 8px;
       }
-      
+
       .component-group-toggle {
         font-size: 18px;
         color: #666;
         transition: transform 0.2s;
       }
-      
+
       .component-group-header.expanded .component-group-toggle {
         transform: rotate(90deg);
       }
-      
+
       .component-group-content {
         display: none;
         padding: 16px;
       }
-      
+
       .component-group-content.expanded {
         display: block;
       }
-      
-      
+
       .state-labels {
         margin-top: 8px;
         font-size: 12px;
@@ -144,19 +143,19 @@
         display: flex;
         gap: 8px;
       }
-      
+
       .state-label {
         padding: 2px 6px;
         background: #e9ecef;
         border-radius: 3px;
         font-size: 11px;
       }
-      
+
       /* Component variable details */
       .component-variables {
         margin-top: 16px;
       }
-      
+
       .variables-toggle {
         background: none;
         border: 1px solid #ddd;
@@ -167,11 +166,11 @@
         color: #666;
         margin-bottom: 12px;
       }
-      
+
       .variables-toggle:hover {
         background: #f8f9fa;
       }
-      
+
       .variables-list {
         display: none;
         background: #f8f9fa;
@@ -179,11 +178,11 @@
         padding: 12px;
         margin-top: 8px;
       }
-      
+
       .variables-list.expanded {
         display: block;
       }
-      
+
       .variable-item {
         display: flex;
         justify-content: space-between;
@@ -192,22 +191,22 @@
         font-size: 12px;
         border-bottom: 1px solid #e9ecef;
       }
-      
+
       .variable-item:last-child {
         border-bottom: none;
       }
-      
+
       .variable-name {
         font-family: monospace;
         color: #666;
       }
-      
+
       .variable-value {
         font-family: monospace;
         color: #0066cc;
         cursor: pointer;
       }
-      
+
       .variable-value:hover {
         text-decoration: underline;
       }
@@ -626,7 +625,7 @@
         padding: 16px;
         border-bottom: 1px solid #e5e7eb;
       }
-      
+
       /* Button styling */
       button {
         padding: 8px 16px;
@@ -1020,7 +1019,7 @@
         padding: 20px;
         border: 1px solid #e0e0e0;
       }
-      
+
       .units-section h4 {
         margin-top: 0;
         margin-bottom: 16px;
@@ -1028,7 +1027,7 @@
         font-size: 16px;
         font-weight: 600;
       }
-      
+
       .units-group {
         margin-bottom: 16px;
         padding: 16px;
@@ -1036,7 +1035,7 @@
         border-radius: 6px;
         border: 1px solid #e0e0e0;
       }
-      
+
       .units-group h5 {
         margin-top: 0;
         margin-bottom: 12px;
@@ -1044,7 +1043,7 @@
         font-size: 14px;
         font-weight: 500;
       }
-      
+
       .unit-setting-row {
         display: flex;
         justify-content: space-between;
@@ -1052,23 +1051,23 @@
         padding: 8px 0;
         border-bottom: 1px solid #f0f0f0;
       }
-      
+
       .unit-setting-row:last-child {
         border-bottom: none;
       }
-      
+
       .unit-setting-label {
         font-weight: 500;
         color: #333;
         flex: 1;
       }
-      
+
       .unit-setting-control {
         display: flex;
         align-items: center;
         gap: 8px;
       }
-      
+
       .unit-dropdown {
         padding: 6px 10px;
         border-radius: 4px;
@@ -1077,13 +1076,13 @@
         font-size: 14px;
         min-width: 80px;
       }
-      
+
       .unit-dropdown:focus {
         border-color: #0d99ff;
         outline: none;
         box-shadow: 0 0 0 2px rgba(13, 153, 255, 0.15);
       }
-      
+
       .default-unit-label {
         font-size: 12px;
         color: #666;
@@ -1207,20 +1206,67 @@
   </head>
   <body>
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h2 style="margin: 0;">aWall Synch</h2>
-        <div style="display: flex; gap: 8px;">
-          <button id="help-icon-btn" onclick="openUserGuide()" class="settings-icon" title="User Guide">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="2"/>
-              <circle cx="12" cy="17" r="1" fill="currentColor"/>
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+        "
+      >
+        <h2 style="margin: 0">DesignSync</h2>
+        <div style="display: flex; gap: 8px">
+          <button
+            id="help-icon-btn"
+            onclick="openUserGuide()"
+            class="settings-icon"
+            title="User Guide"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <circle cx="12" cy="17" r="1" fill="currentColor" />
             </svg>
           </button>
-          <button id="settings-icon-btn" onclick="openSettingsModal()" class="settings-icon" title="Settings">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2"/>
-              <path d="M19.4 15C19.2669 15.3016 19.2272 15.6362 19.286 15.9606C19.3448 16.285 19.4995 16.5843 19.73 16.82L19.79 16.88C19.976 17.0657 20.1235 17.2863 20.2241 17.5291C20.3248 17.7719 20.3766 18.0322 20.3766 18.295C20.3766 18.5578 20.3248 18.8181 20.2241 19.0609C20.1235 19.3037 19.976 19.5243 19.79 19.71C19.6043 19.896 19.3837 20.0435 19.1409 20.1441C18.8981 20.2448 18.6378 20.2966 18.375 20.2966C18.1122 20.2966 17.8519 20.2448 17.6091 20.1441C17.3663 20.0435 17.1457 19.896 16.96 19.71L16.9 19.65C16.6643 19.4195 16.365 19.2648 16.0406 19.206C15.7162 19.1472 15.3816 19.1869 15.08 19.32C14.7842 19.4468 14.532 19.6572 14.3543 19.9255C14.1766 20.1938 14.0813 20.5082 14.08 20.83V21C14.08 21.5304 13.8693 22.0391 13.4942 22.4142C13.1191 22.7893 12.6104 23 12.08 23C11.5496 23 11.0409 22.7893 10.6658 22.4142C10.2907 22.0391 10.08 21.5304 10.08 21V20.91C10.0723 20.579 9.96512 20.258 9.77251 19.9887C9.5799 19.7194 9.31074 19.5143 9 19.4C8.69838 19.2669 8.36381 19.2272 8.03941 19.286C7.71502 19.3448 7.41568 19.4995 7.18 19.73L7.12 19.79C6.93425 19.976 6.71368 20.1235 6.47088 20.2241C6.22808 20.3248 5.96783 20.3766 5.705 20.3766C5.44217 20.3766 5.18192 20.3248 4.93912 20.2241C4.69632 20.1235 4.47575 19.976 4.29 19.79C4.10405 19.6043 3.95653 19.3837 3.85588 19.1409C3.75523 18.8981 3.70343 18.6378 3.70343 18.375C3.70343 18.1122 3.75523 17.8519 3.85588 17.6091C3.95653 17.3663 4.10405 17.1457 4.29 16.96L4.35 16.9C4.58054 16.6643 4.73519 16.365 4.794 16.0406C4.85282 15.7162 4.81312 15.3816 4.68 15.08C4.55324 14.7842 4.34276 14.532 4.07447 14.3543C3.80618 14.1766 3.49179 14.0813 3.17 14.08H3C2.46957 14.08 1.96086 13.8693 1.58579 13.4942C1.21071 13.1191 1 12.6104 1 12.08C1 11.5496 1.21071 11.0409 1.58579 10.6658C1.96086 10.2907 2.46957 10.08 3 10.08H3.09C3.42099 10.0723 3.742 9.96512 4.0113 9.77251C4.28059 9.5799 4.48572 9.31074 4.6 9C4.73312 8.69838 4.77282 8.36381 4.714 8.03941C4.65519 7.71502 4.50054 7.41568 4.27 7.18L4.21 7.12C4.02405 6.93425 3.87653 6.71368 3.77588 6.47088C3.67523 6.22808 3.62343 5.96783 3.62343 5.705C3.62343 5.44217 3.67523 5.18192 3.77588 4.93912C3.87653 4.69632 4.02405 4.47575 4.21 4.29C4.39575 4.10405 4.61632 3.95653 4.85912 3.85588C5.10192 3.75523 5.36217 3.70343 5.625 3.70343C5.88783 3.70343 6.14808 3.75523 6.39088 3.85588C6.63368 3.95653 6.85425 4.10405 7.04 4.29L7.1 4.35C7.33568 4.58054 7.63502 4.73519 7.95941 4.794C8.28381 4.85282 8.61838 4.81312 8.92 4.68H9C9.29577 4.55324 9.54802 4.34276 9.72569 4.07447C9.90337 3.80618 9.99872 3.49179 10 3.17V3C10 2.46957 10.2107 1.96086 10.5858 1.58579C10.9609 1.21071 11.4696 1 12 1C12.5304 1 13.0391 1.21071 13.4142 1.58579C13.7893 1.96086 14 2.46957 14 3V3.09C14.0013 3.41179 14.0966 3.72618 14.2743 3.99447C14.452 4.26276 14.7042 4.47324 15 4.6C15.3016 4.73312 15.6362 4.77282 15.9606 4.714C16.285 4.65519 16.5843 4.50054 16.82 4.27L16.88 4.21C17.0657 4.02405 17.2863 3.87653 17.5291 3.77588C17.7719 3.67523 18.0322 3.62343 18.295 3.62343C18.5578 3.62343 18.8181 3.67523 19.0609 3.77588C19.3037 3.87653 19.5243 4.02405 19.71 4.21C19.896 4.39575 20.0435 4.61632 20.1441 4.85912C20.2448 5.10192 20.2966 5.36217 20.2966 5.625C20.2966 5.88783 20.2448 6.14808 20.1441 6.39088C20.0435 6.63368 19.896 6.85425 19.71 7.04L19.65 7.1C19.4195 7.33568 19.2648 7.63502 19.206 7.95941C19.1472 8.28381 19.1869 8.61838 19.32 8.92V9C19.4468 9.29577 19.6572 9.54802 19.9255 9.72569C20.1938 9.90337 20.5082 9.99872 20.83 10H21C21.5304 10 22.0391 10.2107 22.4142 10.5858C22.7893 10.9609 23 11.4696 23 12C23 12.5304 22.7893 13.0391 22.4142 13.4142C22.0391 13.7893 21.5304 14 21 14H20.91C20.5882 14.0013 20.2738 14.0966 20.0055 14.2743C19.7372 14.452 19.5268 14.7042 19.4 15Z" stroke="currentColor" stroke-width="2"/>
+          <button
+            id="settings-icon-btn"
+            onclick="openSettingsModal()"
+            class="settings-icon"
+            title="Settings"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M19.4 15C19.2669 15.3016 19.2272 15.6362 19.286 15.9606C19.3448 16.285 19.4995 16.5843 19.73 16.82L19.79 16.88C19.976 17.0657 20.1235 17.2863 20.2241 17.5291C20.3248 17.7719 20.3766 18.0322 20.3766 18.295C20.3766 18.5578 20.3248 18.8181 20.2241 19.0609C20.1235 19.3037 19.976 19.5243 19.79 19.71C19.6043 19.896 19.3837 20.0435 19.1409 20.1441C18.8981 20.2448 18.6378 20.2966 18.375 20.2966C18.1122 20.2966 17.8519 20.2448 17.6091 20.1441C17.3663 20.0435 17.1457 19.896 16.96 19.71L16.9 19.65C16.6643 19.4195 16.365 19.2648 16.0406 19.206C15.7162 19.1472 15.3816 19.1869 15.08 19.32C14.7842 19.4468 14.532 19.6572 14.3543 19.9255C14.1766 20.1938 14.0813 20.5082 14.08 20.83V21C14.08 21.5304 13.8693 22.0391 13.4942 22.4142C13.1191 22.7893 12.6104 23 12.08 23C11.5496 23 11.0409 22.7893 10.6658 22.4142C10.2907 22.0391 10.08 21.5304 10.08 21V20.91C10.0723 20.579 9.96512 20.258 9.77251 19.9887C9.5799 19.7194 9.31074 19.5143 9 19.4C8.69838 19.2669 8.36381 19.2272 8.03941 19.286C7.71502 19.3448 7.41568 19.4995 7.18 19.73L7.12 19.79C6.93425 19.976 6.71368 20.1235 6.47088 20.2241C6.22808 20.3248 5.96783 20.3766 5.705 20.3766C5.44217 20.3766 5.18192 20.3248 4.93912 20.2241C4.69632 20.1235 4.47575 19.976 4.29 19.79C4.10405 19.6043 3.95653 19.3837 3.85588 19.1409C3.75523 18.8981 3.70343 18.6378 3.70343 18.375C3.70343 18.1122 3.75523 17.8519 3.85588 17.6091C3.95653 17.3663 4.10405 17.1457 4.29 16.96L4.35 16.9C4.58054 16.6643 4.73519 16.365 4.794 16.0406C4.85282 15.7162 4.81312 15.3816 4.68 15.08C4.55324 14.7842 4.34276 14.532 4.07447 14.3543C3.80618 14.1766 3.49179 14.0813 3.17 14.08H3C2.46957 14.08 1.96086 13.8693 1.58579 13.4942C1.21071 13.1191 1 12.6104 1 12.08C1 11.5496 1.21071 11.0409 1.58579 10.6658C1.96086 10.2907 2.46957 10.08 3 10.08H3.09C3.42099 10.0723 3.742 9.96512 4.0113 9.77251C4.28059 9.5799 4.48572 9.31074 4.6 9C4.73312 8.69838 4.77282 8.36381 4.714 8.03941C4.65519 7.71502 4.50054 7.41568 4.27 7.18L4.21 7.12C4.02405 6.93425 3.87653 6.71368 3.77588 6.47088C3.67523 6.22808 3.62343 5.96783 3.62343 5.705C3.62343 5.44217 3.67523 5.18192 3.77588 4.93912C3.87653 4.69632 4.02405 4.47575 4.21 4.29C4.39575 4.10405 4.61632 3.95653 4.85912 3.85588C5.10192 3.75523 5.36217 3.70343 5.625 3.70343C5.88783 3.70343 6.14808 3.75523 6.39088 3.85588C6.63368 3.95653 6.85425 4.10405 7.04 4.29L7.1 4.35C7.33568 4.58054 7.63502 4.73519 7.95941 4.794C8.28381 4.85282 8.61838 4.81312 8.92 4.68H9C9.29577 4.55324 9.54802 4.34276 9.72569 4.07447C9.90337 3.80618 9.99872 3.49179 10 3.17V3C10 2.46957 10.2107 1.96086 10.5858 1.58579C10.9609 1.21071 11.4696 1 12 1C12.5304 1 13.0391 1.21071 13.4142 1.58579C13.7893 1.96086 14 2.46957 14 3V3.09C14.0013 3.41179 14.0966 3.72618 14.2743 3.99447C14.452 4.26276 14.7042 4.47324 15 4.6C15.3016 4.73312 15.6362 4.77282 15.9606 4.714C16.285 4.65519 16.5843 4.50054 16.82 4.27L16.88 4.21C17.0657 4.02405 17.2863 3.87653 17.5291 3.77588C17.7719 3.67523 18.0322 3.62343 18.295 3.62343C18.5578 3.62343 18.8181 3.67523 19.0609 3.77588C19.3037 3.87653 19.5243 4.02405 19.71 4.21C19.896 4.39575 20.0435 4.61632 20.1441 4.85912C20.2448 5.10192 20.2966 5.36217 20.2966 5.625C20.2966 5.88783 20.2448 6.14808 20.1441 6.39088C20.0435 6.63368 19.896 6.85425 19.71 7.04L19.65 7.1C19.4195 7.33568 19.2648 7.63502 19.206 7.95941C19.1472 8.28381 19.1869 8.61838 19.32 8.92V9C19.4468 9.29577 19.6572 9.54802 19.9255 9.72569C20.1938 9.90337 20.5082 9.99872 20.83 10H21C21.5304 10 22.0391 10.2107 22.4142 10.5858C22.7893 10.9609 23 11.4696 23 12C23 12.5304 22.7893 13.0391 22.4142 13.4142C22.0391 13.7893 21.5304 14 21 14H20.91C20.5882 14.0013 20.2738 14.0966 20.0055 14.2743C19.7372 14.452 19.5268 14.7042 19.4 15Z"
+                stroke="currentColor"
+                stroke-width="2"
+              />
             </svg>
           </button>
         </div>
@@ -1241,13 +1287,9 @@
             placeholder="Search variables..."
           />
         </div>
-        <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-          <button id="export-css-button" disabled>
-            Export Variables
-          </button>
-          <button id="commit-repo-button" disabled>
-            Commit to Repository
-          </button>
+        <div style="display: flex; gap: 10px; margin-bottom: 16px">
+          <button id="export-css-button" disabled>Export Variables</button>
+          <button id="commit-repo-button" disabled>Commit to Repository</button>
         </div>
         <div id="variables-container">
           <div class="loading">Loading variables</div>
@@ -1270,15 +1312,28 @@
       </div>
 
       <div class="tab-content" id="units-content">
-        <div style="margin-bottom: 24px;">
-          <h3 style="margin-top: 0; margin-bottom: 16px;">Variable Units Settings</h3>
-          <p style="color: #666; margin-bottom: 16px;">Configure units for numeric variables. Collections override defaults, groups override collections.</p>
-          
-          <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-            <button id="reset-units-button" style="background-color: #f44336;" onclick="window.resetUnitsSettings()">
+        <div style="margin-bottom: 24px">
+          <h3 style="margin-top: 0; margin-bottom: 16px">
+            Variable Units Settings
+          </h3>
+          <p style="color: #666; margin-bottom: 16px">
+            Configure units for numeric variables. Collections override
+            defaults, groups override collections.
+          </p>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 16px">
+            <button
+              id="reset-units-button"
+              style="background-color: #f44336"
+              onclick="window.resetUnitsSettings()"
+            >
               Reset to Smart Defaults
             </button>
-            <button id="save-units-button" disabled onclick="window.saveUnitsSettings()">
+            <button
+              id="save-units-button"
+              disabled
+              onclick="window.saveUnitsSettings()"
+            >
               Save Unit Settings
             </button>
           </div>
@@ -1288,50 +1343,77 @@
           <div class="loading">Loading unit settings...</div>
         </div>
       </div>
-
     </div>
 
     <!-- GitLab Commit Modal -->
     <div id="gitlab-modal" class="modal">
       <div class="modal-content">
-        <button class="close-modal" onclick="closeGitLabModal()">&times;</button>
+        <button class="close-modal" onclick="closeGitLabModal()">
+          &times;
+        </button>
         <div class="modal-header">
           <h3>Commit to Repository</h3>
         </div>
         <div class="modal-body">
-          <p>Configuration is managed in the Config tab. You can go there to set up your repository settings.</p>
+          <p>
+            Configuration is managed in the Config tab. You can go there to set
+            up your repository settings.
+          </p>
 
           <div class="form-group">
             <label for="commit-message">Change Message</label>
-            <textarea id="commit-message" rows="4" placeholder="Optional: Describe the changes"></textarea>
+            <textarea
+              id="commit-message"
+              rows="4"
+              placeholder="Optional: Describe the changes"
+            ></textarea>
           </div>
         </div>
         <div class="modal-footer">
           <button onclick="closeGitLabModal()">Cancel</button>
-          <button id="commit-submit-button" class="commit-button" onclick="commitToGitLab()">Commit</button>
+          <button
+            id="commit-submit-button"
+            class="commit-button"
+            onclick="commitToGitLab()"
+          >
+            Commit
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="modal" style="display: none;">
+    <div id="settings-modal" class="modal" style="display: none">
       <div class="modal-content">
-        <button class="close-modal" onclick="closeSettingsModal()">&times;</button>
+        <button class="close-modal" onclick="closeSettingsModal()">
+          &times;
+        </button>
         <div class="modal-header">
           <h3>Settings</h3>
         </div>
         <div class="modal-body">
           <h4>GitLab Configuration</h4>
-          <p>Configure your GitLab repository settings. This configuration will be shared with your team.</p>
+          <p>
+            Configure your GitLab repository settings. This configuration will
+            be shared with your team.
+          </p>
 
           <div class="form-group">
             <label for="config-project-id">Project ID</label>
-            <input type="text" id="config-project-id" placeholder="e.g. 24267" />
+            <input
+              type="text"
+              id="config-project-id"
+              placeholder="e.g. 24267"
+            />
           </div>
 
           <div class="form-group">
             <label for="config-file-path">Variables File Path</label>
-            <input type="text" id="config-file-path" placeholder="src/variables.css" />
+            <input
+              type="text"
+              id="config-file-path"
+              placeholder="src/variables.css"
+            />
           </div>
 
           <div class="form-group">
@@ -1343,16 +1425,26 @@
           </div>
 
           <div class="form-group">
-            <label for="config-test-file-path">Component Test File Path Template</label>
-            <input type="text" id="config-test-file-path" placeholder="components/test-{componentName}.component.spec.ts" />
-            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+            <label for="config-test-file-path"
+              >Component Test File Path Template</label
+            >
+            <input
+              type="text"
+              id="config-test-file-path"
+              placeholder="components/test-{componentName}.component.spec.ts"
+            />
+            <div style="font-size: 12px; color: #666; margin-top: 4px">
               <i>Use {componentName} as a placeholder for the component name</i>
             </div>
           </div>
 
           <div class="form-group">
             <label for="config-token">Project Access Token</label>
-            <input type="password" id="config-token" placeholder="Enter your GitLab private token" />
+            <input
+              type="password"
+              id="config-token"
+              placeholder="Enter your GitLab private token"
+            />
           </div>
 
           <div class="form-group">
@@ -1365,18 +1457,31 @@
 
           <div id="config-branch-section" class="form-group">
             <label for="config-branch">CSS Variables Branch Name</label>
-            <input type="text" id="config-branch" placeholder="feature/variables" />
+            <input
+              type="text"
+              id="config-branch"
+              placeholder="feature/variables"
+            />
           </div>
 
           <div id="config-test-branch-section" class="form-group">
             <label for="config-test-branch">Component Tests Branch Name</label>
-            <input type="text" id="config-test-branch" placeholder="feature/component-tests" />
-            <p class="help-text">Each component will create a separate branch: {branch-name}-{component-name}</p>
+            <input
+              type="text"
+              id="config-test-branch"
+              placeholder="feature/component-tests"
+            />
+            <p class="help-text">
+              Each component will create a separate branch:
+              {branch-name}-{component-name}
+            </p>
           </div>
 
           <div class="form-group checkbox-group">
             <input type="checkbox" id="config-save-token" checked />
-            <label for="config-save-token">Save token (recommended for convenience)</label>
+            <label for="config-save-token"
+              >Save token (recommended for convenience)</label
+            >
           </div>
 
           <div class="form-group checkbox-group">
@@ -1384,14 +1489,43 @@
             <label for="config-share-team">Share settings with team</label>
           </div>
 
-          <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 4px; padding: 10px; margin: 10px 0; font-size: 14px; color: #1565c0;">
-            <p style="margin: 0;">ℹ️ Info: only be changed by Dev Team</p>
+          <div
+            style="
+              background-color: #e3f2fd;
+              border: 1px solid #bbdefb;
+              border-radius: 4px;
+              padding: 10px;
+              margin: 10px 0;
+              font-size: 14px;
+              color: #1565c0;
+            "
+          >
+            <p style="margin: 0">ℹ️ Info: only be changed by Dev Team</p>
           </div>
 
           <!-- Configuration Metadata -->
-          <div id="config-metadata" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 10px; margin: 10px 0; font-size: 12px; color: #6c757d; display: none;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div
+            id="config-metadata"
+            style="
+              background-color: #f8f9fa;
+              border: 1px solid #e9ecef;
+              border-radius: 4px;
+              padding: 10px;
+              margin: 10px 0;
+              font-size: 12px;
+              color: #6c757d;
+              display: none;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 8px">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
               </svg>
@@ -1399,11 +1533,41 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-          <button onclick="showResetConfirmation()" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Reset all configuration">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div
+          class="modal-footer"
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <button
+            onclick="showResetConfirmation()"
+            style="
+              background: #dc3545;
+              color: white;
+              border: none;
+              padding: 8px 12px;
+              border-radius: 4px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            "
+            title="Reset all configuration"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <polyline points="3,6 5,6 21,6"></polyline>
-              <path d="M19,6V20A2,2 0 0,1 17,20H7A2,2 0 0,1 5,20V6M8,6V4A2,2 0 0,1 10,4H14A2,2 0 0,1 16,4V6"></path>
+              <path
+                d="M19,6V20A2,2 0 0,1 17,20H7A2,2 0 0,1 5,20V6M8,6V4A2,2 0 0,1 10,4H14A2,2 0 0,1 16,4V6"
+              ></path>
               <line x1="10" y1="11" x2="10" y2="17"></line>
               <line x1="14" y1="11" x2="14" y2="17"></line>
             </svg>
@@ -1411,86 +1575,219 @@
           </button>
           <div>
             <button onclick="closeSettingsModal()">Cancel</button>
-            <button onclick="saveConfiguration()" class="btn-primary">Save Configuration</button>
+            <button onclick="saveConfiguration()" class="btn-primary">
+              Save Configuration
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- User Guide Modal -->
-    <div id="user-guide-modal" class="modal" style="display: none;">
-      <div class="modal-content" style="max-width: 800px;">
+    <div id="user-guide-modal" class="modal" style="display: none">
+      <div class="modal-content" style="max-width: 800px">
         <button class="close-modal" onclick="closeUserGuide()">&times;</button>
         <div class="modal-header">
-          <h3>🎨 aWall Synch - User Guide</h3>
-          <p style="margin: 8px 0 0; color: #666; font-size: 14px;">Bridging the gap between designers and developers</p>
+          <h3>🎨 DesignSync - User Guide</h3>
+          <p style="margin: 8px 0 0; color: #666; font-size: 14px">
+            Bridging the gap between designers and developers
+          </p>
         </div>
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto">
           <!-- Introduction -->
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
-            <h4 style="margin: 0 0 12px; font-size: 18px;">🚀 Welcome to aWall Synch!</h4>
-            <p style="margin: 0; line-height: 1.5;">This plugin helps designers and developers work together seamlessly. Export Figma variables as CSS, generate component tests, and commit changes directly to your repository.</p>
+          <div
+            style="
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 20px;
+              border-radius: 8px;
+              margin-bottom: 24px;
+            "
+          >
+            <h4 style="margin: 0 0 12px; font-size: 18px">
+              🚀 Welcome to DesignSync!
+            </h4>
+            <p style="margin: 0; line-height: 1.5">
+              This plugin helps designers and developers work together
+              seamlessly. Export Figma variables as CSS, generate component
+              tests, and commit changes directly to your repository.
+            </p>
           </div>
 
           <!-- Process Overview -->
-          <div style="margin-bottom: 24px;">
-            <h4 style="color: #333; margin-bottom: 16px;">📋 Collaboration Process</h4>
+          <div style="margin-bottom: 24px">
+            <h4 style="color: #333; margin-bottom: 16px">
+              📋 Collaboration Process
+            </h4>
 
             <!-- Step 1 -->
-            <div style="display: flex; margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
-              <div style="background: #28a745; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-right: 16px; font-weight: bold; font-size: 12px; flex-shrink: 0;">1</div>
+            <div
+              style="
+                display: flex;
+                margin-bottom: 16px;
+                padding: 16px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-left: 4px solid #28a745;
+              "
+            >
+              <div
+                style="
+                  background: #28a745;
+                  color: white;
+                  border-radius: 50%;
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-right: 16px;
+                  font-weight: bold;
+                  font-size: 12px;
+                  flex-shrink: 0;
+                "
+              >
+                1
+              </div>
               <div>
-                <h5 style="margin: 0 0 8px; color: #28a745;">Initial Setup (One-time)</h5>
-                <p style="margin: 0; line-height: 1.5; color: #555;">
-                  <strong>👨‍💻 Developer:</strong> Sets up project configuration in the settings (⚙️ icon):<br>
-                  • GitLab Project ID and Access Token<br>
-                  • File path for CSS variables<br>
-                  • Branch naming strategy<br>
+                <h5 style="margin: 0 0 8px; color: #28a745">
+                  Initial Setup (One-time)
+                </h5>
+                <p style="margin: 0; line-height: 1.5; color: #555">
+                  <strong>👨‍💻 Developer:</strong> Sets up project configuration
+                  in the settings (⚙️ icon):<br />
+                  • GitLab Project ID and Access Token<br />
+                  • File path for CSS variables<br />
+                  • Branch naming strategy<br />
                   • Commit vs. Merge Request workflow
                 </p>
               </div>
             </div>
 
             <!-- Step 2 -->
-            <div style="display: flex; margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
-              <div style="background: #007bff; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-right: 16px; font-weight: bold; font-size: 12px; flex-shrink: 0;">2</div>
+            <div
+              style="
+                display: flex;
+                margin-bottom: 16px;
+                padding: 16px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-left: 4px solid #007bff;
+              "
+            >
+              <div
+                style="
+                  background: #007bff;
+                  color: white;
+                  border-radius: 50%;
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-right: 16px;
+                  font-weight: bold;
+                  font-size: 12px;
+                  flex-shrink: 0;
+                "
+              >
+                2
+              </div>
               <div>
-                <h5 style="margin: 0 0 8px; color: #007bff;">Testing & Validation</h5>
-                <p style="margin: 0; line-height: 1.5; color: #555;">
-                  <strong>🎨 Designer:</strong> Tests the setup by making a small change and committing it:<br>
-                  • Ensures variables sync correctly<br>
-                  • Verifies the commit process works<br>
+                <h5 style="margin: 0 0 8px; color: #007bff">
+                  Testing & Validation
+                </h5>
+                <p style="margin: 0; line-height: 1.5; color: #555">
+                  <strong>🎨 Designer:</strong> Tests the setup by making a
+                  small change and committing it:<br />
+                  • Ensures variables sync correctly<br />
+                  • Verifies the commit process works<br />
                   • Confirms the file appears in the repository
                 </p>
               </div>
             </div>
 
             <!-- Step 3 -->
-            <div style="display: flex; margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #6f42c1;">
-              <div style="background: #6f42c1; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-right: 16px; font-weight: bold; font-size: 12px; flex-shrink: 0;">3</div>
+            <div
+              style="
+                display: flex;
+                margin-bottom: 16px;
+                padding: 16px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-left: 4px solid #6f42c1;
+              "
+            >
+              <div
+                style="
+                  background: #6f42c1;
+                  color: white;
+                  border-radius: 50%;
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-right: 16px;
+                  font-weight: bold;
+                  font-size: 12px;
+                  flex-shrink: 0;
+                "
+              >
+                3
+              </div>
               <div>
-                <h5 style="margin: 0 0 8px; color: #6f42c1;">Daily Workflow</h5>
-                <p style="margin: 0; line-height: 1.5; color: #555;">
-                  <strong>🎨 Designer:</strong> Makes design changes and syncs them:<br>
-                  • Update colors, spacing, typography in Figma<br>
-                  • Open aWall Synch plugin<br>
-                  • Review changes in the Variables tab<br>
+                <h5 style="margin: 0 0 8px; color: #6f42c1">Daily Workflow</h5>
+                <p style="margin: 0; line-height: 1.5; color: #555">
+                  <strong>🎨 Designer:</strong> Makes design changes and syncs
+                  them:<br />
+                  • Update colors, spacing, typography in Figma<br />
+                  • Open DesignSync plugin<br />
+                  • Review changes in the Variables tab<br />
                   • Click "Commit to Repository" with a descriptive message
                 </p>
               </div>
             </div>
 
             <!-- Step 4 -->
-            <div style="display: flex; margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #fd7e14;">
-              <div style="background: #fd7e14; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-right: 16px; font-weight: bold; font-size: 12px; flex-shrink: 0;">4</div>
+            <div
+              style="
+                display: flex;
+                margin-bottom: 16px;
+                padding: 16px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-left: 4px solid #fd7e14;
+              "
+            >
+              <div
+                style="
+                  background: #fd7e14;
+                  color: white;
+                  border-radius: 50%;
+                  width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-right: 16px;
+                  font-weight: bold;
+                  font-size: 12px;
+                  flex-shrink: 0;
+                "
+              >
+                4
+              </div>
               <div>
-                <h5 style="margin: 0 0 8px; color: #fd7e14;">Integration & Review</h5>
-                <p style="margin: 0; line-height: 1.5; color: #555;">
-                  <strong>👨‍💻 Developer:</strong> Reviews and integrates changes:<br>
-                  • Gets notified of new commits/merge requests<br>
-                  • Reviews the CSS variable changes<br>
-                  • Merges approved changes into main branch<br>
+                <h5 style="margin: 0 0 8px; color: #fd7e14">
+                  Integration & Review
+                </h5>
+                <p style="margin: 0; line-height: 1.5; color: #555">
+                  <strong>👨‍💻 Developer:</strong> Reviews and integrates
+                  changes:<br />
+                  • Gets notified of new commits/merge requests<br />
+                  • Reviews the CSS variable changes<br />
+                  • Merges approved changes into main branch<br />
                   • Updates the application with new design tokens
                 </p>
               </div>
@@ -1498,69 +1795,178 @@
           </div>
 
           <!-- Key Features -->
-          <div style="margin-bottom: 24px;">
-            <h4 style="color: #333; margin-bottom: 16px;">✨ Key Features</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div style="padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                <h5 style="margin: 0 0 8px; color: #007bff;">🎨 Variables Export</h5>
-                <p style="margin: 0; font-size: 14px; color: #666;">Export Figma variables as CSS custom properties, ready for development use.</p>
+          <div style="margin-bottom: 24px">
+            <h4 style="color: #333; margin-bottom: 16px">✨ Key Features</h4>
+            <div
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
+            >
+              <div
+                style="
+                  padding: 16px;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 8px;
+                "
+              >
+                <h5 style="margin: 0 0 8px; color: #007bff">
+                  🎨 Variables Export
+                </h5>
+                <p style="margin: 0; font-size: 14px; color: #666">
+                  Export Figma variables as CSS custom properties, ready for
+                  development use.
+                </p>
               </div>
-              <div style="padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                <h5 style="margin: 0 0 8px; color: #28a745;">🧪 Test Generation</h5>
-                <p style="margin: 0; font-size: 14px; color: #666;">Generate Angular component tests to ensure designs match implementation.</p>
+              <div
+                style="
+                  padding: 16px;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 8px;
+                "
+              >
+                <h5 style="margin: 0 0 8px; color: #28a745">
+                  🧪 Test Generation
+                </h5>
+                <p style="margin: 0; font-size: 14px; color: #666">
+                  Generate Angular component tests to ensure designs match
+                  implementation.
+                </p>
               </div>
-              <div style="padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                <h5 style="margin: 0 0 8px; color: #dc3545;">📡 GitLab Integration</h5>
-                <p style="margin: 0; font-size: 14px; color: #666;">Commit changes directly to GitLab with automatic merge request creation.</p>
+              <div
+                style="
+                  padding: 16px;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 8px;
+                "
+              >
+                <h5 style="margin: 0 0 8px; color: #dc3545">
+                  📡 GitLab Integration
+                </h5>
+                <p style="margin: 0; font-size: 14px; color: #666">
+                  Commit changes directly to GitLab with automatic merge request
+                  creation.
+                </p>
               </div>
-              <div style="padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                <h5 style="margin: 0 0 8px; color: #6f42c1;">🔍 Search & Filter</h5>
-                <p style="margin: 0; font-size: 14px; color: #666;">Easily find and review specific variables and components before export.</p>
+              <div
+                style="
+                  padding: 16px;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 8px;
+                "
+              >
+                <h5 style="margin: 0 0 8px; color: #6f42c1">
+                  🔍 Search & Filter
+                </h5>
+                <p style="margin: 0; font-size: 14px; color: #666">
+                  Easily find and review specific variables and components
+                  before export.
+                </p>
               </div>
             </div>
           </div>
 
           <!-- Workflow Strategies -->
-          <div style="margin-bottom: 24px;">
-            <h4 style="color: #333; margin-bottom: 16px;">⚙️ Workflow Strategies</h4>
+          <div style="margin-bottom: 24px">
+            <h4 style="color: #333; margin-bottom: 16px">
+              ⚙️ Workflow Strategies
+            </h4>
 
-            <div style="background: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-              <h5 style="margin: 0 0 8px; color: #28a745;">🔄 Merge Request Strategy (Recommended)</h5>
-              <p style="margin: 0; color: #155724; line-height: 1.5;">Each commit creates a merge request. Multiple commits to the same feature get added to the same MR. Perfect for collaborative review and controlled integration.</p>
+            <div
+              style="
+                background: #e8f5e8;
+                border: 1px solid #c3e6c3;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 12px;
+              "
+            >
+              <h5 style="margin: 0 0 8px; color: #28a745">
+                🔄 Merge Request Strategy (Recommended)
+              </h5>
+              <p style="margin: 0; color: #155724; line-height: 1.5">
+                Each commit creates a merge request. Multiple commits to the
+                same feature get added to the same MR. Perfect for collaborative
+                review and controlled integration.
+              </p>
             </div>
 
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 16px;">
-              <h5 style="margin: 0 0 8px; color: #856404;">⚡ Direct Commit Strategy</h5>
-              <p style="margin: 0; color: #856404; line-height: 1.5;">Changes go directly to the main branch. Faster but requires more trust in the design changes. Best for mature teams with established processes.</p>
+            <div
+              style="
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 8px;
+                padding: 16px;
+              "
+            >
+              <h5 style="margin: 0 0 8px; color: #856404">
+                ⚡ Direct Commit Strategy
+              </h5>
+              <p style="margin: 0; color: #856404; line-height: 1.5">
+                Changes go directly to the main branch. Faster but requires more
+                trust in the design changes. Best for mature teams with
+                established processes.
+              </p>
             </div>
           </div>
 
           <!-- Tips -->
-          <div style="background: #f0f7ff; border: 1px solid #c3d9ff; border-radius: 8px; padding: 16px;">
-            <h4 style="margin: 0 0 12px; color: #0066cc;">💡 Pro Tips</h4>
-            <ul style="margin: 0; padding-left: 20px; color: #0066cc;">
-              <li style="margin-bottom: 8px;">Use descriptive commit messages (e.g., "Update primary colors for better accessibility")</li>
-              <li style="margin-bottom: 8px;">Review variables before committing to catch any unintended changes</li>
-              <li style="margin-bottom: 8px;">Coordinate with developers for major design system changes</li>
-              <li style="margin-bottom: 8px;">Test the setup with small changes before making large updates</li>
+          <div
+            style="
+              background: #f0f7ff;
+              border: 1px solid #c3d9ff;
+              border-radius: 8px;
+              padding: 16px;
+            "
+          >
+            <h4 style="margin: 0 0 12px; color: #0066cc">💡 Pro Tips</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #0066cc">
+              <li style="margin-bottom: 8px">
+                Use descriptive commit messages (e.g., "Update primary colors
+                for better accessibility")
+              </li>
+              <li style="margin-bottom: 8px">
+                Review variables before committing to catch any unintended
+                changes
+              </li>
+              <li style="margin-bottom: 8px">
+                Coordinate with developers for major design system changes
+              </li>
+              <li style="margin-bottom: 8px">
+                Test the setup with small changes before making large updates
+              </li>
               <li>Keep your Figma variable names consistent and descriptive</li>
             </ul>
           </div>
-
         </div>
         <div class="modal-footer">
-          <button onclick="closeUserGuide()" class="btn-primary">Got it!</button>
+          <button onclick="closeUserGuide()" class="btn-primary">
+            Got it!
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Reset Confirmation Modal -->
-    <div id="reset-confirmation-modal" class="modal" style="display: none;">
-      <div class="modal-content" style="max-width: 500px;">
-        <button class="close-modal" onclick="closeResetConfirmation()">&times;</button>
+    <div id="reset-confirmation-modal" class="modal" style="display: none">
+      <div class="modal-content" style="max-width: 500px">
+        <button class="close-modal" onclick="closeResetConfirmation()">
+          &times;
+        </button>
         <div class="modal-header">
-          <h3 style="color: #dc3545; display: flex; align-items: center; gap: 10px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <h3
+            style="
+              color: #dc3545;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            "
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="15" y1="9" x2="9" y2="15"></line>
               <line x1="9" y1="9" x2="15" y2="15"></line>
@@ -1569,28 +1975,51 @@
           </h3>
         </div>
         <div class="modal-body">
-          <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-            <p style="margin: 0; color: #856404; font-weight: 500;">⚠️ Warning: This action cannot be undone!</p>
+          <div
+            style="
+              background: #fff3cd;
+              border: 1px solid #ffeaa7;
+              border-radius: 8px;
+              padding: 16px;
+              margin-bottom: 20px;
+            "
+          >
+            <p style="margin: 0; color: #856404; font-weight: 500">
+              ⚠️ Warning: This action cannot be undone!
+            </p>
           </div>
 
-          <p style="margin-bottom: 16px; line-height: 1.5;">
-            This will permanently delete <strong>all configuration data</strong> for this Figma project, including:
+          <p style="margin-bottom: 16px; line-height: 1.5">
+            This will permanently delete
+            <strong>all configuration data</strong> for this Figma project,
+            including:
           </p>
 
-          <ul style="margin: 0 0 20px 20px; line-height: 1.6; color: #555;">
+          <ul style="margin: 0 0 20px 20px; line-height: 1.6; color: #555">
             <li>GitLab Project ID and access token</li>
             <li>File path and branch settings</li>
             <li>Strategy preferences (commit vs merge request)</li>
             <li>All saved metadata (who saved, when)</li>
           </ul>
 
-          <p style="margin: 0; color: #666; font-style: italic;">
+          <p style="margin: 0; color: #666; font-style: italic">
             After reset, you'll need to reconfigure everything from scratch.
           </p>
         </div>
         <div class="modal-footer">
           <button onclick="closeResetConfirmation()">Cancel</button>
-          <button onclick="confirmReset()" style="background: #dc3545; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">
+          <button
+            onclick="confirmReset()"
+            style="
+              background: #dc3545;
+              color: white;
+              border: none;
+              padding: 10px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: 500;
+            "
+          >
             Yes, Reset Everything
           </button>
         </div>
@@ -1598,39 +2027,42 @@
     </div>
 
     <!-- Success message (hidden by default) -->
-    <div id="success-message" class="success-message" style="display: none;">
+    <div id="success-message" class="success-message" style="display: none">
       <p>Successfully committed to GitLab repository!</p>
     </div>
 
     <!-- Error message (hidden by default) -->
-    <div id="error-message" class="error-message" style="display: none;">
-      <p><strong>Error committing to GitLab:</strong> <span id="error-details"></span></p>
+    <div id="error-message" class="error-message" style="display: none">
+      <p>
+        <strong>Error committing to GitLab:</strong>
+        <span id="error-details"></span>
+      </p>
       <p class="error-help">Please check your credentials and try again.</p>
     </div>
 
     <script>
       // Define unit settings functions early to ensure they're available
-      window.saveUnitsSettings = function() {
+      window.saveUnitsSettings = function () {
         console.log("★★★ saveUnitsSettings called ★★★");
-        
+
         const collections = {};
         const groups = {};
-        
-        const dropdowns = document.querySelectorAll('.unit-dropdown');
+
+        const dropdowns = document.querySelectorAll(".unit-dropdown");
         console.log("Found", dropdowns.length, "dropdowns");
-        
-        dropdowns.forEach(dropdown => {
+
+        dropdowns.forEach((dropdown) => {
           const type = dropdown.dataset.type;
           const value = dropdown.value;
           console.log(`Found dropdown: type=${type}, value=${value}`);
-          
+
           // Only save non-empty values (empty = use smart defaults)
-          if (value !== '') {
-            if (type === 'collection') {
+          if (value !== "") {
+            if (type === "collection") {
               const name = dropdown.dataset.name;
               collections[name] = value;
               console.log(`Added collection: ${name} = ${value}`);
-            } else if (type === 'group') {
+            } else if (type === "group") {
               const collectionName = dropdown.dataset.collection;
               const groupName = dropdown.dataset.group;
               const key = `${collectionName}/${groupName}`;
@@ -1639,30 +2071,37 @@
             }
           }
         });
-        
+
         console.log("Sending unit settings:", { collections, groups });
-        parent.postMessage({
-          pluginMessage: {
-            type: "update-unit-settings",
-            collections: collections,
-            groups: groups
-          }
-        }, "*");
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "update-unit-settings",
+              collections: collections,
+              groups: groups,
+            },
+          },
+          "*"
+        );
       };
-      
-      window.resetUnitsSettings = function() {
+
+      window.resetUnitsSettings = function () {
         console.log("★★★ resetUnitsSettings called ★★★");
-        
-        if (confirm("Are you sure you want to reset all unit settings to smart defaults?")) {
+
+        if (
+          confirm(
+            "Are you sure you want to reset all unit settings to smart defaults?"
+          )
+        ) {
           // Clear all dropdowns to smart defaults (empty value)
-          const dropdowns = document.querySelectorAll('.unit-dropdown');
+          const dropdowns = document.querySelectorAll(".unit-dropdown");
           console.log("Found", dropdowns.length, "dropdowns to reset");
-          
-          dropdowns.forEach(dropdown => {
-            dropdown.value = ''; // Select empty option (Smart defaults)
+
+          dropdowns.forEach((dropdown) => {
+            dropdown.value = ""; // Select empty option (Smart defaults)
             console.log(`Reset dropdown to empty value`);
           });
-          
+
           // Save the reset settings
           window.saveUnitsSettings();
         }
@@ -1679,9 +2118,11 @@
             .forEach((c) => c.classList.remove("active"));
 
           tab.classList.add("active");
-          const tabContent = document.getElementById(tab.dataset.tab + "-content");
+          const tabContent = document.getElementById(
+            tab.dataset.tab + "-content"
+          );
           tabContent.classList.add("active");
-          
+
           // Load units settings when Units tab is clicked
           if (tab.dataset.tab === "units") {
             loadUnitsSettings();
@@ -1695,9 +2136,28 @@
       let currentCSSData = null;
       window.gitlabSettings = null; // Store GitLab settings
       let unitsData = null; // Store units settings data
-      
+
       // Available units for dropdowns
-      const AVAILABLE_UNITS = ['', 'px', 'rem', 'em', '%', 'vw', 'vh', 'vmin', 'vmax', 'pt', 'pc', 'in', 'cm', 'mm', 'ex', 'ch', 'fr', 'none'];
+      const AVAILABLE_UNITS = [
+        "",
+        "px",
+        "rem",
+        "em",
+        "%",
+        "vw",
+        "vh",
+        "vmin",
+        "vmax",
+        "pt",
+        "pc",
+        "in",
+        "cm",
+        "mm",
+        "ex",
+        "ch",
+        "fr",
+        "none",
+      ];
 
       // Helper function to find variable name by ID
       function findVariableNameById(variableId) {
@@ -1715,13 +2175,13 @@
       function scrollToVariable(variableName) {
         const element = document.getElementById(`var-${variableName}`);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
           // Add a temporary highlight effect
-          element.style.backgroundColor = '#fff3cd';
-          element.style.border = '2px solid #ffc107';
+          element.style.backgroundColor = "#fff3cd";
+          element.style.border = "2px solid #ffc107";
           setTimeout(() => {
-            element.style.backgroundColor = '';
-            element.style.border = '';
+            element.style.backgroundColor = "";
+            element.style.border = "";
           }, 2000);
         }
       }
@@ -1730,35 +2190,37 @@
       function scrollToGroup(collection, group) {
         const element = document.getElementById(`group-${collection}-${group}`);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
           // Add a temporary highlight effect
-          element.style.backgroundColor = '#fff3cd';
-          element.style.border = '2px solid #ffc107';
+          element.style.backgroundColor = "#fff3cd";
+          element.style.border = "2px solid #ffc107";
           setTimeout(() => {
-            element.style.backgroundColor = '';
-            element.style.border = '';
+            element.style.backgroundColor = "";
+            element.style.border = "";
           }, 2000);
         }
       }
 
       // Function to scroll to a group by ID
       function scrollToGroupById(elementId) {
-        console.log('scrollToGroupById called with:', elementId);
+        console.log("scrollToGroupById called with:", elementId);
         const element = document.getElementById(elementId);
-        console.log('Found element:', element);
+        console.log("Found element:", element);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
           // Add a temporary highlight effect
-          element.style.backgroundColor = '#fff3cd';
-          element.style.border = '2px solid #ffc107';
+          element.style.backgroundColor = "#fff3cd";
+          element.style.border = "2px solid #ffc107";
           setTimeout(() => {
-            element.style.backgroundColor = '';
-            element.style.border = '';
+            element.style.backgroundColor = "";
+            element.style.border = "";
           }, 2000);
         } else {
-          console.log('Element not found. Available elements with group- prefix:');
+          console.log(
+            "Element not found. Available elements with group- prefix:"
+          );
           const allElements = document.querySelectorAll('[id^="group-"]');
-          allElements.forEach(el => console.log('  -', el.id));
+          allElements.forEach((el) => console.log("  -", el.id));
         }
       }
 
@@ -1768,7 +2230,7 @@
         if (!event || !event.data || !event.data.pluginMessage) {
           return; // Ignore invalid messages
         }
-        
+
         const message = event.data.pluginMessage;
         const exportButton = document.getElementById("export-css-button");
         const commitButton = document.getElementById("commit-repo-button");
@@ -1811,7 +2273,7 @@
           currentCSSData = message.cssData;
           // Only trigger download if this was an explicit export request
           if (message.shouldDownload) {
-            const format = message.exportFormat || 'css';
+            const format = message.exportFormat || "css";
             downloadCSS(message.cssData, format);
           }
         } else if (message.type === "angular-export-data") {
@@ -1823,14 +2285,17 @@
           if (message.forCommit) {
             // For commit, send the commit-component-test message
             if (!window.gitlabSettings) {
-              alert("Please configure your GitLab settings in the Settings tab first.");
+              alert(
+                "Please configure your GitLab settings in the Settings tab first."
+              );
 
               // Reset button state
-              const buttons = document.querySelectorAll('button.loading');
-              buttons.forEach(button => {
-                if (button.textContent === 'Committing...') {
-                  button.classList.remove('loading');
-                  button.textContent = button.dataset.originalText || 'Commit Test';
+              const buttons = document.querySelectorAll("button.loading");
+              buttons.forEach((button) => {
+                if (button.textContent === "Committing...") {
+                  button.classList.remove("loading");
+                  button.textContent =
+                    button.dataset.originalText || "Commit Test";
                   button.disabled = false;
                 }
               });
@@ -1844,18 +2309,25 @@
             const commitMessage = `feat: add component test for ${message.componentName}`;
 
             // Send to plugin for commit
-            parent.postMessage({
-              pluginMessage: {
-                type: "commit-component-test",
-                projectId: window.gitlabSettings.projectId,
-                gitlabToken: window.gitlabSettings.gitlabToken,
-                commitMessage: commitMessage,
-                componentName: message.componentName,
-                testContent: message.testContent,
-                testFilePath: window.gitlabSettings.testFilePath || "components/test-{componentName}.component.spec.ts",
-                branchName: window.gitlabSettings.testBranchName || "feature/component-tests"
-              }
-            }, "*");
+            parent.postMessage(
+              {
+                pluginMessage: {
+                  type: "commit-component-test",
+                  projectId: window.gitlabSettings.projectId,
+                  gitlabToken: window.gitlabSettings.gitlabToken,
+                  commitMessage: commitMessage,
+                  componentName: message.componentName,
+                  testContent: message.testContent,
+                  testFilePath:
+                    window.gitlabSettings.testFilePath ||
+                    "components/test-{componentName}.component.spec.ts",
+                  branchName:
+                    window.gitlabSettings.testBranchName ||
+                    "feature/component-tests",
+                },
+              },
+              "*"
+            );
 
             // Don't reset button state yet - wait for commit response
           } else {
@@ -1863,25 +2335,30 @@
             downloadTest(message.componentName, message.testContent);
 
             // Show success message and reset button state
-            const buttons = document.querySelectorAll('button.loading');
-            buttons.forEach(button => {
-              if (button.textContent === 'Generating...') {
-                button.classList.remove('loading');
+            const buttons = document.querySelectorAll("button.loading");
+            buttons.forEach((button) => {
+              if (button.textContent === "Generating...") {
+                button.classList.remove("loading");
                 // Restore the original button text
-                button.textContent = button.dataset.originalText ||
-                  (button.classList.contains('generate-all-variants-button') ?
-                   'Generate Test for All Variants' : 'Generate Test');
+                button.textContent =
+                  button.dataset.originalText ||
+                  (button.classList.contains("generate-all-variants-button")
+                    ? "Generate Test for All Variants"
+                    : "Generate Test");
                 button.disabled = false;
 
                 // Show success message
                 const successMessage = button.parentElement.nextElementSibling;
-                if (successMessage && successMessage.classList.contains('test-success-message')) {
-                  successMessage.textContent = 'Test generated successfully!';
-                  successMessage.style.display = 'block';
+                if (
+                  successMessage &&
+                  successMessage.classList.contains("test-success-message")
+                ) {
+                  successMessage.textContent = "Test generated successfully!";
+                  successMessage.style.display = "block";
 
                   // Hide success message after 3 seconds
                   setTimeout(() => {
-                    successMessage.style.display = 'none';
+                    successMessage.style.display = "none";
                   }, 3000);
                 }
               }
@@ -1907,13 +2384,15 @@
           alert(`Error: ${message.message}`); // Simple alert for user feedback
 
           // Reset button state
-          const buttons = document.querySelectorAll('button.loading');
-          buttons.forEach(button => {
-            button.classList.remove('loading');
+          const buttons = document.querySelectorAll("button.loading");
+          buttons.forEach((button) => {
+            button.classList.remove("loading");
             // Restore the original button text
-            button.textContent = button.dataset.originalText ||
-              (button.classList.contains('generate-all-variants-button') ?
-               'Generate Test for All Variants' : 'Generate Test');
+            button.textContent =
+              button.dataset.originalText ||
+              (button.classList.contains("generate-all-variants-button")
+                ? "Generate Test for All Variants"
+                : "Generate Test");
             button.disabled = false;
           });
 
@@ -1923,7 +2402,10 @@
             // Show success message with merge request link
             const successHTML = `
               <div class="success-message" style="display: block;">
-                ${message.message || "Successfully committed to GitLab repository!"}
+                ${
+                  message.message ||
+                  "Successfully committed to GitLab repository!"
+                }
               </div>
             `;
 
@@ -1940,14 +2422,18 @@
             footer.insertAdjacentHTML("beforebegin", successHTML);
 
             // Change the commit button to a Close button
-            const commitButton = document.getElementById("commit-submit-button");
+            const commitButton = document.getElementById(
+              "commit-submit-button"
+            );
             commitButton.textContent = "Close";
             commitButton.classList.remove("loading");
             commitButton.disabled = false;
             commitButton.onclick = closeGitLabModal;
           } else {
             // Show standard success message
-            alert(message.message || "Successfully committed to GitLab repository!");
+            alert(
+              message.message || "Successfully committed to GitLab repository!"
+            );
             closeGitLabModal();
             resetCommitButton();
           }
@@ -1975,25 +2461,31 @@
           resetCommitButton();
         } else if (message.type === "test-commit-success") {
           // Handle successful component test commit
-          console.log("Test commit success received for:", message.componentName);
+          console.log(
+            "Test commit success received for:",
+            message.componentName
+          );
 
           // Find any loading commit buttons and update them
-          const buttons = document.querySelectorAll('button.loading');
-          buttons.forEach(button => {
-            if (button.textContent === 'Committing...') {
-              button.classList.remove('loading');
-              button.textContent = button.dataset.originalText || 'Commit Test';
+          const buttons = document.querySelectorAll("button.loading");
+          buttons.forEach((button) => {
+            if (button.textContent === "Committing...") {
+              button.classList.remove("loading");
+              button.textContent = button.dataset.originalText || "Commit Test";
               button.disabled = false;
 
               // Show success message
               const successMessage = button.parentElement.nextElementSibling;
-              if (successMessage && successMessage.classList.contains('test-success-message')) {
+              if (
+                successMessage &&
+                successMessage.classList.contains("test-success-message")
+              ) {
                 successMessage.textContent = `Successfully committed test for ${message.componentName}!`;
-                successMessage.style.display = 'block';
+                successMessage.style.display = "block";
 
                 // Hide success message after 3 seconds
                 setTimeout(() => {
-                  successMessage.style.display = 'none';
+                  successMessage.style.display = "none";
                 }, 3000);
               }
             }
@@ -2017,7 +2509,7 @@
             saveButton.textContent = "Saved!";
             saveButton.style.backgroundColor = "#28a745";
             saveButton.disabled = true;
-            
+
             // Reset button appearance after 2 seconds
             setTimeout(() => {
               saveButton.textContent = originalText;
@@ -2042,13 +2534,13 @@
         const validationIssues = [];
 
         // Render each collection as it comes from Figma
-        data.forEach(collection => {
+        data.forEach((collection) => {
           if (collection.variables.length > 0) {
             // Group variables by path prefix (anything before /)
             const groupedVars = new Map();
             const standaloneVars = [];
-            
-            collection.variables.forEach(variable => {
+
+            collection.variables.forEach((variable) => {
               const pathMatch = variable.name.match(/^([^\/]+)\//);
               if (pathMatch) {
                 const prefix = pathMatch[1];
@@ -2060,35 +2552,43 @@
                 standaloneVars.push(variable);
               }
             });
-            
+
             // Check for mixed direct values and links in groups
             groupedVars.forEach((variables, prefix) => {
               let hasDirectValues = false;
               let hasLinks = false;
-              
-              variables.forEach(variable => {
-                variable.valuesByMode.forEach(mode => {
-                  if (typeof mode.value === "object" && mode.value.type === "VARIABLE_ALIAS") {
+
+              variables.forEach((variable) => {
+                variable.valuesByMode.forEach((mode) => {
+                  if (
+                    typeof mode.value === "object" &&
+                    mode.value.type === "VARIABLE_ALIAS"
+                  ) {
                     hasLinks = true;
                   } else {
                     hasDirectValues = true;
                   }
                 });
               });
-              
+
               if (hasDirectValues && hasLinks) {
-                const sanitizedId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, '-')}-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
-                console.log('Creating validation issue:', {
+                const sanitizedId = `group-${collection.name.replace(
+                  /[^a-zA-Z0-9]/g,
+                  "-"
+                )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+                console.log("Creating validation issue:", {
                   collection: collection.name,
                   prefix: prefix,
-                  sanitizedId: sanitizedId
+                  sanitizedId: sanitizedId,
                 });
                 validationIssues.push({
                   collection: collection.name,
                   group: prefix,
-                  displayName: prefix.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                  issue: 'mixed-values-and-links',
-                  sanitizedId: sanitizedId
+                  displayName: prefix
+                    .replace(/-/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()),
+                  issue: "mixed-values-and-links",
+                  sanitizedId: sanitizedId,
                 });
               }
             });
@@ -2104,7 +2604,9 @@
                 Variable Configuration Issues
               </h3>
               <div class="validation-issues-list">
-                ${validationIssues.map(issue => `
+                ${validationIssues
+                  .map(
+                    (issue) => `
                   <div class="validation-issue-item">
                     <strong>${issue.collection}</strong> → <strong>${issue.displayName}</strong>
                     <span class="issue-description">Contains both direct values and variable links</span>
@@ -2112,7 +2614,9 @@
                       Go to section
                     </a>
                   </div>
-                `).join('')}
+                `
+                  )
+                  .join("")}
               </div>
               <div class="validation-help">
                 <small>Groups should contain either all direct values or all variable links, not both.</small>
@@ -2122,13 +2626,13 @@
         }
 
         // Render each collection as it comes from Figma
-        data.forEach(collection => {
+        data.forEach((collection) => {
           if (collection.variables.length > 0) {
             // Group variables by path prefix (anything before /)
             const groupedVars = new Map();
             const standaloneVars = [];
-            
-            collection.variables.forEach(variable => {
+
+            collection.variables.forEach((variable) => {
               const pathMatch = variable.name.match(/^([^\/]+)\//);
               if (pathMatch) {
                 const prefix = pathMatch[1];
@@ -2140,66 +2644,85 @@
                 standaloneVars.push(variable);
               }
             });
-            
+
             // Build collection HTML
             html += `
               <div class="variable-collection">
                 <h3 class="collection-name">${collection.name}</h3>
             `;
-            
+
             // Render standalone variables first
             if (standaloneVars.length > 0) {
-              const varsWithCollection = standaloneVars.map(v => ({...v, collection: collection.name}));
+              const varsWithCollection = standaloneVars.map((v) => ({
+                ...v,
+                collection: collection.name,
+              }));
               html += renderVariableTable(varsWithCollection);
             }
-            
+
             // Render grouped variables
             groupedVars.forEach((variables, prefix) => {
-              const displayName = prefix.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-              
+              const displayName = prefix
+                .replace(/-/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase());
+
               // Check if this group has mixed values and links
               let hasDirectValues = false;
               let hasLinks = false;
-              
-              variables.forEach(variable => {
-                variable.valuesByMode.forEach(mode => {
-                  if (typeof mode.value === "object" && mode.value.type === "VARIABLE_ALIAS") {
+
+              variables.forEach((variable) => {
+                variable.valuesByMode.forEach((mode) => {
+                  if (
+                    typeof mode.value === "object" &&
+                    mode.value.type === "VARIABLE_ALIAS"
+                  ) {
                     hasLinks = true;
                   } else {
                     hasDirectValues = true;
                   }
                 });
               });
-              
+
               const hasMixedValues = hasDirectValues && hasLinks;
-              const groupId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, '-')}-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
-              
-              console.log('Creating group element:', {
+              const groupId = `group-${collection.name.replace(
+                /[^a-zA-Z0-9]/g,
+                "-"
+              )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+
+              console.log("Creating group element:", {
                 collection: collection.name,
                 prefix: prefix,
                 groupId: groupId,
-                hasMixedValues: hasMixedValues
+                hasMixedValues: hasMixedValues,
               });
-              
+
               html += `
-                <div class="variable-subgroup ${hasMixedValues ? 'has-validation-issues' : ''}" id="${groupId}">
+                <div class="variable-subgroup ${
+                  hasMixedValues ? "has-validation-issues" : ""
+                }" id="${groupId}">
                   <h4 class="subgroup-title">
                     ${displayName}
-                    ${hasMixedValues ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>' : ''}
+                    ${
+                      hasMixedValues
+                        ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
+                        : ""
+                    }
                   </h4>
               `;
-              const varsWithCollection = variables.map(v => ({...v, collection: collection.name}));
+              const varsWithCollection = variables.map((v) => ({
+                ...v,
+                collection: collection.name,
+              }));
               html += renderVariableTable(varsWithCollection);
-              html += '</div>';
+              html += "</div>";
             });
-            
-            html += '</div>';
+
+            html += "</div>";
           }
         });
 
         container.innerHTML = html;
       }
-
 
       // Render a group of variables with a title
       function renderVariableTable(variables) {
@@ -2216,7 +2739,9 @@
         `;
 
         variables.forEach((variable) => {
-          const sanitizedId = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          const sanitizedId = variable.name
+            .replace(/[^a-zA-Z0-9]/g, "-")
+            .toLowerCase();
           html += `
             <tr id="var-${sanitizedId}">
               <td>${variable.name}</td>
@@ -2231,10 +2756,14 @@
             // Check if this is a variable alias
             if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
               const referencedVariableName = findVariableNameById(value.id);
-              const sanitizedName = referencedVariableName ? referencedVariableName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase() : null;
+              const sanitizedName = referencedVariableName
+                ? referencedVariableName
+                    .replace(/[^a-zA-Z0-9]/g, "-")
+                    .toLowerCase()
+                : null;
               html += `
                 <div>
-                  ${showModeName ? mode.modeName + ': ' : ''}<span 
+                  ${showModeName ? mode.modeName + ": " : ""}<span 
                     style="color: #007bff; font-weight: 500; cursor: pointer; text-decoration: underline;" 
                     onclick="scrollToVariable('${sanitizedName}')"
                     title="Click to jump to ${referencedVariableName}"
@@ -2243,7 +2772,11 @@
               `;
             }
             // Display color values with a preview
-            else if (variable.resolvedType === "COLOR" && typeof value === "object" && value.r !== undefined) {
+            else if (
+              variable.resolvedType === "COLOR" &&
+              typeof value === "object" &&
+              value.r !== undefined
+            ) {
               const r = Math.round(value.r * 255);
               const g = Math.round(value.g * 255);
               const b = Math.round(value.b * 255);
@@ -2252,11 +2785,15 @@
               html += `
                 <div>
                   <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
-                  ${showModeName ? mode.modeName + ': ' : ''}rgba(${r},${g},${b},${a})
+                  ${
+                    showModeName ? mode.modeName + ": " : ""
+                  }rgba(${r},${g},${b},${a})
                 </div>
               `;
             } else {
-              html += `<div>${showModeName ? mode.modeName + ': ' : ''}${JSON.stringify(value)}</div>`;
+              html += `<div>${
+                showModeName ? mode.modeName + ": " : ""
+              }${JSON.stringify(value)}</div>`;
             }
           });
 
@@ -2273,7 +2810,6 @@
 
         return html;
       }
-
 
       // Extract component type and state from name
       function parseComponentName(name) {
@@ -2329,42 +2865,47 @@
       // Function to highlight JSON syntax
       function highlightJson(json) {
         // First, ensure proper indentation for the opening brace
-        json = json.replace(/^\s*{\s*/, '{\n  ');
+        json = json.replace(/^\s*{\s*/, "{\n  ");
 
         return json
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-            let cls = 'json-number';
-            if (/^"/.test(match)) {
-              if (/:$/.test(match)) {
-                cls = 'json-key';
-              } else {
-                cls = 'json-string';
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(
+            /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+            function (match) {
+              let cls = "json-number";
+              if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                  cls = "json-key";
+                } else {
+                  cls = "json-string";
+                }
+              } else if (/true|false/.test(match)) {
+                cls = "json-boolean";
+              } else if (/null/.test(match)) {
+                cls = "json-null";
               }
-            } else if (/true|false/.test(match)) {
-              cls = 'json-boolean';
-            } else if (/null/.test(match)) {
-              cls = 'json-null';
+              return '<span class="' + cls + '">' + match + "</span>";
             }
-            return '<span class="' + cls + '">' + match + '</span>';
-          });
+          );
       }
 
-      
       // Get variable value for styling
       function getVariableValue(variable) {
         // Handle the different ways variables are structured from Figma
         let value, resolvedType;
-        
+
         if (variable.valuesByMode && Array.isArray(variable.valuesByMode)) {
           // From component variables (array format)
           const firstMode = variable.valuesByMode[0];
           if (!firstMode) return null;
           value = firstMode.value;
           resolvedType = variable.resolvedType || variable.type;
-        } else if (variable.valuesByMode && typeof variable.valuesByMode === 'object') {
+        } else if (
+          variable.valuesByMode &&
+          typeof variable.valuesByMode === "object"
+        ) {
           // From main variables (object format)
           const modeKeys = Object.keys(variable.valuesByMode);
           if (modeKeys.length === 0) return null;
@@ -2373,8 +2914,8 @@
         } else {
           return null;
         }
-        
-        if (typeof value === 'object' && value.type === 'VARIABLE_ALIAS') {
+
+        if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
           // Find referenced variable and resolve recursively
           const referencedVariable = findVariableById(value.id);
           if (referencedVariable) {
@@ -2382,22 +2923,26 @@
           }
           return null;
         }
-        
-        if (resolvedType === 'COLOR' && typeof value === 'object' && value.r !== undefined) {
+
+        if (
+          resolvedType === "COLOR" &&
+          typeof value === "object" &&
+          value.r !== undefined
+        ) {
           const r = Math.round(value.r * 255);
           const g = Math.round(value.g * 255);
           const b = Math.round(value.b * 255);
           const a = value.a !== undefined ? value.a : 1;
           return `rgba(${r}, ${g}, ${b}, ${a})`;
-        } else if (resolvedType === 'FLOAT') {
+        } else if (resolvedType === "FLOAT") {
           return `${value}px`;
-        } else if (resolvedType === 'STRING') {
+        } else if (resolvedType === "STRING") {
           return String(value);
         }
-        
+
         return value;
       }
-      
+
       // Find variable by ID
       function findVariableById(id) {
         for (const collection of variablesData) {
@@ -2409,12 +2954,11 @@
         }
         return null;
       }
-      
-      
+
       // Render component variables list
       function renderComponentVariables(group) {
         const groupIndex = Math.random().toString(36).substr(2, 9);
-        
+
         let html = `
           <div class="component-variables">
             <button class="variables-toggle" onclick="toggleVariablesList('${groupIndex}')">
@@ -2422,22 +2966,29 @@
             </button>
             <div class="variables-list" id="variables-${groupIndex}">
         `;
-        
-        group.variables.forEach(variable => {
+
+        group.variables.forEach((variable) => {
           const displayValue = getVariableDisplayValue(variable);
-          
+
           // Check if this variable references another variable to make it clickable
           const firstMode = variable.valuesByMode[0];
           let clickableValue = displayValue;
-          
-          if (firstMode && firstMode.value && typeof firstMode.value === 'object' && firstMode.value.type === 'VARIABLE_ALIAS') {
+
+          if (
+            firstMode &&
+            firstMode.value &&
+            typeof firstMode.value === "object" &&
+            firstMode.value.type === "VARIABLE_ALIAS"
+          ) {
             const referencedVariable = findVariableById(firstMode.value.id);
             if (referencedVariable) {
-              const sanitizedName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+              const sanitizedName = referencedVariable.name
+                .replace(/[^a-zA-Z0-9]/g, "-")
+                .toLowerCase();
               clickableValue = `<span style="color: #0066cc; cursor: pointer; text-decoration: underline;" onclick="scrollToVariable('${sanitizedName}')" title="Click to jump to ${referencedVariable.name}">${displayValue}</span>`;
             }
           }
-          
+
           html += `
             <div class="variable-item">
               <span class="variable-name">${variable.name}</span>
@@ -2445,44 +2996,58 @@
             </div>
           `;
         });
-        
+
         html += `
             </div>
           </div>
         `;
-        
+
         return html;
       }
-      
+
       // Get display value for variable with all modes
       function getVariableDisplayValue(variable) {
         // Show all modes if there are multiple, otherwise just show the single value
         if (variable.valuesByMode.length > 1) {
-          return variable.valuesByMode.map(mode => {
-            const value = mode.value;
-            if (typeof value === 'object' && value.type === 'VARIABLE_ALIAS') {
-              const referencedVariable = findVariableById(value.id);
-              return `${mode.modeName}: ${referencedVariable ? referencedVariable.name : value.id}`;
-            }
-            return `${mode.modeName}: ${formatSingleValue(value, variable.resolvedType)}`;
-          }).join(', ');
+          return variable.valuesByMode
+            .map((mode) => {
+              const value = mode.value;
+              if (
+                typeof value === "object" &&
+                value.type === "VARIABLE_ALIAS"
+              ) {
+                const referencedVariable = findVariableById(value.id);
+                return `${mode.modeName}: ${
+                  referencedVariable ? referencedVariable.name : value.id
+                }`;
+              }
+              return `${mode.modeName}: ${formatSingleValue(
+                value,
+                variable.resolvedType
+              )}`;
+            })
+            .join(", ");
         } else {
           const firstMode = variable.valuesByMode[0];
-          if (!firstMode) return 'No value';
-          
+          if (!firstMode) return "No value";
+
           const value = firstMode.value;
-          if (typeof value === 'object' && value.type === 'VARIABLE_ALIAS') {
+          if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
             const referencedVariable = findVariableById(value.id);
             return referencedVariable ? referencedVariable.name : value.id;
           }
-          
+
           return formatSingleValue(value, variable.resolvedType);
         }
       }
-      
+
       // Format a single variable value
       function formatSingleValue(value, resolvedType) {
-        if (resolvedType === 'COLOR' && typeof value === 'object' && value.r !== undefined) {
+        if (
+          resolvedType === "COLOR" &&
+          typeof value === "object" &&
+          value.r !== undefined
+        ) {
           const r = Math.round(value.r * 255);
           const g = Math.round(value.g * 255);
           const b = Math.round(value.b * 255);
@@ -2491,15 +3056,15 @@
           }
           return `rgb(${r}, ${g}, ${b})`;
         }
-        
-        if (resolvedType === 'FLOAT') {
+
+        if (resolvedType === "FLOAT") {
           return `${value}px`;
         }
-        
-        if (resolvedType === 'STRING') {
+
+        if (resolvedType === "STRING") {
           return `"${value}"`;
         }
-        
+
         return String(value);
       }
 
@@ -2514,7 +3079,7 @@
         }
 
         let html = `<div class="component-list">`;
-        
+
         // Show Figma components for test generation
 
         // Render Figma components for test generation
@@ -2538,10 +3103,24 @@
               </div>
               <div class="component-set-actions">
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <button class="generate-test-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, false)">Generate Test</button>
-                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, false, true)">Commit Test</button>
-                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate All Variants</button>
-                  <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit All Variants</button>
+                  <button class="generate-test-button" onclick="event.stopPropagation(); generateTest('${
+                    component.id
+                  }', '${component.name}', this, false)">Generate Test</button>
+                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${
+                    component.id
+                  }', '${
+              component.name
+            }', this, false, true)">Commit Test</button>
+                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${
+                    component.id
+                  }', '${
+              component.name
+            }', this, true)">Generate All Variants</button>
+                  <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${
+                    component.id
+                  }', '${
+              component.name
+            }', this, true, true)">Commit All Variants</button>
                 </div>
                 <div class="test-success-message">Test generated successfully!</div>
               </div>
@@ -2551,7 +3130,7 @@
             if (component.children && component.children.length > 0) {
               component.children.forEach((child) => {
                 const childParsed = parseComponentName(child.name);
-                
+
                 html += `
                 <div class="child-component">
                   <table style="width: 100%;">
@@ -2559,7 +3138,9 @@
                       <tr>
                         <td>
                           <div class="component-meta">
-                            <span class="component-name">${childParsed.name}</span>
+                            <span class="component-name">${
+                              childParsed.name
+                            }</span>
                             <span class="badge badge-component">Component</span>
                             ${
                               childParsed.type
@@ -2594,7 +3175,7 @@
           } else {
             // Regular components
             const parsedName = parseComponentName(component.name);
-            
+
             html += `
             <div class="component-regular">
               <div class="component-meta">
@@ -2616,8 +3197,14 @@
                 <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
               </div>
               <div class="action-buttons">
-                <button class="generate-test-button" onclick="generateTest('${component.id}', '${component.name}', this)">Generate Test</button>
-                <button class="commit-button" onclick="generateTest('${component.id}', '${component.name}', this, false, true)">Commit Test</button>
+                <button class="generate-test-button" onclick="generateTest('${
+                  component.id
+                }', '${component.name}', this)">Generate Test</button>
+                <button class="commit-button" onclick="generateTest('${
+                  component.id
+                }', '${
+              component.name
+            }', this, false, true)">Commit Test</button>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
             </div>
@@ -2659,10 +3246,10 @@
       }
 
       // Function to trigger CSS download
-      function downloadCSS(cssString, format = 'css') {
-        const mimeType = format === 'scss' ? "text/scss" : "text/css";
-        const fileExtension = format === 'scss' ? 'scss' : 'css';
-        
+      function downloadCSS(cssString, format = "css") {
+        const mimeType = format === "scss" ? "text/scss" : "text/css";
+        const fileExtension = format === "scss" ? "scss" : "css";
+
         const blob = new Blob([cssString], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -2679,39 +3266,51 @@
       if (exportCssButton) {
         exportCssButton.addEventListener("click", () => {
           // Get export format from settings
-          const exportFormat = window.gitlabSettings?.exportFormat || 'css';
-          
+          const exportFormat = window.gitlabSettings?.exportFormat || "css";
+
           // Send message to plugin code to request CSS export
-          parent.postMessage({
-            pluginMessage: {
-              type: "export-css",
-              shouldDownload: true,
-              exportFormat: exportFormat
-            }
-          }, "*");
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "export-css",
+                shouldDownload: true,
+                exportFormat: exportFormat,
+              },
+            },
+            "*"
+          );
         });
       }
 
       // Function to update export button text based on format
       function updateExportButtonText() {
         const exportButton = document.getElementById("export-css-button");
-        const format = window.gitlabSettings?.exportFormat || 'css';
+        const format = window.gitlabSettings?.exportFormat || "css";
         const formatText = format.toUpperCase();
         exportButton.textContent = `Export Variables as ${formatText}`;
       }
 
       // Function to generate test for a component
-      function generateTest(componentId, componentName, button, generateAllVariants = false, forCommit = false) {
+      function generateTest(
+        componentId,
+        componentName,
+        button,
+        generateAllVariants = false,
+        forCommit = false
+      ) {
         // Show loading state
-        button.classList.add('loading');
+        button.classList.add("loading");
         const originalText = button.textContent;
-        button.textContent = forCommit ? 'Committing...' : 'Generating...';
+        button.textContent = forCommit ? "Committing..." : "Generating...";
         button.disabled = true;
 
         // Hide any previous success messages
         const successMessage = button.parentElement.nextElementSibling;
-        if (successMessage && successMessage.classList.contains('test-success-message')) {
-          successMessage.style.display = 'none';
+        if (
+          successMessage &&
+          successMessage.classList.contains("test-success-message")
+        ) {
+          successMessage.style.display = "none";
         }
 
         // Send message to plugin code to request test generation
@@ -2722,7 +3321,7 @@
               componentId: componentId,
               componentName: componentName,
               generateAllVariants: generateAllVariants,
-              forCommit: forCommit
+              forCommit: forCommit,
             },
           },
           "*"
@@ -2786,12 +3385,12 @@
         // Create a kebab case version of the component name for the file name
         const kebabName = componentName
           .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '');
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
 
-        const blob = new Blob([testContent], { type: 'text/javascript' });
+        const blob = new Blob([testContent], { type: "text/javascript" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `${kebabName}.component.spec.ts`;
         document.body.appendChild(a);
@@ -2821,7 +3420,8 @@
         });
       }
 
-      const componentSearchElement = document.getElementById("component-search");
+      const componentSearchElement =
+        document.getElementById("component-search");
       if (componentSearchElement) {
         componentSearchElement.addEventListener("input", (e) => {
           const searchTerm = e.target.value.toLowerCase();
@@ -2863,12 +3463,14 @@
 
       // Function to show reset confirmation modal
       function showResetConfirmation() {
-        document.getElementById("reset-confirmation-modal").style.display = "block";
+        document.getElementById("reset-confirmation-modal").style.display =
+          "block";
       }
 
       // Function to close reset confirmation modal
       function closeResetConfirmation() {
-        document.getElementById("reset-confirmation-modal").style.display = "none";
+        document.getElementById("reset-confirmation-modal").style.display =
+          "none";
       }
 
       // Function to confirm and execute reset
@@ -2877,21 +3479,26 @@
         window.gitlabSettings = null;
 
         // Send reset command to backend
-        parent.postMessage({
-          pluginMessage: {
-            type: "reset-gitlab-settings"
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "reset-gitlab-settings",
+            },
           },
-        }, "*");
+          "*"
+        );
 
         // Clear all form fields
         document.getElementById("config-project-id").value = "";
         document.getElementById("config-file-path").value = "src/variables.css";
         document.getElementById("config-export-format").value = "css";
-        document.getElementById("config-test-file-path").value = "components/test-{componentName}.component.spec.ts";
+        document.getElementById("config-test-file-path").value =
+          "components/test-{componentName}.component.spec.ts";
         document.getElementById("config-token").value = "";
         document.getElementById("config-strategy").value = "merge-request";
         document.getElementById("config-branch").value = "feature/variables";
-        document.getElementById("config-test-branch").value = "feature/component-tests";
+        document.getElementById("config-test-branch").value =
+          "feature/component-tests";
         document.getElementById("config-save-token").checked = true;
         document.getElementById("config-share-team").checked = true;
 
@@ -2917,14 +3524,26 @@
 
       // Function to save configuration settings
       function saveConfiguration() {
-        const projectId = document.getElementById("config-project-id").value.trim();
-        const filePath = document.getElementById("config-file-path").value.trim() || "src/variables.css";
-        const exportFormat = document.getElementById("config-export-format").value;
-        const testFilePath = document.getElementById("config-test-file-path").value.trim() || "components/{componentName}/test.spec.ts";
+        const projectId = document
+          .getElementById("config-project-id")
+          .value.trim();
+        const filePath =
+          document.getElementById("config-file-path").value.trim() ||
+          "src/variables.css";
+        const exportFormat = document.getElementById(
+          "config-export-format"
+        ).value;
+        const testFilePath =
+          document.getElementById("config-test-file-path").value.trim() ||
+          "components/{componentName}/test.spec.ts";
         const token = document.getElementById("config-token").value.trim();
         const strategy = document.getElementById("config-strategy").value;
-        const branch = document.getElementById("config-branch").value.trim() || "feature/variables";
-        const testBranch = document.getElementById("config-test-branch").value.trim() || "feature/component-tests";
+        const branch =
+          document.getElementById("config-branch").value.trim() ||
+          "feature/variables";
+        const testBranch =
+          document.getElementById("config-test-branch").value.trim() ||
+          "feature/component-tests";
         const saveToken = document.getElementById("config-save-token").checked;
         const shareTeam = document.getElementById("config-share-team").checked;
 
@@ -2951,29 +3570,32 @@
           saveToken: saveToken,
           isPersonal: !shareTeam,
           savedAt: new Date().toISOString(),
-          savedBy: "Current user"
+          savedBy: "Current user",
         };
 
         // Save the configuration to backend
-        parent.postMessage({
-          pluginMessage: {
-            type: "save-gitlab-settings",
-            projectId: projectId,
-            filePath: filePath,
-            exportFormat: exportFormat,
-            testFilePath: testFilePath,
-            gitlabToken: token,
-            strategy: strategy,
-            branchName: branch,
-            testBranchName: testBranch,
-            saveToken: saveToken,
-            shareWithTeam: shareTeam
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "save-gitlab-settings",
+              projectId: projectId,
+              filePath: filePath,
+              exportFormat: exportFormat,
+              testFilePath: testFilePath,
+              gitlabToken: token,
+              strategy: strategy,
+              branchName: branch,
+              testBranchName: testBranch,
+              saveToken: saveToken,
+              shareWithTeam: shareTeam,
+            },
           },
-        }, "*");
+          "*"
+        );
 
         // Update metadata display
         displayConfigMetadata();
-        
+
         // Update export button text
         updateExportButtonText();
 
@@ -2984,29 +3606,46 @@
       // Function to load configuration into the Config tab
       function loadConfigurationTab() {
         if (window.gitlabSettings) {
-          document.getElementById("config-project-id").value = window.gitlabSettings.projectId || "";
-          document.getElementById("config-file-path").value = window.gitlabSettings.filePath || "src/variables.css";
-          document.getElementById("config-export-format").value = window.gitlabSettings.exportFormat || "css";
-          document.getElementById("config-test-file-path").value = window.gitlabSettings.testFilePath || "components/test-{componentName}.component.spec.ts";
-          document.getElementById("config-token").value = window.gitlabSettings.gitlabToken || "";
-          document.getElementById("config-strategy").value = window.gitlabSettings.strategy || "merge-request";
-          document.getElementById("config-branch").value = window.gitlabSettings.branchName || "feature/variables";
-          document.getElementById("config-test-branch").value = window.gitlabSettings.testBranchName || "feature/component-tests";
+          document.getElementById("config-project-id").value =
+            window.gitlabSettings.projectId || "";
+          document.getElementById("config-file-path").value =
+            window.gitlabSettings.filePath || "src/variables.css";
+          document.getElementById("config-export-format").value =
+            window.gitlabSettings.exportFormat || "css";
+          document.getElementById("config-test-file-path").value =
+            window.gitlabSettings.testFilePath ||
+            "components/test-{componentName}.component.spec.ts";
+          document.getElementById("config-token").value =
+            window.gitlabSettings.gitlabToken || "";
+          document.getElementById("config-strategy").value =
+            window.gitlabSettings.strategy || "merge-request";
+          document.getElementById("config-branch").value =
+            window.gitlabSettings.branchName || "feature/variables";
+          document.getElementById("config-test-branch").value =
+            window.gitlabSettings.testBranchName || "feature/component-tests";
 
           // Handle checkboxes with proper defaults
-          document.getElementById("config-save-token").checked = window.gitlabSettings.hasOwnProperty('saveToken') ? window.gitlabSettings.saveToken : true;
-          document.getElementById("config-share-team").checked = window.gitlabSettings.hasOwnProperty('isPersonal') ? !window.gitlabSettings.isPersonal : true;
+          document.getElementById("config-save-token").checked =
+            window.gitlabSettings.hasOwnProperty("saveToken")
+              ? window.gitlabSettings.saveToken
+              : true;
+          document.getElementById("config-share-team").checked =
+            window.gitlabSettings.hasOwnProperty("isPersonal")
+              ? !window.gitlabSettings.isPersonal
+              : true;
 
           // Show/hide branch fields based on strategy
           const strategy = document.getElementById("config-strategy").value;
           const display = strategy === "merge-request" ? "block" : "none";
 
-          document.getElementById("config-branch-section").style.display = display;
-          document.getElementById("config-test-branch-section").style.display = display;
+          document.getElementById("config-branch-section").style.display =
+            display;
+          document.getElementById("config-test-branch-section").style.display =
+            display;
 
           // Display metadata if available
           displayConfigMetadata();
-          
+
           // Update export button text
           updateExportButtonText();
         } else {
@@ -3019,9 +3658,14 @@
       // Function to display configuration metadata
       function displayConfigMetadata() {
         const metadataElement = document.getElementById("config-metadata");
-        const metadataTextElement = document.getElementById("config-metadata-text");
+        const metadataTextElement = document.getElementById(
+          "config-metadata-text"
+        );
 
-        if (window.gitlabSettings && (window.gitlabSettings.savedAt || window.gitlabSettings.savedBy)) {
+        if (
+          window.gitlabSettings &&
+          (window.gitlabSettings.savedAt || window.gitlabSettings.savedBy)
+        ) {
           metadataElement.style.display = "block";
 
           let metadataText = "";
@@ -3029,12 +3673,17 @@
           if (window.gitlabSettings.savedAt) {
             const savedDate = new Date(window.gitlabSettings.savedAt);
             const formattedDate = savedDate.toLocaleDateString();
-            const formattedTime = savedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const formattedTime = savedDate.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
             metadataText += `Last saved: ${formattedDate} at ${formattedTime}`;
           }
 
           if (window.gitlabSettings.savedBy) {
-            metadataText += window.gitlabSettings.savedAt ? ` by ${window.gitlabSettings.savedBy}` : `Saved by: ${window.gitlabSettings.savedBy}`;
+            metadataText += window.gitlabSettings.savedAt
+              ? ` by ${window.gitlabSettings.savedBy}`
+              : `Saved by: ${window.gitlabSettings.savedBy}`;
           }
 
           if (window.gitlabSettings.isPersonal) {
@@ -3051,9 +3700,15 @@
 
       // Function to toggle the display of GitLab credentials fields
       function toggleGitLabCredentialsFields() {
-        const fieldsSection = document.getElementById("gitlab-credentials-fields");
-        const summarySection = document.getElementById("gitlab-credentials-summary");
-        const securityNoteCompact = document.getElementById("security-note-compact");
+        const fieldsSection = document.getElementById(
+          "gitlab-credentials-fields"
+        );
+        const summarySection = document.getElementById(
+          "gitlab-credentials-summary"
+        );
+        const securityNoteCompact = document.getElementById(
+          "security-note-compact"
+        );
         const securityNoteFull = document.getElementById("security-note-full");
 
         if (fieldsSection.style.display === "none") {
@@ -3072,7 +3727,8 @@
             securityNoteFull.style.display = "none";
 
             // Update the display values
-            document.getElementById("project-id-display").textContent = projectId;
+            document.getElementById("project-id-display").textContent =
+              projectId;
           }
         }
       }
@@ -3082,9 +3738,15 @@
         document.getElementById("gitlab-modal").style.display = "block";
 
         // Reset display state
-        const fieldsSection = document.getElementById("gitlab-credentials-fields");
-        const summarySection = document.getElementById("gitlab-credentials-summary");
-        const securityNoteCompact = document.getElementById("security-note-compact");
+        const fieldsSection = document.getElementById(
+          "gitlab-credentials-fields"
+        );
+        const summarySection = document.getElementById(
+          "gitlab-credentials-summary"
+        );
+        const securityNoteCompact = document.getElementById(
+          "security-note-compact"
+        );
         const securityNoteFull = document.getElementById("security-note-full");
 
         fieldsSection.style.display = "block";
@@ -3100,18 +3762,21 @@
             projectIdField.value = window.gitlabSettings.projectId;
 
             // Update the display text
-            document.getElementById("project-id-display").textContent = window.gitlabSettings.projectId;
+            document.getElementById("project-id-display").textContent =
+              window.gitlabSettings.projectId;
           }
 
           // Fill in the token if it was saved
           if (window.gitlabSettings.gitlabToken) {
-            document.getElementById("gitlab-token").value = window.gitlabSettings.gitlabToken;
+            document.getElementById("gitlab-token").value =
+              window.gitlabSettings.gitlabToken;
             document.getElementById("save-token").checked = true;
           }
 
           // Fill in the branch name if it was saved
           if (window.gitlabSettings.branchName) {
-            document.getElementById("branch-name").value = window.gitlabSettings.branchName;
+            document.getElementById("branch-name").value =
+              window.gitlabSettings.branchName;
           }
 
           // Check "share with team" if this came from team storage
@@ -3122,14 +3787,17 @@
           // Show saved info if available
           if (window.gitlabSettings.savedBy && window.gitlabSettings.savedAt) {
             const savedDate = new Date(window.gitlabSettings.savedAt);
-            const formattedDate = savedDate.toLocaleDateString() + ' ' + savedDate.toLocaleTimeString();
+            const formattedDate =
+              savedDate.toLocaleDateString() +
+              " " +
+              savedDate.toLocaleTimeString();
             const savedInfoText = `Last updated by: <strong>${window.gitlabSettings.savedBy}</strong> on ${formattedDate}`;
 
             // Update the compact security note
             securityNoteCompact.innerHTML = savedInfoText;
 
             // Update the full security note
-            const savedInfoDiv = securityNoteFull.querySelector('.saved-info');
+            const savedInfoDiv = securityNoteFull.querySelector(".saved-info");
             if (savedInfoDiv) {
               savedInfoDiv.innerHTML = savedInfoText;
             }
@@ -3145,7 +3813,8 @@
         }
 
         // Add click event listener to the settings button
-        document.getElementById("settings-button").onclick = toggleGitLabCredentialsFields;
+        document.getElementById("settings-button").onclick =
+          toggleGitLabCredentialsFields;
       }
 
       // Function to close the GitLab modal
@@ -3161,7 +3830,7 @@
           if (errorMessage) {
             errorMessage.remove();
           }
-          
+
           modal.style.display = "none";
         }
         resetCommitButton();
@@ -3192,8 +3861,14 @@
         `;
 
         // Check if we have saved configuration
-        if (!window.gitlabSettings || !window.gitlabSettings.projectId || !window.gitlabSettings.gitlabToken) {
-          alert("Please configure your GitLab settings in the Config tab first.");
+        if (
+          !window.gitlabSettings ||
+          !window.gitlabSettings.projectId ||
+          !window.gitlabSettings.gitlabToken
+        ) {
+          alert(
+            "Please configure your GitLab settings in the Config tab first."
+          );
           resetCommitButton();
           return;
         }
@@ -3203,14 +3878,17 @@
         const gitlabToken = window.gitlabSettings.gitlabToken;
         const filePath = window.gitlabSettings.filePath || "src/variables.css";
         const strategy = window.gitlabSettings.strategy || "merge-request";
-        const branchName = window.gitlabSettings.branchName || "feature/variables";
+        const branchName =
+          window.gitlabSettings.branchName || "feature/variables";
 
         // Debug: Log the branch name being used
         console.log("Using branch name for commit:", branchName);
         console.log("GitLab settings:", window.gitlabSettings);
 
         // Get commit message from the modal
-        const commitMessage = document.getElementById("commit-message").value.trim() || "feat: update CSS variables";
+        const commitMessage =
+          document.getElementById("commit-message").value.trim() ||
+          "feat: update CSS variables";
 
         // Determine if this should create a merge request based on strategy
         const createMergeRequest = strategy === "merge-request";
@@ -3224,13 +3902,16 @@
         // First, ensure we have the latest CSS data
         if (!currentCSSData) {
           // Request CSS export first with format
-          const exportFormat = window.gitlabSettings?.exportFormat || 'css';
-          parent.postMessage({ 
-            pluginMessage: { 
-              type: "export-css", 
-              exportFormat: exportFormat 
-            } 
-          }, "*");
+          const exportFormat = window.gitlabSettings?.exportFormat || "css";
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "export-css",
+                exportFormat: exportFormat,
+              },
+            },
+            "*"
+          );
 
           // Wait for CSS data to be available
           const checkCSSData = setInterval(() => {
@@ -3252,7 +3933,7 @@
                     mrTitle,
                     mrDescription,
                     mrRemoveSourceBranch,
-                    mrSquash
+                    mrSquash,
                   },
                 },
                 "*"
@@ -3284,7 +3965,7 @@
                 mrTitle,
                 mrDescription,
                 mrRemoveSourceBranch,
-                mrSquash
+                mrSquash,
               },
             },
             "*"
@@ -3294,23 +3975,30 @@
 
       // Units-related functions
       function loadUnitsSettings() {
-        parent.postMessage({
-          pluginMessage: {
-            type: "get-unit-settings"
-          }
-        }, "*");
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "get-unit-settings",
+            },
+          },
+          "*"
+        );
       }
-      
+
       function renderUnitsSettings(data) {
         const container = document.getElementById("units-settings-container");
-        
-        if (!data || (data.collections.length === 0 && data.groups.length === 0)) {
-          container.innerHTML = '<div class="no-items">No collections or groups found for unit configuration.</div>';
+
+        if (
+          !data ||
+          (data.collections.length === 0 && data.groups.length === 0)
+        ) {
+          container.innerHTML =
+            '<div class="no-items">No collections or groups found for unit configuration.</div>';
           return;
         }
-        
-        let html = '';
-        
+
+        let html = "";
+
         // Collections section
         if (data.collections.length > 0) {
           html += `
@@ -3318,26 +4006,33 @@
               <h4>Collections</h4>
               <p style="color: #666; font-size: 14px; margin-bottom: 16px;">Set default units for entire collections. These override global defaults.</p>
           `;
-          
-          data.collections.forEach(collection => {
+
+          data.collections.forEach((collection) => {
             html += `
               <div class="unit-setting-row">
                 <div class="unit-setting-label">${collection.name}</div>
                 <div class="unit-setting-control">
-                  <span class="default-unit-label">Default: ${collection.defaultUnit}</span>
-                  <select class="unit-dropdown" data-type="collection" data-name="${collection.name}">
-                    ${AVAILABLE_UNITS.map(unit => 
-                      `<option value="${unit}" ${unit === collection.currentUnit ? 'selected' : ''}>${unit === '' ? 'Smart defaults' : unit}</option>`
-                    ).join('')}
+                  <span class="default-unit-label">Default: ${
+                    collection.defaultUnit
+                  }</span>
+                  <select class="unit-dropdown" data-type="collection" data-name="${
+                    collection.name
+                  }">
+                    ${AVAILABLE_UNITS.map(
+                      (unit) =>
+                        `<option value="${unit}" ${
+                          unit === collection.currentUnit ? "selected" : ""
+                        }>${unit === "" ? "Smart defaults" : unit}</option>`
+                    ).join("")}
                   </select>
                 </div>
               </div>
             `;
           });
-          
-          html += '</div>';
+
+          html += "</div>";
         }
-        
+
         // Groups section
         if (data.groups.length > 0) {
           html += `
@@ -3345,44 +4040,53 @@
               <h4>Groups</h4>
               <p style="color: #666; font-size: 14px; margin-bottom: 16px;">Set specific units for variable groups. These override collection settings.</p>
           `;
-          
+
           // Group by collection
           const groupsByCollection = {};
-          data.groups.forEach(group => {
+          data.groups.forEach((group) => {
             if (!groupsByCollection[group.collectionName]) {
               groupsByCollection[group.collectionName] = [];
             }
             groupsByCollection[group.collectionName].push(group);
           });
-          
-          Object.keys(groupsByCollection).sort().forEach(collectionName => {
-            html += `
+
+          Object.keys(groupsByCollection)
+            .sort()
+            .forEach((collectionName) => {
+              html += `
               <div class="units-group">
                 <h5>${collectionName}</h5>
             `;
-            
-            groupsByCollection[collectionName].forEach(group => {
-              html += `
+
+              groupsByCollection[collectionName].forEach((group) => {
+                html += `
                 <div class="unit-setting-row">
                   <div class="unit-setting-label">${group.groupName}</div>
                   <div class="unit-setting-control">
-                    <span class="default-unit-label">Default: ${group.defaultUnit}</span>
-                    <select class="unit-dropdown" data-type="group" data-collection="${group.collectionName}" data-group="${group.groupName}">
-                      ${AVAILABLE_UNITS.map(unit => 
-                        `<option value="${unit}" ${unit === group.currentUnit ? 'selected' : ''}>${unit === '' ? 'Smart defaults' : unit}</option>`
-                      ).join('')}
+                    <span class="default-unit-label">Default: ${
+                      group.defaultUnit
+                    }</span>
+                    <select class="unit-dropdown" data-type="group" data-collection="${
+                      group.collectionName
+                    }" data-group="${group.groupName}">
+                      ${AVAILABLE_UNITS.map(
+                        (unit) =>
+                          `<option value="${unit}" ${
+                            unit === group.currentUnit ? "selected" : ""
+                          }>${unit === "" ? "Smart defaults" : unit}</option>`
+                      ).join("")}
                     </select>
                   </div>
                 </div>
               `;
+              });
+
+              html += "</div>";
             });
-            
-            html += '</div>';
-          });
-          
-          html += '</div>';
+
+          html += "</div>";
         }
-        
+
         // Add smart defaults explanation section at the end
         html += `
           <div class="units-section" style="background: #f0f7ff; border: 1px solid #b3d9ff;">
@@ -3422,12 +4126,12 @@
             </div>
           </div>
         `;
-        
+
         container.innerHTML = html;
-        
+
         // Add event listeners to dropdowns
-        document.querySelectorAll('.unit-dropdown').forEach(dropdown => {
-          dropdown.addEventListener('change', function() {
+        document.querySelectorAll(".unit-dropdown").forEach((dropdown) => {
+          dropdown.addEventListener("change", function () {
             console.log("Dropdown changed, enabling save button");
             const saveButton = document.getElementById("save-units-button");
             if (saveButton) {
@@ -3439,7 +4143,7 @@
           });
         });
       }
-      
+
       // Functions moved to window object at end of script
 
       // Add event listener for the commit button
@@ -3451,14 +4155,17 @@
       // Toggle merge request options when checkbox is clicked
       const createMRElement = document.getElementById("create-merge-request");
       if (createMRElement) {
-        createMRElement.addEventListener("change", function() {
-          const mergeRequestOptions = document.getElementById("merge-request-options");
+        createMRElement.addEventListener("change", function () {
+          const mergeRequestOptions = document.getElementById(
+            "merge-request-options"
+          );
           if (mergeRequestOptions) {
             if (this.checked) {
               mergeRequestOptions.style.display = "block";
 
               // Pre-fill the merge request title with the commit message
-              const commitMessage = document.getElementById("commit-message").value;
+              const commitMessage =
+                document.getElementById("commit-message").value;
               const mrTitleElement = document.getElementById("mr-title");
               if (commitMessage && mrTitleElement) {
                 mrTitleElement.value = commitMessage;
@@ -3473,7 +4180,7 @@
       // Update MR title when commit message changes if checkbox is checked
       const commitMessageElement = document.getElementById("commit-message");
       if (commitMessageElement) {
-        commitMessageElement.addEventListener("input", function() {
+        commitMessageElement.addEventListener("input", function () {
           const createMR = document.getElementById("create-merge-request");
           const mrTitleElement = document.getElementById("mr-title");
           if (createMR && createMR.checked && mrTitleElement) {
@@ -3485,9 +4192,13 @@
       // Add event listener for strategy dropdown in Config tab
       const configStrategyElement = document.getElementById("config-strategy");
       if (configStrategyElement) {
-        configStrategyElement.addEventListener("change", function() {
-          const branchSection = document.getElementById("config-branch-section");
-          const testBranchSection = document.getElementById("config-test-branch-section");
+        configStrategyElement.addEventListener("change", function () {
+          const branchSection = document.getElementById(
+            "config-branch-section"
+          );
+          const testBranchSection = document.getElementById(
+            "config-test-branch-section"
+          );
 
           if (branchSection && testBranchSection) {
             const display = this.value === "merge-request" ? "block" : "none";
@@ -3498,9 +4209,11 @@
       }
 
       // Add event listener for export format dropdown
-      const configExportFormatElement = document.getElementById("config-export-format");
+      const configExportFormatElement = document.getElementById(
+        "config-export-format"
+      );
       if (configExportFormatElement) {
-        configExportFormatElement.addEventListener("change", function() {
+        configExportFormatElement.addEventListener("change", function () {
           // Update local settings immediately
           if (window.gitlabSettings) {
             window.gitlabSettings.exportFormat = this.value;
@@ -3511,8 +4224,13 @@
       }
 
       // Add basic click debugging
-      document.addEventListener("click", function(event) {
-        console.log("GLOBAL CLICK:", event.target.id, event.target.tagName, event.target.textContent);
+      document.addEventListener("click", function (event) {
+        console.log(
+          "GLOBAL CLICK:",
+          event.target.id,
+          event.target.tagName,
+          event.target.textContent
+        );
       });
     </script>
   </body>

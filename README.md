@@ -1,4 +1,4 @@
-# aWall Synch
+# DesignSync
 
 A Figma plugin for synchronizing design tokens and components with your codebase.
 

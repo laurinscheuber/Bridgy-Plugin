@@ -1,5 +1,5 @@
 {
-  "name": "awall-synch",
+  "name": "design-sync",
   "version": "1.0.0",
   "description": "Figma plugin for synchronizing design tokens and components",
   "main": "code.js",
