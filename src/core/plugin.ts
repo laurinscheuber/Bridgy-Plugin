@@ -1,7 +1,7 @@
-import { PluginMessage } from '../types';
-import { GitLabService } from '../services/gitlabService';
-import { CSSExportService } from '../services/cssExportService';
-import { ComponentService } from '../services/componentService';
+import { PluginMessage } from "../types";
+import { GitLabService } from "../services/gitlabService";
+import { CSSExportService } from "../services/cssExportService";
+import { ComponentService } from "../services/componentService";
 
 // Show the UI (required for inspect panel plugins)
 figma.showUI(__html__, { width: 850, height: 800 });
@@ -12,12 +12,15 @@ let componentMap = new Map<string, any>();
 // Collect all variables and components from the document
 async function collectDocumentData() {
   // Collection variables
-  const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
+  const variableCollections =
+    await figma.variables.getLocalVariableCollectionsAsync();
   const variablesData = [];
 
   // Sort collections alphabetically by name
-  const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
-  
+  const sortedCollections = variableCollections.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
   for (const collection of sortedCollections) {
     const variablesPromises = collection.variableIds.map(async (id) => {
       const variable = await figma.variables.getVariableByIdAsync(id);
@@ -92,8 +95,8 @@ figma.codegen.on("generate", (_event) => {
     return [
       {
         language: "PLAINTEXT",
-        code: "aWall Synch - Use the plugin interface to view variables and components",
-        title: "aWall Synch",
+        code: "DesignSync - Use the plugin interface to view variables and components",
+        title: "DesignSync",
       },
     ];
   } catch (error) {
@@ -113,7 +116,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
   try {
     switch (msg.type) {
       case "export-css":
-        const format = msg.exportFormat || 'css';
+        const format = msg.exportFormat || "css";
         const cssContent = await CSSExportService.exportVariables(format);
         figma.ui.postMessage({
           type: "css-export",
@@ -135,7 +138,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
         const testContent = ComponentService.generateTest(
           component,
-          msg.generateAllVariants
+          msg.generateAllVariants,
+          msg.includeStateTests !== false // Default to true
         );
         figma.ui.postMessage({
           type: "test-generated",
@@ -143,7 +147,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           testContent: testContent,
           isComponentSet: component.type === "COMPONENT_SET",
           hasAllVariants: msg.generateAllVariants,
-          forCommit: msg.forCommit
+          forCommit: msg.forCommit,
         });
         break;
 
@@ -153,7 +157,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             projectId: msg.projectId || "",
             gitlabToken: msg.gitlabToken,
             filePath: msg.filePath || "src/variables.css",
-            testFilePath: msg.testFilePath || "components/test-{componentName}.component.spec.ts",
+            testFilePath:
+              msg.testFilePath ||
+              "components/test-{componentName}.component.spec.ts",
             strategy: msg.strategy || "merge-request",
             branchName: msg.branchName || "feature/variables",
             testBranchName: msg.testBranchName || "feature/component-tests",
@@ -173,7 +179,12 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
 
       case "commit-to-gitlab":
-        if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
+        if (
+          !msg.projectId ||
+          !msg.gitlabToken ||
+          !msg.commitMessage ||
+          !msg.cssData
+        ) {
           throw new Error("Missing required fields for GitLab commit");
         }
 
@@ -189,7 +200,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         figma.ui.postMessage({
           type: "commit-success",
           message: "Successfully committed changes to the feature branch",
-          mergeRequestUrl: result?.mergeRequestUrl
+          mergeRequestUrl: result?.mergeRequestUrl,
         });
         break;
 
@@ -210,7 +221,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           msg.commitMessage,
           msg.componentName,
           msg.testContent,
-          msg.testFilePath || "components/test-{componentName}.component.spec.ts",
+          msg.testFilePath ||
+            "components/test-{componentName}.component.spec.ts",
           msg.branchName || "feature/component-tests"
         );
 
@@ -227,7 +239,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await GitLabService.resetSettings();
         figma.ui.postMessage({
           type: "gitlab-settings-reset",
-          success: true
+          success: true,
         });
         break;
 
@@ -235,21 +247,25 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         const unitSettingsData = await CSSExportService.getUnitSettingsData();
         figma.ui.postMessage({
           type: "unit-settings-data",
-          data: unitSettingsData
+          data: unitSettingsData,
         });
         break;
 
       case "update-unit-settings":
-        console.log("Received update-unit-settings:", msg.collections, msg.groups);
+        console.log(
+          "Received update-unit-settings:",
+          msg.collections,
+          msg.groups
+        );
         CSSExportService.updateUnitSettings({
           collections: msg.collections,
-          groups: msg.groups
+          groups: msg.groups,
         });
         await CSSExportService.saveUnitSettings();
         console.log("Unit settings saved successfully");
         figma.ui.postMessage({
           type: "unit-settings-updated",
-          success: true
+          success: true,
         });
         break;
 
@@ -263,4 +279,4 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       message: error.message || "Unknown error occurred",
     });
   }
-}; 
+};

@@ -71,6 +71,7 @@ export interface PluginMessage {
   shareWithTeam?: boolean;
   saveToken?: boolean;
   generateAllVariants?: boolean;
+  includeStateTests?: boolean;
   shouldDownload?: boolean;
   forceCreate?: boolean;
   forCommit?: boolean;

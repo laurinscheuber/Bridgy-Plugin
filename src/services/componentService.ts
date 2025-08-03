@@ -145,7 +145,7 @@ export class ComponentService {
     return this.componentMap.get(id);
   }
 
-  static generateTest(component: Component, generateAllVariants = false): string {
+  static generateTest(component: Component, generateAllVariants = false, includeStateTests = true, includeSizeTests = true): string {
     // Extract component name and create a kebab case version for file naming
     const componentName = component.name;
     const kebabName = componentName
@@ -228,12 +228,12 @@ export class ComponentService {
           }
         }
 
-        return createTestWithStyleChecks(componentName, kebabName, variantStyleChecks);
+        return createTestWithStyleChecks(componentName, kebabName, variantStyleChecks, includeStateTests, includeSizeTests, component.children);
       }
     }
 
     // For regular components or if no default variant is found, create a standard test
-    return createTestWithStyleChecks(componentName, kebabName, styleChecks);
+    return createTestWithStyleChecks(componentName, kebabName, styleChecks, includeStateTests, includeSizeTests, component.children);
   }
 
   private static generateComponentSetTest(componentSet: Component): string {
@@ -273,7 +273,7 @@ export class ComponentService {
     // Generate test for the default variant only
     return createTestWithStyleChecks(componentSet.name, 
       componentSet.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), 
-      styleChecks);
+      styleChecks, true);
   }
 
   // Collect all variables for resolution purposes

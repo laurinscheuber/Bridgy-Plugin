@@ -1,4 +1,6 @@
 import { ParsedComponentName, StyleCheck } from '../types';
+import { generateTestHelpers, generateStateTests, INTERACTIVE_STATES, shouldTestPropertyForState } from './stateTestingUtils';
+import { generateSizeVariantTests, generateBasicSizeTests } from './sizeVariantUtils';
 
 /**
  * Converts hex color to RGB format
@@ -111,10 +113,22 @@ export function generateStyleChecks(styleChecks: StyleCheck[]): string {
     .join("\n\n");
 }
 
+// Properties that should be commented out in tests (layout/structural)
+const LAYOUT_PROPERTIES = [
+  'justifyContent',
+  'alignItems', 
+  'display',
+  'flexDirection',
+  'position'
+];
+
 export function createTestWithStyleChecks(
   componentName: string,
   kebabName: string,
-  styleChecks: StyleCheck[]
+  styleChecks: StyleCheck[],
+  includeStateTests: boolean = true,
+  includeSizeTests: boolean = true,
+  componentVariants?: any[]
 ): string {
   function stripCssVarFallback(value: string): string {
     return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
@@ -124,6 +138,11 @@ export function createTestWithStyleChecks(
     ? styleChecks
         .map((check) => {
           const expected = stripCssVarFallback(String(check.value));
+          // Comment out layout properties
+          if (LAYOUT_PROPERTIES.indexOf(check.property) !== -1) {
+            return `      // Check ${check.property} (layout property - often structural)
+      // expect(computedStyle.${check.property}).toBe('${expected}');`;
+          }
           return `      // Check ${check.property}
       expect(computedStyle.${check.property}).toBe('${expected}');`;
         })
@@ -131,13 +150,45 @@ export function createTestWithStyleChecks(
     : "      // No style properties to check";
 
   const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
+  const componentSelector = `.${kebabName}`;
+  
+  // Extract styles object for state testing
+  const stylesObject: Record<string, any> = {};
+  styleChecks.forEach(check => {
+    stylesObject[check.property] = check.value;
+  });
+  
+  // Generate state tests if requested and there are interactive properties
+  const hasInteractiveProperties = styleChecks.some(check => shouldTestPropertyForState(check.property));
+  const stateTestsCode = includeStateTests && hasInteractiveProperties 
+    ? generateStateTests(componentSelector, INTERACTIVE_STATES, stylesObject)
+    : '';
+  
+  // Generate size variant tests
+  let sizeTestsCode = '';
+  if (includeSizeTests) {
+    console.log('DEBUG: Size testing - componentVariants:', componentVariants ? componentVariants.length : 'null/undefined');
+    if (componentVariants && componentVariants.length > 0) {
+      console.log('DEBUG: Using Figma variant data for size testing');
+      // Use actual variant data from Figma
+      sizeTestsCode = generateSizeVariantTests(componentSelector, componentName, componentVariants);
+    } else {
+      console.log('DEBUG: Using basic size testing approach');
+      // Use basic size testing approach
+      sizeTestsCode = generateBasicSizeTests(componentSelector);
+    }
+  }
+  
+  const helperFunctions = includeStateTests && hasInteractiveProperties
+    ? '\n' + generateTestHelpers() + '\n'
+    : '';
 
   return `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
 describe('${pascalName}Component', () => {
   let component: ${pascalName}Component;
-  let fixture: ComponentFixture<${pascalName}Component>;
+  let fixture: ComponentFixture<${pascalName}Component>;${helperFunctions}
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -165,6 +216,6 @@ ${styleCheckCode}
     } else {
       console.warn('No suitable element found to test styles');
     }
-  });
+  });${stateTestsCode}${sizeTestsCode}
 });`;
 } 
