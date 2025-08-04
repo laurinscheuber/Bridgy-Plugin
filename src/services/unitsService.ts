@@ -75,7 +75,7 @@ export class UnitsService {
     return { ...this.unitSettings };
   }
 
-  static resetUnitSettings(): void {
+  static resetUnitSettingsInMemory(): void {
     this.unitSettings = {
       collections: {},
       groups: {}
@@ -89,34 +89,105 @@ export class UnitsService {
     return `${value}${unit}`;
   }
 
-  // Save unit settings to Figma storage
+  // Save unit settings to shared Figma storage (accessible by all team members)
   static async saveUnitSettings(): Promise<void> {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `unit-settings-${figmaFileId}`;
       
-      await figma.clientStorage.setAsync(settingsKey, this.unitSettings);
-      console.log('Unit settings saved successfully');
+      // Save to shared document storage so all team members can access
+      figma.root.setSharedPluginData(
+        "DesignSync",
+        settingsKey,
+        JSON.stringify(this.unitSettings)
+      );
+      
+      // Track metadata
+      figma.root.setSharedPluginData(
+        "DesignSync",
+        `${settingsKey}-meta`,
+        JSON.stringify({
+          savedAt: new Date().toISOString(),
+          savedBy: figma.currentUser?.name || "Unknown user",
+        })
+      );
+      
+      console.log(`Unit settings saved to shared document storage for file: ${figmaFileId}`);
     } catch (error) {
       console.error('Error saving unit settings:', error);
       throw error;
     }
   }
 
-  // Load unit settings from Figma storage
+  // Load unit settings from shared Figma storage
   static async loadUnitSettings(): Promise<void> {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `unit-settings-${figmaFileId}`;
       
-      const savedSettings = await figma.clientStorage.getAsync(settingsKey);
-      if (savedSettings) {
-        this.unitSettings = savedSettings;
-        console.log('Unit settings loaded successfully');
+      console.log(`Loading unit settings for file: ${figmaFileId}`);
+      
+      // Try to load from shared document storage first
+      const sharedSettings = figma.root.getSharedPluginData(
+        "DesignSync",
+        settingsKey
+      );
+      
+      if (sharedSettings) {
+        try {
+          this.unitSettings = JSON.parse(sharedSettings);
+          console.log('Unit settings loaded from shared document storage');
+          return;
+        } catch (parseError) {
+          console.error('Error parsing shared unit settings:', parseError);
+        }
       }
+      
+      // Migration: Check for personal settings and migrate to shared
+      const personalSettings = await figma.clientStorage.getAsync(settingsKey);
+      if (personalSettings) {
+        console.log('Found personal unit settings, migrating to shared storage');
+        this.unitSettings = personalSettings;
+        // Save as shared settings
+        await this.saveUnitSettings();
+        // Remove old personal settings to prevent confusion
+        await figma.clientStorage.deleteAsync(settingsKey);
+        console.log('Unit settings migrated to shared storage');
+        return;
+      }
+      
+      console.log('No unit settings found, using defaults');
     } catch (error) {
       console.error('Error loading unit settings:', error);
       // Don't throw - just use defaults
+    }
+  }
+
+  // Reset unit settings (remove from both personal and shared storage)
+  static async resetUnitSettings(): Promise<void> {
+    try {
+      const figmaFileId = figma.root.id;
+      const settingsKey = `unit-settings-${figmaFileId}`;
+      
+      console.log(`Resetting unit settings for file: ${figmaFileId}`);
+      
+      // Reset in-memory settings  
+      this.unitSettings = {
+        collections: {},
+        groups: {}
+      };
+      
+      // Remove shared document storage
+      figma.root.setSharedPluginData("DesignSync", settingsKey, "");
+      figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
+      
+      // Remove personal client storage (cleanup)
+      await figma.clientStorage.deleteAsync(settingsKey);
+      
+      console.log('Unit settings have been reset successfully');
+    } catch (error) {
+      console.error('Error resetting unit settings:', error);
+      throw error;
     }
   }
 }
