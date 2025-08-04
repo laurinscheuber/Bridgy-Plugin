@@ -15,6 +15,22 @@ export interface VariableMode {
   value: any;
 }
 
+export interface TextElement {
+  id: string;
+  content: string;
+  type: 'TEXT';
+  styles: any;
+  textStyles?: {
+    fontSize?: string;
+    fontFamily?: string;
+    fontWeight?: string;
+    lineHeight?: string;
+    letterSpacing?: string;
+    textAlign?: string;
+    color?: string;
+  };
+}
+
 export interface Component {
   id: string;
   name: string;
@@ -24,6 +40,8 @@ export interface Component {
   parentId?: string;
   children: Component[];
   isChild?: boolean;
+  textElements?: TextElement[];
+  hasTextContent?: boolean;
 }
 
 export interface GitLabSettings {
