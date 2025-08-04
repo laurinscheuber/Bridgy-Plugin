@@ -173,8 +173,8 @@ export function shouldTestPropertyForState(property: string): boolean {
   const kebabProperty = property.replace(/([A-Z])/g, '-$1').toLowerCase();
   
   // Check both the original property and kebab-case version
-  if (INTERACTIVE_PROPERTIES.indexOf(property) !== -1 || 
-      INTERACTIVE_PROPERTIES.indexOf(kebabProperty) !== -1) {
+  if (INTERACTIVE_PROPERTIES.includes(property) || 
+      INTERACTIVE_PROPERTIES.includes(kebabProperty)) {
     return true;
   }
   
@@ -270,24 +270,21 @@ export function generateStateTests(
   const tests: string[] = [];
   
   // Check if component has any properties that could change on interaction
-  const hasInteractiveElement = Object.keys(componentStyles).some(prop => 
-    shouldTestPropertyForState(prop)
-  );
+  const hasInteractiveElement = Object.keys(componentStyles).some(shouldTestPropertyForState);
   
   if (!hasInteractiveElement) {
     return ''; // Don't generate state tests if no interactive properties
   }
   
-  for (const state of states) {
+  states.forEach(state => {
     // Combine component styles with state-specific properties
     const componentInteractiveProps = Object.keys(componentStyles)
-      .filter(prop => shouldTestPropertyForState(prop));
+      .filter(shouldTestPropertyForState);
     
     // Use both component's interactive properties and common state properties
-    const allPropertiesToTest = new Set([
-      ...componentInteractiveProps.map(prop => toKebabCase(prop)),
-      ...state.properties
-    ]);
+    const allPropertiesToTest = new Set(
+      componentInteractiveProps.map(toKebabCase).concat(state.properties)
+    );
     
     if (allPropertiesToTest.size > 0) {
       const testName = `should have correct ${state.state} styles`;
@@ -324,7 +321,7 @@ ${propertyChecks}
       
       tests.push(testCode);
     }
-  }
+  });
   
   return tests.join('\n');
 }
@@ -415,12 +412,7 @@ export function analyzeComponentStateVariants(variants: Component[]): Map<string
     }
     
     // Store styles for this state
-    const styleMap = new Map<string, any>();
-    for (const key in styles) {
-      if (styles.hasOwnProperty(key)) {
-        styleMap.set(key, styles[key]);
-      }
-    }
+    const styleMap = new Map<string, any>(Object.entries(styles));
     stateStyleMap.set(stateName, styleMap);
     console.log(`DEBUG: Stored ${styleMap.size} styles for state "${stateName}"`);
   });
@@ -493,25 +485,20 @@ export function generateStateTestsFromVariants(
   // Get the default state styles
   let defaultStateStyles = stateStyleMap.get('default');
   if (!defaultStateStyles) {
-    defaultStateStyles = new Map<string, any>();
-    for (const key in defaultStyles) {
-      if (defaultStyles.hasOwnProperty(key)) {
-        defaultStateStyles.set(key, defaultStyles[key]);
-      }
-    }
+    defaultStateStyles = new Map<string, any>(Object.entries(defaultStyles));
   }
   
   // Dynamically generate tests for ALL states found in variants (not just predefined ones)
   const allStates = Array.from(stateStyleMap.keys()).filter(state => state !== 'default');
   
-  for (const stateName of allStates) {
+  allStates.forEach(stateName => {
     const stateStyles = stateStyleMap.get(stateName);
-    if (!stateStyles) continue;
+    if (!stateStyles) return;
     
     // Find differences between this state and default
     const differences = findStyleDifferences(defaultStateStyles, stateStyles);
     
-    if (differences.size === 0) continue;
+    if (differences.size === 0) return;
     
     // Convert state name to pseudo-class (handle custom states)
     const pseudoClass = stateName.startsWith(':') ? stateName : `:${stateName}`;
@@ -539,7 +526,7 @@ ${propertyChecks}
   });`;
     
     tests.push(testCode);
-  }
+  });
   
   return tests.join('\n');
 }

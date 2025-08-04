@@ -1,4 +1,4 @@
-import { Component, TextElement } from '../types';
+import { Component, TextElement, StyleCheck } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 
 // Constants for better maintainability
@@ -57,7 +57,7 @@ export class ComponentService {
       'selectionBackgroundColor',
       'selectionColor'
     ];
-    return simpleColorProperties.indexOf(property) !== -1;
+    return simpleColorProperties.includes(property);
   }
 
   private static isComplexColorProperty(property: string): boolean {
@@ -73,7 +73,7 @@ export class ComponentService {
       'textShadow',
       'dropShadow'
     ];
-    return complexColorProperties.indexOf(property) !== -1;
+    return complexColorProperties.includes(property);
   }
 
   private static normalizeStyleValue(property: string, value: any): any {
@@ -111,7 +111,7 @@ export class ComponentService {
             name: node.name,
             type: node.type,
             styles: resolvedStyles,
-            pageName: node.parent && "name" in node.parent ? node.parent.name : "Unknown",
+            pageName: node.parent?.name ?? "Unknown",
             parentId: node.parent?.id,
             children: [],
             textElements: textElements,
@@ -139,17 +139,17 @@ export class ComponentService {
       await collectNodes(page);
     }
 
-    for (const component of componentsData) {
+    componentsData.forEach(component => {
       if (component.parentId) {
         const parent = this.componentMap.get(component.parentId);
-        if (parent && parent.type === "COMPONENT_SET") {
+        if (parent?.type === "COMPONENT_SET") {
           parent.children.push(component);
           component.isChild = true;
         }
       }
-    }
+    });
 
-    return [...componentSets, ...componentsData.filter((comp) => !comp.isChild)];
+    return componentSets.concat(componentsData.filter(comp => !comp.isChild));
   }
 
   static getComponentById(id: string): Component | undefined {
@@ -165,11 +165,11 @@ export class ComponentService {
 
     const isComponentSet = component.type === "COMPONENT_SET";
 
-    if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
+    if (isComponentSet && generateAllVariants && component.children?.length > 0) {
       return this.generateComponentSetTest(component);
     }
 
-    const componentVariants = isComponentSet && component.children ? component.children : undefined;
+    const componentVariants = isComponentSet ? component.children : undefined;
 
     let styles;
     try {
@@ -179,44 +179,37 @@ export class ComponentService {
       styles = {};
     }
 
-    const styleChecks = [];
+    const styleChecks: StyleCheck[] = [];
 
-    for (const key in styles) {
-      if (Object.prototype.hasOwnProperty.call(styles, key)) {
-        let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        
-        if (camelCaseKey === 'background') {
-          camelCaseKey = 'backgroundColor';
-        }
-
-        styleChecks.push({
-          property: camelCaseKey,
-          value: this.normalizeStyleValue(camelCaseKey, styles[key]),
-        });
+    Object.entries(styles).forEach(([key, value]) => {
+      let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      
+      if (camelCaseKey === 'background') {
+        camelCaseKey = 'backgroundColor';
       }
-    }
+
+      styleChecks.push({
+        property: camelCaseKey,
+        value: this.normalizeStyleValue(camelCaseKey, value),
+      });
+    });
 
     // Add text styles from textElements
-    if (component.textElements && component.textElements.length > 0) {
-      for (const textElement of component.textElements) {
-        if (textElement.textStyles) {
-          for (const key in textElement.textStyles) {
-            if (textElement.textStyles.hasOwnProperty(key)) {
-              const value = textElement.textStyles[key];
-              if (value) {
-                styleChecks.push({
-                  property: key,
-                  value: this.normalizeStyleValue(key, value),
-                });
-              }
-            }
+    component.textElements?.forEach(textElement => {
+      if (textElement.textStyles) {
+        Object.entries(textElement.textStyles).forEach(([key, value]) => {
+          if (value) {
+            styleChecks.push({
+              property: key,
+              value: this.normalizeStyleValue(key, value),
+            });
           }
-        }
+        });
       }
-    }
+    });
 
     if (isComponentSet) {
-      const defaultVariant = component.children && component.children.length > 0 ? component.children[0] : null;
+      const defaultVariant = component.children?.[0] ?? null;
 
       if (defaultVariant) {
         let variantStyles;
@@ -227,22 +220,20 @@ export class ComponentService {
           variantStyles = {};
         }
 
-        const variantStyleChecks = [];
+        const variantStyleChecks: StyleCheck[] = [];
 
-        for (const key in variantStyles) {
-          if (Object.prototype.hasOwnProperty.call(variantStyles, key)) {
-            let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-            
-            if (camelCaseKey === 'background') {
-              camelCaseKey = 'backgroundColor';
-            }
-
-            variantStyleChecks.push({
-              property: camelCaseKey,
-              value: this.normalizeStyleValue(camelCaseKey, variantStyles[key]),
-            });
+        Object.entries(variantStyles).forEach(([key, value]) => {
+          let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+          
+          if (camelCaseKey === 'background') {
+            camelCaseKey = 'backgroundColor';
           }
-        }
+
+          variantStyleChecks.push({
+            property: camelCaseKey,
+            value: this.normalizeStyleValue(camelCaseKey, value),
+          });
+        });
 
         return createTestWithStyleChecks(componentName, kebabName, variantStyleChecks, includeStateTests, includeSizeTests, componentVariants, defaultVariant.textElements);
       }
@@ -252,7 +243,7 @@ export class ComponentService {
   }
 
   private static generateComponentSetTest(componentSet: Component): string {
-    if (!componentSet.children || componentSet.children.length === 0) {
+    if (!componentSet.children?.length) {
       return this.generateTest(componentSet);
     }
 
@@ -279,7 +270,9 @@ export class ComponentService {
       throw new Error(`Could not extract words from component name: ${name}`);
     }
 
-    const pascalName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+    const pascalName = words
+      .map(word => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
+      .join('');
     return { kebabName, pascalName };
   }
 
@@ -289,8 +282,8 @@ export class ComponentService {
 
     for (const variant of componentSet.children) {
       try {
-        const variantProps = this.parseVariantName(variant.name);
-        const testId = `${variantProps.state}-${variantProps.size}-${variantProps.variantType}`;
+        const { state, size, variantType } = this.parseVariantName(variant.name);
+        const testId = `${state}-${size}-${variantType}`;
         
         if (processedVariants.has(testId)) {
           continue;
@@ -301,12 +294,12 @@ export class ComponentService {
         const cssProperties = this.extractCssProperties(styles);
         const textStyles = this.extractTextStyles(variant.textElements);
 
-        const isPseudoState = this.isPseudoState(variantProps.state);
+        const isPseudoState = this.isPseudoState(state);
         
         if (isPseudoState) {
-          variantTests += this.generatePseudoStateTest(variantProps.state, variantProps.size, variantProps.variantType, cssProperties, kebabName, textStyles);
+          variantTests += this.generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles);
         } else {
-          variantTests += this.generateComponentPropertyTest(variantProps.state, variantProps.size, variantProps.variantType, cssProperties, kebabName, pascalName, textStyles);
+          variantTests += this.generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles);
         }
 
       } catch (error) {
@@ -327,9 +320,9 @@ export class ComponentService {
     const variantMatch = variantName.match(/Variant=([^,]+)/i);
     
     return {
-      state: stateMatch ? stateMatch[1].trim() : 'default',
-      size: sizeMatch ? sizeMatch[1].trim() : 'default',
-      variantType: variantMatch ? variantMatch[1].trim() : 'default'
+      state: stateMatch?.[1]?.trim() ?? 'default',
+      size: sizeMatch?.[1]?.trim() ?? 'default',
+      variantType: variantMatch?.[1]?.trim() ?? 'default'
     };
   }
 
@@ -352,7 +345,7 @@ export class ComponentService {
   }
 
   private static isPseudoState(state: string): boolean {
-    return PSEUDO_STATES.indexOf(state.toLowerCase()) !== -1;
+    return PSEUDO_STATES.includes(state.toLowerCase());
   }
 
   private static generateSizeTests(componentSet: Component, kebabName: string): string {
@@ -467,16 +460,21 @@ ${variantTests}${sizeTests}${stateTests}
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
       this.allVariables.clear();
       
-      for (const collection of collections) {
-        for (const variableId of collection.variableIds) {
-          const variable = await figma.variables.getVariableByIdAsync(variableId);
-          if (variable) {
-            this.allVariables.set(variable.id, variable);
-            const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-            this.allVariables.set(formattedName, variable);
-          }
+      const variablePromises = collections.flatMap(collection =>
+        collection.variableIds.map(variableId =>
+          figma.variables.getVariableByIdAsync(variableId)
+        )
+      );
+      
+      const variables = await Promise.all(variablePromises);
+      
+      variables.forEach(variable => {
+        if (variable) {
+          this.allVariables.set(variable.id, variable);
+          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          this.allVariables.set(formattedName, variable);
         }
-      }
+      });
     } catch (error) {
       console.error("Error collecting variables:", error);
     }
@@ -487,7 +485,7 @@ ${variantTests}${sizeTests}${stateTests}
       return styles;
     }
 
-    const resolvedStyles = { ...styles };
+    const resolvedStyles = Object.assign({}, styles);
     
     for (const property in styles) {
       if (styles.hasOwnProperty(property)) {
@@ -500,7 +498,7 @@ ${variantTests}${sizeTests}${stateTests}
 
     // Merge text styles into resolved styles
     if (textElements && textElements.length > 0) {
-      for (const textElement of textElements) {
+      textElements.forEach(textElement => {
         if (textElement.textStyles) {
           for (const key in textElement.textStyles) {
             if (textElement.textStyles.hasOwnProperty(key)) {
@@ -514,7 +512,7 @@ ${variantTests}${sizeTests}${stateTests}
             }
           }
         }
-      }
+      });
     }
 
     return resolvedStyles;
@@ -524,12 +522,12 @@ ${variantTests}${sizeTests}${stateTests}
     const result: { state?: string, size?: string } = {};
 
     const stateMatch = name.match(/State=([^,]+)/i);
-    if (stateMatch && stateMatch[1]) {
+    if (stateMatch?.[1]) {
       result.state = stateMatch[1].trim();
     }
 
     const sizeMatch = name.match(/Size=([^,]+)/i);
-    if (sizeMatch && sizeMatch[1]) {
+    if (sizeMatch?.[1]) {
       result.size = sizeMatch[1].trim();
     }
 
@@ -538,13 +536,13 @@ ${variantTests}${sizeTests}${stateTests}
 
   private static replaceVariableIdsWithNames(cssValue: string): string {
     return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
-      for (const variable of this.allVariables.values()) {
+      Array.from(this.allVariables.values()).find(variable => {
         const figmaVariable = variable as any; // Figma variable object
         if (figmaVariable?.id === variableId.replace(/:/g, ':')) {
           const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
           return `var(--${formattedName})`;
         }
-      }
+      });
       return match;
     }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
       const varId = match.replace(/var\(--([^)]+)\)/, '$1');
@@ -562,15 +560,14 @@ ${variantTests}${sizeTests}${stateTests}
   private static extractTextStyles(textElements?: any[]): Record<string, string> {
     const textStyles: Record<string, string> = {};
     
-    if (!textElements || textElements.length === 0) {
+    if (!textElements?.length) {
       return textStyles;
     }
     
     textElements.forEach(textEl => {
       if (textEl.textStyles) {
-        Object.keys(textEl.textStyles).forEach(styleKey => {
-          const value = (textEl.textStyles as any)?.[styleKey];
-          if (value !== undefined && value !== null && value !== "") {
+        Object.entries(textEl.textStyles).forEach(([styleKey, value]) => {
+          if (value != null && value !== "") {
             let expectedValue = String(value);
             let cssProperty = '';
             
@@ -625,17 +622,14 @@ ${variantTests}${sizeTests}${stateTests}
     const cssProperties: Record<string, string> = {};
     const collectedStyles: Record<string, any> = {};
     
-    for (const key in styles) {
-      if (Object.prototype.hasOwnProperty.call(styles, key)) {
-        
-        let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        if (camelCaseKey === 'background') {
-          camelCaseKey = 'backgroundColor';
-        }
-        
-        collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, styles[key]);
+    Object.entries(styles).forEach(([key, value]) => {
+      let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      if (camelCaseKey === 'background') {
+        camelCaseKey = 'backgroundColor';
       }
-    }
+      
+      collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, value);
+    });
     
     if (collectedStyles.paddingTop || collectedStyles.paddingRight || collectedStyles.paddingBottom || collectedStyles.paddingLeft) {
       cssProperties['padding'] = 'computed';
@@ -662,11 +656,11 @@ ${variantTests}${sizeTests}${stateTests}
     
     const shorthandSkip = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
     
-    for (const prop of standardProps) {
-      if (collectedStyles[prop] && shorthandSkip.indexOf(prop) === -1) {
+    standardProps.forEach(prop => {
+      if (collectedStyles[prop] && !shorthandSkip.includes(prop)) {
         cssProperties[prop] = String(collectedStyles[prop]);
       }
-    }
+    });
     
     return cssProperties;
   }
@@ -675,7 +669,7 @@ ${variantTests}${sizeTests}${stateTests}
     const pseudoClass = `:${state.toLowerCase()}`;
     const testDescription = `should have correct :${state.toLowerCase()} styles${size !== 'default' ? ` for ${size} size` : ''}${variantType !== 'default' ? ` (${variantType} variant)` : ''}`;
     
-    const allProperties = { ...cssProperties, ...textStyles };
+    const allProperties = Object.assign({}, cssProperties, textStyles);
     const testableProperties = Object.keys(allProperties).filter(property => {
       const expectedValue = allProperties[property];
       return expectedValue !== 'computed' && !(expectedValue.includes('var(') && !expectedValue.match(/var\([^,]+,\s*([^)]+)\)/));
@@ -843,11 +837,11 @@ ${Object.keys(cssProperties).map((property: string) => {
             textOverflow: nodeStyles['text-overflow']
           };
           
-          for (const key in textStyles) {
-            if (textStyles[key] === undefined || textStyles[key] === null || textStyles[key] === '') {
+          Object.keys(textStyles).forEach(key => {
+            if (textStyles[key] == null || textStyles[key] === '') {
               delete textStyles[key];
             }
-          }
+          });
         } catch (e) {
           console.error('Error getting text styles:', e);
         }

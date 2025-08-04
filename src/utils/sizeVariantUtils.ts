@@ -58,7 +58,7 @@ export function generateSizeVariantTests(
   // Extract size information from variant names and group by size
   const sizeVariantMap: Map<string, SizeVariant[]> = new Map();
   
-  if (allVariants && allVariants.length > 0) {
+  if (allVariants?.length) {
     allVariants.forEach(variant => {
       console.log('DEBUG: Checking variant:', variant.name);
       const sizeMatch = variant.name.match(/Size=([^,]+)/i);
@@ -67,7 +67,7 @@ export function generateSizeVariantTests(
       
       if (sizeMatch) {
         const sizeName = sizeMatch[1].toLowerCase();
-        const stateName = stateMatch ? stateMatch[1].toLowerCase() : 'default';
+        const stateName = stateMatch?.[1]?.toLowerCase() ?? 'default';
         console.log('DEBUG: Found size variant:', sizeName, 'with state:', stateName);
         
         // Parse variant styles
@@ -80,7 +80,7 @@ export function generateSizeVariantTests(
         }
         
         // Get existing variants for this size or create new array
-        const existingVariants = sizeVariantMap.get(sizeName) || [];
+        const existingVariants = sizeVariantMap.get(sizeName) ?? [];
         
         existingVariants.push({
           name: sizeName,
@@ -105,7 +105,7 @@ export function generateSizeVariantTests(
   const sizeVariants: SizeVariant[] = [];
   sizeVariantMap.forEach((variants, sizeName) => {
     // Find default state or first variant
-    const defaultVariant = variants.find(v => v.state === 'default') || variants[0];
+    const defaultVariant = variants.find(v => v.state === 'default') ?? variants[0];
     if (defaultVariant) {
       sizeVariants.push(defaultVariant);
     }
@@ -123,7 +123,7 @@ export function generateSizeVariantTests(
       // Look for properties that commonly change with size
       const sizeRelatedProperties = ['padding', 'gap', 'font-size', 'line-height', 'width', 'height', 'min-width', 'min-height', 'margin'];
       
-      for (const prop of sizeRelatedProperties) {
+      sizeRelatedProperties.forEach(prop => {
         if (variant.expectedStyles[prop]) {
           sizeSpecificProps[prop] = variant.expectedStyles[prop];
         }
@@ -132,20 +132,17 @@ export function generateSizeVariantTests(
         if (variant.expectedStyles[camelProp]) {
           sizeSpecificProps[camelProp] = variant.expectedStyles[camelProp];
         }
-      }
+      });
       
       // Generate tests for each size
       const testCases: string[] = [];
       
-      for (const prop in sizeSpecificProps) {
-        if (sizeSpecificProps.hasOwnProperty(prop)) {
-          const value = sizeSpecificProps[prop];
-          const kebabProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
-          testCases.push(`checkStyleProperty('${variant.selector}', '', '${kebabProp}', '${value}');`);
-        }
-      }
+      Object.entries(sizeSpecificProps).forEach(([prop, value]) => {
+        const kebabProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
+        testCases.push(`checkStyleProperty('${variant.selector}', '', '${kebabProp}', '${value}');`);
+      });
       
-      if (testCases.length === 0) {
+      if (!testCases.length) {
         return `
     // ${variant.name} size variant - no size-specific properties found`;
       }
@@ -161,7 +158,7 @@ export function generateSizeVariantTests(
       if (!hoverVariant) return '';
       
       // Check if hover has different padding than default
-      const defaultVariant = variants.find(v => v.state === 'default') || variants[0];
+      const defaultVariant = variants.find(v => v.state === 'default') ?? variants[0];
       if (defaultVariant && hoverVariant.expectedStyles.padding !== defaultVariant.expectedStyles.padding) {
         return `
     // Test ${sizeName} size hover state padding
@@ -191,7 +188,7 @@ export function generateBasicSizeTests(componentSelector: string): string {
     const sizeProperties = ['padding', 'font-size', 'line-height', 'border-radius', 'gap', 'width', 'height', 'min-width', 'min-height'];
     
     // Test both standard size variants and alternative naming
-    const allSizeVariants = [...sizeVariants, ...altSizeVariants];
+    const allSizeVariants = sizeVariants.concat(altSizeVariants);
     
     allSizeVariants.forEach(size => {
       sizeProperties.forEach(property => {

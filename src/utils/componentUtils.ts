@@ -81,13 +81,13 @@ export function parseComponentName(name: string): ParsedComponentName {
 
   // Check for Type=X pattern
   const typeMatch = name.match(/Type=([^,]+)/i);
-  if (typeMatch && typeMatch[1]) {
+  if (typeMatch?.[1]) {
     result.type = typeMatch[1].trim();
   }
 
   // Check for State=X pattern
   const stateMatch = name.match(/State=([^,]+)/i);
-  if (stateMatch && stateMatch[1]) {
+  if (stateMatch?.[1]) {
     result.state = stateMatch[1].trim();
   }
 
@@ -95,7 +95,7 @@ export function parseComponentName(name: string): ParsedComponentName {
 }
 
 export function generateStyleChecks(styleChecks: StyleCheck[]): string {
-  if (styleChecks.length === 0) {
+  if (!styleChecks.length) {
     return "        // No style properties to check";
   }
 
@@ -126,7 +126,7 @@ const LAYOUT_PROPERTIES = [
  * Generate tests for text content within components
  */
 function generateTextContentTests(textElements?: any[], componentVariants?: Component[]): string {
-  if (!textElements || textElements.length === 0) {
+  if (!textElements?.length) {
     return '';
   }
 
@@ -148,8 +148,8 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
         const sizeMatch = variant.name.match(/Size=([^,]+)/i);
         const propMatch = variant.name.match(/Property\s*\d*\s*=\s*([^,]+)/i);
         
-        const state = stateMatch ? stateMatch[1].toLowerCase() : (propMatch ? propMatch[1].toLowerCase() : 'default');
-        const size = sizeMatch ? sizeMatch[1].toLowerCase() : 'default';
+        const state = stateMatch?.[1]?.toLowerCase() ?? (propMatch?.[1]?.toLowerCase() ?? 'default');
+        const size = sizeMatch?.[1]?.toLowerCase() ?? 'default';
         
         const key = `${state}-${size}`;
         if (!variantGroups.has(key)) {
@@ -161,7 +161,7 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
       // Generate tests for each variant group that has text content
       variantGroups.forEach((variants, key) => {
         const variant = variants[0]; // Use first variant in group
-        if (variant.textElements && variant.textElements.length > 0) {
+        if (variant.textElements?.length) {
           const [state, size] = key.split('-');
           const textStyleTest = `
   it('should have correct text styles for ${state} state, ${size} size', () => {
@@ -281,7 +281,7 @@ export function createTestWithStyleChecks(
         .map((check) => {
           const expected = stripCssVarFallback(String(check.value));
           // Comment out layout properties
-          if (LAYOUT_PROPERTIES.indexOf(check.property) !== -1) {
+          if (LAYOUT_PROPERTIES.includes(check.property as any)) {
             return `      // Check ${check.property} (layout property - often structural)
       // expect(computedStyle.${check.property}).toBe('${expected}');`;
           }
@@ -322,7 +322,7 @@ export function createTestWithStyleChecks(
   // Generate size variant tests
   let sizeTestsCode = '';
   if (includeSizeTests) {
-    console.log('DEBUG: Size testing - componentVariants:', componentVariants ? componentVariants.length : 'null/undefined');
+    console.log('DEBUG: Size testing - componentVariants:', componentVariants?.length ?? 'null/undefined');
     if (componentVariants && componentVariants.length > 0) {
       console.log('DEBUG: Using Figma variant data for size testing');
       // Use actual variant data from Figma
@@ -335,9 +335,9 @@ export function createTestWithStyleChecks(
   }
   
   // Include helper functions if we have any tests that use variants
-  const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
+  const hasVariantTests = componentVariants?.length && (includeStateTests || includeSizeTests);
   const helperFunctions = hasVariantTests
-    ? '\n' + generateTestHelpers() + '\n'
+    ? `\n${generateTestHelpers()}\n`
     : '';
 
   return `import { ComponentFixture, TestBed } from '@angular/core/testing';

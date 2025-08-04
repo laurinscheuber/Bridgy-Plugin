@@ -13,7 +13,7 @@ export class GitLabService {
 
       if (shareWithTeam) {
         // Save to document storage (shared with team)
-        const settingsToSave = { ...settings };
+        const settingsToSave = Object.assign({}, settings);
 
         // If user didn't opt to save the token, don't store it in shared settings
         if (!settings.saveToken) {
@@ -106,7 +106,7 @@ export class GitLabService {
       // Fallback: try to load personal settings
       const personalSettings = await figma.clientStorage.getAsync(settingsKey);
       if (personalSettings) {
-        return { ...personalSettings, isPersonal: true };
+        return Object.assign({}, personalSettings, { isPersonal: true });
       }
 
       // Migration: Check for legacy document settings (old global settings in this file only)
@@ -316,13 +316,16 @@ export class GitLabService {
     lastCommitId?: string
   ) {
     const commitUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/commits`;
-    const commitAction = {
+    const commitAction: any = {
       action,
       file_path: filePath,
       content: cssData,
-      encoding: "text",
-      ...(lastCommitId && { last_commit_id: lastCommitId }),
+      encoding: "text"
     };
+    
+    if (lastCommitId) {
+      commitAction.last_commit_id = lastCommitId;
+    }
 
     const response = await fetch(commitUrl, {
       method: "POST",
