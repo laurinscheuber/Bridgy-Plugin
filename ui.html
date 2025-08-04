@@ -693,17 +693,6 @@
         gap: 8px;
         margin-top: 16px;
       }
-      .generate-test-button {
-        background-color: #4caf50;
-      }
-      .generate-test-button:hover {
-        background-color: #3d8b40;
-      }
-      .generate-test-button.loading {
-        background-color: #9e9e9e;
-        cursor: wait;
-        box-shadow: none;
-      }
       .generate-all-variants-button {
         background-color: #e91e63;
       }
@@ -878,24 +867,6 @@
         color: #333;
       }
 
-      .commit-button {
-        background-color: #4caf50;
-        min-width: 80px;
-        box-sizing: border-box;
-      }
-
-      .commit-button:hover {
-        background-color: #3d8b40;
-      }
-
-      .commit-button.loading {
-        background-color: #9e9e9e;
-        cursor: wait;
-        min-width: 80px;
-        width: auto;
-        white-space: nowrap;
-        box-shadow: none;
-      }
 
       /* Styles for GitLab credentials display and settings */
       .credentials-display {
@@ -1409,7 +1380,7 @@
           <button onclick="closeGitLabModal()">Cancel</button>
           <button
             id="commit-submit-button"
-            class="commit-button"
+            class="commit-all-variants-button"
             onclick="commitToGitLab()"
           >
             Commit
@@ -3089,24 +3060,16 @@
               </div>
               <div class="component-set-actions">
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <button class="generate-test-button" onclick="event.stopPropagation(); generateTest('${
-                    component.id
-                  }', '${component.name}', this, false)">Generate Test</button>
-                  <button class="commit-button" onclick="event.stopPropagation(); generateTest('${
-                    component.id
-                  }', '${
-              component.name
-            }', this, false, true)">Commit Test</button>
                   <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${
                     component.id
                   }', '${
               component.name
-            }', this, true)">Generate All Variants</button>
+            }', this, true)">Generate Test</button>
                   <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${
                     component.id
                   }', '${
               component.name
-            }', this, true, true)">Commit All Variants</button>
+            }', this, true, true)">Commit Test</button>
                 </div>
                 <div class="test-success-message">Test generated successfully!</div>
               </div>
@@ -3182,14 +3145,14 @@
                 <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
               </div>
               <div class="action-buttons">
-                <button class="generate-test-button" onclick="generateTest('${
+                <button class="generate-all-variants-button" onclick="generateTest('${
                   component.id
-                }', '${component.name}', this)">Generate Test</button>
-                <button class="commit-button" onclick="generateTest('${
+                }', '${component.name}', this, true)">Generate Test</button>
+                <button class="commit-all-variants-button" onclick="generateTest('${
                   component.id
                 }', '${
               component.name
-            }', this, false, true)">Commit Test</button>
+            }', this, true, true)">Commit Test</button>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
             </div>
