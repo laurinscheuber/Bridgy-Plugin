@@ -48,6 +48,11 @@ export const INTERACTIVE_PROPERTIES = [
   'font-weight',
   'font-style',
   
+  // Text sizing (often changes on interaction)
+  'font-size',
+  'line-height',
+  'letter-spacing',
+  
   // Transitions (to detect if they exist)
   'transition',
   'transition-duration',
@@ -79,8 +84,6 @@ export const STATIC_PROPERTIES = [
   'align-items',
   'gap',
   'border-radius',
-  'font-size',
-  'line-height',
   'font-family',
   'text-align',
   'vertical-align',

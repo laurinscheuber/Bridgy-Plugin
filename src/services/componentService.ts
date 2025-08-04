@@ -515,7 +515,6 @@ ${variantTests}
     
     for (const key in styles) {
       if (Object.prototype.hasOwnProperty.call(styles, key)) {
-        if (key.startsWith('text_')) continue;
         
         let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
         if (camelCaseKey === 'background') {

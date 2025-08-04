@@ -988,6 +988,10 @@ ${propertyChecks}
         "text-decoration-style",
         "font-weight",
         "font-style",
+        // Text sizing (often changes on interaction)
+        "font-size",
+        "line-height",
+        "letter-spacing",
         // Transitions (to detect if they exist)
         "transition",
         "transition-duration",
@@ -1901,8 +1905,6 @@ ${variantTests}
           const collectedStyles = {};
           for (const key in styles) {
             if (Object.prototype.hasOwnProperty.call(styles, key)) {
-              if (key.startsWith("text_"))
-                continue;
               let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
               if (camelCaseKey === "background") {
                 camelCaseKey = "backgroundColor";
