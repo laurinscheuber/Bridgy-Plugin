@@ -1,9 +1,31 @@
 import { Component, TextElement } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 
+// Constants for better maintainability
+const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
+const DEFAULT_ELEMENT_SELECTORS = 'button, div, span, a, p, h1, h2, h3, h4, h5, h6';
+
+type PseudoState = typeof PSEUDO_STATES[number];
+
+interface VariantProps {
+  state: string;
+  size: string;
+  variantType: string;
+}
+
+interface ParsedComponentName {
+  kebabName: string;
+  pascalName: string;
+}
+
+interface ComponentTestError extends Error {
+  componentName: string;
+  variant?: string;
+}
+
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
-  private static allVariables = new Map<string, any>();
+  private static allVariables = new Map<string, unknown>();
 
   private static isSimpleColorProperty(property: string): boolean {
     const simpleColorProperties = [
@@ -234,117 +256,200 @@ export class ComponentService {
       return this.generateTest(componentSet);
     }
 
-    const kebabName = componentSet.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    const words = componentSet.name.split(/[^a-zA-Z0-9]+/).filter(word => word.length > 0);
-    const pascalName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+    const { kebabName, pascalName } = this.parseComponentName(componentSet.name);
+    const variantTests = this.generateVariantTests(componentSet, kebabName, pascalName);
+    const sizeTests = this.generateSizeTests(componentSet, kebabName);
+    const stateTests = this.generateStateTests(componentSet, kebabName);
+    
+    return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests, sizeTests, stateTests);
+  }
 
+  private static parseComponentName(name: string): ParsedComponentName {
+    if (!name || typeof name !== 'string') {
+      throw new Error(`Invalid component name: ${name}`);
+    }
+
+    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    if (!kebabName) {
+      throw new Error(`Could not generate valid kebab-case name from: ${name}`);
+    }
+
+    const words = name.split(/[^a-zA-Z0-9]+/).filter(word => word.length > 0);
+    if (words.length === 0) {
+      throw new Error(`Could not extract words from component name: ${name}`);
+    }
+
+    const pascalName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+    return { kebabName, pascalName };
+  }
+
+  private static generateVariantTests(componentSet: Component, kebabName: string, pascalName: string): string {
     let variantTests = '';
     const processedVariants = new Set<string>();
 
-    componentSet.children.forEach((variant, index) => {
+    for (const variant of componentSet.children) {
       try {
-        const styles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
-        const variantName = variant.name;
+        const variantProps = this.parseVariantName(variant.name);
+        const testId = `${variantProps.state}-${variantProps.size}-${variantProps.variantType}`;
         
-        const stateMatch = variantName.match(/State=([^,]+)/i);
-        const sizeMatch = variantName.match(/Size=([^,]+)/i);
-        const variantMatch = variantName.match(/Variant=([^,]+)/i);
-        
-        const state = stateMatch ? stateMatch[1].trim() : 'default';
-        const size = sizeMatch ? sizeMatch[1].trim() : 'default';
-        const variantType = variantMatch ? variantMatch[1].trim() : 'default';
-
-        const testId = `${state}-${size}-${variantType}`;
         if (processedVariants.has(testId)) {
-          return;
+          continue;
         }
         processedVariants.add(testId);
 
-        const isPseudoState = ['hover', 'active', 'focus', 'disabled'].indexOf(state.toLowerCase()) !== -1;
-        
+        const styles = this.parseStyles(variant.styles);
         const cssProperties = this.extractCssProperties(styles);
         const textStyles = this.extractTextStyles(variant.textElements);
 
+        const isPseudoState = this.isPseudoState(variantProps.state);
+        
         if (isPseudoState) {
-          variantTests += this.generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles);
+          variantTests += this.generatePseudoStateTest(variantProps.state, variantProps.size, variantProps.variantType, cssProperties, kebabName, textStyles);
         } else {
-          variantTests += this.generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles);
+          variantTests += this.generateComponentPropertyTest(variantProps.state, variantProps.size, variantProps.variantType, cssProperties, kebabName, pascalName, textStyles);
         }
 
-      } catch (e) {
-        console.error('Error generating test for variant:', variant.name, e);
+      } catch (error) {
+        console.error('Error generating test for variant:', variant.name, error);
       }
-    });
+    }
 
-    const result = `import { ComponentFixture, TestBed } from '@angular/core/testing';
+    return variantTests;
+  }
+
+  private static parseVariantName(variantName: string): VariantProps {
+    if (!variantName || typeof variantName !== 'string') {
+      throw new Error(`Invalid variant name: ${variantName}`);
+    }
+
+    const stateMatch = variantName.match(/State=([^,]+)/i);
+    const sizeMatch = variantName.match(/Size=([^,]+)/i);
+    const variantMatch = variantName.match(/Variant=([^,]+)/i);
+    
+    return {
+      state: stateMatch ? stateMatch[1].trim() : 'default',
+      size: sizeMatch ? sizeMatch[1].trim() : 'default',
+      variantType: variantMatch ? variantMatch[1].trim() : 'default'
+    };
+  }
+
+  private static parseStyles(styles: unknown): Record<string, unknown> {
+    if (!styles) {
+      return {};
+    }
+
+    if (typeof styles === 'string') {
+      try {
+        const parsed = JSON.parse(styles);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+      } catch (error) {
+        console.error('Failed to parse styles JSON:', error);
+        return {};
+      }
+    }
+
+    return typeof styles === 'object' && styles !== null ? styles as Record<string, unknown> : {};
+  }
+
+  private static isPseudoState(state: string): boolean {
+    return PSEUDO_STATES.indexOf(state.toLowerCase()) !== -1;
+  }
+
+  private static generateSizeTests(componentSet: Component, kebabName: string): string {
+    try {
+      const uniqueSizes = new Set(
+        componentSet.children
+          .map(variant => this.parseVariantName(variant.name).size)
+          .filter(size => size !== 'default')
+      );
+
+      if (uniqueSizes.size === 0) return '';
+
+      const sizeTestCases = Array.from(uniqueSizes)
+        .map(size => `
+    element.classList.add('${kebabName}--${size}');
+    expect(element.classList.contains('${kebabName}--${size}')).toBeTruthy();
+    element.classList.remove('${kebabName}--${size}');`).join('');
+
+      return `
+  it('should support all size variants', () => {
+    const element = fixture.nativeElement.querySelector('${DEFAULT_ELEMENT_SELECTORS}');
+    if (!element) return;
+${sizeTestCases}
+  });`;
+    } catch (error) {
+      console.error('Error generating size tests:', error);
+      return '';
+    }
+  }
+
+  private static generateStateTests(componentSet: Component, kebabName: string): string {
+    const hasInteractiveStates = componentSet.children.some(variant => 
+      this.isPseudoState(this.parseVariantName(variant.name).state)
+    );
+
+    if (!hasInteractiveStates) return '';
+
+    return `
+  it('should support all state variants', () => {
+    const selector = '.${kebabName}';
+    
+    const hoverValue = getCssPropertyForRule(selector, ':hover', 'background-color');
+    if (hoverValue) {
+      expect(hoverValue).toBeDefined();
+    }
+  });`;
+  }
+
+  private static buildComponentSetTestTemplate(pascalName: string, kebabName: string, variantTests: string, sizeTests: string, stateTests: string): string {
+    return `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
 describe('${pascalName}Component - All Variants', () => {
   let component: ${pascalName}Component;
   let fixture: ComponentFixture<${pascalName}Component>;
-  
-  const resolveCssVariable = (variableName: string, stylesheetHrefPart = 'styles.css'): string | undefined => {
-    const targetSheet = Array.from(document.styleSheets)
-      .find(sheet => sheet.href?.includes(stylesheetHrefPart));
+
+  const resolveCssVariable = (
+    variableName: string,
+    stylesheetHrefPart = 'styles.css'
+  ): string | undefined => {
+    const targetSheet = Array.from(document.styleSheets).find((sheet) =>
+      sheet.href?.includes(stylesheetHrefPart)
+    );
 
     const rootRule = Array.from(targetSheet?.cssRules || [])
-      .filter(rule => rule instanceof CSSStyleRule)
-      .find(rule => rule.selectorText === ':root');
+      .filter((rule) => rule instanceof CSSStyleRule)
+      .find((rule) => rule.selectorText === ':root');
 
     const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
 
     if (value?.startsWith('var(')) {
       const nestedVar = value.match(/var\((--.+?)\)/)?.[1];
-      return nestedVar ? resolveCssVariable(nestedVar, stylesheetHrefPart) : undefined;
+      return nestedVar
+        ? resolveCssVariable(nestedVar, stylesheetHrefPart)
+        : undefined;
     }
     return value;
   };
 
-  const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: string): string | undefined => {
-    // Regex necessary because Angular attaches identifier after the selector
+  const getCssPropertyForRule = (
+    cssSelector: string,
+    pseudoClass: string,
+    prop: string
+  ): string | undefined => {
     const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
     const style = Array.from(document.styleSheets)
-      .flatMap(sheet => Array.from(sheet.cssRules || []))
-      .filter(r => r instanceof CSSStyleRule)
-      .find(r => regex.test(r.selectorText))
-      ?.style;
+      .flatMap((sheet) => Array.from(sheet.cssRules || []))
+      .filter((r) => r instanceof CSSStyleRule)
+      .find((r) => regex.test(r.selectorText))?.style;
 
     return style?.getPropertyValue(prop);
   };
 
-  const checkStyleProperty = (selector: string, pseudoClass: string, property: string, expectedValue?: string) => {
-    const value = getCssPropertyForRule(selector, pseudoClass, property);
-    if (!value) {
-      // If no value is found for this pseudo-class, that's okay - not all states need all properties
-      return;
-    }
-
-    if (value.startsWith('var(')) {
-      const variableName = value.match(/var\((--.+?)\)/)?.[1];
-      const resolvedValue = variableName ? resolveCssVariable(variableName) : undefined;
-      if (expectedValue) {
-        expect(resolvedValue).toBe(expectedValue);
-      } else {
-        expect(resolvedValue).toBeDefined();
-        // Log the actual value for debugging
-        console.log(\`\${selector}\${pseudoClass} \${property}: \${resolvedValue}\`);
-      }
-    } else {
-      if (expectedValue) {
-        expect(value).toBe(expectedValue);
-      } else {
-        expect(value).toBeDefined();
-        // Log the actual value for debugging
-        console.log(\`\${selector}\${pseudoClass} \${property}: \${value}\`);
-      }
-    }
-  };
-
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ ${pascalName}Component ]
-    })
-    .compileComponents();
+      imports: [${pascalName}Component],
+    }).compileComponents();
   });
 
   beforeEach(() => {
@@ -353,41 +458,8 @@ describe('${pascalName}Component - All Variants', () => {
     fixture.detectChanges();
   });
 
-${variantTests}
-
-  it('should support all size variants', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    ${Array.from(new Set(componentSet.children.map(variant => {
-      const sizeMatch = variant.name.match(/Size=([^,]+)/i);
-      return sizeMatch ? sizeMatch[1].trim() : 'default';
-    }))).map(size => `
-    element.classList.add('${kebabName}--${size}');
-    expect(element.classList.contains('${kebabName}--${size}')).toBeTruthy();
-    element.classList.remove('${kebabName}--${size}');`).join('')}
-    
-    console.log('Size variant testing completed');
-  });
-
-  it('should support all state variants', () => {
-    const selector = '.${kebabName}';
-    
-    ${Array.from(new Set(componentSet.children.map(variant => {
-      const stateMatch = variant.name.match(/State=([^,]+)/i);
-      return stateMatch ? stateMatch[1].trim() : 'default';
-    }).filter(state => state !== 'default'))).map(state => `
-    const ${state}Value = getCssPropertyForRule(selector, ':${state}', 'background-color');
-    if (${state}Value) {
-      expect(${state}Value).toBeDefined();
-      console.log('${state} state background-color:', ${state}Value);
-    }`).join('')}
-    
-    console.log('State variant testing completed using CSS rules');
-  });
+${variantTests}${sizeTests}${stateTests}
 });`;
-    
-    return result;
   }
 
   private static async collectAllVariables(): Promise<void> {
@@ -448,7 +520,7 @@ ${variantTests}
     return resolvedStyles;
   }
 
-  private static parseComponentName(name: string): { state?: string, size?: string } {
+  private static parseComponentVariantName(name: string): { state?: string, size?: string } {
     const result: { state?: string, size?: string } = {};
 
     const stateMatch = name.match(/State=([^,]+)/i);
@@ -467,8 +539,9 @@ ${variantTests}
   private static replaceVariableIdsWithNames(cssValue: string): string {
     return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
       for (const variable of this.allVariables.values()) {
-        if (variable.id === variableId.replace(/:/g, ':')) {
-          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+        const figmaVariable = variable as any; // Figma variable object
+        if (figmaVariable?.id === variableId.replace(/:/g, ':')) {
+          const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
           return `var(--${formattedName})`;
         }
       }
@@ -476,8 +549,9 @@ ${variantTests}
     }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
       const varId = match.replace(/var\(--([^)]+)\)/, '$1');
       for (const variable of this.allVariables.values()) {
-        if (variable.id.includes(varId) || varId.includes(variable.id)) {
-          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+        const figmaVariable = variable as any; // Figma variable object
+        if (figmaVariable?.id?.includes(varId) || varId.includes(figmaVariable?.id || '')) {
+          const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
           return `var(--${formattedName})`;
         }
       }
