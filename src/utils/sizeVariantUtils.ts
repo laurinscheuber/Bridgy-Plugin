@@ -202,7 +202,6 @@ export function generateBasicSizeTests(componentSelector: string): string {
         
         const value = bemValue || modifierValue;
         if (value) {
-          console.log(\`Size \${size} - \${property}: \${value}\`);
           expect(value).toBeDefined();
         }
       });

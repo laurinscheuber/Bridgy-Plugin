@@ -245,16 +245,12 @@ export function generateTestHelpers(): string {
         expect(resolvedValue).toBe(expectedValue);
       } else {
         expect(resolvedValue).toBeDefined();
-        // Log the actual value for debugging
-        console.log(\`\${selector}\${pseudoClass} \${property}: \${resolvedValue}\`);
       }
     } else {
       if (expectedValue) {
         expect(value).toBe(expectedValue);
       } else {
         expect(value).toBeDefined();
-        // Log the actual value for debugging
-        console.log(\`\${selector}\${pseudoClass} \${property}: \${value}\`);
       }
     }
   };`;

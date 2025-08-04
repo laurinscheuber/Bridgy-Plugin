@@ -183,28 +183,24 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
       if (styles.fontSize) {
         const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
         assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Font Size
     expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
       }
       
       if (styles.fontFamily) {
         const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
         assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Font Family
     expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
       }
       
       if (styles.fontWeight) {
         const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
         assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Font Weight
     expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
       }
       
       if (styles.color) {
         const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim());
         assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Color
     expect(computedStyle.color).toBe('${normalizedColor}');`);
       }
       
@@ -235,28 +231,24 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
       if (styles.fontSize) {
         const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
         assertions.push(`
-    // Text: "${textEl.content}" - Font Size
     expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
       }
       
       if (styles.fontFamily) {
         const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
         assertions.push(`
-    // Text: "${textEl.content}" - Font Family
     expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
       }
       
       if (styles.fontWeight) {
         const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
         assertions.push(`
-    // Text: "${textEl.content}" - Font Weight
     expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
       }
       
       if (styles.color) {
         const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim());
         assertions.push(`
-    // Text: "${textEl.content}" - Color
     expect(computedStyle.color).toBe('${normalizedColor}');`);
       }
       
