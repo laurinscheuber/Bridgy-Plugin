@@ -2,9 +2,23 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), clipboard-write=(), display-capture=()" />
+    <!-- Note: Permissions policy warnings are expected in Figma plugin environment but don't affect functionality -->
     <title>DesignSync UI</title>
     <!-- Add JSZip library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Suppress permissions policy warnings that don't affect functionality -->
+    <script>
+      (function() {
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('Potential permissions policy violation')) {
+            return; // Suppress permissions policy warnings
+          }
+          originalWarn.apply(console, args);
+        };
+      })();
+    </script>
     <style>
       body {
         font-family: "Inter", sans-serif;
