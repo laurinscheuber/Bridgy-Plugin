@@ -474,6 +474,27 @@
       .component-styles.expanded .close-button {
         display: block;
       }
+      
+      /* New styles for expanded content display */
+      .style-content-wrapper {
+        width: 100%;
+      }
+      
+      .expand-indicator {
+        color: #0d99ff;
+        font-style: italic;
+        cursor: pointer;
+      }
+      
+      .expand-indicator:hover {
+        text-decoration: underline;
+      }
+      
+      .style-expanded {
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      
       .json-key {
         color: #881391;
       }
@@ -625,6 +646,7 @@
         padding: 16px;
         border-bottom: 1px solid #e5e7eb;
       }
+
 
       /* Button styling */
       button {
@@ -1431,7 +1453,7 @@
             <input
               type="text"
               id="config-test-file-path"
-              placeholder="components/test-{componentName}.component.spec.ts"
+              placeholder="components/{componentName}/{componentName}.spec.ts"
             />
             <div style="font-size: 12px; color: #666; margin-top: 4px">
               <i>Use {componentName} as a placeholder for the component name</i>
@@ -1597,17 +1619,18 @@
           <!-- Introduction -->
           <div
             style="
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
               color: white;
               padding: 20px;
               border-radius: 8px;
               margin-bottom: 24px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             "
           >
-            <h4 style="margin: 0 0 12px; font-size: 18px">
+            <h4 style="margin: 0 0 12px; font-size: 18px; color: white; font-weight: 600">
               🚀 Welcome to DesignSync!
             </h4>
-            <p style="margin: 0; line-height: 1.5">
+            <p style="margin: 0; line-height: 1.5; color: rgba(255, 255, 255, 0.95); font-size: 14px">
               This plugin helps designers and developers work together
               seamlessly. Export Figma variables as CSS, generate component
               tests, and commit changes directly to your repository.
@@ -2320,7 +2343,7 @@
                   testContent: message.testContent,
                   testFilePath:
                     window.gitlabSettings.testFilePath ||
-                    "components/test-{componentName}.component.spec.ts",
+                    "components/{componentName}.spec.ts",
                   branchName:
                     window.gitlabSettings.testBranchName ||
                     "feature/component-tests",
@@ -2834,30 +2857,123 @@
         return result;
       }
 
+      // Extract text style type and state from name (similar to components)
+      function parseTextStyleName(name) {
+        const result = {
+          name: name,
+          type: null,
+          state: null,
+          size: null,
+        };
+
+        // Check for Type=X pattern
+        const typeMatch = name.match(/Type=([^,]+)/i);
+        if (typeMatch && typeMatch[1]) {
+          result.type = typeMatch[1].trim();
+        }
+
+        // Check for State=X pattern
+        const stateMatch = name.match(/State=([^,]+)/i);
+        if (stateMatch && stateMatch[1]) {
+          result.state = stateMatch[1].trim();
+        }
+
+        // Check for Size=X pattern
+        const sizeMatch = name.match(/Size=([^,]+)/i);
+        if (sizeMatch && sizeMatch[1]) {
+          result.size = sizeMatch[1].trim();
+        }
+
+        return result;
+      }
+
+      // Simple text elements display (now integrated into main styles)
+      function formatTextElements(textElements) {
+        // This function is now simplified since text is integrated into main JSON
+        if (!textElements || textElements.length === 0) return "";
+        
+        // Return empty string since text is now part of the main component styles
+        return "";
+      }
+
+
       // Format component styles for readability
-      function formatStyles(styles) {
+      function formatStyles(styles, textElements, componentName) {
         if (!styles) return "";
+
+        console.log('formatStyles called with:', {
+          styles: typeof styles === 'string' ? 'JSON string' : 'Object',
+          textElements: textElements,
+          textElementsLength: textElements ? textElements.length : 0,
+          textElementsType: typeof textElements,
+          textElementsIsArray: Array.isArray(textElements)
+        });
 
         // Try to parse and format the JSON
         try {
+          let stylesObj = styles;
           if (typeof styles === "string") {
-            styles = JSON.parse(styles);
+            stylesObj = JSON.parse(styles);
           }
 
+          // Create a copy of the styles object
+          // NOTE: We integrate text properties here ONLY for display purposes
+          // The backend handles text properties separately to avoid invalid JS property names
+          let combinedStyles = { ...stylesObj };
+
+          // Add text STYLES (fontSize, fontFamily, etc.) but NOT text content ("Donate")
+          if (textElements && textElements.length > 0) {
+            console.log('Adding text style elements (not content):', textElements);
+            
+            // Parse component name to extract state and size information
+            const parsedName = parseTextStyleName(componentName || "");
+            
+            textElements.forEach((textEl, index) => {
+              const prefix = textElements.length > 1 ? `text_${index + 1}_` : 'text_';
+              
+              // Add State/Size info in the key name
+              const stateSize = [
+                parsedName.state ? `State=${parsedName.state}` : null,
+                parsedName.size ? `Size=${parsedName.size}` : null
+              ].filter(Boolean).join(', ');
+              
+              // SKIP text content - we don't want "text_content: Donate"
+              // Only add text styles if available
+              if (textEl.textStyles) {
+                Object.keys(textEl.textStyles).forEach(styleKey => {
+                  const value = textEl.textStyles[styleKey];
+                  if (value !== undefined && value !== null && value !== "") {
+                    const formattedKey = stateSize 
+                      ? `${prefix}${styleKey} (${stateSize})`
+                      : `${prefix}${styleKey}`;
+                    combinedStyles[formattedKey] = value;
+                  }
+                });
+              }
+            });
+          }
+
+          console.log('Final combined styles:', combinedStyles);
+
           // Format the JSON with proper indentation
-          const styleStr = JSON.stringify(styles, null, 2);
+          const styleStr = JSON.stringify(combinedStyles, null, 2);
 
           // Apply syntax highlighting to the JSON
           const highlightedJson = highlightJson(styleStr);
 
-          // Show more content in the collapsed view (up to 300 characters)
-          // and add a "Click to expand" indicator
+          // Return both truncated and full versions for dynamic display
           if (styleStr.length > 300) {
-            return highlightedJson.substring(0, 300) + "... (Click to expand)";
+            const truncated = highlightedJson.substring(0, 300) + "... <span class='expand-indicator'>(Click to expand)</span>";
+            // Store full content in a data attribute for expansion
+            return `<div class="style-content-wrapper">
+              <div class="style-collapsed">${truncated}</div>
+              <div class="style-expanded" style="display: none;">${highlightedJson}</div>
+            </div>`;
           }
 
           return highlightedJson;
         } catch (e) {
+          console.error('Error in formatStyles:', e);
           return String(styles);
         }
       }
@@ -3154,7 +3270,7 @@
                             }
                           </div>
                           <div class="component-styles" onclick="toggleStyles(this)">
-                            ${formatStyles(child.styles)}
+                            ${formatStyles(child.styles, child.textElements, child.name)}
                             <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
                           </div>
                           <!-- No action-buttons for child variants of a component set -->
@@ -3193,7 +3309,7 @@
                 }
               </div>
               <div class="component-styles" onclick="toggleStyles(this)">
-                ${formatStyles(component.styles)}
+                ${formatStyles(component.styles, component.textElements, component.name)}
                 <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
               </div>
               <div class="action-buttons">
@@ -3236,6 +3352,23 @@
         window.toggleStyles = function (element) {
           element.classList.toggle("expanded");
 
+          // Handle the new wrapper structure for showing full/truncated content
+          const wrapper = element.querySelector('.style-content-wrapper');
+          if (wrapper) {
+            const collapsed = wrapper.querySelector('.style-collapsed');
+            const expanded = wrapper.querySelector('.style-expanded');
+            
+            if (element.classList.contains("expanded")) {
+              // Show full content
+              if (collapsed) collapsed.style.display = 'none';
+              if (expanded) expanded.style.display = 'block';
+            } else {
+              // Show truncated content
+              if (collapsed) collapsed.style.display = 'block';
+              if (expanded) expanded.style.display = 'none';
+            }
+          }
+
           // If we're expanding, scroll the element into view
           if (element.classList.contains("expanded")) {
             setTimeout(() => {
@@ -3243,6 +3376,7 @@
             }, 100);
           }
         };
+
       }
 
       // Function to trigger CSS download
@@ -3493,7 +3627,7 @@
         document.getElementById("config-file-path").value = "src/variables.css";
         document.getElementById("config-export-format").value = "css";
         document.getElementById("config-test-file-path").value =
-          "components/test-{componentName}.component.spec.ts";
+          "components/{componentName}/{componentName}.spec.ts";
         document.getElementById("config-token").value = "";
         document.getElementById("config-strategy").value = "merge-request";
         document.getElementById("config-branch").value = "feature/variables";
@@ -3535,7 +3669,7 @@
         ).value;
         const testFilePath =
           document.getElementById("config-test-file-path").value.trim() ||
-          "components/{componentName}/test.spec.ts";
+          "components/{componentName}/{componentName}.spec.ts";
         const token = document.getElementById("config-token").value.trim();
         const strategy = document.getElementById("config-strategy").value;
         const branch =
@@ -3614,7 +3748,7 @@
             window.gitlabSettings.exportFormat || "css";
           document.getElementById("config-test-file-path").value =
             window.gitlabSettings.testFilePath ||
-            "components/test-{componentName}.component.spec.ts";
+            "components/{componentName}/{componentName}.spec.ts";
           document.getElementById("config-token").value =
             window.gitlabSettings.gitlabToken || "";
           document.getElementById("config-strategy").value =
