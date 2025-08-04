@@ -1606,6 +1606,23 @@ ${styleCheckCode}
               });
             }
           }
+          if (component.textElements && component.textElements.length > 0) {
+            for (const textElement of component.textElements) {
+              if (textElement.textStyles) {
+                for (const key in textElement.textStyles) {
+                  if (textElement.textStyles.hasOwnProperty(key)) {
+                    const value = textElement.textStyles[key];
+                    if (value) {
+                      styleChecks.push({
+                        property: key,
+                        value: this.normalizeStyleValue(key, value)
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
           if (isComponentSet) {
             const defaultVariant = component.children && component.children.length > 0 ? component.children[0] : null;
             if (defaultVariant) {
@@ -1812,6 +1829,22 @@ ${variantTests}
               const value = styles[property];
               if (typeof value === "string") {
                 resolvedStyles[property] = this.replaceVariableIdsWithNames(value);
+              }
+            }
+          }
+          if (textElements && textElements.length > 0) {
+            for (const textElement of textElements) {
+              if (textElement.textStyles) {
+                for (const key in textElement.textStyles) {
+                  if (textElement.textStyles.hasOwnProperty(key)) {
+                    const value = textElement.textStyles[key];
+                    if (value) {
+                      const resolvedValue = typeof value === "string" ? this.replaceVariableIdsWithNames(value) : value;
+                      const kebabKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+                      resolvedStyles[kebabKey] = resolvedValue;
+                    }
+                  }
+                }
               }
             }
           }

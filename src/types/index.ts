@@ -28,6 +28,7 @@ export interface TextElement {
     letterSpacing?: string;
     textAlign?: string;
     color?: string;
+    [key: string]: string | undefined;
   };
 }
 
