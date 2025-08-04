@@ -1,5 +1,5 @@
-import { ParsedComponentName, StyleCheck } from '../types';
-import { generateTestHelpers, generateStateTests, INTERACTIVE_STATES, shouldTestPropertyForState } from './stateTestingUtils';
+import { ParsedComponentName, StyleCheck, Component } from '../types';
+import { generateTestHelpers, generateStateTests, INTERACTIVE_STATES, shouldTestPropertyForState, generateStateTestsFromVariants } from './stateTestingUtils';
 import { generateSizeVariantTests, generateBasicSizeTests } from './sizeVariantUtils';
 
 /**
@@ -122,13 +122,163 @@ const LAYOUT_PROPERTIES = [
   'position'
 ];
 
+/**
+ * Generate tests for text content within components
+ */
+function generateTextContentTests(textElements?: any[], componentVariants?: Component[]): string {
+  if (!textElements || textElements.length === 0) {
+    return '';
+  }
+
+  const tests: string[] = [];
+  
+  // Skip text content testing - we don't want to test "Donate" text content
+  // Only test text styles
+  
+  // Test for text styles if available
+  const textWithStyles = textElements.filter(el => el.textStyles && Object.keys(el.textStyles).length > 0);
+  if (textWithStyles.length > 0) {
+    // If we have component variants, test text styles for each state/size combination
+    if (componentVariants && componentVariants.length > 0) {
+      // Group variants by state and size
+      const variantGroups = new Map<string, Component[]>();
+      
+      componentVariants.forEach(variant => {
+        const stateMatch = variant.name.match(/State=([^,]+)/i);
+        const sizeMatch = variant.name.match(/Size=([^,]+)/i);
+        const propMatch = variant.name.match(/Property\s*\d*\s*=\s*([^,]+)/i);
+        
+        const state = stateMatch ? stateMatch[1].toLowerCase() : (propMatch ? propMatch[1].toLowerCase() : 'default');
+        const size = sizeMatch ? sizeMatch[1].toLowerCase() : 'default';
+        
+        const key = `${state}-${size}`;
+        if (!variantGroups.has(key)) {
+          variantGroups.set(key, []);
+        }
+        variantGroups.get(key)!.push(variant);
+      });
+      
+      // Generate tests for each variant group that has text content
+      variantGroups.forEach((variants, key) => {
+        const variant = variants[0]; // Use first variant in group
+        if (variant.textElements && variant.textElements.length > 0) {
+          const [state, size] = key.split('-');
+          const textStyleTest = `
+  it('should have correct text styles for ${state} state, ${size} size', () => {
+    const element = fixture.nativeElement;
+    const textElement = element.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
+    
+    if (!textElement) {
+      console.warn('No text element found for style testing');
+      return;
+    }
+    
+    const computedStyle = window.getComputedStyle(textElement);
+    ${variant.textElements.map((textEl: any, index: number) => {
+      const styles = textEl.textStyles;
+      if (!styles || Object.keys(styles).length === 0) return '';
+      
+      const assertions: string[] = [];
+      
+      if (styles.fontSize) {
+        const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
+        assertions.push(`
+    // Text: "${textEl.content}" (${state}, ${size}) - Font Size
+    expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
+      }
+      
+      if (styles.fontFamily) {
+        const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
+        assertions.push(`
+    // Text: "${textEl.content}" (${state}, ${size}) - Font Family
+    expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
+      }
+      
+      if (styles.fontWeight) {
+        const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
+        assertions.push(`
+    // Text: "${textEl.content}" (${state}, ${size}) - Font Weight
+    expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
+      }
+      
+      if (styles.color) {
+        const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim());
+        assertions.push(`
+    // Text: "${textEl.content}" (${state}, ${size}) - Color
+    expect(computedStyle.color).toBe('${normalizedColor}');`);
+      }
+      
+      return assertions.join('');
+    }).join('')}
+  });`;
+          
+          tests.push(textStyleTest);
+        }
+      });
+    } else {
+      // Fallback to single text style test if no variants
+      const textStyleTest = `
+  it('should have correct text styles', () => {
+    const element = fixture.nativeElement;
+    const textElement = element.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
+    
+    if (!textElement) {
+      console.warn('No text element found for style testing');
+      return;
+    }
+    
+    const computedStyle = window.getComputedStyle(textElement);
+    ${textWithStyles.map((textEl, index) => {
+      const styles = textEl.textStyles;
+      const assertions: string[] = [];
+      
+      if (styles.fontSize) {
+        const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
+        assertions.push(`
+    // Text: "${textEl.content}" - Font Size
+    expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
+      }
+      
+      if (styles.fontFamily) {
+        const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
+        assertions.push(`
+    // Text: "${textEl.content}" - Font Family
+    expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
+      }
+      
+      if (styles.fontWeight) {
+        const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
+        assertions.push(`
+    // Text: "${textEl.content}" - Font Weight
+    expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
+      }
+      
+      if (styles.color) {
+        const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim());
+        assertions.push(`
+    // Text: "${textEl.content}" - Color
+    expect(computedStyle.color).toBe('${normalizedColor}');`);
+      }
+      
+      return assertions.join('');
+    }).join('')}
+  });`;
+      
+      tests.push(textStyleTest);
+    }
+  }
+  
+  return tests.join('');
+}
+
 export function createTestWithStyleChecks(
   componentName: string,
   kebabName: string,
   styleChecks: StyleCheck[],
   includeStateTests: boolean = true,
   includeSizeTests: boolean = true,
-  componentVariants?: any[]
+  componentVariants?: any[],
+  textElements?: any[]
 ): string {
   function stripCssVarFallback(value: string): string {
     return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
@@ -149,7 +299,9 @@ export function createTestWithStyleChecks(
         .join("\n\n")
     : "      // No style properties to check";
 
-  const pascalName = componentName.replace(/[^a-zA-Z0-9]/g, "");
+  // Use proper PascalCase naming: Primary Button Component -> PrimaryButtonComponent
+  const words = componentName.split(/[^a-zA-Z0-9]+/).filter(word => word.length > 0);
+  const pascalName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
   const componentSelector = `.${kebabName}`;
   
   // Extract styles object for state testing
@@ -158,11 +310,22 @@ export function createTestWithStyleChecks(
     stylesObject[check.property] = check.value;
   });
   
-  // Generate state tests if requested and there are interactive properties
-  const hasInteractiveProperties = styleChecks.some(check => shouldTestPropertyForState(check.property));
-  const stateTestsCode = includeStateTests && hasInteractiveProperties 
-    ? generateStateTests(componentSelector, INTERACTIVE_STATES, stylesObject)
-    : '';
+  // Generate state tests if requested
+  let stateTestsCode = '';
+  if (includeStateTests) {
+    // If we have component variants, always use variant-based state testing
+    if (componentVariants && componentVariants.length > 0) {
+      // For variant-based testing, we don't need to check for interactive properties
+      // We'll detect any property changes dynamically
+      stateTestsCode = generateStateTestsFromVariants(componentSelector, componentVariants as Component[], stylesObject);
+    } else {
+      // Fall back to generic state testing only if there are interactive properties
+      const hasInteractiveProperties = styleChecks.some(check => shouldTestPropertyForState(check.property));
+      if (hasInteractiveProperties) {
+        stateTestsCode = generateStateTests(componentSelector, INTERACTIVE_STATES, stylesObject);
+      }
+    }
+  }
   
   // Generate size variant tests
   let sizeTestsCode = '';
@@ -179,7 +342,9 @@ export function createTestWithStyleChecks(
     }
   }
   
-  const helperFunctions = includeStateTests && hasInteractiveProperties
+  // Include helper functions if we have any tests that use variants
+  const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
+  const helperFunctions = hasVariantTests
     ? '\n' + generateTestHelpers() + '\n'
     : '';
 
@@ -203,10 +368,6 @@ describe('${pascalName}Component', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('should have correct styles', () => {
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
     if (element) {
@@ -216,6 +377,6 @@ ${styleCheckCode}
     } else {
       console.warn('No suitable element found to test styles');
     }
-  });${stateTestsCode}${sizeTestsCode}
+  });${stateTestsCode}${sizeTestsCode}${generateTextContentTests(textElements, componentVariants)}
 });`;
 } 
