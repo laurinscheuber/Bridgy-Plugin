@@ -183,20 +183,18 @@ export function generateBasicSizeTests(componentSelector: string): string {
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
     if (!element) return;
 
+    // Common size variant naming conventions
     const sizeVariants = ['xs', 'sm', 'md', 'base', 'lg', 'xl', 'xxl'];
-    // Alternative naming conventions your team might use:
     const altSizeVariants = ['small', 'medium', 'large', 'x-small', 'x-large'];
-    // Properties that make sense to test in responsive design
-    const testableProperties = ['padding', 'font-size', 'line-height', 'border-radius', 'gap'];
-    // Properties often not applicable in responsive design (commented out)
-    const commentedProperties = ['width', 'height', 'min-width', 'min-height'];
+    
+    // Properties that typically change with size
+    const sizeProperties = ['padding', 'font-size', 'line-height', 'border-radius', 'gap', 'width', 'height', 'min-width', 'min-height'];
     
     // Test both standard size variants and alternative naming
     const allSizeVariants = [...sizeVariants, ...altSizeVariants];
     
     allSizeVariants.forEach(size => {
-      // Test properties that make sense
-      testableProperties.forEach(property => {
+      sizeProperties.forEach(property => {
         // Check BEM naming: .component--size
         const bemValue = getCssPropertyForRule('${componentSelector}--' + size, '', property);
         // Check modifier class: .component.size
@@ -206,16 +204,6 @@ export function generateBasicSizeTests(componentSelector: string): string {
         if (value) {
           console.log(\`Size \${size} - \${property}: \${value}\`);
           expect(value).toBeDefined();
-        }
-      });
-      
-      // Log commented properties for reference (don't test them)
-      commentedProperties.forEach(property => {
-        const bemValue = getCssPropertyForRule('${componentSelector}--' + size, '', property);
-        const modifierValue = getCssPropertyForRule('${componentSelector}.' + size, '', property);
-        const value = bemValue || modifierValue;
-        if (value) {
-          console.log(\`Size \${size} - \${property}: \${value} // Often not applicable in responsive design\`);
         }
       });
     });

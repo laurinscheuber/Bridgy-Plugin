@@ -1,4 +1,4 @@
-import { StyleCheck } from '../types';
+import { StyleCheck, Component } from '../types';
 
 export interface StateTestConfig {
   state: string;
@@ -383,4 +383,164 @@ export function filterInteractiveProperties(styles: Record<string, any>): Record
   }
   
   return filtered;
+}
+
+/**
+ * Analyzes component variants to find style differences between states
+ */
+export function analyzeComponentStateVariants(variants: Component[]): Map<string, Map<string, any>> {
+  console.log('DEBUG: analyzeComponentStateVariants called with', variants.length, 'variants');
+  const stateStyleMap = new Map<string, Map<string, any>>();
+  
+  // Process each variant to extract state and styles
+  variants.forEach((variant, index) => {
+    console.log(`DEBUG: Processing variant ${index}: "${variant.name}"`);
+    
+    // Parse variant name to extract state (e.g., "State=hover, Size=small")
+    const stateName = extractStateFromVariantName(variant.name);
+    console.log(`DEBUG: Extracted state name: "${stateName}"`);
+    
+    if (!stateName) {
+      console.log('DEBUG: No state name found, skipping variant');
+      return;
+    }
+    
+    // Parse styles
+    let styles: Record<string, any>;
+    try {
+      styles = typeof variant.styles === 'string' ? JSON.parse(variant.styles) : variant.styles;
+      console.log(`DEBUG: Parsed ${Object.keys(styles).length} style properties for state "${stateName}"`);
+    } catch (e) {
+      console.error('Error parsing variant styles:', e);
+      return;
+    }
+    
+    // Store styles for this state
+    const styleMap = new Map<string, any>();
+    for (const key in styles) {
+      if (styles.hasOwnProperty(key)) {
+        styleMap.set(key, styles[key]);
+      }
+    }
+    stateStyleMap.set(stateName, styleMap);
+    console.log(`DEBUG: Stored ${styleMap.size} styles for state "${stateName}"`);
+  });
+  
+  console.log('DEBUG: Final state style map has', stateStyleMap.size, 'states:', Array.from(stateStyleMap.keys()));
+  return stateStyleMap;
+}
+
+/**
+ * Extracts state name from variant name (handles multiple patterns)
+ * Examples: 
+ * - "State=hover, Size=small" -> "hover"
+ * - "Property 1=Default" -> "default"
+ * - "Property 1=Hover" -> "hover"
+ */
+function extractStateFromVariantName(variantName: string): string | null {
+  // Try standard State= pattern first
+  let stateMatch = variantName.match(/State=(\w+)/i);
+  if (stateMatch) {
+    return stateMatch[1].toLowerCase();
+  }
+  
+  // Try Property [number]= pattern (common in Figma auto-generated variants)
+  stateMatch = variantName.match(/Property\s*\d*\s*=\s*(\w+)/i);
+  if (stateMatch) {
+    return stateMatch[1].toLowerCase();
+  }
+  
+  // Try any [word]= pattern as fallback
+  stateMatch = variantName.match(/(\w+)=(\w+)/i);
+  if (stateMatch) {
+    // Return the value part (after =) as the state
+    return stateMatch[2].toLowerCase();
+  }
+  
+  return null;
+}
+
+/**
+ * Compares two style maps and returns only the properties that differ
+ */
+export function findStyleDifferences(baseStyles: Map<string, any>, compareStyles: Map<string, any>): Map<string, any> {
+  const differences = new Map<string, any>();
+  
+  // Check all properties in the compare styles
+  compareStyles.forEach((value, key) => {
+    const baseValue = baseStyles.get(key);
+    // Only include if the value is different from base
+    if (baseValue !== value) {
+      differences.set(key, value);
+    }
+  });
+  
+  return differences;
+}
+
+/**
+ * Generates state-specific tests based on actual variant differences
+ */
+export function generateStateTestsFromVariants(
+  componentSelector: string,
+  variants: Component[],
+  defaultStyles: Record<string, any>
+): string {
+  const tests: string[] = [];
+  
+  // Analyze all variants to find state differences
+  const stateStyleMap = analyzeComponentStateVariants(variants);
+  
+  // Get the default state styles
+  let defaultStateStyles = stateStyleMap.get('default');
+  if (!defaultStateStyles) {
+    defaultStateStyles = new Map<string, any>();
+    for (const key in defaultStyles) {
+      if (defaultStyles.hasOwnProperty(key)) {
+        defaultStateStyles.set(key, defaultStyles[key]);
+      }
+    }
+  }
+  
+  // Dynamically generate tests for ALL states found in variants (not just predefined ones)
+  const allStates = Array.from(stateStyleMap.keys()).filter(state => state !== 'default');
+  
+  for (const stateName of allStates) {
+    const stateStyles = stateStyleMap.get(stateName);
+    if (!stateStyles) continue;
+    
+    // Find differences between this state and default
+    const differences = findStyleDifferences(defaultStateStyles, stateStyles);
+    
+    if (differences.size === 0) continue;
+    
+    // Convert state name to pseudo-class (handle custom states)
+    const pseudoClass = stateName.startsWith(':') ? stateName : `:${stateName}`;
+    const testName = `should have correct ${stateName} styles`;
+    
+    // Build property checks only for changed properties
+    const propertyChecks = Array.from(differences.entries()).map(([property, value]) => {
+      // Convert to kebab-case for CSS
+      const kebabProperty = toKebabCase(property);
+      return `      { property: '${kebabProperty}', expected: '${value}' }`;
+    }).join(',\n');
+    
+    const testCode = `
+  it('${testName}', () => {
+    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
+    if (!element) return;
+
+    const propertiesToCheck = [
+${propertyChecks}
+    ];
+
+    propertiesToCheck.forEach(({ property, expected }) => {
+      checkStyleProperty('${componentSelector}', '${pseudoClass}', property, expected);
+    });
+  });`;
+    
+    tests.push(testCode);
+  }
+  
+  return tests.join('\n');
 }
