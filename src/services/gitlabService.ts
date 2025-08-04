@@ -424,7 +424,7 @@ export class GitLabService {
     commitMessage: string,
     componentName: string,
     testContent: string,
-    testFilePath: string = "components/test-{componentName}.component.spec.ts",
+    testFilePath: string = "components/{componentName}.spec.ts",
     branchName: string = "feature/component-tests"
   ): Promise<{ mergeRequestUrl?: string }> {
     // Replace {componentName} placeholder in file path if present

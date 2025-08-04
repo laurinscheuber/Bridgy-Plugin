@@ -159,7 +159,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             filePath: msg.filePath || "src/variables.css",
             testFilePath:
               msg.testFilePath ||
-              "components/test-{componentName}.component.spec.ts",
+              "components/{componentName}.spec.ts",
             strategy: msg.strategy || "merge-request",
             branchName: msg.branchName || "feature/variables",
             testBranchName: msg.testBranchName || "feature/component-tests",
@@ -222,7 +222,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           msg.componentName,
           msg.testContent,
           msg.testFilePath ||
-            "components/test-{componentName}.component.spec.ts",
+            "components/{componentName}.spec.ts",
           msg.branchName || "feature/component-tests"
         );
 
