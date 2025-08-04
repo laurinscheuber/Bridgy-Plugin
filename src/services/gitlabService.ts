@@ -25,9 +25,6 @@ export class GitLabService {
           settingsKey,
           JSON.stringify(settingsToSave)
         );
-        console.log(
-          `GitLab settings saved to shared document storage for file: ${figmaFileId}`
-        );
 
         // If token should be saved, also save it personally for this user
         if (settings.saveToken && settings.gitlabToken) {
@@ -35,14 +32,10 @@ export class GitLabService {
             `${settingsKey}-token`,
             settings.gitlabToken
           );
-          console.log("Token saved to personal storage");
         }
       } else {
         // Save only to personal storage (not shared with team)
         await figma.clientStorage.setAsync(settingsKey, settings);
-        console.log(
-          `GitLab settings saved to personal storage only for file: ${figmaFileId}`
-        );
       }
 
       // Track metadata
@@ -69,7 +62,6 @@ export class GitLabService {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      console.log(`Loading GitLab settings for file: ${figmaFileId}`);
 
       // Try to load shared settings from document storage first
       const documentSettings = figma.root.getSharedPluginData(
@@ -88,7 +80,6 @@ export class GitLabService {
             );
             if (personalToken) {
               settings.gitlabToken = personalToken;
-              console.log("Loaded personal token from client storage");
             }
           }
 
@@ -106,7 +97,6 @@ export class GitLabService {
             }
           }
 
-          console.log("Loaded settings from shared document storage");
           return settings;
         } catch (parseError) {
           console.error("Error parsing document settings:", parseError);
@@ -116,7 +106,6 @@ export class GitLabService {
       // Fallback: try to load personal settings
       const personalSettings = await figma.clientStorage.getAsync(settingsKey);
       if (personalSettings) {
-        console.log("Loaded settings from personal storage");
         return { ...personalSettings, isPersonal: true };
       }
 
@@ -128,9 +117,6 @@ export class GitLabService {
       if (legacyDocumentSettings) {
         try {
           const settings = JSON.parse(legacyDocumentSettings);
-          console.log(
-            "Found legacy document settings in this file, migrating to project-specific storage"
-          );
           // Save as project-specific settings
           await this.saveSettings(settings, true);
           // Remove old global settings to prevent confusion
@@ -141,7 +127,6 @@ export class GitLabService {
         }
       }
 
-      console.log("No settings found for this project");
       return null;
     } catch (error) {
       console.error("Error loading GitLab settings:", error);
@@ -154,7 +139,6 @@ export class GitLabService {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      console.log(`Resetting all GitLab settings for file: ${figmaFileId}`);
 
       // Remove shared document storage
       figma.root.setSharedPluginData("DesignSync", settingsKey, "");
@@ -168,7 +152,6 @@ export class GitLabService {
       figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
       await figma.clientStorage.deleteAsync("gitlab-settings");
 
-      console.log("All GitLab settings have been reset successfully");
     } catch (error: any) {
       console.error("Error resetting GitLab settings:", error);
       throw new Error(
@@ -281,10 +264,6 @@ export class GitLabService {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error(
-        `Branch creation failed for '${featureBranch}' from '${defaultBranch}':`,
-        errorData
-      );
       // If branch already exists, that's fine - we'll use it
       if (errorData.message !== "Branch already exists") {
         throw new Error(
@@ -442,17 +421,11 @@ export class GitLabService {
     // Create component-specific branch name - use dashes instead of slashes to avoid GitLab issues
     const featureBranch = `${branchName}-${normalizedComponentName}`;
 
-    console.log(
-      `Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`
-    );
 
     // Get project information
     const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
     const defaultBranch = projectData.default_branch || "main";
 
-    console.log(
-      `Project default branch: ${defaultBranch}, creating feature branch: ${featureBranch}`
-    );
 
     // Create or get feature branch
     await this.createFeatureBranch(

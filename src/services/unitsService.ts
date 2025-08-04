@@ -112,7 +112,6 @@ export class UnitsService {
         })
       );
       
-      console.log(`Unit settings saved to shared document storage for file: ${figmaFileId}`);
     } catch (error) {
       console.error('Error saving unit settings:', error);
       throw error;
@@ -125,7 +124,6 @@ export class UnitsService {
       const figmaFileId = figma.root.id;
       const settingsKey = `unit-settings-${figmaFileId}`;
       
-      console.log(`Loading unit settings for file: ${figmaFileId}`);
       
       // Try to load from shared document storage first
       const sharedSettings = figma.root.getSharedPluginData(
@@ -136,7 +134,6 @@ export class UnitsService {
       if (sharedSettings) {
         try {
           this.unitSettings = JSON.parse(sharedSettings);
-          console.log('Unit settings loaded from shared document storage');
           return;
         } catch (parseError) {
           console.error('Error parsing shared unit settings:', parseError);
@@ -146,17 +143,14 @@ export class UnitsService {
       // Migration: Check for personal settings and migrate to shared
       const personalSettings = await figma.clientStorage.getAsync(settingsKey);
       if (personalSettings) {
-        console.log('Found personal unit settings, migrating to shared storage');
         this.unitSettings = personalSettings;
         // Save as shared settings
         await this.saveUnitSettings();
         // Remove old personal settings to prevent confusion
         await figma.clientStorage.deleteAsync(settingsKey);
-        console.log('Unit settings migrated to shared storage');
         return;
       }
       
-      console.log('No unit settings found, using defaults');
     } catch (error) {
       console.error('Error loading unit settings:', error);
       // Don't throw - just use defaults
@@ -169,7 +163,6 @@ export class UnitsService {
       const figmaFileId = figma.root.id;
       const settingsKey = `unit-settings-${figmaFileId}`;
       
-      console.log(`Resetting unit settings for file: ${figmaFileId}`);
       
       // Reset in-memory settings  
       this.unitSettings = {
@@ -184,7 +177,6 @@ export class UnitsService {
       // Remove personal client storage (cleanup)
       await figma.clientStorage.deleteAsync(settingsKey);
       
-      console.log('Unit settings have been reset successfully');
     } catch (error) {
       console.error('Error resetting unit settings:', error);
       throw error;

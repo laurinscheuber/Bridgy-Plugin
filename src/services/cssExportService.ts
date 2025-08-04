@@ -116,7 +116,6 @@ export class CSSExportService {
     }
   }
 
-  // Collect all variables for resolution purposes
   private static async collectAllVariables(collections: any[]): Promise<void> {
     for (const collection of collections) {
       for (const variableId of collection.variableIds) {
@@ -127,7 +126,6 @@ export class CSSExportService {
       }
     }
   }
-
 
 
   private static formatVariableValue(type: string, value: any, name: string, collectionName: string, groupName?: string): string | null {

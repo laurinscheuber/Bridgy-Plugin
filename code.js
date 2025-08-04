@@ -73,14 +73,11 @@
                   delete settingsToSave.gitlabToken;
                 }
                 figma.root.setSharedPluginData("DesignSync", settingsKey, JSON.stringify(settingsToSave));
-                console.log(`GitLab settings saved to shared document storage for file: ${figmaFileId}`);
                 if (settings.saveToken && settings.gitlabToken) {
                   yield figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
-                  console.log("Token saved to personal storage");
                 }
               } else {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
-                console.log(`GitLab settings saved to personal storage only for file: ${figmaFileId}`);
               }
               figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, JSON.stringify({
                 sharedWithTeam: shareWithTeam,
@@ -98,7 +95,6 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              console.log(`Loading GitLab settings for file: ${figmaFileId}`);
               const documentSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
               if (documentSettings) {
                 try {
@@ -107,7 +103,6 @@
                     const personalToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
                     if (personalToken) {
                       settings.gitlabToken = personalToken;
-                      console.log("Loaded personal token from client storage");
                     }
                   }
                   const metaData = figma.root.getSharedPluginData("DesignSync", `${settingsKey}-meta`);
@@ -119,7 +114,6 @@
                       console.warn("Error parsing settings metadata:", metaParseError);
                     }
                   }
-                  console.log("Loaded settings from shared document storage");
                   return settings;
                 } catch (parseError) {
                   console.error("Error parsing document settings:", parseError);
@@ -127,14 +121,12 @@
               }
               const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
               if (personalSettings) {
-                console.log("Loaded settings from personal storage");
                 return Object.assign(Object.assign({}, personalSettings), { isPersonal: true });
               }
               const legacyDocumentSettings = figma.root.getSharedPluginData("DesignSync", "gitlab-settings");
               if (legacyDocumentSettings) {
                 try {
                   const settings = JSON.parse(legacyDocumentSettings);
-                  console.log("Found legacy document settings in this file, migrating to project-specific storage");
                   yield this.saveSettings(settings, true);
                   figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
                   return settings;
@@ -142,7 +134,6 @@
                   console.error("Error parsing legacy document settings:", parseError);
                 }
               }
-              console.log("No settings found for this project");
               return null;
             } catch (error) {
               console.error("Error loading GitLab settings:", error);
@@ -155,14 +146,12 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              console.log(`Resetting all GitLab settings for file: ${figmaFileId}`);
               figma.root.setSharedPluginData("DesignSync", settingsKey, "");
               figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
               figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
               yield figma.clientStorage.deleteAsync("gitlab-settings");
-              console.log("All GitLab settings have been reset successfully");
             } catch (error) {
               console.error("Error resetting GitLab settings:", error);
               throw new Error(`Error resetting GitLab settings: ${error.message || "Unknown error"}`);
@@ -216,7 +205,6 @@
             });
             if (!response.ok) {
               const errorData = yield response.json();
-              console.error(`Branch creation failed for '${featureBranch}' from '${defaultBranch}':`, errorData);
               if (errorData.message !== "Branch already exists") {
                 throw new Error(`Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`);
               }
@@ -310,10 +298,8 @@
             const normalizedComponentName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
             const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
             const featureBranch = `${branchName}-${normalizedComponentName}`;
-            console.log(`Committing component test for ${componentName} to ${filePath} on branch ${featureBranch}`);
             const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
             const defaultBranch = projectData.default_branch || "main";
-            console.log(`Project default branch: ${defaultBranch}, creating feature branch: ${featureBranch}`);
             yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
             const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
             yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, testContent, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id);
@@ -418,7 +404,6 @@
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user"
               }));
-              console.log(`Unit settings saved to shared document storage for file: ${figmaFileId}`);
             } catch (error) {
               console.error("Error saving unit settings:", error);
               throw error;
@@ -431,12 +416,10 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `unit-settings-${figmaFileId}`;
-              console.log(`Loading unit settings for file: ${figmaFileId}`);
               const sharedSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
               if (sharedSettings) {
                 try {
                   this.unitSettings = JSON.parse(sharedSettings);
-                  console.log("Unit settings loaded from shared document storage");
                   return;
                 } catch (parseError) {
                   console.error("Error parsing shared unit settings:", parseError);
@@ -444,14 +427,11 @@
               }
               const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
               if (personalSettings) {
-                console.log("Found personal unit settings, migrating to shared storage");
                 this.unitSettings = personalSettings;
                 yield this.saveUnitSettings();
                 yield figma.clientStorage.deleteAsync(settingsKey);
-                console.log("Unit settings migrated to shared storage");
                 return;
               }
-              console.log("No unit settings found, using defaults");
             } catch (error) {
               console.error("Error loading unit settings:", error);
             }
@@ -463,7 +443,6 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `unit-settings-${figmaFileId}`;
-              console.log(`Resetting unit settings for file: ${figmaFileId}`);
               this.unitSettings = {
                 collections: {},
                 groups: {}
@@ -471,7 +450,6 @@
               figma.root.setSharedPluginData("DesignSync", settingsKey, "");
               figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
-              console.log("Unit settings have been reset successfully");
             } catch (error) {
               console.error("Error resetting unit settings:", error);
               throw error;
@@ -645,7 +623,6 @@ ${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "
             }
           });
         }
-        // Collect all variables for resolution purposes
         static collectAllVariables(collections) {
           return __awaiter3(this, void 0, void 0, function* () {
             for (const collection of collections) {
@@ -818,16 +795,12 @@ ${format === "scss" ? "//" : "  /*"} ${displayName} ${format === "scss" ? "" : "
         expect(resolvedValue).toBe(expectedValue);
       } else {
         expect(resolvedValue).toBeDefined();
-        // Log the actual value for debugging
-        console.log(\`\${selector}\${pseudoClass} \${property}: \${resolvedValue}\`);
       }
     } else {
       if (expectedValue) {
         expect(value).toBe(expectedValue);
       } else {
         expect(value).toBeDefined();
-        // Log the actual value for debugging
-        console.log(\`\${selector}\${pseudoClass} \${property}: \${value}\`);
       }
     }
   };`;
@@ -1201,7 +1174,6 @@ ${propertyChecks}
         
         const value = bemValue || modifierValue;
         if (value) {
-          console.log(\`Size \${size} - \${property}: \${value}\`);
           expect(value).toBeDefined();
         }
       });
@@ -1293,25 +1265,21 @@ ${propertyChecks}
               if (styles.fontSize) {
                 const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
                 assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Font Size
     expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
               }
               if (styles.fontFamily) {
                 const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
                 assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Font Family
     expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
               }
               if (styles.fontWeight) {
                 const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
                 assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Font Weight
     expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
               }
               if (styles.color) {
                 const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim());
                 assertions.push(`
-    // Text: "${textEl.content}" (${state}, ${size}) - Color
     expect(computedStyle.color).toBe('${normalizedColor}');`);
               }
               return assertions.join("");
@@ -1338,25 +1306,21 @@ ${propertyChecks}
           if (styles.fontSize) {
             const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
             assertions.push(`
-    // Text: "${textEl.content}" - Font Size
     expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
           }
           if (styles.fontFamily) {
             const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
             assertions.push(`
-    // Text: "${textEl.content}" - Font Family
     expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
           }
           if (styles.fontWeight) {
             const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
             assertions.push(`
-    // Text: "${textEl.content}" - Font Weight
     expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
           }
           if (styles.color) {
             const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim());
             assertions.push(`
-    // Text: "${textEl.content}" - Color
     expect(computedStyle.color).toBe('${normalizedColor}');`);
           }
           return assertions.join("");
@@ -1431,10 +1395,6 @@ describe('${pascalName}Component', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('should have correct styles', () => {
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
     if (element) {
@@ -1497,9 +1457,6 @@ ${styleCheckCode}
         });
       };
       ComponentService = class _ComponentService {
-        /**
-         * Checks if a CSS property is a simple color property (contains only color values)
-         */
         static isSimpleColorProperty(property) {
           const simpleColorProperties = [
             "accentColor",
@@ -1532,9 +1489,6 @@ ${styleCheckCode}
           ];
           return simpleColorProperties.indexOf(property) !== -1;
         }
-        /**
-         * Checks if a CSS property is a complex property that may contain colors
-         */
         static isComplexColorProperty(property) {
           const complexColorProperties = [
             "background",
@@ -1550,9 +1504,6 @@ ${styleCheckCode}
           ];
           return complexColorProperties.indexOf(property) !== -1;
         }
-        /**
-         * Normalizes style values, especially colors for consistent testing
-         */
         static normalizeStyleValue(property, value) {
           if (typeof value !== "string") {
             return value;
@@ -1628,18 +1579,9 @@ ${styleCheckCode}
           const kebabName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
           const isComponentSet = component.type === "COMPONENT_SET";
           if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
-            console.log("DEBUG: *** Taking generateComponentSetTest path ***");
-            console.log("DEBUG: isComponentSet:", isComponentSet, "generateAllVariants:", generateAllVariants, "children count:", component.children.length);
             return this.generateComponentSetTest(component);
           }
           const componentVariants = isComponentSet && component.children ? component.children : void 0;
-          console.log("DEBUG: Test generation for component:", componentName);
-          console.log("DEBUG: isComponentSet:", isComponentSet);
-          console.log("DEBUG: generateAllVariants:", generateAllVariants);
-          console.log("DEBUG: componentVariants count:", componentVariants ? componentVariants.length : 0);
-          if (componentVariants) {
-            console.log("DEBUG: variant names:", componentVariants.map((v) => v.name));
-          }
           let styles;
           try {
             styles = typeof component.styles === "string" ? JSON.parse(component.styles) : component.styles;
@@ -1690,19 +1632,11 @@ ${styleCheckCode}
         }
         static generateComponentSetTest(componentSet) {
           if (!componentSet.children || componentSet.children.length === 0) {
-            console.log("DEBUG: generateComponentSetTest - no children, falling back to standard test");
             return this.generateTest(componentSet);
           }
-          console.log("DEBUG: *** generateComponentSetTest called ***");
-          console.log("DEBUG: Component set name:", componentSet.name);
-          console.log("DEBUG: Generating comprehensive test for component set with", componentSet.children.length, "variants");
-          console.log("DEBUG: Variant names:", componentSet.children.map((c) => c.name));
           const kebabName = componentSet.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
           const words = componentSet.name.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
           const pascalName = words.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join("");
-          console.log("DEBUG: original componentSet.name:", `"${componentSet.name}"`);
-          console.log("DEBUG: words after split:", words);
-          console.log("DEBUG: kebabName:", kebabName, "pascalName:", pascalName);
           let variantTests = "";
           const processedVariants = /* @__PURE__ */ new Set();
           componentSet.children.forEach((variant, index) => {
@@ -1809,26 +1743,16 @@ describe('${pascalName}Component - All Variants', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('should be defined with ${componentSet.children.length} variants available', () => {
-    const element = fixture.nativeElement;
-    expect(element).toBeDefined();
-    console.log('Component created with ${componentSet.children.length} variants available for testing');
-  });${variantTests}
+${variantTests}
 
   it('should support all size variants', () => {
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
     if (!element) return;
 
-    // Test that component supports different size classes
     ${Array.from(new Set(componentSet.children.map((variant) => {
             const sizeMatch = variant.name.match(/Size=([^,]+)/i);
             return sizeMatch ? sizeMatch[1].trim() : "default";
           }))).map((size) => `
-    // Test ${size} size variant class support
     element.classList.add('${kebabName}--${size}');
     expect(element.classList.contains('${kebabName}--${size}')).toBeTruthy();
     element.classList.remove('${kebabName}--${size}');`).join("")}
@@ -1839,12 +1763,10 @@ describe('${pascalName}Component - All Variants', () => {
   it('should support all state variants', () => {
     const selector = '.${kebabName}';
     
-    // Test different pseudo-states using helper functions
     ${Array.from(new Set(componentSet.children.map((variant) => {
             const stateMatch = variant.name.match(/State=([^,]+)/i);
             return stateMatch ? stateMatch[1].trim() : "default";
           }).filter((state) => state !== "default"))).map((state) => `
-    // Test ${state} pseudo-state styles
     const ${state}Value = getCssPropertyForRule(selector, ':${state}', 'background-color');
     if (${state}Value) {
       expect(${state}Value).toBeDefined();
@@ -1854,12 +1776,8 @@ describe('${pascalName}Component - All Variants', () => {
     console.log('State variant testing completed using CSS rules');
   });
 });`;
-          console.log("DEBUG: *** generateComponentSetTest completed ***");
-          console.log("DEBUG: Generated test length:", result.length, "characters");
-          console.log("DEBUG: Test preview (first 200 chars):", result.substring(0, 200));
           return result;
         }
-        // Collect all variables for resolution purposes
         static collectAllVariables() {
           return __awaiter4(this, void 0, void 0, function* () {
             try {
@@ -1880,7 +1798,6 @@ describe('${pascalName}Component - All Variants', () => {
             }
           });
         }
-        // Process component styles to resolve variable names and integrate text properties
         static resolveStyleVariables(styles, textElements, componentName) {
           if (!styles || typeof styles !== "object") {
             return styles;
@@ -1896,7 +1813,6 @@ describe('${pascalName}Component - All Variants', () => {
           }
           return resolvedStyles;
         }
-        // Helper method to parse component names (matching UI logic)
         static parseComponentName(name) {
           const result = {};
           const stateMatch = name.match(/State=([^,]+)/i);
@@ -1909,7 +1825,6 @@ describe('${pascalName}Component - All Variants', () => {
           }
           return result;
         }
-        // Replace variable IDs in CSS values with readable variable names
         static replaceVariableIdsWithNames(cssValue) {
           return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
             for (const variable of this.allVariables.values()) {
@@ -1930,9 +1845,6 @@ describe('${pascalName}Component - All Variants', () => {
             return match;
           });
         }
-        /**
-         * Extract text styles from text elements
-         */
         static extractTextStyles(textElements) {
           const textStyles = {};
           if (!textElements || textElements.length === 0) {
@@ -1984,9 +1896,6 @@ describe('${pascalName}Component - All Variants', () => {
           });
           return textStyles;
         }
-        /**
-         * Extract and normalize CSS properties from component styles
-         */
         static extractCssProperties(styles) {
           const cssProperties = {};
           const collectedStyles = {};
@@ -2061,9 +1970,6 @@ describe('${pascalName}Component - All Variants', () => {
           }
           return cssProperties;
         }
-        /**
-         * Generate test for CSS pseudo-states (hover, active, focus)
-         */
         static generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles = {}) {
           const pseudoClass = `:${state.toLowerCase()}`;
           const testDescription = `should have correct :${state.toLowerCase()} styles${size !== "default" ? ` for ${size} size` : ""}${variantType !== "default" ? ` (${variantType} variant)` : ""}`;
@@ -2075,13 +1981,11 @@ describe('${pascalName}Component - All Variants', () => {
           if (testableProperties.length === 0) {
             return `
   it('${testDescription}', () => {
-    // No testable properties for this pseudo-state
     console.log('${testDescription}: No specific values to test');
   });`;
           }
           return `
   it('${testDescription}', () => {
-    // Define properties to check with their expected values
     const propertiesToCheck = [
 ${testableProperties.map((property) => {
             const expectedValue = allProperties[property];
@@ -2112,7 +2016,6 @@ ${testableProperties.map((property) => {
           }).join(",\n")}
     ];
 
-    // Test each property using forEach for cleaner code
     propertiesToCheck.forEach((check) => {
       const resolvedValue = getCssPropertyForRule('.${kebabName}', '${pseudoClass}', check.cssProperty);
       
@@ -2128,9 +2031,6 @@ ${testableProperties.map((property) => {
     });
   });`;
         }
-        /**
-         * Generate test for component properties (size, variant, etc.)
-         */
         static generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles = {}) {
           const componentProps = [];
           if (size !== "default") {
@@ -2150,8 +2050,7 @@ ${testableProperties.map((property) => {
           const testName = testDescription ? `should have correct styles for ${testDescription}` : "should have correct styles";
           return `
   it('${testName}', () => {
-    ${componentProps.length > 0 ? `// Set component properties
-    ${componentProps.join("\n    ")}
+    ${componentProps.length > 0 ? `${componentProps.join("\n    ")}
     fixture.detectChanges();
 ` : ""}
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
@@ -2162,16 +2061,16 @@ ${Object.keys(cssProperties).map((property) => {
             const expectedValue = cssProperties[property];
             let expectedTest = expectedValue;
             if (expectedValue === "computed") {
-              return `      // Check ${property} (shorthand property - actual value varies)
-      // expect(computedStyle.${property}).toBe('expected-value'); // TODO: Add specific expected value`;
+              return `      // ${property} (shorthand property)
+      // expect(computedStyle.${property}).toBe('expected-value');`;
             }
             if (expectedValue.includes("var(")) {
               const fallbackMatch = expectedValue.match(/var\\([^,]+,\\s*([^)]+)\\)/);
               if (fallbackMatch) {
                 expectedTest = fallbackMatch[1].trim();
               } else {
-                return `      // Check ${property} (CSS variable without fallback - cannot predict value)
-      // expect(computedStyle.${property}).toBe('expected-value'); // TODO: Add fallback value to CSS variable`;
+                return `      // ${property} (CSS variable without fallback)
+      // expect(computedStyle.${property}).toBe('expected-value');`;
               }
             }
             if (expectedTest.match(/^#[0-9A-Fa-f]{3}$/) || expectedTest.match(/^#[0-9A-Fa-f]{6}$/)) {
@@ -2184,12 +2083,10 @@ ${Object.keys(cssProperties).map((property) => {
               const b = parseInt(hex.substring(4, 6), 16);
               expectedTest = `rgb(${r}, ${g}, ${b})`;
             }
-            return `      // Check ${property}
-      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+            return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
           }).join("\n\n")}${Object.keys(textStyles).length > 0 ? "\n\n" + Object.keys(textStyles).map((property) => {
             const expectedValue = textStyles[property];
-            return `      // Check ${property} (text style)
-      expect(computedStyle.${property}).toBe('${expectedValue}');`;
+            return `      expect(computedStyle.${property}).toBe('${expectedValue}');`;
           }).join("\n\n") : ""}
 
     } else {
@@ -2197,9 +2094,6 @@ ${Object.keys(cssProperties).map((property) => {
     }
   });`;
         }
-        /**
-         * Extract text elements from a component node
-         */
         static extractTextElements(node) {
           return __awaiter4(this, void 0, void 0, function* () {
             const textElements = [];
@@ -2347,7 +2241,6 @@ ${Object.keys(cssProperties).map((property) => {
                 type: "gitlab-settings-loaded",
                 settings
               });
-              console.log("GitLab settings loaded");
             }
           } catch (error) {
             console.error("Error loading GitLab settings:", error);
@@ -2471,20 +2364,17 @@ ${Object.keys(cssProperties).map((property) => {
               });
               break;
             case "update-unit-settings":
-              console.log("Received update-unit-settings:", msg.collections, msg.groups);
               CSSExportService.updateUnitSettings({
                 collections: msg.collections,
                 groups: msg.groups
               });
               yield CSSExportService.saveUnitSettings();
-              console.log("Unit settings saved successfully");
               figma.ui.postMessage({
                 type: "unit-settings-updated",
                 success: true
               });
               break;
             default:
-              console.warn("Unknown message type:", msg.type);
           }
         } catch (error) {
           console.error("Error handling message:", error);

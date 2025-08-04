@@ -2064,38 +2064,28 @@
     </div>
 
     <script>
-      // Define unit settings functions early to ensure they're available
       window.saveUnitsSettings = function () {
-        console.log("★★★ saveUnitsSettings called ★★★");
-
         const collections = {};
         const groups = {};
-
         const dropdowns = document.querySelectorAll(".unit-dropdown");
-        console.log("Found", dropdowns.length, "dropdowns");
 
         dropdowns.forEach((dropdown) => {
           const type = dropdown.dataset.type;
           const value = dropdown.value;
-          console.log(`Found dropdown: type=${type}, value=${value}`);
 
-          // Only save non-empty values (empty = use smart defaults)
           if (value !== "") {
             if (type === "collection") {
               const name = dropdown.dataset.name;
               collections[name] = value;
-              console.log(`Added collection: ${name} = ${value}`);
             } else if (type === "group") {
               const collectionName = dropdown.dataset.collection;
               const groupName = dropdown.dataset.group;
               const key = `${collectionName}/${groupName}`;
               groups[key] = value;
-              console.log(`Added group: ${key} = ${value}`);
             }
           }
         });
 
-        console.log("Sending unit settings:", { collections, groups });
         parent.postMessage(
           {
             pluginMessage: {
@@ -2109,58 +2099,41 @@
       };
 
       window.resetUnitsSettings = function () {
-        console.log("★★★ resetUnitsSettings called ★★★");
-
         if (
           confirm(
             "Are you sure you want to reset all unit settings to smart defaults?"
           )
         ) {
-          // Clear all dropdowns to smart defaults (empty value)
           const dropdowns = document.querySelectorAll(".unit-dropdown");
-          console.log("Found", dropdowns.length, "dropdowns to reset");
-
           dropdowns.forEach((dropdown) => {
-            dropdown.value = ""; // Select empty option (Smart defaults)
-            console.log(`Reset dropdown to empty value`);
+            dropdown.value = "";
           });
 
-          // Save the reset settings
           window.saveUnitsSettings();
         }
       };
 
-      // Tab switching
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => {
-          document
-            .querySelectorAll(".tab")
-            .forEach((t) => t.classList.remove("active"));
-          document
-            .querySelectorAll(".tab-content")
-            .forEach((c) => c.classList.remove("active"));
+          document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+          document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
 
           tab.classList.add("active");
-          const tabContent = document.getElementById(
-            tab.dataset.tab + "-content"
-          );
+          const tabContent = document.getElementById(tab.dataset.tab + "-content");
           tabContent.classList.add("active");
 
-          // Load units settings when Units tab is clicked
           if (tab.dataset.tab === "units") {
             loadUnitsSettings();
           }
         });
       });
 
-      // Store data
       let variablesData = [];
       let componentsData = [];
       let currentCSSData = null;
-      window.gitlabSettings = null; // Store GitLab settings
-      let unitsData = null; // Store units settings data
+      window.gitlabSettings = null;
+      let unitsData = null;
 
-      // Available units for dropdowns
       const AVAILABLE_UNITS = [
         "",
         "px",
@@ -2182,7 +2155,6 @@
         "none",
       ];
 
-      // Helper function to find variable name by ID
       function findVariableNameById(variableId) {
         for (const collection of variablesData) {
           for (const variable of collection.variables) {
@@ -2194,12 +2166,10 @@
         return null;
       }
 
-      // Function to scroll to a variable
       function scrollToVariable(variableName) {
         const element = document.getElementById(`var-${variableName}`);
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-          // Add a temporary highlight effect
           element.style.backgroundColor = "#fff3cd";
           element.style.border = "2px solid #ffc107";
           setTimeout(() => {
@@ -2209,12 +2179,10 @@
         }
       }
 
-      // Function to scroll to a group
       function scrollToGroup(collection, group) {
         const element = document.getElementById(`group-${collection}-${group}`);
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-          // Add a temporary highlight effect
           element.style.backgroundColor = "#fff3cd";
           element.style.border = "2px solid #ffc107";
           setTimeout(() => {
@@ -2224,26 +2192,16 @@
         }
       }
 
-      // Function to scroll to a group by ID
       function scrollToGroupById(elementId) {
-        console.log("scrollToGroupById called with:", elementId);
         const element = document.getElementById(elementId);
-        console.log("Found element:", element);
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-          // Add a temporary highlight effect
           element.style.backgroundColor = "#fff3cd";
           element.style.border = "2px solid #ffc107";
           setTimeout(() => {
             element.style.backgroundColor = "";
             element.style.border = "";
           }, 2000);
-        } else {
-          console.log(
-            "Element not found. Available elements with group- prefix:"
-          );
-          const allElements = document.querySelectorAll('[id^="group-"]');
-          allElements.forEach((el) => console.log("  -", el.id));
         }
       }
 
@@ -2259,15 +2217,10 @@
         const commitButton = document.getElementById("commit-repo-button");
 
         if (message.type === "gitlab-settings-loaded") {
-          // Store the loaded GitLab settings
           window.gitlabSettings = message.settings;
-          console.log("GitLab settings loaded");
           loadConfigurationTab();
-          // Check if user guide should auto-open for first-time users
           checkAndShowUserGuide();
         } else if (message.type === "gitlab-settings-saved") {
-          // Confirmation that settings were saved
-          console.log("GitLab settings saved successfully");
         } else if (message.type === "document-data") {
           variablesData = message.variablesData;
           componentsData = message.componentsData;
@@ -2352,12 +2305,8 @@
               "*"
             );
 
-            // Don't reset button state yet - wait for commit response
           } else {
-            // For download, just download the test
             downloadTest(message.componentName, message.testContent);
-
-            // Show success message and reset button state
             const buttons = document.querySelectorAll("button.loading");
             buttons.forEach((button) => {
               if (button.textContent === "Generating...") {
@@ -2370,7 +2319,6 @@
                     : "Generate Test");
                 button.disabled = false;
 
-                // Show success message
                 const successMessage = button.parentElement.nextElementSibling;
                 if (
                   successMessage &&
@@ -2378,8 +2326,6 @@
                 ) {
                   successMessage.textContent = "Test generated successfully!";
                   successMessage.style.display = "block";
-
-                  // Hide success message after 3 seconds
                   setTimeout(() => {
                     successMessage.style.display = "none";
                   }, 3000);
@@ -2388,29 +2334,21 @@
             });
           }
         } else if (message.type === "commit-progress") {
-          // Handle progress updates for GitLab operations
           const progressBar = document.getElementById("commit-progress");
           const progressStatus = document.getElementById("progress-status");
 
           if (progressBar && progressStatus) {
-            // Update the progress bar
             progressBar.style.width = `${message.progress}%`;
-
-            // Update the status message
             if (message.message) {
               progressStatus.textContent = message.message;
             }
           }
         } else if (message.type === "error") {
-          // Optionally display errors from the plugin code
           console.error("Plugin Error:", message.message);
-          alert(`Error: ${message.message}`); // Simple alert for user feedback
-
-          // Reset button state
+          alert(`Error: ${message.message}`);
           const buttons = document.querySelectorAll("button.loading");
           buttons.forEach((button) => {
             button.classList.remove("loading");
-            // Restore the original button text
             button.textContent =
               button.dataset.originalText ||
               (button.classList.contains("generate-all-variants-button")
@@ -2419,10 +2357,9 @@
             button.disabled = false;
           });
 
-          exportButton.disabled = true; // Disable button on error
+          exportButton.disabled = true;
         } else if (message.type === "commit-success") {
           if (message.mergeRequestUrl) {
-            // Show success message with merge request link
             const successHTML = `
               <div class="success-message" style="display: block;">
                 ${
@@ -2434,17 +2371,11 @@
 
             const modal = document.getElementById("gitlab-modal");
             const footer = modal.querySelector(".modal-footer");
-
-            // Remove any existing success message
             const existingMessage = modal.querySelector(".success-message");
             if (existingMessage) {
               existingMessage.remove();
             }
-
-            // Insert the success message before the footer
             footer.insertAdjacentHTML("beforebegin", successHTML);
-
-            // Change the commit button to a Close button
             const commitButton = document.getElementById(
               "commit-submit-button"
             );
@@ -2453,7 +2384,6 @@
             commitButton.disabled = false;
             commitButton.onclick = closeGitLabModal;
           } else {
-            // Show standard success message
             alert(
               message.message || "Successfully committed to GitLab repository!"
             );
@@ -2461,7 +2391,6 @@
             resetCommitButton();
           }
         } else if (message.type === "commit-error") {
-          // Show error message with better formatting
           const errorHTML = `
             <div class="error-message" style="display: block;">
               <p><strong>Error committing to GitLab:</strong> ${message.error}</p>
@@ -2471,24 +2400,15 @@
 
           const modal = document.getElementById("gitlab-modal");
           const footer = modal.querySelector(".modal-footer");
-
-          // Remove any existing error message
           const existingMessage = modal.querySelector(".error-message");
           if (existingMessage) {
             existingMessage.remove();
           }
-
-          // Insert the error message before the footer
           footer.insertAdjacentHTML("beforebegin", errorHTML);
 
           resetCommitButton();
         } else if (message.type === "test-commit-success") {
           // Handle successful component test commit
-          console.log(
-            "Test commit success received for:",
-            message.componentName
-          );
-
           // Find any loading commit buttons and update them
           const buttons = document.querySelectorAll("button.loading");
           buttons.forEach((button) => {
@@ -2524,7 +2444,6 @@
           renderUnitsSettings(unitsData);
         } else if (message.type === "unit-settings-updated") {
           // Handle successful unit settings update
-          console.log("Received unit-settings-updated:", message);
           if (message.success) {
             // Show subtle success feedback by temporarily changing button text
             const saveButton = document.getElementById("save-units-button");
@@ -2559,7 +2478,6 @@
         // Render each collection as it comes from Figma
         data.forEach((collection) => {
           if (collection.variables.length > 0) {
-            // Group variables by path prefix (anything before /)
             const groupedVars = new Map();
             const standaloneVars = [];
 
@@ -2576,7 +2494,6 @@
               }
             });
 
-            // Check for mixed direct values and links in groups
             groupedVars.forEach((variables, prefix) => {
               let hasDirectValues = false;
               let hasLinks = false;
@@ -2599,11 +2516,6 @@
                   /[^a-zA-Z0-9]/g,
                   "-"
                 )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
-                console.log("Creating validation issue:", {
-                  collection: collection.name,
-                  prefix: prefix,
-                  sanitizedId: sanitizedId,
-                });
                 validationIssues.push({
                   collection: collection.name,
                   group: prefix,
@@ -2618,7 +2530,6 @@
           }
         });
 
-        // Add validation view at the top if there are issues
         if (validationIssues.length > 0) {
           html += `
             <div class="validation-issues">
@@ -2651,7 +2562,6 @@
         // Render each collection as it comes from Figma
         data.forEach((collection) => {
           if (collection.variables.length > 0) {
-            // Group variables by path prefix (anything before /)
             const groupedVars = new Map();
             const standaloneVars = [];
 
@@ -2711,13 +2621,6 @@
                 /[^a-zA-Z0-9]/g,
                 "-"
               )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
-
-              console.log("Creating group element:", {
-                collection: collection.name,
-                prefix: prefix,
-                groupId: groupId,
-                hasMixedValues: hasMixedValues,
-              });
 
               html += `
                 <div class="variable-subgroup ${
@@ -2803,7 +2706,7 @@
               const r = Math.round(value.r * 255);
               const g = Math.round(value.g * 255);
               const b = Math.round(value.b * 255);
-              const a = value.a !== undefined ? value.a : 1;
+              const a = value.a ?? 1;
 
               html += `
                 <div>
@@ -2878,7 +2781,6 @@
           result.state = stateMatch[1].trim();
         }
 
-        // Check for Size=X pattern
         const sizeMatch = name.match(/Size=([^,]+)/i);
         if (sizeMatch && sizeMatch[1]) {
           result.size = sizeMatch[1].trim();
@@ -2887,62 +2789,40 @@
         return result;
       }
 
-      // Simple text elements display (now integrated into main styles)
       function formatTextElements(textElements) {
-        // This function is now simplified since text is integrated into main JSON
         if (!textElements || textElements.length === 0) return "";
-        
-        // Return empty string since text is now part of the main component styles
         return "";
       }
 
 
-      // Format component styles for readability
       function formatStyles(styles, textElements, componentName) {
         if (!styles) return "";
 
-        console.log('formatStyles called with:', {
-          styles: typeof styles === 'string' ? 'JSON string' : 'Object',
-          textElements: textElements,
-          textElementsLength: textElements ? textElements.length : 0,
-          textElementsType: typeof textElements,
-          textElementsIsArray: Array.isArray(textElements)
-        });
 
-        // Try to parse and format the JSON
         try {
           let stylesObj = styles;
           if (typeof styles === "string") {
             stylesObj = JSON.parse(styles);
           }
 
-          // Create a copy of the styles object
-          // NOTE: We integrate text properties here ONLY for display purposes
-          // The backend handles text properties separately to avoid invalid JS property names
           let combinedStyles = { ...stylesObj };
 
-          // Add text STYLES (fontSize, fontFamily, etc.) but NOT text content ("Donate")
           if (textElements && textElements.length > 0) {
-            console.log('Adding text style elements (not content):', textElements);
             
-            // Parse component name to extract state and size information
             const parsedName = parseTextStyleName(componentName || "");
             
             textElements.forEach((textEl, index) => {
               const prefix = textElements.length > 1 ? `text_${index + 1}_` : 'text_';
               
-              // Add State/Size info in the key name
               const stateSize = [
                 parsedName.state ? `State=${parsedName.state}` : null,
                 parsedName.size ? `Size=${parsedName.size}` : null
               ].filter(Boolean).join(', ');
               
-              // SKIP text content - we don't want "text_content: Donate"
-              // Only add text styles if available
               if (textEl.textStyles) {
                 Object.keys(textEl.textStyles).forEach(styleKey => {
                   const value = textEl.textStyles[styleKey];
-                  if (value !== undefined && value !== null && value !== "") {
+                  if (value) {
                     const formattedKey = stateSize 
                       ? `${prefix}${styleKey} (${stateSize})`
                       : `${prefix}${styleKey}`;
@@ -2953,18 +2833,11 @@
             });
           }
 
-          console.log('Final combined styles:', combinedStyles);
 
-          // Format the JSON with proper indentation
           const styleStr = JSON.stringify(combinedStyles, null, 2);
-
-          // Apply syntax highlighting to the JSON
           const highlightedJson = highlightJson(styleStr);
-
-          // Return both truncated and full versions for dynamic display
           if (styleStr.length > 300) {
             const truncated = highlightedJson.substring(0, 300) + "... <span class='expand-indicator'>(Click to expand)</span>";
-            // Store full content in a data attribute for expansion
             return `<div class="style-content-wrapper">
               <div class="style-collapsed">${truncated}</div>
               <div class="style-expanded" style="display: none;">${highlightedJson}</div>
@@ -2978,9 +2851,7 @@
         }
       }
 
-      // Function to highlight JSON syntax
       function highlightJson(json) {
-        // First, ensure proper indentation for the opening brace
         json = json.replace(/^\s*{\s*/, "{\n  ");
 
         return json
@@ -3007,13 +2878,10 @@
           );
       }
 
-      // Get variable value for styling
       function getVariableValue(variable) {
-        // Handle the different ways variables are structured from Figma
         let value, resolvedType;
 
         if (variable.valuesByMode && Array.isArray(variable.valuesByMode)) {
-          // From component variables (array format)
           const firstMode = variable.valuesByMode[0];
           if (!firstMode) return null;
           value = firstMode.value;
@@ -3022,7 +2890,6 @@
           variable.valuesByMode &&
           typeof variable.valuesByMode === "object"
         ) {
-          // From main variables (object format)
           const modeKeys = Object.keys(variable.valuesByMode);
           if (modeKeys.length === 0) return null;
           value = variable.valuesByMode[modeKeys[0]];
@@ -3032,7 +2899,6 @@
         }
 
         if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
-          // Find referenced variable and resolve recursively
           const referencedVariable = findVariableById(value.id);
           if (referencedVariable) {
             return getVariableValue(referencedVariable);
@@ -3059,7 +2925,6 @@
         return value;
       }
 
-      // Find variable by ID
       function findVariableById(id) {
         for (const collection of variablesData) {
           for (const variable of collection.variables) {
@@ -3071,7 +2936,6 @@
         return null;
       }
 
-      // Render component variables list
       function renderComponentVariables(group) {
         const groupIndex = Math.random().toString(36).substr(2, 9);
 
@@ -3086,7 +2950,6 @@
         group.variables.forEach((variable) => {
           const displayValue = getVariableDisplayValue(variable);
 
-          // Check if this variable references another variable to make it clickable
           const firstMode = variable.valuesByMode[0];
           let clickableValue = displayValue;
 
@@ -3121,9 +2984,7 @@
         return html;
       }
 
-      // Get display value for variable with all modes
       function getVariableDisplayValue(variable) {
-        // Show all modes if there are multiple, otherwise just show the single value
         if (variable.valuesByMode.length > 1) {
           return variable.valuesByMode
             .map((mode) => {
@@ -3157,7 +3018,6 @@
         }
       }
 
-      // Format a single variable value
       function formatSingleValue(value, resolvedType) {
         if (
           resolvedType === "COLOR" &&
@@ -3167,7 +3027,7 @@
           const r = Math.round(value.r * 255);
           const g = Math.round(value.g * 255);
           const b = Math.round(value.b * 255);
-          if (value.a !== undefined && value.a < 1) {
+          if (value.a != null && value.a < 1) {
             return `rgba(${r}, ${g}, ${b}, ${value.a.toFixed(2)})`;
           }
           return `rgb(${r}, ${g}, ${b})`;
@@ -3184,7 +3044,6 @@
         return String(value);
       }
 
-      // Render components for test generation (Figma components only)
       function renderComponents(data) {
         const container = document.getElementById("components-container");
 
@@ -3196,9 +3055,6 @@
 
         let html = `<div class="component-list">`;
 
-        // Show Figma components for test generation
-
-        // Render Figma components for test generation
         data.forEach((component, index) => {
           if (component.type === "COMPONENT_SET") {
             const parsedName = parseComponentName(component.name);
@@ -3289,7 +3145,6 @@
             </div>
             `;
           } else {
-            // Regular components
             const parsedName = parseComponentName(component.name);
 
             html += `
@@ -3331,7 +3186,6 @@
         html += `</div>`;
         container.innerHTML = html;
 
-        // Add toggle functions to the global scope
         window.toggleComponentSet = function (index) {
           const headerEl = document.querySelector(
             `.component-set-header[data-index="${index}"]`
@@ -3352,24 +3206,20 @@
         window.toggleStyles = function (element) {
           element.classList.toggle("expanded");
 
-          // Handle the new wrapper structure for showing full/truncated content
           const wrapper = element.querySelector('.style-content-wrapper');
           if (wrapper) {
             const collapsed = wrapper.querySelector('.style-collapsed');
             const expanded = wrapper.querySelector('.style-expanded');
             
             if (element.classList.contains("expanded")) {
-              // Show full content
               if (collapsed) collapsed.style.display = 'none';
               if (expanded) expanded.style.display = 'block';
             } else {
-              // Show truncated content
               if (collapsed) collapsed.style.display = 'block';
               if (expanded) expanded.style.display = 'none';
             }
           }
 
-          // If we're expanding, scroll the element into view
           if (element.classList.contains("expanded")) {
             setTimeout(() => {
               element.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -3379,7 +3229,6 @@
 
       }
 
-      // Function to trigger CSS download
       function downloadCSS(cssString, format = "css") {
         const mimeType = format === "scss" ? "text/scss" : "text/css";
         const fileExtension = format === "scss" ? "scss" : "css";
@@ -3395,14 +3244,10 @@
         URL.revokeObjectURL(url);
       }
 
-      // Add event listener for the export button
       const exportCssButton = document.getElementById("export-css-button");
       if (exportCssButton) {
         exportCssButton.addEventListener("click", () => {
-          // Get export format from settings
           const exportFormat = window.gitlabSettings?.exportFormat || "css";
-
-          // Send message to plugin code to request CSS export
           parent.postMessage(
             {
               pluginMessage: {
@@ -3416,7 +3261,6 @@
         });
       }
 
-      // Function to update export button text based on format
       function updateExportButtonText() {
         const exportButton = document.getElementById("export-css-button");
         const format = window.gitlabSettings?.exportFormat || "css";
@@ -3424,7 +3268,6 @@
         exportButton.textContent = `Export Variables as ${formatText}`;
       }
 
-      // Function to generate test for a component
       function generateTest(
         componentId,
         componentName,
@@ -3432,13 +3275,10 @@
         generateAllVariants = false,
         forCommit = false
       ) {
-        // Show loading state
         button.classList.add("loading");
         const originalText = button.textContent;
         button.textContent = forCommit ? "Committing..." : "Generating...";
         button.disabled = true;
-
-        // Hide any previous success messages
         const successMessage = button.parentElement.nextElementSibling;
         if (
           successMessage &&
@@ -3446,8 +3286,6 @@
         ) {
           successMessage.style.display = "none";
         }
-
-        // Send message to plugin code to request test generation
         parent.postMessage(
           {
             pluginMessage: {
@@ -3461,42 +3299,30 @@
           "*"
         );
 
-        // Store original button text for restoring later
         button.dataset.originalText = originalText;
       }
 
-      // Function to trigger ZIP download
       function downloadComponentsZip(files, language) {
         if (!files || files.length === 0) {
           alert("No components available to export");
           return;
         }
 
-        // Create a new JSZip instance (needs to be added in the head section)
         const zip = new JSZip();
-
-        // Add files to the ZIP based on the selected language
         files.forEach((component) => {
+          const folder = zip.folder(component.kebabName);
           const folderName = component.kebabName;
-          const folder = zip.folder(folderName);
 
           if (language === "angular") {
-            // Add all Angular component files
             folder.file(`${folderName}.component.html`, component.angularHtml);
             folder.file(`${folderName}.component.ts`, component.angularTs);
-            folder.file(
-              `${folderName}.component.scss`,
-              `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`
-            );
+            folder.file(`${folderName}.component.scss`, `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`);
           } else if (language === "typescript") {
-            // Add only TypeScript file
             folder.file(`${folderName}.component.ts`, component.angularTs);
           } else if (language === "javascript") {
-            // Convert TypeScript to JavaScript (basic conversion)
             const jsCode = component.angularTs
-              .replace(/: [A-Za-z<>[\]]+/g, "") // Remove type annotations
-              .replace(/interface [^}]+}/g, ""); // Remove interfaces
-
+              .replace(/: [A-Za-z<>[\]]+/g, "")
+              .replace(/interface [^}]+}/g, "");
             folder.file(`${folderName}.component.js`, jsCode);
           }
         });
@@ -3656,7 +3482,6 @@
         }
       }
 
-      // Function to save configuration settings
       function saveConfiguration() {
         const projectId = document
           .getElementById("config-project-id")
@@ -3691,7 +3516,6 @@
           return;
         }
 
-        // Update local settings immediately
         window.gitlabSettings = {
           projectId: projectId,
           filePath: filePath,
@@ -3707,7 +3531,6 @@
           savedBy: "Current user",
         };
 
-        // Save the configuration to backend
         parent.postMessage(
           {
             pluginMessage: {
@@ -3727,17 +3550,13 @@
           "*"
         );
 
-        // Update metadata display
         displayConfigMetadata();
-
-        // Update export button text
         updateExportButtonText();
 
         alert("Configuration saved successfully!");
         closeSettingsModal();
       }
 
-      // Function to load configuration into the Config tab
       function loadConfigurationTab() {
         if (window.gitlabSettings) {
           document.getElementById("config-project-id").value =
@@ -3758,7 +3577,6 @@
           document.getElementById("config-test-branch").value =
             window.gitlabSettings.testBranchName || "feature/component-tests";
 
-          // Handle checkboxes with proper defaults
           document.getElementById("config-save-token").checked =
             window.gitlabSettings.hasOwnProperty("saveToken")
               ? window.gitlabSettings.saveToken
@@ -3768,7 +3586,6 @@
               ? !window.gitlabSettings.isPersonal
               : true;
 
-          // Show/hide branch fields based on strategy
           const strategy = document.getElementById("config-strategy").value;
           const display = strategy === "merge-request" ? "block" : "none";
 
@@ -3777,19 +3594,14 @@
           document.getElementById("config-test-branch-section").style.display =
             display;
 
-          // Display metadata if available
           displayConfigMetadata();
-
-          // Update export button text
           updateExportButtonText();
         } else {
-          // No settings exist - ensure defaults are set
           document.getElementById("config-save-token").checked = true;
           document.getElementById("config-share-team").checked = true;
         }
       }
 
-      // Function to display configuration metadata
       function displayConfigMetadata() {
         const metadataElement = document.getElementById("config-metadata");
         const metadataTextElement = document.getElementById(
@@ -3832,7 +3644,6 @@
         }
       }
 
-      // Function to toggle the display of GitLab credentials fields
       function toggleGitLabCredentialsFields() {
         const fieldsSection = document.getElementById(
           "gitlab-credentials-fields"
@@ -3846,13 +3657,11 @@
         const securityNoteFull = document.getElementById("security-note-full");
 
         if (fieldsSection.style.display === "none") {
-          // Show the fields and full security note
           fieldsSection.style.display = "block";
           summarySection.style.display = "none";
           securityNoteCompact.style.display = "none";
           securityNoteFull.style.display = "block";
         } else {
-          // Only hide if we have values to display in summary
           const projectId = document.getElementById("gitlab-project-id").value;
           if (projectId) {
             fieldsSection.style.display = "none";
@@ -3860,18 +3669,15 @@
             securityNoteCompact.style.display = "block";
             securityNoteFull.style.display = "none";
 
-            // Update the display values
             document.getElementById("project-id-display").textContent =
               projectId;
           }
         }
       }
 
-      // Function to open the GitLab modal and populate with saved settings if available
       function openGitLabModal() {
         document.getElementById("gitlab-modal").style.display = "block";
 
-        // Reset display state
         const fieldsSection = document.getElementById(
           "gitlab-credentials-fields"
         );
@@ -3888,37 +3694,30 @@
         securityNoteCompact.style.display = "none";
         securityNoteFull.style.display = "block";
 
-        // Check if we have saved settings
         if (window.gitlabSettings) {
-          // Fill in the project ID
           if (window.gitlabSettings.projectId) {
             const projectIdField = document.getElementById("gitlab-project-id");
             projectIdField.value = window.gitlabSettings.projectId;
 
-            // Update the display text
             document.getElementById("project-id-display").textContent =
               window.gitlabSettings.projectId;
           }
 
-          // Fill in the token if it was saved
           if (window.gitlabSettings.gitlabToken) {
             document.getElementById("gitlab-token").value =
               window.gitlabSettings.gitlabToken;
             document.getElementById("save-token").checked = true;
           }
 
-          // Fill in the branch name if it was saved
           if (window.gitlabSettings.branchName) {
             document.getElementById("branch-name").value =
               window.gitlabSettings.branchName;
           }
 
-          // Check "share with team" if this came from team storage
           if (!window.gitlabSettings.isPersonal) {
             document.getElementById("share-with-team").checked = true;
           }
 
-          // Show saved info if available
           if (window.gitlabSettings.savedBy && window.gitlabSettings.savedAt) {
             const savedDate = new Date(window.gitlabSettings.savedAt);
             const formattedDate =
@@ -3927,17 +3726,13 @@
               savedDate.toLocaleTimeString();
             const savedInfoText = `Last updated by: <strong>${window.gitlabSettings.savedBy}</strong> on ${formattedDate}`;
 
-            // Update the compact security note
             securityNoteCompact.innerHTML = savedInfoText;
-
-            // Update the full security note
             const savedInfoDiv = securityNoteFull.querySelector(".saved-info");
             if (savedInfoDiv) {
               savedInfoDiv.innerHTML = savedInfoText;
             }
           }
 
-          // If project ID exists, show the summary view instead of fields
           if (window.gitlabSettings.projectId) {
             fieldsSection.style.display = "none";
             summarySection.style.display = "block";
@@ -3946,7 +3741,6 @@
           }
         }
 
-        // Add click event listener to the settings button
         document.getElementById("settings-button").onclick =
           toggleGitLabCredentialsFields;
       }
@@ -3955,7 +3749,6 @@
       function closeGitLabModal() {
         const modal = document.getElementById("gitlab-modal");
         if (modal) {
-          // Remove any success or error messages
           const successMessage = modal.querySelector(".success-message");
           if (successMessage) {
             successMessage.remove();
@@ -3976,7 +3769,7 @@
         if (button) {
           button.textContent = "Commit";
           button.disabled = false;
-          button.onclick = commitToGitLab; // Reset the onclick handler
+          button.onclick = commitToGitLab;
         }
       }
 
@@ -3984,7 +3777,6 @@
       function commitToGitLab() {
         const button = document.getElementById("commit-submit-button");
 
-        // Show loading state with spinner
         button.disabled = true;
         button.innerHTML = `
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 8px; animation: spin 1s linear infinite;">
@@ -3994,7 +3786,6 @@
           Committing...
         `;
 
-        // Check if we have saved configuration
         if (
           !window.gitlabSettings ||
           !window.gitlabSettings.projectId ||
@@ -4007,7 +3798,6 @@
           return;
         }
 
-        // Get values from saved configuration
         const projectId = window.gitlabSettings.projectId;
         const gitlabToken = window.gitlabSettings.gitlabToken;
         const filePath = window.gitlabSettings.filePath || "src/variables.css";
@@ -4015,27 +3805,17 @@
         const branchName =
           window.gitlabSettings.branchName || "feature/variables";
 
-        // Debug: Log the branch name being used
-        console.log("Using branch name for commit:", branchName);
-        console.log("GitLab settings:", window.gitlabSettings);
-
-        // Get commit message from the modal
         const commitMessage =
           document.getElementById("commit-message").value.trim() ||
           "feat: update CSS variables";
 
-        // Determine if this should create a merge request based on strategy
         const createMergeRequest = strategy === "merge-request";
         let mrTitle = commitMessage;
         let mrDescription = "Updated CSS variables from Figma";
         let mrRemoveSourceBranch = true;
         let mrSquash = false;
 
-        // Settings are already saved, no need to save again
-
-        // First, ensure we have the latest CSS data
         if (!currentCSSData) {
-          // Request CSS export first with format
           const exportFormat = window.gitlabSettings?.exportFormat || "css";
           parent.postMessage(
             {
@@ -4047,12 +3827,9 @@
             "*"
           );
 
-          // Wait for CSS data to be available
           const checkCSSData = setInterval(() => {
             if (currentCSSData) {
               clearInterval(checkCSSData);
-
-              // Now that we have CSS data, proceed with the commit
               parent.postMessage(
                 {
                   pluginMessage: {
@@ -4075,7 +3852,6 @@
             }
           }, 100);
 
-          // Set a timeout in case CSS generation fails
           setTimeout(() => {
             if (!currentCSSData) {
               clearInterval(checkCSSData);
@@ -4084,7 +3860,6 @@
             }
           }, 5000);
         } else {
-          // If we already have CSS data, proceed with the commit
           parent.postMessage(
             {
               pluginMessage: {
@@ -4107,7 +3882,6 @@
         }
       }
 
-      // Units-related functions
       function loadUnitsSettings() {
         parent.postMessage(
           {
@@ -4133,7 +3907,6 @@
 
         let html = "";
 
-        // Collections section
         if (data.collections.length > 0) {
           html += `
             <div class="units-section">
@@ -4167,7 +3940,6 @@
           html += "</div>";
         }
 
-        // Groups section
         if (data.groups.length > 0) {
           html += `
             <div class="units-section">
@@ -4175,7 +3947,6 @@
               <p style="color: #666; font-size: 14px; margin-bottom: 16px;">Set specific units for variable groups. These override collection settings.</p>
           `;
 
-          // Group by collection
           const groupsByCollection = {};
           data.groups.forEach((group) => {
             if (!groupsByCollection[group.collectionName]) {
@@ -4221,7 +3992,6 @@
           html += "</div>";
         }
 
-        // Add smart defaults explanation section at the end
         html += `
           <div class="units-section" style="background: #f0f7ff; border: 1px solid #b3d9ff;">
             <h4 style="color: #0d99ff;">📋 Smart Default Rules</h4>
@@ -4263,14 +4033,11 @@
 
         container.innerHTML = html;
 
-        // Add event listeners to dropdowns
         document.querySelectorAll(".unit-dropdown").forEach((dropdown) => {
           dropdown.addEventListener("change", function () {
-            console.log("Dropdown changed, enabling save button");
             const saveButton = document.getElementById("save-units-button");
             if (saveButton) {
               saveButton.disabled = false;
-              console.log("Save button enabled");
             } else {
               console.error("Save button not found!");
             }
@@ -4278,15 +4045,11 @@
         });
       }
 
-      // Functions moved to window object at end of script
-
-      // Add event listener for the commit button
       const commitRepoButton = document.getElementById("commit-repo-button");
       if (commitRepoButton) {
         commitRepoButton.addEventListener("click", openGitLabModal);
       }
 
-      // Toggle merge request options when checkbox is clicked
       const createMRElement = document.getElementById("create-merge-request");
       if (createMRElement) {
         createMRElement.addEventListener("change", function () {
@@ -4297,7 +4060,6 @@
             if (this.checked) {
               mergeRequestOptions.style.display = "block";
 
-              // Pre-fill the merge request title with the commit message
               const commitMessage =
                 document.getElementById("commit-message").value;
               const mrTitleElement = document.getElementById("mr-title");
@@ -4311,7 +4073,6 @@
         });
       }
 
-      // Update MR title when commit message changes if checkbox is checked
       const commitMessageElement = document.getElementById("commit-message");
       if (commitMessageElement) {
         commitMessageElement.addEventListener("input", function () {
@@ -4323,7 +4084,6 @@
         });
       }
 
-      // Add event listener for strategy dropdown in Config tab
       const configStrategyElement = document.getElementById("config-strategy");
       if (configStrategyElement) {
         configStrategyElement.addEventListener("change", function () {
@@ -4342,30 +4102,18 @@
         });
       }
 
-      // Add event listener for export format dropdown
       const configExportFormatElement = document.getElementById(
         "config-export-format"
       );
       if (configExportFormatElement) {
         configExportFormatElement.addEventListener("change", function () {
-          // Update local settings immediately
           if (window.gitlabSettings) {
             window.gitlabSettings.exportFormat = this.value;
           }
-          // Update export button text
           updateExportButtonText();
         });
       }
 
-      // Add basic click debugging
-      document.addEventListener("click", function (event) {
-        console.log(
-          "GLOBAL CLICK:",
-          event.target.id,
-          event.target.tagName,
-          event.target.textContent
-        );
-      });
     </script>
   </body>
 </html>
