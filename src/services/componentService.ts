@@ -9,11 +9,11 @@ const DEFAULT_ELEMENT_SELECTORS = 'button, div, span, a, p, h1, h2, h3, h4, h5, 
 // TODO: is this type used anywhere?
 type PseudoState = typeof PSEUDO_STATES[number];
 
-interface VariantProps {
-  state: string;
-  size: string;
-  variantType: string;
-}
+// Dynamic variant properties - all properties are collected from Figma
+// State has special handling for pseudo-states
+type VariantProps = Record<string, string> & {
+  state?: string; // Optional, has special logic for pseudo-states
+};
 
 interface ParsedComponentName {
   kebabName: string;
@@ -331,8 +331,8 @@ export class ComponentService {
     // TODO: can we use forEach instead of for...of?
     for (const variant of componentSet.children) {
       try {
-        const { state, size, variantType } = this.parseVariantName(variant.name);
-        const testId = `${state}-${size}-${variantType}`;
+        const variantProps = this.parseVariantName(variant.name);
+        const testId = variant.name; // Use full variant name as unique ID
         
         if (processedVariants.has(testId)) {
           continue;
@@ -343,12 +343,13 @@ export class ComponentService {
         const cssProperties = this.extractCssProperties(styles);
         const textStyles = this.extractTextStyles(variant.textElements);
 
+        const state = variantProps.state || 'default';
         const isPseudoState = this.isPseudoState(state);
         
         if (isPseudoState) {
-          variantTestParts.push(this.generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles));
+          variantTestParts.push(this.generatePseudoStateTest(variantProps, cssProperties, kebabName, textStyles));
         } else {
-          variantTestParts.push(this.generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles));
+          variantTestParts.push(this.generateComponentPropertyTest(variantProps, cssProperties, kebabName, pascalName, textStyles));
         }
 
       } catch (error) {
@@ -367,15 +368,37 @@ export class ComponentService {
       throw new Error(`Invalid variant name: ${variantName}`);
     }
 
-    const stateMatch = variantName.match(/State=([^,]+)/i);
-    const sizeMatch = variantName.match(/Size=([^,]+)/i);
-    const variantMatch = variantName.match(/Variant=([^,]+)/i);
+    const props: VariantProps = {};
     
-    return {
-      state: stateMatch && stateMatch[1] ? stateMatch[1].trim() : 'default',
-      size: sizeMatch && sizeMatch[1] ? sizeMatch[1].trim() : 'default',
-      variantType: variantMatch && variantMatch[1] ? variantMatch[1].trim() : 'default'
-    };
+    // Split by comma and parse each property
+    const parts = variantName.split(',');
+    
+    for (const part of parts) {
+      const trimmedPart = part.trim();
+      // Match any property in format "PropertyName=Value"
+      const propertyMatch = trimmedPart.match(/^([^=]+)=(.+)$/);
+      
+      if (propertyMatch) {
+        const propertyName = propertyMatch[1].trim();
+        const propertyValue = propertyMatch[2].trim();
+        
+        // Convert property name to camelCase for consistency
+        const camelCaseName = propertyName
+          .replace(/\s+/g, '') // Remove spaces
+          .replace(/^(.)/g, (match) => match.toLowerCase()) // Lowercase first letter
+          .replace(/[^a-zA-Z0-9]/g, ''); // Remove special characters
+        
+        props[camelCaseName] = propertyValue;
+        
+        // Keep original 'state' property name for backward compatibility
+        if (propertyName.toLowerCase() === 'state') {
+          props.state = propertyValue;
+        }
+      }
+    }
+    
+    // If no properties found, return empty object (no defaults)
+    return props;
   }
 
   private static parseStyles(styles: unknown): Record<string, unknown> {
@@ -712,9 +735,17 @@ ${variantTests}
     return cssProperties;
   }
 
-  private static generatePseudoStateTest(state: string, size: string, variantType: string, cssProperties: Record<string, string>, kebabName: string, textStyles: Record<string, string> = {}): string {
+  private static generatePseudoStateTest(variantProps: VariantProps, cssProperties: Record<string, string>, kebabName: string, textStyles: Record<string, string> = {}): string {
+    const state = variantProps.state || 'default';
     const pseudoClass = `:${state.toLowerCase()}`;
-    const testDescription = `should have correct :${state.toLowerCase()} styles${size !== 'default' ? ` for ${size} size` : ''}${variantType !== 'default' ? ` (${variantType} variant)` : ''}`;
+    
+    // Build test description from all variant properties except state
+    const propDescriptions = objectEntries(variantProps)
+      .filter(([key, value]) => key !== 'state' && value !== 'default')
+      .map(([key, value]) => `${key}="${value}"`)
+      .join(' ');
+    
+    const testDescription = `should have correct :${state.toLowerCase()} styles${propDescriptions ? ` for ${propDescriptions}` : ''}`;
     
     const allProperties = Object.assign({}, cssProperties, textStyles);
     const testableProperties = Object.keys(allProperties).filter(property => {
@@ -784,25 +815,30 @@ ${testableProperties.map(property => {
   });`;
   }
 
-  // TODO. currently only state, size, variantType are supported figma properties. We should include ALL properties from the figma component for test generation
-  private static generateComponentPropertyTest(state: string, size: string, variantType: string, cssProperties: Record<string, string>, kebabName: string, pascalName: string, textStyles: Record<string, string> = {}): string {
+  private static generateComponentPropertyTest(variantProps: VariantProps, cssProperties: Record<string, string>, kebabName: string, pascalName: string, textStyles: Record<string, string> = {}): string {
     const componentProps: string[] = [];
+    const testDescriptionParts: string[] = [];
     
-    if (size !== 'default') {
-      componentProps.push(`component.size = '${size.toLowerCase()}';`);
-    }
-    if (variantType !== 'default') {
-      componentProps.push(`component.variant = '${variantType.toLowerCase()}';`);
-    }
-    if (state !== 'default' && ['hover', 'active', 'focus', 'disabled'].indexOf(state.toLowerCase()) === -1) {
-      componentProps.push(`component.state = '${state.toLowerCase()}';`);
-    }
+    // Generate component property assignments for all variant properties
+    objectEntries(variantProps).forEach(([propName, propValue]) => {
+      if (propValue !== 'default') {
+        // Skip pseudo-states in component properties
+        if (propName === 'state' && ['hover', 'active', 'focus', 'disabled'].indexOf(propValue.toLowerCase()) !== -1) {
+          return;
+        }
+        
+        // Handle special property name mappings if needed
+        let componentPropName = propName;
+        if (propName === 'variantType' || propName === 'variant') {
+          componentPropName = 'variant';
+        }
+        
+        componentProps.push(`component.${componentPropName} = '${propValue.toLowerCase()}';`);
+        testDescriptionParts.push(`${propName}="${propValue}"`);
+      }
+    });
     
-    const testDescription = [
-      size !== 'default' ? `size="${size}"` : null,
-      variantType !== 'default' ? `variant="${variantType}"` : null,
-      state !== 'default' ? `state="${state}"` : null
-    ].filter(Boolean).join(' ');
+    const testDescription = testDescriptionParts.join(' ');
     
     const testName = testDescription ? `should have correct styles for ${testDescription}` : 'should have correct styles';
     

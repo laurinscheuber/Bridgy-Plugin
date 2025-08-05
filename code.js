@@ -486,6 +486,7 @@
         static setLogLevel(level) {
           this.currentLevel = level;
         }
+        // TODO: is this method used anywhere?
         /**
          * Get the current logging level
          */
@@ -523,6 +524,7 @@
           this.addLogEntry(LogLevel.DEBUG, message, data, category);
           console.debug(`[DEBUG]${category ? ` [${category}]` : ""} ${message}`, data || "");
         }
+        // TODO: is this method used anywhere?
         /**
          * Info level logging
          */
@@ -550,6 +552,7 @@
           this.addLogEntry(LogLevel.ERROR, message, error, category);
           console.error(`[ERROR]${category ? ` [${category}]` : ""} ${message}`, error || "");
         }
+        // TODO: all the methods below seem not used anywhere
         /**
          * Get all log entries
          */
@@ -802,6 +805,7 @@
             }
           });
         }
+        // TODO: method is quite long, consider breaking it down into smaller methods
         /**
          * Load GitLab settings from Figma storage
          */
@@ -1272,6 +1276,7 @@
         static getUnitSettings() {
           return Object.assign({}, this.unitSettings);
         }
+        // TODO: is this method used anywhere?
         static resetUnitSettingsInMemory() {
           this.unitSettings = {
             collections: {},
@@ -2570,6 +2575,7 @@ ${styleCheckCode}
           this.testCache.clear();
           this.nameCache.clear();
         }
+        // TODO: is this method used anywhere?
         static getCacheStats() {
           return {
             styles: this.styleCache.size,
@@ -2577,6 +2583,7 @@ ${styleCheckCode}
             names: this.nameCache.size
           };
         }
+        // TODO: consider moving the properties to a separate file for better organization. Edit: I just saw that we already moved the properties to css.ts, but why do we still have this propertties here?
         static isSimpleColorProperty(property) {
           const simpleColorProperties = [
             "accentColor",
@@ -2609,6 +2616,7 @@ ${styleCheckCode}
           ];
           return (0, es2015_helpers_1.arrayIncludes)(simpleColorProperties, property);
         }
+        // TODO: consider moving the properties to a separate file for better organization
         static isComplexColorProperty(property) {
           const complexColorProperties = [
             "background",
@@ -2799,8 +2807,8 @@ ${styleCheckCode}
           const processedVariants = /* @__PURE__ */ new Set();
           for (const variant of componentSet.children) {
             try {
-              const { state, size, variantType } = this.parseVariantName(variant.name);
-              const testId = `${state}-${size}-${variantType}`;
+              const variantProps = this.parseVariantName(variant.name);
+              const testId = variant.name;
               if (processedVariants.has(testId)) {
                 continue;
               }
@@ -2808,11 +2816,12 @@ ${styleCheckCode}
               const styles = this.parseStyles(variant.styles);
               const cssProperties = this.extractCssProperties(styles);
               const textStyles = this.extractTextStyles(variant.textElements);
+              const state = variantProps.state || "default";
               const isPseudoState = this.isPseudoState(state);
               if (isPseudoState) {
-                variantTestParts.push(this.generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles));
+                variantTestParts.push(this.generatePseudoStateTest(variantProps, cssProperties, kebabName, textStyles));
               } else {
-                variantTestParts.push(this.generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles));
+                variantTestParts.push(this.generateComponentPropertyTest(variantProps, cssProperties, kebabName, pascalName, textStyles));
               }
             } catch (error) {
               console.error("Error generating test for variant:", variant.name, error);
@@ -2826,14 +2835,22 @@ ${styleCheckCode}
           if (!variantName || typeof variantName !== "string") {
             throw new Error(`Invalid variant name: ${variantName}`);
           }
-          const stateMatch = variantName.match(/State=([^,]+)/i);
-          const sizeMatch = variantName.match(/Size=([^,]+)/i);
-          const variantMatch = variantName.match(/Variant=([^,]+)/i);
-          return {
-            state: stateMatch && stateMatch[1] ? stateMatch[1].trim() : "default",
-            size: sizeMatch && sizeMatch[1] ? sizeMatch[1].trim() : "default",
-            variantType: variantMatch && variantMatch[1] ? variantMatch[1].trim() : "default"
-          };
+          const props = {};
+          const parts = variantName.split(",");
+          for (const part of parts) {
+            const trimmedPart = part.trim();
+            const propertyMatch = trimmedPart.match(/^([^=]+)=(.+)$/);
+            if (propertyMatch) {
+              const propertyName = propertyMatch[1].trim();
+              const propertyValue = propertyMatch[2].trim();
+              const camelCaseName = propertyName.replace(/\s+/g, "").replace(/^(.)/g, (match) => match.toLowerCase()).replace(/[^a-zA-Z0-9]/g, "");
+              props[camelCaseName] = propertyValue;
+              if (propertyName.toLowerCase() === "state") {
+                props.state = propertyValue;
+              }
+            }
+          }
+          return props;
         }
         static parseStyles(styles) {
           if (!styles) {
@@ -2981,6 +2998,7 @@ ${variantTests}
           }
           return resolvedStyles;
         }
+        // TODO: is this method used anywhere?
         static parseComponentVariantName(name) {
           const result = {};
           const stateMatch = name.match(/State=([^,]+)/i);
@@ -3132,9 +3150,11 @@ ${variantTests}
           });
           return cssProperties;
         }
-        static generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles = {}) {
+        static generatePseudoStateTest(variantProps, cssProperties, kebabName, textStyles = {}) {
+          const state = variantProps.state || "default";
           const pseudoClass = `:${state.toLowerCase()}`;
-          const testDescription = `should have correct :${state.toLowerCase()} styles${size !== "default" ? ` for ${size} size` : ""}${variantType !== "default" ? ` (${variantType} variant)` : ""}`;
+          const propDescriptions = (0, es2015_helpers_1.objectEntries)(variantProps).filter(([key, value]) => key !== "state" && value !== "default").map(([key, value]) => `${key}="${value}"`).join(" ");
+          const testDescription = `should have correct :${state.toLowerCase()} styles${propDescriptions ? ` for ${propDescriptions}` : ""}`;
           const allProperties = Object.assign({}, cssProperties, textStyles);
           const testableProperties = Object.keys(allProperties).filter((property) => {
             const expectedValue = allProperties[property];
@@ -3194,22 +3214,23 @@ ${testableProperties.map((property) => {
     });
   });`;
         }
-        static generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles = {}) {
+        static generateComponentPropertyTest(variantProps, cssProperties, kebabName, pascalName, textStyles = {}) {
           const componentProps = [];
-          if (size !== "default") {
-            componentProps.push(`component.size = '${size.toLowerCase()}';`);
-          }
-          if (variantType !== "default") {
-            componentProps.push(`component.variant = '${variantType.toLowerCase()}';`);
-          }
-          if (state !== "default" && ["hover", "active", "focus", "disabled"].indexOf(state.toLowerCase()) === -1) {
-            componentProps.push(`component.state = '${state.toLowerCase()}';`);
-          }
-          const testDescription = [
-            size !== "default" ? `size="${size}"` : null,
-            variantType !== "default" ? `variant="${variantType}"` : null,
-            state !== "default" ? `state="${state}"` : null
-          ].filter(Boolean).join(" ");
+          const testDescriptionParts = [];
+          (0, es2015_helpers_1.objectEntries)(variantProps).forEach(([propName, propValue]) => {
+            if (propValue !== "default") {
+              if (propName === "state" && ["hover", "active", "focus", "disabled"].indexOf(propValue.toLowerCase()) !== -1) {
+                return;
+              }
+              let componentPropName = propName;
+              if (propName === "variantType" || propName === "variant") {
+                componentPropName = "variant";
+              }
+              componentProps.push(`component.${componentPropName} = '${propValue.toLowerCase()}';`);
+              testDescriptionParts.push(`${propName}="${propValue}"`);
+            }
+          });
+          const testDescription = testDescriptionParts.join(" ");
           const testName = testDescription ? `should have correct styles for ${testDescription}` : "should have correct styles";
           return `
   it('${testName}', () => {
