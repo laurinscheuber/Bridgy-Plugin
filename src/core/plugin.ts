@@ -165,7 +165,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             exportFormat: msg.exportFormat || "css",
             saveToken: msg.saveToken || false,
             savedAt: new Date().toISOString(),
-            savedBy: figma.currentUser?.name || "Unknown user",
+            savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
           },
           msg.shareWithTeam || false
         );
@@ -199,7 +199,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         figma.ui.postMessage({
           type: "commit-success",
           message: "Successfully committed changes to the feature branch",
-          mergeRequestUrl: result?.mergeRequestUrl,
+          mergeRequestUrl: result && result.mergeRequestUrl,
         });
         break;
 
@@ -230,7 +230,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           message:
             "Successfully committed component test to the feature branch",
           componentName: msg.componentName,
-          mergeRequestUrl: testResult?.mergeRequestUrl,
+          mergeRequestUrl: testResult && testResult.mergeRequestUrl,
         });
         break;
 

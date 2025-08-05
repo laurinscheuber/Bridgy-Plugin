@@ -1,180 +1,338 @@
 import { VariableCollection } from '../types';
 import { UnitsService } from './unitsService';
 
+// Constants for better maintainability
+const CSS_VARIABLE_PREFIX = '--';
+const SCSS_VARIABLE_PREFIX = '$';
+const DEFAULT_FORMAT = 'css' as const;
+
+// Types for internal use
+interface CSSVariable {
+  name: string;
+  value: string;
+  originalName: string;
+}
+
+interface GroupedVariables {
+  [groupName: string]: CSSVariable[];
+}
+
+interface FormattedCollection {
+  name: string;
+  variables: CSSVariable[];
+  groups: GroupedVariables;
+}
+
+export type CSSFormat = 'css' | 'scss';
+
 export class CSSExportService {
-  private static allVariables = new Map<string, any>();
+  private static readonly variableCache = new Map<string, any>();
+  private static readonly collectionCache = new Map<string, FormattedCollection>();
 
-  static async exportVariables(format: 'css' | 'scss' = 'css'): Promise<string> {
+  /**
+   * Export variables in the specified format (CSS or SCSS)
+   */
+  static async exportVariables(format: CSSFormat = DEFAULT_FORMAT): Promise<string> {
     try {
-      // Clear cache
-      this.allVariables.clear();
-
-      // Load unit settings
-      await UnitsService.loadUnitSettings();
-
-      // Get all variable collections
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      
-      // First pass: collect all variables for reference lookup
-      await this.collectAllVariables(collections);
-
-      // Build content with actual collection structure
-      let content = format === 'scss' ? '' : ':root {\n';
-      
-      // Sort collections alphabetically by name
-      const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-      
-      // Process each collection exactly as it appears in Figma
-      for (const collection of sortedCollections) {
-        const collectionVariables = [];
-        const groupedVariables = new Map<string, any[]>();
-        
-        for (const variableId of collection.variableIds) {
-          const variable = await figma.variables.getVariableByIdAsync(variableId);
-          if (!variable) continue;
-
-          const defaultModeId = collection.modes[0].modeId;
-          const value = variable.valuesByMode[defaultModeId];
-          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-
-          let cssValue: string;
-          const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
-          
-          if (isAlias) {
-            const referencedVariable = this.allVariables.get(value.id);
-            if (referencedVariable) {
-              const referencedName = referencedVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-              cssValue = format === 'scss' ? `$${referencedName}` : `var(--${referencedName})`;
-            } else {
-              continue;
-            }
-          } else {
-            const pathMatch = variable.name.match(/^([^\/]+)\//);
-            const groupName = pathMatch ? pathMatch[1] : undefined;
-            const formattedValue = this.formatVariableValue(variable.resolvedType, value, variable.name, collection.name, groupName);
-            if (formattedValue === null) continue;
-            cssValue = formattedValue;
-          }
-
-          const cssVariable = {
-            name: formattedName,
-            value: cssValue,
-            originalName: variable.name
-          };
-
-          // Group by prefix if contains /
-          const pathMatch = variable.name.match(/^([^\/]+)\//);
-          if (pathMatch) {
-            const prefix = pathMatch[1];
-            if (!groupedVariables.has(prefix)) {
-              groupedVariables.set(prefix, []);
-            }
-            groupedVariables.get(prefix)!.push(cssVariable);
-          } else {
-            collectionVariables.push(cssVariable);
-          }
-        }
-        
-        // Add collection section if it has variables
-        if (collectionVariables.length > 0 || groupedVariables.size > 0) {
-          content += `\n${format === 'scss' ? '//' : '  /*'} ===== ${collection.name.toUpperCase()} ===== ${format === 'scss' ? '' : '*/'}\n`;
-          
-          // Add standalone variables first
-          collectionVariables.forEach((variable: any) => {
-            if (format === 'scss') {
-              content += `$${variable.name}: ${variable.value};\n`;
-            } else {
-              content += `  --${variable.name}: ${variable.value};\n`;
-            }
-          });
-          
-          // Add grouped variables with subheadings
-          groupedVariables.forEach((variables, groupName) => {
-            if (variables.length > 0) {
-              const displayName = groupName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-              content += `\n${format === 'scss' ? '//' : '  /*'} ${displayName} ${format === 'scss' ? '' : '*/'}\n`;
-              variables.forEach((variable: any) => {
-                if (format === 'scss') {
-                  content += `$${variable.name}: ${variable.value};\n`;
-                } else {
-                  content += `  --${variable.name}: ${variable.value};\n`;
-                }
-              });
-            }
-          });
-        }
-      }
-
-      if (format === 'css') {
-        content += "}\n";
-      }
-
-      return content;
+      await this.initialize();
+      const collections = await this.getProcessedCollections();
+      return this.buildExportContent(collections, format);
     } catch (error: any) {
       console.error("Error exporting CSS:", error);
       throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
     }
   }
 
-  private static async collectAllVariables(collections: any[]): Promise<void> {
+  /**
+   * Initialize the service by clearing caches and loading settings
+   */
+  private static async initialize(): Promise<void> {
+    this.clearCaches();
+    await UnitsService.loadUnitSettings();
+  }
+
+  /**
+   * Clear all internal caches
+   */
+  private static clearCaches(): void {
+    this.variableCache.clear();
+    this.collectionCache.clear();
+  }
+
+  /**
+   * Get processed collections with variables organized by groups
+   */
+  private static async getProcessedCollections(): Promise<FormattedCollection[]> {
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    await this.populateVariableCache(collections);
+    
+    const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+    const processedCollections: FormattedCollection[] = [];
+    
+    for (const collection of sortedCollections) {
+      const processed = await this.processCollection(collection);
+      if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
+        processedCollections.push(processed);
+      }
+    }
+    
+    return processedCollections;
+  }
+
+  /**
+   * Process a single collection and organize its variables
+   */
+  private static async processCollection(collection: any): Promise<FormattedCollection> {
+    const cacheKey = `${collection.id}-${collection.variableIds.length}`;
+    const cached = this.collectionCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const variables: CSSVariable[] = [];
+    const groups: GroupedVariables = {};
+    
+    for (const variableId of collection.variableIds) {
+      const cssVariable = await this.processVariable(variableId, collection);
+      if (!cssVariable) continue;
+
+      // Group by prefix if contains /
+      const pathMatch = cssVariable.originalName.match(/^([^\/]+)\//);
+      if (pathMatch) {
+        const groupName = pathMatch[1];
+        if (!groups[groupName]) {
+          groups[groupName] = [];
+        }
+        groups[groupName].push(cssVariable);
+      } else {
+        variables.push(cssVariable);
+      }
+    }
+    
+    const result: FormattedCollection = {
+      name: collection.name,
+      variables,
+      groups
+    };
+    
+    this.collectionCache.set(cacheKey, result);
+    return result;
+  }
+
+  /**
+   * Process a single variable and return formatted CSS variable
+   */
+  private static async processVariable(variableId: string, collection: any): Promise<CSSVariable | null> {
+    const variable = await figma.variables.getVariableByIdAsync(variableId);
+    if (!variable) return null;
+
+    const defaultModeId = collection.modes[0].modeId;
+    const value = variable.valuesByMode[defaultModeId];
+    const formattedName = this.formatVariableName(variable.name);
+
+    const cssValue = this.resolveCSSValue(variable, value, collection);
+    if (cssValue === null) return null;
+
+    return {
+      name: formattedName,
+      value: cssValue,
+      originalName: variable.name
+    };
+  }
+
+  /**
+   * Resolve the CSS value for a variable (handles aliases and type formatting)
+   */
+  private static resolveCSSValue(variable: any, value: any, collection: any): string | null {
+    const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
+    
+    if (isAlias) {
+      return this.resolveVariableAlias(value.id);
+    }
+    
+    const pathMatch = variable.name.match(/^([^\/]+)\//);
+    const groupName = pathMatch ? pathMatch[1] : undefined;
+    return this.formatVariableValue(variable.resolvedType, value, variable.name, collection.name, groupName);
+  }
+
+  /**
+   * Resolve a variable alias to its CSS reference
+   */
+  private static resolveVariableAlias(aliasId: string): string | null {
+    const referencedVariable = this.variableCache.get(aliasId);
+    if (!referencedVariable) return null;
+    
+    const referencedName = this.formatVariableName(referencedVariable.name);
+    return `var(${CSS_VARIABLE_PREFIX}${referencedName})`;
+  }
+
+  /**
+   * Format variable name to valid CSS custom property name
+   */
+  private static formatVariableName(name: string): string {
+    return name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+  }
+
+  /**
+   * Build the final export content from processed collections
+   */
+  private static buildExportContent(collections: FormattedCollection[], format: CSSFormat): string {
+    const contentParts: string[] = [];
+    
+    if (format === 'css') {
+      contentParts.push(':root {');
+    }
+    
+    for (const collection of collections) {
+      contentParts.push(this.buildCollectionContent(collection, format));
+    }
+    
+    if (format === 'css') {
+      contentParts.push('}');
+    }
+    
+    return contentParts.join('\n');
+  }
+
+  /**
+   * Build content for a single collection
+   */
+  private static buildCollectionContent(collection: FormattedCollection, format: CSSFormat): string {
+    const parts: string[] = [];
+    const commentPrefix = format === 'scss' ? '//' : '  /*';
+    const commentSuffix = format === 'scss' ? '' : ' */';
+    
+    // Collection header
+    parts.push(`\n${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
+    
+    // Standalone variables
+    for (const variable of collection.variables) {
+      parts.push(this.formatVariableDeclaration(variable, format));
+    }
+    
+    // Grouped variables
+    const sortedGroupNames = Object.keys(collection.groups).sort();
+    for (const groupName of sortedGroupNames) {
+      const displayName = this.formatGroupDisplayName(groupName);
+      parts.push(`\n${commentPrefix} ${displayName}${commentSuffix}`);
+      
+      for (const variable of collection.groups[groupName]) {
+        parts.push(this.formatVariableDeclaration(variable, format));
+      }
+    }
+    
+    return parts.join('\n');
+  }
+
+  /**
+   * Format a variable declaration for the given format
+   */
+  private static formatVariableDeclaration(variable: CSSVariable, format: CSSFormat): string {
+    if (format === 'scss') {
+      return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${variable.value};`;
+    }
+    return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${variable.value};`;
+  }
+
+  /**
+   * Format group name for display
+   */
+  private static formatGroupDisplayName(groupName: string): string {
+    return groupName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  /**
+   * Populate the variable cache for alias resolution
+   */
+  private static async populateVariableCache(collections: any[]): Promise<void> {
     for (const collection of collections) {
       for (const variableId of collection.variableIds) {
         const variable = await figma.variables.getVariableByIdAsync(variableId);
         if (variable) {
-          this.allVariables.set(variable.id, variable);
+          this.variableCache.set(variable.id, variable);
         }
       }
     }
   }
 
+  /**
+   * Legacy method - kept for backward compatibility
+   * @deprecated Use populateVariableCache instead
+   */
+  private static async collectAllVariables(collections: any[]): Promise<void> {
+    await this.populateVariableCache(collections);
+  }
 
   private static formatVariableValue(type: string, value: any, name: string, collectionName: string, groupName?: string): string | null {
     switch (type) {
       case "COLOR":
-        if (
-          value &&
-          typeof value === "object" &&
-          "r" in value &&
-          "g" in value &&
-          "b" in value
-        ) {
-          const color = value as RGB & { a?: number };
-          const r = Math.round(color.r * 255);
-          const g = Math.round(color.g * 255);
-          const b = Math.round(color.b * 255);
-          
-          // Check if the color has an alpha channel and it's less than 1
-          if (typeof color.a === "number" && color.a < 1) {
-            return `rgba(${r}, ${g}, ${b}, ${color.a.toFixed(2)})`;
-          }
-          
-          // Regular RGB color without transparency
-          return `rgb(${r}, ${g}, ${b})`;
-        }
-        return null;
+        return this.formatColorValue(value);
 
       case "FLOAT":
-        if (typeof value === "number" && !isNaN(value)) {
-          const unit = UnitsService.getUnitForVariable(name, collectionName, groupName);
-          return UnitsService.formatValueWithUnit(value, unit);
-        }
-        return null;
+        return this.formatFloatValue(value, name, collectionName, groupName);
 
       case "STRING":
-        if (typeof value === "string") {
-          return `"${value}"`;
-        }
-        return null;
+        return this.formatStringValue(value);
 
       case "BOOLEAN":
-        if (typeof value === "boolean") {
-          return value ? "true" : "false";
-        }
-        return null;
+        return this.formatBooleanValue(value);
 
       default:
         return null;
     }
+  }
+
+  /**
+   * Format color values with proper RGB/RGBA handling
+   */
+  private static formatColorValue(value: any): string | null {
+    if (!value || typeof value !== "object" || !("r" in value) || !("g" in value) || !("b" in value)) {
+      return null;
+    }
+
+    const color = value as RGB & { a?: number };
+    const r = Math.round(color.r * 255);
+    const g = Math.round(color.g * 255);
+    const b = Math.round(color.b * 255);
+    
+    // Check if the color has an alpha channel and it's less than 1
+    if (typeof color.a === "number" && color.a < 1) {
+      return `rgba(${r}, ${g}, ${b}, ${color.a.toFixed(2)})`;
+    }
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  /**
+   * Format float values with appropriate units
+   */
+  private static formatFloatValue(value: any, name: string, collectionName: string, groupName?: string): string | null {
+    if (typeof value !== "number" || isNaN(value)) {
+      return null;
+    }
+
+    const unit = UnitsService.getUnitForVariable(name, collectionName, groupName);
+    return UnitsService.formatValueWithUnit(value, unit);
+  }
+
+  /**
+   * Format string values with proper quoting
+   */
+  private static formatStringValue(value: any): string | null {
+    if (typeof value !== "string") {
+      return null;
+    }
+    return `"${value}"`;
+  }
+
+  /**
+   * Format boolean values
+   */
+  private static formatBooleanValue(value: any): string | null {
+    if (typeof value !== "boolean") {
+      return null;
+    }
+    return value ? "true" : "false";
   }
 
   // Get unit settings data for the settings interface
@@ -250,5 +408,4 @@ export class CSSExportService {
   static async saveUnitSettings(): Promise<void> {
     await UnitsService.saveUnitSettings();
   }
-
 }
