@@ -1,6 +1,8 @@
 import { ParsedComponentName, StyleCheck, Component } from '../types';
 import { generateTestHelpers, generateStateTests, INTERACTIVE_STATES, shouldTestPropertyForState, generateStateTestsFromVariants } from './stateTestingUtils';
 import { generateSizeVariantTests, generateBasicSizeTests } from './sizeVariantUtils';
+import { PATTERNS, CSS_PROPERTIES, TEST_CONFIG, LoggingService } from '../config';
+import { arrayIncludes } from './es2015-helpers';
 
 /**
  * Converts hex color to RGB format
@@ -12,7 +14,7 @@ export function hexToRgb(hex: string): string {
   const cleanHex = hex.replace('#', '');
   
   // Check if it's a valid 3 or 6 character hex
-  if (!/^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(cleanHex)) {
+  if (!PATTERNS.HEX_COLOR.BOTH.test(cleanHex)) {
     return hex; // Return original if not valid hex
   }
   
@@ -48,7 +50,7 @@ export function normalizeColorForTesting(color: string): string {
   }
   
   // If it's hex, convert to RGB
-  if (color.startsWith('#') || /^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(color)) {
+  if (color.startsWith('#') || PATTERNS.HEX_COLOR.BOTH.test(color)) {
     return hexToRgb(color);
   }
   
@@ -67,7 +69,7 @@ export function normalizeComplexColorValue(value: string): string {
   }
   
   // Replace hex colors in the value with RGB equivalents
-  return value.replace(/#[0-9A-Fa-f]{3,6}(?![0-9A-Fa-f])/g, (match) => {
+  return value.replace(PATTERNS.HEX_COLOR.INLINE, (match) => {
     return hexToRgb(match);
   });
 }
@@ -80,14 +82,14 @@ export function parseComponentName(name: string): ParsedComponentName {
   };
 
   // Check for Type=X pattern
-  const typeMatch = name.match(/Type=([^,]+)/i);
-  if (typeMatch?.[1]) {
+  const typeMatch = name.match(PATTERNS.COMPONENT_NAME.TYPE);
+  if (typeMatch && typeMatch[1]) {
     result.type = typeMatch[1].trim();
   }
 
   // Check for State=X pattern
-  const stateMatch = name.match(/State=([^,]+)/i);
-  if (stateMatch?.[1]) {
+  const stateMatch = name.match(PATTERNS.COMPONENT_NAME.STATE);
+  if (stateMatch && stateMatch[1]) {
     result.state = stateMatch[1].trim();
   }
 
@@ -101,7 +103,7 @@ export function generateStyleChecks(styleChecks: StyleCheck[]): string {
 
   function stripCssVarFallback(value: string): string {
     // Replace all var(--..., fallback) with just the fallback
-    return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
+    return value.replace(PATTERNS.CSS_VARIABLE.STRIP_FALLBACK, '$1').replace(PATTERNS.WHITESPACE_NORMALIZE, ' ').trim();
   }
 
   return styleChecks
@@ -114,19 +116,13 @@ export function generateStyleChecks(styleChecks: StyleCheck[]): string {
 }
 
 // Properties that should be commented out in tests (layout/structural)
-const LAYOUT_PROPERTIES = [
-  'justifyContent',
-  'alignItems', 
-  'display',
-  'flexDirection',
-  'position'
-];
+const LAYOUT_PROPERTIES = CSS_PROPERTIES.LAYOUT;
 
 /**
  * Generate tests for text content within components
  */
 function generateTextContentTests(textElements?: any[], componentVariants?: Component[]): string {
-  if (!textElements?.length) {
+  if (!textElements || textElements.length === 0) {
     return '';
   }
 
@@ -148,8 +144,8 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
         const sizeMatch = variant.name.match(/Size=([^,]+)/i);
         const propMatch = variant.name.match(/Property\s*\d*\s*=\s*([^,]+)/i);
         
-        const state = stateMatch?.[1]?.toLowerCase() ?? (propMatch?.[1]?.toLowerCase() ?? 'default');
-        const size = sizeMatch?.[1]?.toLowerCase() ?? 'default';
+        const state = stateMatch && stateMatch[1] ? stateMatch[1].toLowerCase() : (propMatch && propMatch[1] ? propMatch[1].toLowerCase() : 'default');
+        const size = sizeMatch && sizeMatch[1] ? sizeMatch[1].toLowerCase() : 'default';
         
         const key = `${state}-${size}`;
         if (!variantGroups.has(key)) {
@@ -161,7 +157,7 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
       // Generate tests for each variant group that has text content
       variantGroups.forEach((variants, key) => {
         const variant = variants[0]; // Use first variant in group
-        if (variant.textElements?.length) {
+        if (variant.textElements && variant.textElements.length > 0) {
           const [state, size] = key.split('-');
           const textStyleTest = `
   it('should have correct text styles for ${state} state, ${size} size', () => {
@@ -169,7 +165,7 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
     const textElement = element.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
     
     if (!textElement) {
-      console.warn('No text element found for style testing');
+      LoggingService.warn('No text element found for style testing', undefined, LoggingService.CATEGORIES.TESTING);
       return;
     }
     
@@ -219,7 +215,7 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
     const textElement = element.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
     
     if (!textElement) {
-      console.warn('No text element found for style testing');
+      LoggingService.warn('No text element found for style testing', undefined, LoggingService.CATEGORIES.TESTING);
       return;
     }
     
@@ -281,7 +277,7 @@ export function createTestWithStyleChecks(
         .map((check) => {
           const expected = stripCssVarFallback(String(check.value));
           // Comment out layout properties
-          if (LAYOUT_PROPERTIES.includes(check.property as any)) {
+          if (arrayIncludes(LAYOUT_PROPERTIES as any, check.property)) {
             return `      // Check ${check.property} (layout property - often structural)
       // expect(computedStyle.${check.property}).toBe('${expected}');`;
           }
@@ -322,20 +318,23 @@ export function createTestWithStyleChecks(
   // Generate size variant tests
   let sizeTestsCode = '';
   if (includeSizeTests) {
-    console.log('DEBUG: Size testing - componentVariants:', componentVariants?.length ?? 'null/undefined');
+    LoggingService.debug('Size testing configuration', { 
+      hasComponentVariants: !!(componentVariants && componentVariants.length),
+      variantCount: componentVariants && componentVariants.length ? componentVariants.length : 0 
+    }, LoggingService.CATEGORIES.TESTING);
     if (componentVariants && componentVariants.length > 0) {
-      console.log('DEBUG: Using Figma variant data for size testing');
+      LoggingService.debug('Using Figma variant data for size testing', undefined, LoggingService.CATEGORIES.TESTING);
       // Use actual variant data from Figma
       sizeTestsCode = generateSizeVariantTests(componentSelector, componentName, componentVariants);
     } else {
-      console.log('DEBUG: Using basic size testing approach');
+      LoggingService.debug('Using basic size testing approach', undefined, LoggingService.CATEGORIES.TESTING);
       // Use basic size testing approach
       sizeTestsCode = generateBasicSizeTests(componentSelector);
     }
   }
   
   // Include helper functions if we have any tests that use variants
-  const hasVariantTests = componentVariants?.length && (includeStateTests || includeSizeTests);
+  const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
   const helperFunctions = hasVariantTests
     ? `\n${generateTestHelpers()}\n`
     : '';
@@ -367,7 +366,7 @@ describe('${pascalName}Component', () => {
       
 ${styleCheckCode}
     } else {
-      console.warn('No suitable element found to test styles');
+      LoggingService.warn('No suitable element found to test styles', undefined, LoggingService.CATEGORIES.TESTING);
     }
   });${stateTestsCode}${sizeTestsCode}${generateTextContentTests(textElements, componentVariants)}
 });`;

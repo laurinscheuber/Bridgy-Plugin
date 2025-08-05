@@ -1,4 +1,6 @@
 import { StyleCheck } from '../types';
+import { CSS_PROPERTIES, TEST_CONFIG, PATTERNS, LoggingService } from '../config';
+import { objectEntries } from './es2015-helpers';
 
 export interface SizeVariant {
   name: string;
@@ -11,36 +13,10 @@ export interface SizeVariant {
  * Generates size variant tests based on component data from Figma
  */
 // Properties that make sense to test in responsive design
-const TESTABLE_SIZE_PROPERTIES = [
-  'padding',
-  'font-size',
-  'line-height',
-  'border-radius',
-  'gap'
-];
+const TESTABLE_SIZE_PROPERTIES = CSS_PROPERTIES.TESTABLE_SIZE;
 
 // Properties that should be commented out (often don't work in responsive design)
-const COMMENTED_SIZE_PROPERTIES = [
-  'width',
-  'height', 
-  'min-width',
-  'min-height',
-  'max-width',
-  'max-height',
-  // Layout properties (usually structural, not size-related)
-  'justify-content',
-  'justifyContent',
-  'align-items', 
-  'alignItems',
-  'display',
-  'flex-direction',
-  'flexDirection',
-  'position',
-  'top',
-  'left',
-  'right',
-  'bottom'
-];
+const COMMENTED_SIZE_PROPERTIES = CSS_PROPERTIES.COMMENTED_SIZE;
 
 export function generateSizeVariantTests(
   componentSelector: string,
@@ -48,39 +24,39 @@ export function generateSizeVariantTests(
   allVariants: any[] // This would be the component children/variants from Figma
 ): string {
   
-  console.log('DEBUG: generateSizeVariantTests called with:', {
+  LoggingService.debug('generateSizeVariantTests called', {
     componentSelector, 
     componentName, 
     variantCount: allVariants ? allVariants.length : 0,
     variants: allVariants ? allVariants.map(v => v.name) : 'none'
-  });
+  }, LoggingService.CATEGORIES.TESTING);
   
   // Extract size information from variant names and group by size
   const sizeVariantMap: Map<string, SizeVariant[]> = new Map();
   
-  if (allVariants?.length) {
+  if (allVariants && allVariants.length > 0) {
     allVariants.forEach(variant => {
-      console.log('DEBUG: Checking variant:', variant.name);
-      const sizeMatch = variant.name.match(/Size=([^,]+)/i);
-      const stateMatch = variant.name.match(/State=([^,]+)/i);
-      console.log('DEBUG: Size match result:', sizeMatch);
+      LoggingService.debug('Checking variant', { variantName: variant.name }, LoggingService.CATEGORIES.TESTING);
+      const sizeMatch = variant.name.match(PATTERNS.COMPONENT_NAME.SIZE);
+      const stateMatch = variant.name.match(PATTERNS.COMPONENT_NAME.STATE);
+      LoggingService.debug('Size match result', { sizeMatch, variant: variant.name }, LoggingService.CATEGORIES.TESTING);
       
       if (sizeMatch) {
         const sizeName = sizeMatch[1].toLowerCase();
-        const stateName = stateMatch?.[1]?.toLowerCase() ?? 'default';
-        console.log('DEBUG: Found size variant:', sizeName, 'with state:', stateName);
+        const stateName = stateMatch && stateMatch[1] ? stateMatch[1].toLowerCase() : 'default';
+        LoggingService.debug('Found size variant', { sizeName, stateName }, LoggingService.CATEGORIES.TESTING);
         
         // Parse variant styles
         let styles;
         try {
           styles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
         } catch (e) {
-          console.error("Error parsing variant styles:", e);
+          LoggingService.error("Error parsing variant styles", e, LoggingService.CATEGORIES.TESTING);
           styles = {};
         }
         
         // Get existing variants for this size or create new array
-        const existingVariants = sizeVariantMap.get(sizeName) ?? [];
+        const existingVariants = sizeVariantMap.get(sizeName) || [];
         
         existingVariants.push({
           name: sizeName,
@@ -94,10 +70,13 @@ export function generateSizeVariantTests(
     });
   }
   
-  console.log('DEBUG: Found', sizeVariantMap.size, 'unique sizes:', Array.from(sizeVariantMap.keys()));
+  LoggingService.debug('Size variants processing complete', { 
+    uniqueSizes: sizeVariantMap.size, 
+    sizes: Array.from(sizeVariantMap.keys()) 
+  }, LoggingService.CATEGORIES.TESTING);
   
   if (sizeVariantMap.size === 0) {
-    console.log('DEBUG: No size variants found, returning empty string');
+    LoggingService.debug('No size variants found, returning empty string', undefined, LoggingService.CATEGORIES.TESTING);
     return ''; // No size variants found
   }
   
@@ -105,7 +84,7 @@ export function generateSizeVariantTests(
   const sizeVariants: SizeVariant[] = [];
   sizeVariantMap.forEach((variants, sizeName) => {
     // Find default state or first variant
-    const defaultVariant = variants.find(v => v.state === 'default') ?? variants[0];
+    const defaultVariant = variants.find(v => v.state === 'default') || variants[0];
     if (defaultVariant) {
       sizeVariants.push(defaultVariant);
     }
@@ -137,7 +116,7 @@ export function generateSizeVariantTests(
       // Generate tests for each size
       const testCases: string[] = [];
       
-      Object.entries(sizeSpecificProps).forEach(([prop, value]) => {
+      objectEntries(sizeSpecificProps).forEach(([prop, value]) => {
         const kebabProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
         testCases.push(`checkStyleProperty('${variant.selector}', '', '${kebabProp}', '${value}');`);
       });
@@ -158,7 +137,7 @@ export function generateSizeVariantTests(
       if (!hoverVariant) return '';
       
       // Check if hover has different padding than default
-      const defaultVariant = variants.find(v => v.state === 'default') ?? variants[0];
+      const defaultVariant = variants.find(v => v.state === 'default') || variants[0];
       if (defaultVariant && hoverVariant.expectedStyles.padding !== defaultVariant.expectedStyles.padding) {
         return `
     // Test ${sizeName} size hover state padding
@@ -181,8 +160,8 @@ export function generateBasicSizeTests(componentSelector: string): string {
     if (!element) return;
 
     // Common size variant naming conventions
-    const sizeVariants = ['xs', 'sm', 'md', 'base', 'lg', 'xl', 'xxl'];
-    const altSizeVariants = ['small', 'medium', 'large', 'x-small', 'x-large'];
+    const sizeVariants = TEST_CONFIG.SIZES.STANDARD;
+    const altSizeVariants = TEST_CONFIG.SIZES.ALTERNATIVE;
     
     // Properties that typically change with size
     const sizeProperties = ['padding', 'font-size', 'line-height', 'border-radius', 'gap', 'width', 'height', 'min-width', 'min-height'];

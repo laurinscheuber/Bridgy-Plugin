@@ -1,131 +1,21 @@
 import { StyleCheck, Component } from '../types';
+import { CSS_PROPERTIES, TEST_CONFIG, PATTERNS } from '../config';
+import { objectEntries, arrayIncludes } from './es2015-helpers';
 
 export interface StateTestConfig {
   state: string;
   pseudoClass: string;
-  properties: string[];
+  properties: readonly string[];
 }
 
 // Define which properties are typically affected by interactive states
-export const INTERACTIVE_PROPERTIES = [
-  // Color properties
-  'background-color',
-  'background',
-  'color',
-  'border-color',
-  'border-top-color',
-  'border-right-color', 
-  'border-bottom-color',
-  'border-left-color',
-  'border', // shorthand property
-  'outline-color',
-  'outline', // shorthand property
-  'text-decoration-color',
-  'fill',
-  'stroke',
-  
-  // Visual effects
-  'box-shadow',
-  'text-shadow',
-  'filter',
-  'backdrop-filter',
-  'opacity',
-  
-  // Transforms
-  'transform',
-  'scale',
-  
-  // Borders
-  'border-width',
-  'border-style',
-  'outline-width',
-  'outline-style',
-  
-  // Text decoration
-  'text-decoration',
-  'text-decoration-line',
-  'text-decoration-style',
-  'font-weight',
-  'font-style',
-  
-  // Text sizing (often changes on interaction)
-  'font-size',
-  'line-height',
-  'letter-spacing',
-  
-  // Transitions (to detect if they exist)
-  'transition',
-  'transition-duration',
-  'transition-property'
-];
+export const INTERACTIVE_PROPERTIES = CSS_PROPERTIES.INTERACTIVE;
 
 // Properties that typically don't change on interaction
-export const STATIC_PROPERTIES = [
-  'width',
-  'height',
-  'padding',
-  'padding-top',
-  'padding-right',
-  'padding-bottom',
-  'padding-left',
-  'margin',
-  'margin-top',
-  'margin-right',
-  'margin-bottom',
-  'margin-left',
-  'position',
-  'top',
-  'left',
-  'right',
-  'bottom',
-  'display',
-  'flex-direction',
-  'justify-content',
-  'align-items',
-  'gap',
-  'border-radius',
-  'font-family',
-  'text-align',
-  'vertical-align',
-  'z-index',
-  'overflow',
-  'flex',
-  'grid-template-columns',
-  'grid-template-rows'
-];
+export const STATIC_PROPERTIES = CSS_PROPERTIES.STATIC;
 
 // Common properties that change for each state
-export const STATE_SPECIFIC_PROPERTIES = {
-  hover: [
-    'background-color',
-    'color',
-    'border-color',
-    'box-shadow',
-    'transform',
-    'opacity'
-  ],
-  focus: [
-    'outline',
-    'outline-color',
-    'outline-width',
-    'outline-offset',
-    'box-shadow',
-    'border-color'
-  ],
-  active: [
-    'transform',
-    'box-shadow',
-    'background-color',
-    'border-color'
-  ],
-  disabled: [
-    'opacity',
-    'cursor',
-    'background-color',
-    'color',
-    'border-color'
-  ]
-};
+export const STATE_SPECIFIC_PROPERTIES = TEST_CONFIG.STATE_SPECIFIC_PROPERTIES;
 
 // Interactive states to test
 export const INTERACTIVE_STATES: StateTestConfig[] = [
@@ -173,8 +63,8 @@ export function shouldTestPropertyForState(property: string): boolean {
   const kebabProperty = property.replace(/([A-Z])/g, '-$1').toLowerCase();
   
   // Check both the original property and kebab-case version
-  if (INTERACTIVE_PROPERTIES.includes(property) || 
-      INTERACTIVE_PROPERTIES.includes(kebabProperty)) {
+  if (arrayIncludes(INTERACTIVE_PROPERTIES as any, property) || 
+      arrayIncludes(INTERACTIVE_PROPERTIES as any, kebabProperty)) {
     return true;
   }
   
@@ -182,8 +72,8 @@ export function shouldTestPropertyForState(property: string): boolean {
   // This catches properties that contain color-related keywords
   const colorRelatedKeywords = ['color', 'background', 'border', 'outline', 'shadow', 'fill', 'stroke'];
   return colorRelatedKeywords.some(keyword => 
-    property.toLowerCase().includes(keyword) || 
-    kebabProperty.includes(keyword)
+    property.toLowerCase().indexOf(keyword) !== -1 || 
+    kebabProperty.indexOf(keyword) !== -1
   );
 }
 
@@ -207,31 +97,34 @@ export function toCamelCase(property: string): string {
 export function generateTestHelpers(): string {
   return `  const resolveCssVariable = (variableName: string, stylesheetHrefPart = 'styles.css'): string | undefined => {
     const targetSheet = Array.from(document.styleSheets)
-      .find(sheet => sheet.href?.includes(stylesheetHrefPart));
+      .find(sheet => sheet.href && sheet.href.indexOf(stylesheetHrefPart) !== -1);
 
-    const rootRule = Array.from(targetSheet?.cssRules || [])
+    const rootRule = Array.from(targetSheet && targetSheet.cssRules ? targetSheet.cssRules : [])
       .filter(rule => rule instanceof CSSStyleRule)
       .find(rule => rule.selectorText === ':root');
 
-    const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
+    const value = rootRule && rootRule.style ? rootRule.style.getPropertyValue(variableName) : undefined;
+    const trimmedValue = value ? value.trim() : undefined;
 
-    if (value?.startsWith('var(')) {
-      const nestedVar = value.match(/var\\((--.+?)\\)/)?.[1];
+    if (trimmedValue && trimmedValue.startsWith('var(')) {
+      const varMatch = trimmedValue.match(/var\\((--.+?)\\)/);
+      const nestedVar = varMatch ? varMatch[1] : undefined;
       return nestedVar ? resolveCssVariable(nestedVar, stylesheetHrefPart) : undefined;
     }
-    return value;
+    return trimmedValue;
   };
 
   const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: string): string | undefined => {
     // Regex necessary because Angular attaches identifier after the selector
     const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const style = Array.from(document.styleSheets)
-      .flatMap(sheet => Array.from(sheet.cssRules || []))
+    const foundRuleCandidate = Array.from(document.styleSheets)
+      .reduce((acc, sheet) => acc.concat(Array.from(sheet.cssRules || [])), [])
       .filter(r => r instanceof CSSStyleRule)
-      .find(r => regex.test(r.selectorText))
-      ?.style;
+      .find(r => regex.test(r.selectorText));
+    
+    const foundRuleStyle = foundRuleCandidate ? foundRuleCandidate.style : undefined;
 
-    return style?.getPropertyValue(prop);
+    return foundRuleStyle ? foundRuleStyle.getPropertyValue(prop) : undefined;
   };
 
   const checkStyleProperty = (selector: string, pseudoClass: string, property: string, expectedValue?: string) => {
@@ -242,7 +135,8 @@ export function generateTestHelpers(): string {
     }
 
     if (value.startsWith('var(')) {
-      const variableName = value.match(/var\\((--.+?)\\)/)?.[1];
+      const varMatch = value.match(/var\\((--.+?)\\)/);
+      const variableName = varMatch ? varMatch[1] : undefined;
       const resolvedValue = variableName ? resolveCssVariable(variableName) : undefined;
       if (expectedValue) {
         expect(resolvedValue).toBe(expectedValue);
@@ -296,7 +190,7 @@ export function generateStateTests(
         if (expectedValue && typeof expectedValue === 'string') {
           // If we have an expected value from component styles, use it
           // But only for certain properties that typically don't change much
-          if (prop === 'color' || prop === 'background-color' || prop.includes('border')) {
+          if (prop === 'color' || prop === 'background-color' || prop.indexOf('border') !== -1) {
             return `      { property: '${prop}', expected: '${expectedValue}' }`;
           }
         }
@@ -412,7 +306,7 @@ export function analyzeComponentStateVariants(variants: Component[]): Map<string
     }
     
     // Store styles for this state
-    const styleMap = new Map<string, any>(Object.entries(styles));
+    const styleMap = new Map<string, any>(objectEntries(styles));
     stateStyleMap.set(stateName, styleMap);
     console.log(`DEBUG: Stored ${styleMap.size} styles for state "${stateName}"`);
   });
@@ -485,7 +379,7 @@ export function generateStateTestsFromVariants(
   // Get the default state styles
   let defaultStateStyles = stateStyleMap.get('default');
   if (!defaultStateStyles) {
-    defaultStateStyles = new Map<string, any>(Object.entries(defaultStyles));
+    defaultStateStyles = new Map<string, any>(objectEntries(defaultStyles));
   }
   
   // Dynamically generate tests for ALL states found in variants (not just predefined ones)
