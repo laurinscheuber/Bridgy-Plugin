@@ -781,7 +781,9 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              if (shareWithTeam) {
+              if (!shareWithTeam) {
+                yield figma.clientStorage.setAsync(settingsKey, settings);
+              } else {
                 const settingsToSave = Object.assign({}, settings);
                 if (!settings.saveToken) {
                   delete settingsToSave.gitlabToken;
@@ -790,8 +792,6 @@
                 if (settings.saveToken && settings.gitlabToken) {
                   yield figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
                 }
-              } else {
-                yield figma.clientStorage.setAsync(settingsKey, settings);
               }
               figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, JSON.stringify({
                 sharedWithTeam: shareWithTeam,
@@ -804,7 +804,6 @@
             }
           });
         }
-        // TODO: method is quite long, consider breaking it down into smaller methods
         /**
          * Load GitLab settings from Figma storage
          */
@@ -813,48 +812,81 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              const documentSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
-              if (documentSettings) {
-                try {
-                  const settings = JSON.parse(documentSettings);
-                  if (settings.saveToken && !settings.gitlabToken) {
-                    const personalToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-                    if (personalToken) {
-                      settings.gitlabToken = personalToken;
-                    }
-                  }
-                  const metaData = figma.root.getSharedPluginData("DesignSync", `${settingsKey}-meta`);
-                  if (metaData) {
-                    try {
-                      const meta = JSON.parse(metaData);
-                      settings.isPersonal = !meta.sharedWithTeam;
-                    } catch (metaParseError) {
-                      console.warn("Error parsing settings metadata:", metaParseError);
-                    }
-                  }
-                  return settings;
-                } catch (parseError) {
-                  config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
-                }
-              }
-              const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
-              if (personalSettings) {
-                return Object.assign({}, personalSettings, { isPersonal: true });
-              }
-              const legacyDocumentSettings = figma.root.getSharedPluginData("DesignSync", "gitlab-settings");
-              if (legacyDocumentSettings) {
-                try {
-                  const settings = JSON.parse(legacyDocumentSettings);
-                  yield this.saveSettings(settings, true);
-                  figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
-                  return settings;
-                } catch (parseError) {
-                  config_1.LoggingService.error("Error parsing legacy document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
-                }
-              }
+              const documentSettings = yield this.loadDocumentSettings(settingsKey);
+              if (documentSettings)
+                return documentSettings;
+              const personalSettings = yield this.loadPersonalSettings(settingsKey);
+              if (personalSettings)
+                return personalSettings;
+              const legacySettings = yield this.loadLegacySettings();
+              if (legacySettings)
+                return legacySettings;
               return null;
             } catch (error) {
               config_1.LoggingService.error("Error loading GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
+              return null;
+            }
+          });
+        }
+        /**
+         * Load shared document settings with personal token
+         */
+        static loadDocumentSettings(settingsKey) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const documentSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
+            if (!documentSettings)
+              return null;
+            try {
+              const settings = JSON.parse(documentSettings);
+              if (settings.saveToken && !settings.gitlabToken) {
+                const personalToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
+                if (personalToken) {
+                  settings.gitlabToken = personalToken;
+                }
+              }
+              const metaData = figma.root.getSharedPluginData("DesignSync", `${settingsKey}-meta`);
+              if (metaData) {
+                try {
+                  const meta = JSON.parse(metaData);
+                  settings.isPersonal = !meta.sharedWithTeam;
+                } catch (metaParseError) {
+                  console.warn("Error parsing settings metadata:", metaParseError);
+                }
+              }
+              return settings;
+            } catch (parseError) {
+              config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
+              return null;
+            }
+          });
+        }
+        /**
+         * Load personal client storage settings
+         */
+        static loadPersonalSettings(settingsKey) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
+            if (personalSettings) {
+              return Object.assign({}, personalSettings, { isPersonal: true });
+            }
+            return null;
+          });
+        }
+        /**
+         * Load and migrate legacy settings
+         */
+        static loadLegacySettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const legacyDocumentSettings = figma.root.getSharedPluginData("DesignSync", "gitlab-settings");
+            if (!legacyDocumentSettings)
+              return null;
+            try {
+              const settings = JSON.parse(legacyDocumentSettings);
+              yield this.saveSettings(settings, true);
+              figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
+              return settings;
+            } catch (parseError) {
+              config_1.LoggingService.error("Error parsing legacy document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
               return null;
             }
           });
@@ -2597,33 +2629,34 @@ ${styleCheckCode}
             this.componentMap = /* @__PURE__ */ new Map();
             function collectNodes(node) {
               return __awaiter(this, void 0, void 0, function* () {
-                if ("type" in node) {
-                  if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
-                    const componentStyles = yield node.getCSSAsync();
-                    const textElements = yield _ComponentService.extractTextElements(node);
-                    const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
-                    const componentData = {
-                      id: node.id,
-                      name: node.name,
-                      type: node.type,
-                      styles: resolvedStyles,
-                      pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
-                      parentId: node.parent && node.parent.id,
-                      children: [],
-                      textElements,
-                      hasTextContent: textElements.length > 0
-                    };
-                    _ComponentService.componentMap.set(node.id, componentData);
-                    if (node.type === "COMPONENT_SET") {
-                      componentSets.push(componentData);
-                    } else {
-                      componentsData.push(componentData);
-                    }
+                if (!("type" in node)) {
+                  return;
+                }
+                if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                  const componentStyles = yield node.getCSSAsync();
+                  const textElements = yield _ComponentService.extractTextElements(node);
+                  const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
+                  const componentData = {
+                    id: node.id,
+                    name: node.name,
+                    type: node.type,
+                    styles: resolvedStyles,
+                    pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
+                    parentId: node.parent && node.parent.id,
+                    children: [],
+                    textElements,
+                    hasTextContent: textElements.length > 0
+                  };
+                  _ComponentService.componentMap.set(node.id, componentData);
+                  if (node.type === "COMPONENT_SET") {
+                    componentSets.push(componentData);
+                  } else {
+                    componentsData.push(componentData);
                   }
-                  if ("children" in node) {
-                    for (const child of node.children) {
-                      yield collectNodes(child);
-                    }
+                }
+                if ("children" in node) {
+                  for (const child of node.children) {
+                    yield collectNodes(child);
                   }
                 }
               });
@@ -2673,17 +2706,15 @@ ${styleCheckCode}
             });
           });
           if (component.textElements) {
-            component.textElements.forEach((textElement) => {
-              if (textElement.textStyles) {
-                (0, es2015_helpers_1.objectEntries)(textElement.textStyles).forEach(([key, value]) => {
-                  if (value) {
-                    styleChecks.push({
-                      property: key,
-                      value: this.normalizeStyleValue(key, value)
-                    });
-                  }
-                });
-              }
+            component.textElements.filter((textElement) => textElement.textStyles).forEach((textElement) => {
+              (0, es2015_helpers_1.objectEntries)(textElement.textStyles).forEach(([key, value]) => {
+                if (value) {
+                  styleChecks.push({
+                    property: key,
+                    value: this.normalizeStyleValue(key, value)
+                  });
+                }
+              });
             });
           }
           if (isComponentSet) {

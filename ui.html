@@ -1393,19 +1393,22 @@
 
       /* ===== MODERN VALIDATION SYSTEM ===== */
       .validation-issues {
-        background: linear-gradient(135deg, var(--error-50) 0%, var(--error-100) 100%);
-        border: 1px solid var(--error-200);
+        background: #fef2f2;
+        border: 2px solid #ef4444;
+        border-left: 6px solid #ef4444;
         border-radius: var(--radius-xl);
-        padding: var(--space-4);
-        margin-bottom: var(--space-5);
-        box-shadow: var(--shadow-md);
+        padding: var(--space-6);
+        margin-bottom: var(--space-8);
+        box-shadow: 
+          0 4px 6px -1px rgba(239, 68, 68, 0.1),
+          0 2px 4px -1px rgba(239, 68, 68, 0.06);
       }
 
       .validation-issues h3 {
         margin-top: 0;
-        margin-bottom: var(--space-3);
-        color: var(--error-700);
-        font-size: var(--text-lg);
+        margin-bottom: var(--space-4);
+        color: #dc2626;
+        font-size: 16px;
         font-weight: 700;
         display: flex;
         align-items: center;
@@ -1414,7 +1417,7 @@
       
       .validation-issues h3::before {
         content: '⚠️';
-        font-size: var(--text-base);
+        font-size: 16px;
       }
 
       .validation-issues-list {
@@ -1429,8 +1432,9 @@
         align-items: center;
         gap: var(--space-2);
         padding: var(--space-3);
-        background: var(--neutral-0);
-        border: 1px solid var(--error-200);
+        background: #ffffff;
+        border: 1px solid #fecaca;
+        border-left: 3px solid #ef4444;
         border-radius: var(--radius-lg);
         font-size: var(--text-sm);
         box-shadow: var(--shadow-sm);

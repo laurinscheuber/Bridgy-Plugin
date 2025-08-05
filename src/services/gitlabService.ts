@@ -98,8 +98,10 @@ export class GitLabService {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      // TODO: consider checking first if the condition is not met (else-branch first)
-      if (shareWithTeam) {
+      if (!shareWithTeam) {
+        // Save only to personal storage (not shared with team)
+        await figma.clientStorage.setAsync(settingsKey, settings);
+      } else {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);
 
@@ -121,9 +123,6 @@ export class GitLabService {
             settings.gitlabToken
           );
         }
-      } else {
-        // Save only to personal storage (not shared with team)
-        await figma.clientStorage.setAsync(settingsKey, settings);
       }
 
       // Track metadata
@@ -146,84 +145,94 @@ export class GitLabService {
     }
   }
 
-  // TODO: method is quite long, consider breaking it down into smaller methods
   /**
    * Load GitLab settings from Figma storage
    */
   static async loadSettings(): Promise<GitLabSettings | null> {
     try {
-      // Create project-specific storage key using Figma root node ID (unique per file)
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      // Try to load shared settings from document storage first
-      const documentSettings = figma.root.getSharedPluginData(
-        "DesignSync",
-        settingsKey
-      );
+      // Try loading in order of priority
+      const documentSettings = await this.loadDocumentSettings(settingsKey);
+      if (documentSettings) return documentSettings;
 
-      if (documentSettings) {
-        try {
-          const settings = JSON.parse(documentSettings);
+      const personalSettings = await this.loadPersonalSettings(settingsKey);
+      if (personalSettings) return personalSettings;
 
-          // Try to load personal token if settings indicate it should be saved
-          if (settings.saveToken && !settings.gitlabToken) {
-            const personalToken = await figma.clientStorage.getAsync(
-              `${settingsKey}-token`
-            );
-            if (personalToken) {
-              settings.gitlabToken = personalToken;
-            }
-          }
-
-          // Load metadata if available
-          const metaData = figma.root.getSharedPluginData(
-            "DesignSync",
-            `${settingsKey}-meta`
-          );
-          if (metaData) {
-            try {
-              const meta = JSON.parse(metaData);
-              settings.isPersonal = !meta.sharedWithTeam;
-            } catch (metaParseError) {
-              console.warn("Error parsing settings metadata:", metaParseError);
-            }
-          }
-
-          return settings;
-        } catch (parseError) {
-          LoggingService.error("Error parsing document settings", parseError, LoggingService.CATEGORIES.GITLAB);
-        }
-      }
-
-      // Fallback: try to load personal settings
-      const personalSettings = await figma.clientStorage.getAsync(settingsKey);
-      if (personalSettings) {
-        return Object.assign({}, personalSettings, { isPersonal: true });
-      }
-
-      // Migration: Check for legacy document settings (old global settings in this file only)
-      const legacyDocumentSettings = figma.root.getSharedPluginData(
-        "DesignSync",
-        "gitlab-settings"
-      );
-      if (legacyDocumentSettings) {
-        try {
-          const settings = JSON.parse(legacyDocumentSettings);
-          // Save as project-specific settings
-          await this.saveSettings(settings, true);
-          // Remove old global settings to prevent confusion
-          figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
-          return settings;
-        } catch (parseError) {
-          LoggingService.error("Error parsing legacy document settings", parseError, LoggingService.CATEGORIES.GITLAB);
-        }
-      }
+      const legacySettings = await this.loadLegacySettings();
+      if (legacySettings) return legacySettings;
 
       return null;
     } catch (error: any) {
       LoggingService.error("Error loading GitLab settings", error, LoggingService.CATEGORIES.GITLAB);
-      // Don't throw on load errors, just return null
+      return null;
+    }
+  }
+
+  /**
+   * Load shared document settings with personal token
+   */
+  private static async loadDocumentSettings(settingsKey: string): Promise<GitLabSettings | null> {
+    const documentSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
+    if (!documentSettings) return null;
+
+    try {
+      const settings = JSON.parse(documentSettings);
+
+      // Try to load personal token if settings indicate it should be saved
+      if (settings.saveToken && !settings.gitlabToken) {
+        const personalToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+        if (personalToken) {
+          settings.gitlabToken = personalToken;
+        }
+      }
+
+      // Load metadata if available
+      const metaData = figma.root.getSharedPluginData("DesignSync", `${settingsKey}-meta`);
+      if (metaData) {
+        try {
+          const meta = JSON.parse(metaData);
+          settings.isPersonal = !meta.sharedWithTeam;
+        } catch (metaParseError) {
+          console.warn("Error parsing settings metadata:", metaParseError);
+        }
+      }
+
+      return settings;
+    } catch (parseError) {
+      LoggingService.error("Error parsing document settings", parseError, LoggingService.CATEGORIES.GITLAB);
+      return null;
+    }
+  }
+
+  /**
+   * Load personal client storage settings
+   */
+  private static async loadPersonalSettings(settingsKey: string): Promise<GitLabSettings | null> {
+    const personalSettings = await figma.clientStorage.getAsync(settingsKey);
+    if (personalSettings) {
+      return Object.assign({}, personalSettings, { isPersonal: true });
+    }
+    return null;
+  }
+
+  /**
+   * Load and migrate legacy settings
+   */
+  private static async loadLegacySettings(): Promise<GitLabSettings | null> {
+    const legacyDocumentSettings = figma.root.getSharedPluginData("DesignSync", "gitlab-settings");
+    if (!legacyDocumentSettings) return null;
+
+    try {
+      const settings = JSON.parse(legacyDocumentSettings);
+      // Save as project-specific settings
+      await this.saveSettings(settings, true);
+      // Remove old global settings to prevent confusion
+      figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
+      return settings;
+    } catch (parseError) {
+      LoggingService.error("Error parsing legacy document settings", parseError, LoggingService.CATEGORIES.GITLAB);
       return null;
     }
   }

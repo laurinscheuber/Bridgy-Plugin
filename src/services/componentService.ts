@@ -75,9 +75,11 @@ export class ComponentService {
     this.componentMap = new Map<string, Component>();
 
     async function collectNodes(node: BaseNode) {
-      // TODO: return early if condition is not met
-      if ("type" in node) {
-        if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+      if (!("type" in node)) {
+        return;
+      }
+
+      if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
           const componentStyles = await node.getCSSAsync();
           
           const textElements = await ComponentService.extractTextElements(node);
@@ -104,10 +106,9 @@ export class ComponentService {
           }
         }
 
-        if ("children" in node) {
-          for (const child of node.children) {
-            await collectNodes(child);
-          }
+      if ("children" in node) {
+        for (const child of node.children) {
+          await collectNodes(child);
         }
       }
     }
@@ -173,10 +174,10 @@ export class ComponentService {
     });
 
     // Add text styles from textElements
-    // TODO: can we simplify this logic? It contains a lot of nested conditions
     if (component.textElements) {
-      component.textElements.forEach(textElement => {
-        if (textElement.textStyles) {
+      component.textElements
+        .filter(textElement => textElement.textStyles)
+        .forEach(textElement => {
           objectEntries(textElement.textStyles).forEach(([key, value]) => {
             if (value) {
               styleChecks.push({
@@ -185,8 +186,7 @@ export class ComponentService {
               });
             }
           });
-        }
-      });
+        });
     }
 
     if (isComponentSet) {
