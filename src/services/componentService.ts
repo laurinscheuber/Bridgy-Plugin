@@ -1,7 +1,6 @@
 import { Component, TextElement, StyleCheck } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
-import { CSS_PROPERTIES } from '../config/css';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -53,11 +52,21 @@ export class ComponentService {
   }
 
   private static isSimpleColorProperty(property: string): boolean {
-    return arrayIncludes(CSS_PROPERTIES.SIMPLE_COLORS, property);
+    const simpleColorProperties = [
+      'accentColor', 'backgroundColor', 'borderColor', 'borderTopColor',
+      'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'caretColor',
+      'color', 'columnRuleColor', 'fill', 'outlineColor', 'scrollbarColor',
+      'stopColor', 'stroke', 'textDecorationColor', 'textEmphasisColor'
+    ];
+    return arrayIncludes(simpleColorProperties, property);
   }
 
   private static isComplexColorProperty(property: string): boolean {
-    return arrayIncludes(CSS_PROPERTIES.COMPLEX_COLORS, property);
+    const complexColorProperties = [
+      'background', 'border', 'borderTop', 'borderRight', 'borderBottom',
+      'borderLeft', 'outline', 'boxShadow', 'textShadow', 'filter'
+    ];
+    return arrayIncludes(complexColorProperties, property);
   }
 
   private static normalizeStyleValue(property: string, value: any): any {
@@ -238,9 +247,9 @@ export class ComponentService {
     }
 
     const { kebabName, pascalName } = this.parseComponentName(componentSet.name);
-    const variantTests = this.generateVariantTests(componentSet, kebabName, pascalName);
+    const variantResult = this.generateVariantTests(componentSet, kebabName, pascalName);
     
-    return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests);
+    return this.buildComponentSetTestTemplate(pascalName, kebabName, variantResult.tests, variantResult.variantProps);
   }
 
   private static parseComponentName(name: string): ParsedComponentName {
@@ -274,17 +283,19 @@ export class ComponentService {
     return result;
   }
 
-  private static generateVariantTests(componentSet: Component, kebabName: string, pascalName: string): string {
+  private static generateVariantTests(componentSet: Component, kebabName: string, pascalName: string): { tests: string, variantProps: VariantProps[] } {
     // Check cache first using component set ID and children hash
     const childrenHash = componentSet.children ? componentSet.children.map(c => c.id + c.name).join('|') : '';
     const cacheKey = `variants-${componentSet.id}-${childrenHash}`;
     const cached = this.testCache.get(cacheKey);
     if (cached) {
-      return cached;
+      // For cached results, we don't have variant props, so return empty array
+      return { tests: cached, variantProps: [] };
     }
 
     const variantTestParts: string[] = [];
     const processedVariants = new Set<string>();
+    const allVariantProps: VariantProps[] = []; // Collect all variant properties for @Input generation
 
     // TODO: can we use forEach instead of for...of?
     for (const variant of componentSet.children) {
@@ -296,6 +307,9 @@ export class ComponentService {
           continue;
         }
         processedVariants.add(testId);
+        
+        // Collect variant properties for @Input generation
+        allVariantProps.push(variantProps);
 
         const styles = this.parseStyles(variant.styles);
         const cssProperties = this.extractCssProperties(styles);
@@ -315,9 +329,12 @@ export class ComponentService {
       }
     }
 
-    const result = variantTestParts.join('');
-    // Cache the result
-    this.testCache.set(cacheKey, result);
+    const result = {
+      tests: variantTestParts.join(''),
+      variantProps: allVariantProps
+    };
+    // Cache the result - cache just the tests for backward compatibility
+    this.testCache.set(cacheKey, result.tests);
     return result;
   }
 
@@ -392,9 +409,60 @@ export class ComponentService {
     return arrayIncludes(PSEUDO_STATES, state.toLowerCase());
   }
 
+  private static generateInputDeclarations(allVariantProps: VariantProps[]): string {
+    const propertyValues = new Map<string, Set<string>>();
+    
+    // Collect all unique values for each property
+    allVariantProps.forEach(variantProps => {
+      objectEntries(variantProps).forEach(([propName, propValue]) => {
+        if (propName === 'state') {
+          // Skip ALL state properties - they don't become @Input properties
+          return;
+        }
+        
+        if (!propertyValues.has(propName)) {
+          propertyValues.set(propName, new Set());
+        }
+        propertyValues.get(propName)!.add(propValue);
+      });
+    });
+    
+    // Generate @Input() declarations
+    const inputDeclarations: string[] = [];
+    
+    propertyValues.forEach((values, propName) => {
+      const uniqueValues = Array.from(values).sort();
+      
+      if (uniqueValues.length === 1) {
+        // Single value - use string type
+        inputDeclarations.push(`  @Input() ${propName}: string = '${uniqueValues[0]}';`);
+      } else {
+        // Multiple values - create union type
+        const unionType = uniqueValues.map(val => `'${val}'`).join(' | ');
+        const defaultValue = uniqueValues[0]; // Use first value as default
+        inputDeclarations.push(`  @Input() ${propName}: ${unionType} = '${defaultValue}';`);
+      }
+    });
+    
+    if (inputDeclarations.length === 0) {
+      return '';
+    }
+    
+    return `/*
+TODO: Add these @Input() properties to your component:
 
-  private static buildComponentSetTestTemplate(pascalName: string, kebabName: string, variantTests: string): string {
-    return `import { ComponentFixture, TestBed } from '@angular/core/testing';
+${inputDeclarations.join('\n')}
+
+Don't forget to add this import:
+import { CommonModule } from '@angular/common';
+*/`;
+  }
+
+
+  private static buildComponentSetTestTemplate(pascalName: string, kebabName: string, variantTests: string, variantProps?: VariantProps[]): string {
+    const inputDeclarations = variantProps ? this.generateInputDeclarations(variantProps) : '';
+    
+    return `${inputDeclarations}${inputDeclarations ? '\n\n' : ''}import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
 describe('${pascalName}Component - All Variants', () => {
@@ -668,34 +736,13 @@ ${variantTests}
       cssProperties['margin'] = String(collectedStyles.margin);
     }
 
-    // Standard properties to extract - combining CSS_PROPERTIES with original missing properties
-    const originalMissingProps = [
-      'alignItems', 'borderStyle', 'bottom', 'display', 'flexDirection', 'flexWrap',
-      'fontStyle', 'gap', 'justifyContent', 'left', 'position', 'right', 
-      'textDecoration', 'textTransform', 'top'
-    ];
-    
-    const standardProps = [
-      ...CSS_PROPERTIES.SIMPLE_COLORS,
-      ...CSS_PROPERTIES.COMPLEX_COLORS,
-      ...CSS_PROPERTIES.STATIC,
-      ...CSS_PROPERTIES.INTERACTIVE,
-      ...originalMissingProps
-    ].filter((prop, index, arr) => arr.indexOf(prop) === index); // Remove duplicates
-    
     const shorthandSkip = new Set(paddingProps.concat(marginProps));
     
-    // Filter and assign standard properties - restore original comprehensive behavior
-    // Original approach: test ALL properties, not just ones that exist in collectedStyles
-    standardProps
-      .filter(prop => !shorthandSkip.has(prop))
+    // Dynamic approach: use ALL properties that Figma provides (no predefined list needed)
+    Object.keys(collectedStyles)
+      .filter(prop => collectedStyles[prop] && !shorthandSkip.has(prop))
       .forEach(prop => {
-        if (collectedStyles[prop]) {
-          cssProperties[prop] = String(collectedStyles[prop]);
-        } else {
-          // Include property even if not defined - for comprehensive testing
-          cssProperties[prop] = 'computed';
-        }
+        cssProperties[prop] = String(collectedStyles[prop]);
       });
     
     return cssProperties;
@@ -716,7 +763,15 @@ ${variantTests}
     const allProperties = Object.assign({}, cssProperties, textStyles);
     const testableProperties = Object.keys(allProperties).filter(property => {
       const expectedValue = allProperties[property];
-      return expectedValue !== 'computed' && !(expectedValue.indexOf('var(') !== -1 && !expectedValue.match(/var\([^,]+,\s*([^)]+)\)/));
+      if (expectedValue === 'computed') return false;
+      
+      if (expectedValue.indexOf('var(') !== -1) {
+        // Check if var() has fallback by attempting replacement
+        const replaced = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => fallback.trim());
+        return replaced !== expectedValue; // If replacement happened, there was a fallback
+      }
+      
+      return true;
     });
     
     if (testableProperties.length === 0) {
@@ -734,25 +789,30 @@ ${testableProperties.map(property => {
       let expectedTest = expectedValue;
       
       if (expectedValue.indexOf('var(') !== -1) {
-        const fallbackMatch = expectedValue.match(/var\([^,]+,\s*([^)]+)\)/);
-        if (fallbackMatch) {
-          expectedTest = fallbackMatch[1].trim();
+        // Replace var() with its fallback value while preserving surrounding content
+        expectedTest = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => {
+          return fallback.trim();
+        });
+        
+        // If no fallback was found, the replace won't change anything
+        if (expectedTest === expectedValue) {
+          expectedTest = null; // Indicate no fallback available
         }
       }
       
-      // TODO: duplicated logic (874), extract to separate function
-      if (expectedTest.match(/^#[0-9A-Fa-f]{3}$/) || expectedTest.match(/^#[0-9A-Fa-f]{6}$/)) {
-        let hex = expectedTest.substring(1);
+      // Convert any hex colors to RGB (handles hex colors anywhere within the value)
+      expectedTest = expectedTest.replace(/#([0-9A-Fa-f]{3,6})\b/g, (match, hex) => {
+        let fullHex = hex;
         
         if (hex.length === 3) {
-          hex = hex.split('').map(char => char + char).join('');
+          fullHex = hex.split('').map(char => char + char).join('');
         }
         
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        expectedTest = `rgb(${r}, ${g}, ${b})`;
-      }
+        const r = parseInt(fullHex.substring(0, 2), 16);
+        const g = parseInt(fullHex.substring(2, 4), 16);
+        const b = parseInt(fullHex.substring(4, 6), 16);
+        return `rgb(${r}, ${g}, ${b})`;
+      });
       
       const cssProperty = property.replace(/[A-Z]/g, (match: string) => `-${match.toLowerCase()}`);
       const isTextStyle = textStyles.hasOwnProperty(property);
@@ -825,27 +885,31 @@ ${Object.keys(cssProperties).map((property: string) => {
       }
       
       if (expectedValue.indexOf('var(') !== -1) {
-        const fallbackMatch = expectedValue.match(/var\\([^,]+,\\s*([^)]+)\\)/);
-        if (fallbackMatch) {
-          expectedTest = fallbackMatch[1].trim();
-        } else {
+        // Replace var() with its fallback value while preserving surrounding content
+        expectedTest = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => {
+          return fallback.trim();
+        });
+        
+        // If no fallback was found, the replace won't change anything
+        if (expectedTest === expectedValue) {
           return `      // ${property} (CSS variable without fallback)
       // expect(computedStyle.${property}).toBe('expected-value');`;
         }
       }
       
-      if (expectedTest.match(/^#[0-9A-Fa-f]{3}$/) || expectedTest.match(/^#[0-9A-Fa-f]{6}$/)) {
-        let hex = expectedTest.substring(1);
+      // Convert any hex colors to RGB (handles hex colors anywhere within the value)
+      expectedTest = expectedTest.replace(/#([0-9A-Fa-f]{3,6})\b/g, (match, hex) => {
+        let fullHex = hex;
         
         if (hex.length === 3) {
-          hex = hex.split('').map(char => char + char).join('');
+          fullHex = hex.split('').map(char => char + char).join('');
         }
         
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        expectedTest = `rgb(${r}, ${g}, ${b})`;
-      }
+        const r = parseInt(fullHex.substring(0, 2), 16);
+        const g = parseInt(fullHex.substring(2, 4), 16);
+        const b = parseInt(fullHex.substring(4, 6), 16);
+        return `rgb(${r}, ${g}, ${b})`;
+      });
       
       return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
     }).join('\n\n')}${Object.keys(textStyles).length > 0 ? '\n\n' + Object.keys(textStyles).map((property: string) => {

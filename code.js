@@ -2567,7 +2567,6 @@ ${styleCheckCode}
       exports.ComponentService = void 0;
       var componentUtils_1 = require_componentUtils();
       var es2015_helpers_1 = require_es2015_helpers();
-      var css_1 = require_css();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
       var ComponentService = class _ComponentService {
         // Cache management
@@ -2585,10 +2584,41 @@ ${styleCheckCode}
           };
         }
         static isSimpleColorProperty(property) {
-          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
+          const simpleColorProperties = [
+            "accentColor",
+            "backgroundColor",
+            "borderColor",
+            "borderTopColor",
+            "borderRightColor",
+            "borderBottomColor",
+            "borderLeftColor",
+            "caretColor",
+            "color",
+            "columnRuleColor",
+            "fill",
+            "outlineColor",
+            "scrollbarColor",
+            "stopColor",
+            "stroke",
+            "textDecorationColor",
+            "textEmphasisColor"
+          ];
+          return (0, es2015_helpers_1.arrayIncludes)(simpleColorProperties, property);
         }
         static isComplexColorProperty(property) {
-          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.COMPLEX_COLORS, property);
+          const complexColorProperties = [
+            "background",
+            "border",
+            "borderTop",
+            "borderRight",
+            "borderBottom",
+            "borderLeft",
+            "outline",
+            "boxShadow",
+            "textShadow",
+            "filter"
+          ];
+          return (0, es2015_helpers_1.arrayIncludes)(complexColorProperties, property);
         }
         static normalizeStyleValue(property, value) {
           if (typeof value !== "string") {
@@ -2730,8 +2760,8 @@ ${styleCheckCode}
             return this.generateTest(componentSet);
           }
           const { kebabName, pascalName } = this.parseComponentName(componentSet.name);
-          const variantTests = this.generateVariantTests(componentSet, kebabName, pascalName);
-          return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests);
+          const variantResult = this.generateVariantTests(componentSet, kebabName, pascalName);
+          return this.buildComponentSetTestTemplate(pascalName, kebabName, variantResult.tests, variantResult.variantProps);
         }
         static parseComponentName(name) {
           if (!name || typeof name !== "string") {
@@ -2759,10 +2789,11 @@ ${styleCheckCode}
           const cacheKey = `variants-${componentSet.id}-${childrenHash}`;
           const cached = this.testCache.get(cacheKey);
           if (cached) {
-            return cached;
+            return { tests: cached, variantProps: [] };
           }
           const variantTestParts = [];
           const processedVariants = /* @__PURE__ */ new Set();
+          const allVariantProps = [];
           for (const variant of componentSet.children) {
             try {
               const variantProps = this.parseVariantName(variant.name);
@@ -2771,6 +2802,7 @@ ${styleCheckCode}
                 continue;
               }
               processedVariants.add(testId);
+              allVariantProps.push(variantProps);
               const styles = this.parseStyles(variant.styles);
               const cssProperties = this.extractCssProperties(styles);
               const textStyles = this.extractTextStyles(variant.textElements);
@@ -2785,8 +2817,11 @@ ${styleCheckCode}
               console.error("Error generating test for variant:", variant.name, error);
             }
           }
-          const result = variantTestParts.join("");
-          this.testCache.set(cacheKey, result);
+          const result = {
+            tests: variantTestParts.join(""),
+            variantProps: allVariantProps
+          };
+          this.testCache.set(cacheKey, result.tests);
           return result;
         }
         static parseVariantName(variantName) {
@@ -2836,8 +2871,45 @@ ${styleCheckCode}
         static isPseudoState(state) {
           return (0, es2015_helpers_1.arrayIncludes)(PSEUDO_STATES, state.toLowerCase());
         }
-        static buildComponentSetTestTemplate(pascalName, kebabName, variantTests) {
-          return `import { ComponentFixture, TestBed } from '@angular/core/testing';
+        static generateInputDeclarations(allVariantProps) {
+          const propertyValues = /* @__PURE__ */ new Map();
+          allVariantProps.forEach((variantProps) => {
+            (0, es2015_helpers_1.objectEntries)(variantProps).forEach(([propName, propValue]) => {
+              if (propName === "state") {
+                return;
+              }
+              if (!propertyValues.has(propName)) {
+                propertyValues.set(propName, /* @__PURE__ */ new Set());
+              }
+              propertyValues.get(propName).add(propValue);
+            });
+          });
+          const inputDeclarations = [];
+          propertyValues.forEach((values, propName) => {
+            const uniqueValues = Array.from(values).sort();
+            if (uniqueValues.length === 1) {
+              inputDeclarations.push(`  @Input() ${propName}: string = '${uniqueValues[0]}';`);
+            } else {
+              const unionType = uniqueValues.map((val) => `'${val}'`).join(" | ");
+              const defaultValue = uniqueValues[0];
+              inputDeclarations.push(`  @Input() ${propName}: ${unionType} = '${defaultValue}';`);
+            }
+          });
+          if (inputDeclarations.length === 0) {
+            return "";
+          }
+          return `/*
+TODO: Add these @Input() properties to your component:
+
+${inputDeclarations.join("\n")}
+
+Don't forget to add this import:
+import { CommonModule } from '@angular/common';
+*/`;
+        }
+        static buildComponentSetTestTemplate(pascalName, kebabName, variantTests, variantProps) {
+          const inputDeclarations = variantProps ? this.generateInputDeclarations(variantProps) : "";
+          return `${inputDeclarations}${inputDeclarations ? "\n\n" : ""}import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
 describe('${pascalName}Component - All Variants', () => {
@@ -3060,37 +3132,9 @@ ${variantTests}
           } else if (collectedStyles.margin) {
             cssProperties["margin"] = String(collectedStyles.margin);
           }
-          const originalMissingProps = [
-            "alignItems",
-            "borderStyle",
-            "bottom",
-            "display",
-            "flexDirection",
-            "flexWrap",
-            "fontStyle",
-            "gap",
-            "justifyContent",
-            "left",
-            "position",
-            "right",
-            "textDecoration",
-            "textTransform",
-            "top"
-          ];
-          const standardProps = [
-            ...css_1.CSS_PROPERTIES.SIMPLE_COLORS,
-            ...css_1.CSS_PROPERTIES.COMPLEX_COLORS,
-            ...css_1.CSS_PROPERTIES.STATIC,
-            ...css_1.CSS_PROPERTIES.INTERACTIVE,
-            ...originalMissingProps
-          ].filter((prop, index, arr) => arr.indexOf(prop) === index);
           const shorthandSkip = new Set(paddingProps.concat(marginProps));
-          standardProps.filter((prop) => !shorthandSkip.has(prop)).forEach((prop) => {
-            if (collectedStyles[prop]) {
-              cssProperties[prop] = String(collectedStyles[prop]);
-            } else {
-              cssProperties[prop] = "computed";
-            }
+          Object.keys(collectedStyles).filter((prop) => collectedStyles[prop] && !shorthandSkip.has(prop)).forEach((prop) => {
+            cssProperties[prop] = String(collectedStyles[prop]);
           });
           return cssProperties;
         }
@@ -3102,7 +3146,13 @@ ${variantTests}
           const allProperties = Object.assign({}, cssProperties, textStyles);
           const testableProperties = Object.keys(allProperties).filter((property) => {
             const expectedValue = allProperties[property];
-            return expectedValue !== "computed" && !(expectedValue.indexOf("var(") !== -1 && !expectedValue.match(/var\([^,]+,\s*([^)]+)\)/));
+            if (expectedValue === "computed")
+              return false;
+            if (expectedValue.indexOf("var(") !== -1) {
+              const replaced = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => fallback.trim());
+              return replaced !== expectedValue;
+            }
+            return true;
           });
           if (testableProperties.length === 0) {
             return `
@@ -3117,21 +3167,23 @@ ${testableProperties.map((property) => {
             const expectedValue = allProperties[property];
             let expectedTest = expectedValue;
             if (expectedValue.indexOf("var(") !== -1) {
-              const fallbackMatch = expectedValue.match(/var\([^,]+,\s*([^)]+)\)/);
-              if (fallbackMatch) {
-                expectedTest = fallbackMatch[1].trim();
+              expectedTest = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => {
+                return fallback.trim();
+              });
+              if (expectedTest === expectedValue) {
+                expectedTest = null;
               }
             }
-            if (expectedTest.match(/^#[0-9A-Fa-f]{3}$/) || expectedTest.match(/^#[0-9A-Fa-f]{6}$/)) {
-              let hex = expectedTest.substring(1);
+            expectedTest = expectedTest.replace(/#([0-9A-Fa-f]{3,6})\b/g, (match, hex) => {
+              let fullHex = hex;
               if (hex.length === 3) {
-                hex = hex.split("").map((char) => char + char).join("");
+                fullHex = hex.split("").map((char) => char + char).join("");
               }
-              const r = parseInt(hex.substring(0, 2), 16);
-              const g = parseInt(hex.substring(2, 4), 16);
-              const b = parseInt(hex.substring(4, 6), 16);
-              expectedTest = `rgb(${r}, ${g}, ${b})`;
-            }
+              const r = parseInt(fullHex.substring(0, 2), 16);
+              const g = parseInt(fullHex.substring(2, 4), 16);
+              const b = parseInt(fullHex.substring(4, 6), 16);
+              return `rgb(${r}, ${g}, ${b})`;
+            });
             const cssProperty = property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
             const isTextStyle = textStyles.hasOwnProperty(property);
             return `      { 
@@ -3193,24 +3245,24 @@ ${Object.keys(cssProperties).map((property) => {
       // expect(computedStyle.${property}).toBe('expected-value');`;
             }
             if (expectedValue.indexOf("var(") !== -1) {
-              const fallbackMatch = expectedValue.match(/var\\([^,]+,\\s*([^)]+)\\)/);
-              if (fallbackMatch) {
-                expectedTest = fallbackMatch[1].trim();
-              } else {
+              expectedTest = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => {
+                return fallback.trim();
+              });
+              if (expectedTest === expectedValue) {
                 return `      // ${property} (CSS variable without fallback)
       // expect(computedStyle.${property}).toBe('expected-value');`;
               }
             }
-            if (expectedTest.match(/^#[0-9A-Fa-f]{3}$/) || expectedTest.match(/^#[0-9A-Fa-f]{6}$/)) {
-              let hex = expectedTest.substring(1);
+            expectedTest = expectedTest.replace(/#([0-9A-Fa-f]{3,6})\b/g, (match, hex) => {
+              let fullHex = hex;
               if (hex.length === 3) {
-                hex = hex.split("").map((char) => char + char).join("");
+                fullHex = hex.split("").map((char) => char + char).join("");
               }
-              const r = parseInt(hex.substring(0, 2), 16);
-              const g = parseInt(hex.substring(2, 4), 16);
-              const b = parseInt(hex.substring(4, 6), 16);
-              expectedTest = `rgb(${r}, ${g}, ${b})`;
-            }
+              const r = parseInt(fullHex.substring(0, 2), 16);
+              const g = parseInt(fullHex.substring(2, 4), 16);
+              const b = parseInt(fullHex.substring(4, 6), 16);
+              return `rgb(${r}, ${g}, ${b})`;
+            });
             return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
           }).join("\n\n")}${Object.keys(textStyles).length > 0 ? "\n\n" + Object.keys(textStyles).map((property) => {
             const expectedValue = textStyles[property];
