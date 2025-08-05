@@ -685,11 +685,17 @@ ${variantTests}
     
     const shorthandSkip = new Set(paddingProps.concat(marginProps));
     
-    // Filter and assign standard properties using functional approach
+    // Filter and assign standard properties - restore original comprehensive behavior
+    // Original approach: test ALL properties, not just ones that exist in collectedStyles
     standardProps
-      .filter(prop => collectedStyles[prop] && !shorthandSkip.has(prop))
+      .filter(prop => !shorthandSkip.has(prop))
       .forEach(prop => {
-        cssProperties[prop] = String(collectedStyles[prop]);
+        if (collectedStyles[prop]) {
+          cssProperties[prop] = String(collectedStyles[prop]);
+        } else {
+          // Include property even if not defined - for comprehensive testing
+          cssProperties[prop] = 'computed';
+        }
       });
     
     return cssProperties;

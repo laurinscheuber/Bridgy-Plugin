@@ -3085,8 +3085,12 @@ ${variantTests}
             ...originalMissingProps
           ].filter((prop, index, arr) => arr.indexOf(prop) === index);
           const shorthandSkip = new Set(paddingProps.concat(marginProps));
-          standardProps.filter((prop) => collectedStyles[prop] && !shorthandSkip.has(prop)).forEach((prop) => {
-            cssProperties[prop] = String(collectedStyles[prop]);
+          standardProps.filter((prop) => !shorthandSkip.has(prop)).forEach((prop) => {
+            if (collectedStyles[prop]) {
+              cssProperties[prop] = String(collectedStyles[prop]);
+            } else {
+              cssProperties[prop] = "computed";
+            }
           });
           return cssProperties;
         }
