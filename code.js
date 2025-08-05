@@ -2560,7 +2560,6 @@ ${styleCheckCode}
       var componentUtils_1 = require_componentUtils();
       var es2015_helpers_1 = require_es2015_helpers();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
-      var DEFAULT_ELEMENT_SELECTORS = "button, div, span, a, p, h1, h2, h3, h4, h5, h6";
       var ComponentService = class _ComponentService {
         // Cache management
         static clearCaches() {
@@ -2763,9 +2762,7 @@ ${styleCheckCode}
           }
           const { kebabName, pascalName } = this.parseComponentName(componentSet.name);
           const variantTests = this.generateVariantTests(componentSet, kebabName, pascalName);
-          const sizeTests = this.generateSizeTests(componentSet, kebabName);
-          const stateTests = this.generateStateTests(componentSet, kebabName);
-          return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests, sizeTests, stateTests);
+          return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests);
         }
         static parseComponentName(name) {
           if (!name || typeof name !== "string") {
@@ -2861,41 +2858,7 @@ ${styleCheckCode}
         static isPseudoState(state) {
           return (0, es2015_helpers_1.arrayIncludes)(PSEUDO_STATES, state.toLowerCase());
         }
-        static generateSizeTests(componentSet, kebabName) {
-          try {
-            const uniqueSizes = new Set(componentSet.children.map((variant) => this.parseVariantName(variant.name).size).filter((size) => size !== "default"));
-            if (uniqueSizes.size === 0)
-              return "";
-            const sizeTestCases = Array.from(uniqueSizes).map((size) => `
-    element.classList.add('${kebabName}--${size}');
-    expect(element.classList.contains('${kebabName}--${size}')).toBeTruthy();
-    element.classList.remove('${kebabName}--${size}');`).join("");
-            return `
-  it('should support all size variants', () => {
-    const element = fixture.nativeElement.querySelector('${DEFAULT_ELEMENT_SELECTORS}');
-    if (!element) return;
-${sizeTestCases}
-  });`;
-          } catch (error) {
-            console.error("Error generating size tests:", error);
-            return "";
-          }
-        }
-        static generateStateTests(componentSet, kebabName) {
-          const hasInteractiveStates = componentSet.children.some((variant) => this.isPseudoState(this.parseVariantName(variant.name).state));
-          if (!hasInteractiveStates)
-            return "";
-          return `
-  it('should support all state variants', () => {
-    const selector = '.${kebabName}';
-    
-    const hoverValue = getCssPropertyForRule(selector, ':hover', 'background-color');
-    if (hoverValue) {
-      expect(hoverValue).toBeDefined();
-    }
-  });`;
-        }
-        static buildComponentSetTestTemplate(pascalName, kebabName, variantTests, sizeTests, stateTests) {
+        static buildComponentSetTestTemplate(pascalName, kebabName, variantTests) {
           return `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
@@ -2934,9 +2897,17 @@ describe('${pascalName}Component - All Variants', () => {
     prop: string
   ): string | undefined => {
     const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const foundRule = arrayFlatMap(Array.from(document.styleSheets), (sheet) => Array.from(sheet.cssRules || []))
-      .filter((r) => r instanceof CSSStyleRule)
-      .find((r) => regex.test(r.selectorText));
+    
+    // Flatten stylesheets rules using standard JavaScript
+    let allRules: any[] = [];
+    Array.from(document.styleSheets).forEach((sheet: any) => {
+      const rules = Array.from(sheet.cssRules || []);
+      allRules = allRules.concat(rules);
+    });
+    
+    const foundRule = allRules
+      .filter((r: any) => r instanceof CSSStyleRule)
+      .find((r: any) => regex.test(r.selectorText));
     
     const style = foundRule ? foundRule.style : undefined;
     return style ? style.getPropertyValue(prop) : undefined;
@@ -2954,7 +2925,7 @@ describe('${pascalName}Component - All Variants', () => {
     fixture.detectChanges();
   });
 
-${variantTests}${sizeTests}${stateTests}
+${variantTests}
 });`;
         }
         static collectAllVariables() {
