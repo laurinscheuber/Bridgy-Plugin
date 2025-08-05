@@ -6,6 +6,7 @@ import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-help
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
 const DEFAULT_ELEMENT_SELECTORS = 'button, div, span, a, p, h1, h2, h3, h4, h5, h6';
 
+// TODO: is this type used anywhere?
 type PseudoState = typeof PSEUDO_STATES[number];
 
 interface VariantProps {
@@ -19,6 +20,7 @@ interface ParsedComponentName {
   pascalName: string;
 }
 
+// TODO: is this interface used anywhere?
 interface ComponentTestError extends Error {
   componentName: string;
   variant?: string;
@@ -40,6 +42,7 @@ export class ComponentService {
     this.nameCache.clear();
   }
 
+  // TODO: is this method used anywhere?
   static getCacheStats(): { styles: number; tests: number; names: number } {
     return {
       styles: this.styleCache.size,
@@ -48,6 +51,7 @@ export class ComponentService {
     };
   }
 
+  // TODO: consider moving the properties to a separate file for better organization. Edit: I just saw that we already moved the properties to css.ts, but why do we still have this propertties here?
   private static isSimpleColorProperty(property: string): boolean {
     const simpleColorProperties = [
       'accentColor',
@@ -81,6 +85,7 @@ export class ComponentService {
     return arrayIncludes(simpleColorProperties, property);
   }
 
+  // TODO: consider moving the properties to a separate file for better organization
   private static isComplexColorProperty(property: string): boolean {
     const complexColorProperties = [
       'background',
@@ -120,6 +125,7 @@ export class ComponentService {
     this.componentMap = new Map<string, Component>();
 
     async function collectNodes(node: BaseNode) {
+      // TODO: return early if condition is not met
       if ("type" in node) {
         if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
           const componentStyles = await node.getCSSAsync();
@@ -156,6 +162,7 @@ export class ComponentService {
       }
     }
 
+    // TODO: replace with forEach,
     for (const page of figma.root.children) {
       await collectNodes(page);
     }
@@ -185,8 +192,9 @@ export class ComponentService {
       .replace(/(^-|-$)/g, "");
 
     const isComponentSet = component.type === "COMPONENT_SET";
-
+    // TODO: I think the generateAllVariats flag is not needed anymore, as we always generate tests for all variants
     if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
+      // TODO: if I understand correctly, we could think about moving the generateComponentSetTest method to componentUtils.ts
       return this.generateComponentSetTest(component);
     }
 
@@ -216,6 +224,7 @@ export class ComponentService {
     });
 
     // Add text styles from textElements
+    // TODO: can we simplify this logic? It contains a lot of nested conditions
     if (component.textElements) {
       component.textElements.forEach(textElement => {
         if (textElement.textStyles) {
@@ -319,6 +328,7 @@ export class ComponentService {
     const variantTestParts: string[] = [];
     const processedVariants = new Set<string>();
 
+    // TODO: can we use forEach instead of for...of?
     for (const variant of componentSet.children) {
       try {
         const { state, size, variantType } = this.parseVariantName(variant.name);
@@ -393,6 +403,7 @@ export class ComponentService {
       }
     }
 
+    // TODO: can we simplify the second check to '&& styles ?'
     return typeof styles === 'object' && styles !== null ? styles as Record<string, unknown> : {};
   }
 
@@ -535,6 +546,7 @@ ${variantTests}
     return resolvedStyles;
   }
 
+    // TODO: is this method used anywhere?
   private static parseComponentVariantName(name: string): { state?: string, size?: string } {
     const result: { state?: string, size?: string } = {};
 
@@ -644,7 +656,8 @@ ${variantTests}
     
     // Convert styles to normalized format - ES5 compatible
     const collectedStyles: Record<string, string> = {};
-    
+
+    // TODO: replace with forEach,  avoid using var
     for (var key in styles) {
       if (styles.hasOwnProperty(key)) {
         var value = styles[key];
@@ -673,7 +686,8 @@ ${variantTests}
     } else if (collectedStyles.margin) {
       cssProperties['margin'] = String(collectedStyles.margin);
     }
-    
+
+    // TODO: consider moving the props to a separate file for better organization
     // Standard properties to extract
     const standardProps = [
       'backgroundColor', 'background', 'color', 
@@ -729,6 +743,7 @@ ${testableProperties.map(property => {
         }
       }
       
+      // TODO: duplicated logic (874), extract to separate function
       if (expectedTest.match(/^#[0-9A-Fa-f]{3}$/) || expectedTest.match(/^#[0-9A-Fa-f]{6}$/)) {
         let hex = expectedTest.substring(1);
         
@@ -769,6 +784,7 @@ ${testableProperties.map(property => {
   });`;
   }
 
+  // TODO. currently only state, size, variantType are supported figma properties. We should include ALL properties from the figma component for test generation
   private static generateComponentPropertyTest(state: string, size: string, variantType: string, cssProperties: Record<string, string>, kebabName: string, pascalName: string, textStyles: Record<string, string> = {}): string {
     const componentProps: string[] = [];
     

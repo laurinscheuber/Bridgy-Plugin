@@ -52,6 +52,7 @@ interface GitLabError {
 // Constants from configuration
 const DEFAULT_BRANCH_NAME = GIT_CONFIG.DEFAULT_BRANCH;
 const DEFAULT_TEST_BRANCH_NAME = GIT_CONFIG.DEFAULT_TEST_BRANCH;
+// TODO: is this used anywhere?
 const REQUEST_TIMEOUT = API_CONFIG.REQUEST_TIMEOUT;
 
 // Custom error classes
@@ -99,6 +100,7 @@ export class GitLabService {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
+      // TODO: consider checking first if the condition is not met (else-branch first)
       if (shareWithTeam) {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);
@@ -146,6 +148,7 @@ export class GitLabService {
     }
   }
 
+  // TODO: method is quite long, consider breaking it down into smaller methods
   /**
    * Load GitLab settings from Figma storage
    */
