@@ -34,7 +34,7 @@ export function objectFromEntries<T>(entries: Array<[string, T]>): Record<string
 /**
  * ES2015-compatible Array.prototype.includes replacement
  */
-export function arrayIncludes<T>(array: T[], searchElement: T): boolean {
+export function arrayIncludes<T>(array: readonly T[], searchElement: T): boolean {
   for (let i = 0; i < array.length; i++) {
     if (array[i] === searchElement) {
       return true;

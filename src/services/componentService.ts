@@ -1,6 +1,7 @@
 import { Component, TextElement, StyleCheck } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
+import { CSS_PROPERTIES } from '../config/css';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -51,55 +52,12 @@ export class ComponentService {
     };
   }
 
-  // TODO: consider moving the properties to a separate file for better organization. Edit: I just saw that we already moved the properties to css.ts, but why do we still have this propertties here?
   private static isSimpleColorProperty(property: string): boolean {
-    const simpleColorProperties = [
-      'accentColor',
-      'backgroundColor',
-      'borderColor',
-      'borderTopColor',
-      'borderRightColor',
-      'borderBottomColor',
-      'borderLeftColor',
-      'borderBlockColor',
-      'borderInlineColor',
-      'borderBlockStartColor',
-      'borderBlockEndColor',
-      'borderInlineStartColor',
-      'borderInlineEndColor',
-      'caretColor',
-      'color',
-      'outlineColor',
-      'textDecorationColor',
-      'textEmphasisColor',
-      'columnRuleColor',
-      'fill',
-      'stroke',
-      'floodColor',
-      'lightingColor',
-      'stopColor',
-      'scrollbarColor',
-      'selectionBackgroundColor',
-      'selectionColor'
-    ];
-    return arrayIncludes(simpleColorProperties, property);
+    return arrayIncludes(CSS_PROPERTIES.SIMPLE_COLORS, property);
   }
 
-  // TODO: consider moving the properties to a separate file for better organization
   private static isComplexColorProperty(property: string): boolean {
-    const complexColorProperties = [
-      'background',
-      'border',
-      'borderTop',
-      'borderRight',
-      'borderBottom',
-      'borderLeft',
-      'outline',
-      'boxShadow',
-      'textShadow',
-      'dropShadow'
-    ];
-    return arrayIncludes(complexColorProperties, property);
+    return arrayIncludes(CSS_PROPERTIES.COMPLEX_COLORS, property);
   }
 
   private static normalizeStyleValue(property: string, value: any): any {
@@ -710,18 +668,20 @@ ${variantTests}
       cssProperties['margin'] = String(collectedStyles.margin);
     }
 
-    // TODO: consider moving the props to a separate file for better organization
-    // Standard properties to extract
-    const standardProps = [
-      'backgroundColor', 'background', 'color', 
-      'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing',
-      'borderRadius', 'border', 'borderColor', 'borderWidth', 'borderStyle',
-      'gap', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
-      'display', 'flexDirection', 'justifyContent', 'alignItems', 'flexWrap',
-      'position', 'top', 'right', 'bottom', 'left',
-      'opacity', 'boxShadow', 'textAlign', 'textDecoration', 'textTransform',
-      'overflow', 'cursor', 'zIndex', 'transition'
+    // Standard properties to extract - combining CSS_PROPERTIES with original missing properties
+    const originalMissingProps = [
+      'alignItems', 'borderStyle', 'bottom', 'display', 'flexDirection', 'flexWrap',
+      'fontStyle', 'gap', 'justifyContent', 'left', 'position', 'right', 
+      'textDecoration', 'textTransform', 'top'
     ];
+    
+    const standardProps = [
+      ...CSS_PROPERTIES.SIMPLE_COLORS,
+      ...CSS_PROPERTIES.COMPLEX_COLORS,
+      ...CSS_PROPERTIES.STATIC,
+      ...CSS_PROPERTIES.INTERACTIVE,
+      ...originalMissingProps
+    ].filter((prop, index, arr) => arr.indexOf(prop) === index); // Remove duplicates
     
     const shorthandSkip = new Set(paddingProps.concat(marginProps));
     

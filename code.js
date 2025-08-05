@@ -2567,6 +2567,7 @@ ${styleCheckCode}
       exports.ComponentService = void 0;
       var componentUtils_1 = require_componentUtils();
       var es2015_helpers_1 = require_es2015_helpers();
+      var css_1 = require_css();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
       var ComponentService = class _ComponentService {
         // Cache management
@@ -2583,54 +2584,11 @@ ${styleCheckCode}
             names: this.nameCache.size
           };
         }
-        // TODO: consider moving the properties to a separate file for better organization. Edit: I just saw that we already moved the properties to css.ts, but why do we still have this propertties here?
         static isSimpleColorProperty(property) {
-          const simpleColorProperties = [
-            "accentColor",
-            "backgroundColor",
-            "borderColor",
-            "borderTopColor",
-            "borderRightColor",
-            "borderBottomColor",
-            "borderLeftColor",
-            "borderBlockColor",
-            "borderInlineColor",
-            "borderBlockStartColor",
-            "borderBlockEndColor",
-            "borderInlineStartColor",
-            "borderInlineEndColor",
-            "caretColor",
-            "color",
-            "outlineColor",
-            "textDecorationColor",
-            "textEmphasisColor",
-            "columnRuleColor",
-            "fill",
-            "stroke",
-            "floodColor",
-            "lightingColor",
-            "stopColor",
-            "scrollbarColor",
-            "selectionBackgroundColor",
-            "selectionColor"
-          ];
-          return (0, es2015_helpers_1.arrayIncludes)(simpleColorProperties, property);
+          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
         }
-        // TODO: consider moving the properties to a separate file for better organization
         static isComplexColorProperty(property) {
-          const complexColorProperties = [
-            "background",
-            "border",
-            "borderTop",
-            "borderRight",
-            "borderBottom",
-            "borderLeft",
-            "outline",
-            "boxShadow",
-            "textShadow",
-            "dropShadow"
-          ];
-          return (0, es2015_helpers_1.arrayIncludes)(complexColorProperties, property);
+          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.COMPLEX_COLORS, property);
         }
         static normalizeStyleValue(property, value) {
           if (typeof value !== "string") {
@@ -3102,48 +3060,30 @@ ${variantTests}
           } else if (collectedStyles.margin) {
             cssProperties["margin"] = String(collectedStyles.margin);
           }
-          const standardProps = [
-            "backgroundColor",
-            "background",
-            "color",
-            "fontSize",
-            "fontFamily",
-            "fontWeight",
-            "fontStyle",
-            "lineHeight",
-            "letterSpacing",
-            "borderRadius",
-            "border",
-            "borderColor",
-            "borderWidth",
+          const originalMissingProps = [
+            "alignItems",
             "borderStyle",
-            "gap",
-            "width",
-            "height",
-            "minWidth",
-            "minHeight",
-            "maxWidth",
-            "maxHeight",
+            "bottom",
             "display",
             "flexDirection",
-            "justifyContent",
-            "alignItems",
             "flexWrap",
-            "position",
-            "top",
-            "right",
-            "bottom",
+            "fontStyle",
+            "gap",
+            "justifyContent",
             "left",
-            "opacity",
-            "boxShadow",
-            "textAlign",
+            "position",
+            "right",
             "textDecoration",
             "textTransform",
-            "overflow",
-            "cursor",
-            "zIndex",
-            "transition"
+            "top"
           ];
+          const standardProps = [
+            ...css_1.CSS_PROPERTIES.SIMPLE_COLORS,
+            ...css_1.CSS_PROPERTIES.COMPLEX_COLORS,
+            ...css_1.CSS_PROPERTIES.STATIC,
+            ...css_1.CSS_PROPERTIES.INTERACTIVE,
+            ...originalMissingProps
+          ].filter((prop, index, arr) => arr.indexOf(prop) === index);
           const shorthandSkip = new Set(paddingProps.concat(marginProps));
           standardProps.filter((prop) => collectedStyles[prop] && !shorthandSkip.has(prop)).forEach((prop) => {
             cssProperties[prop] = String(collectedStyles[prop]);
