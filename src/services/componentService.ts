@@ -1,5 +1,6 @@
 import { Component, TextElement, StyleCheck } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
+import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -26,6 +27,26 @@ interface ComponentTestError extends Error {
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
   private static allVariables = new Map<string, unknown>();
+  
+  // Performance optimization caches
+  private static styleCache = new Map<string, Record<string, unknown>>();
+  private static testCache = new Map<string, string>();
+  private static nameCache = new Map<string, ParsedComponentName>();
+
+  // Cache management
+  static clearCaches(): void {
+    this.styleCache.clear();
+    this.testCache.clear();
+    this.nameCache.clear();
+  }
+
+  static getCacheStats(): { styles: number; tests: number; names: number } {
+    return {
+      styles: this.styleCache.size,
+      tests: this.testCache.size,
+      names: this.nameCache.size
+    };
+  }
 
   private static isSimpleColorProperty(property: string): boolean {
     const simpleColorProperties = [
@@ -57,7 +78,7 @@ export class ComponentService {
       'selectionBackgroundColor',
       'selectionColor'
     ];
-    return simpleColorProperties.includes(property);
+    return arrayIncludes(simpleColorProperties, property);
   }
 
   private static isComplexColorProperty(property: string): boolean {
@@ -73,7 +94,7 @@ export class ComponentService {
       'textShadow',
       'dropShadow'
     ];
-    return complexColorProperties.includes(property);
+    return arrayIncludes(complexColorProperties, property);
   }
 
   private static normalizeStyleValue(property: string, value: any): any {
@@ -111,8 +132,8 @@ export class ComponentService {
             name: node.name,
             type: node.type,
             styles: resolvedStyles,
-            pageName: node.parent?.name ?? "Unknown",
-            parentId: node.parent?.id,
+            pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
+            parentId: node.parent && node.parent.id,
             children: [],
             textElements: textElements,
             hasTextContent: textElements.length > 0,
@@ -142,7 +163,7 @@ export class ComponentService {
     componentsData.forEach(component => {
       if (component.parentId) {
         const parent = this.componentMap.get(component.parentId);
-        if (parent?.type === "COMPONENT_SET") {
+        if (parent && parent.type === "COMPONENT_SET") {
           parent.children.push(component);
           component.isChild = true;
         }
@@ -165,7 +186,7 @@ export class ComponentService {
 
     const isComponentSet = component.type === "COMPONENT_SET";
 
-    if (isComponentSet && generateAllVariants && component.children?.length > 0) {
+    if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
       return this.generateComponentSetTest(component);
     }
 
@@ -181,7 +202,7 @@ export class ComponentService {
 
     const styleChecks: StyleCheck[] = [];
 
-    Object.entries(styles).forEach(([key, value]) => {
+    objectEntries(styles).forEach(([key, value]) => {
       let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
       
       if (camelCaseKey === 'background') {
@@ -195,21 +216,23 @@ export class ComponentService {
     });
 
     // Add text styles from textElements
-    component.textElements?.forEach(textElement => {
-      if (textElement.textStyles) {
-        Object.entries(textElement.textStyles).forEach(([key, value]) => {
-          if (value) {
-            styleChecks.push({
-              property: key,
-              value: this.normalizeStyleValue(key, value),
-            });
-          }
-        });
-      }
-    });
+    if (component.textElements) {
+      component.textElements.forEach(textElement => {
+        if (textElement.textStyles) {
+          objectEntries(textElement.textStyles).forEach(([key, value]) => {
+            if (value) {
+              styleChecks.push({
+                property: key,
+                value: this.normalizeStyleValue(key, value),
+              });
+            }
+          });
+        }
+      });
+    }
 
     if (isComponentSet) {
-      const defaultVariant = component.children?.[0] ?? null;
+      const defaultVariant = component.children && component.children.length > 0 ? component.children[0] : null;
 
       if (defaultVariant) {
         let variantStyles;
@@ -222,7 +245,7 @@ export class ComponentService {
 
         const variantStyleChecks: StyleCheck[] = [];
 
-        Object.entries(variantStyles).forEach(([key, value]) => {
+        objectEntries(variantStyles).forEach(([key, value]) => {
           let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
           
           if (camelCaseKey === 'background') {
@@ -243,7 +266,7 @@ export class ComponentService {
   }
 
   private static generateComponentSetTest(componentSet: Component): string {
-    if (!componentSet.children?.length) {
+    if (!componentSet.children || componentSet.children.length === 0) {
       return this.generateTest(componentSet);
     }
 
@@ -260,6 +283,12 @@ export class ComponentService {
       throw new Error(`Invalid component name: ${name}`);
     }
 
+    // Check cache first
+    const cached = this.nameCache.get(name);
+    if (cached) {
+      return cached;
+    }
+
     const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     if (!kebabName) {
       throw new Error(`Could not generate valid kebab-case name from: ${name}`);
@@ -273,11 +302,23 @@ export class ComponentService {
     const pascalName = words
       .map(word => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
       .join('');
-    return { kebabName, pascalName };
+    const result = { kebabName, pascalName };
+    
+    // Cache the result
+    this.nameCache.set(name, result);
+    return result;
   }
 
   private static generateVariantTests(componentSet: Component, kebabName: string, pascalName: string): string {
-    let variantTests = '';
+    // Check cache first using component set ID and children hash
+    const childrenHash = componentSet.children ? componentSet.children.map(c => c.id + c.name).join('|') : '';
+    const cacheKey = `variants-${componentSet.id}-${childrenHash}`;
+    const cached = this.testCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const variantTestParts: string[] = [];
     const processedVariants = new Set<string>();
 
     for (const variant of componentSet.children) {
@@ -297,9 +338,9 @@ export class ComponentService {
         const isPseudoState = this.isPseudoState(state);
         
         if (isPseudoState) {
-          variantTests += this.generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles);
+          variantTestParts.push(this.generatePseudoStateTest(state, size, variantType, cssProperties, kebabName, textStyles));
         } else {
-          variantTests += this.generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles);
+          variantTestParts.push(this.generateComponentPropertyTest(state, size, variantType, cssProperties, kebabName, pascalName, textStyles));
         }
 
       } catch (error) {
@@ -307,7 +348,10 @@ export class ComponentService {
       }
     }
 
-    return variantTests;
+    const result = variantTestParts.join('');
+    // Cache the result
+    this.testCache.set(cacheKey, result);
+    return result;
   }
 
   private static parseVariantName(variantName: string): VariantProps {
@@ -320,9 +364,9 @@ export class ComponentService {
     const variantMatch = variantName.match(/Variant=([^,]+)/i);
     
     return {
-      state: stateMatch?.[1]?.trim() ?? 'default',
-      size: sizeMatch?.[1]?.trim() ?? 'default',
-      variantType: variantMatch?.[1]?.trim() ?? 'default'
+      state: stateMatch && stateMatch[1] ? stateMatch[1].trim() : 'default',
+      size: sizeMatch && sizeMatch[1] ? sizeMatch[1].trim() : 'default',
+      variantType: variantMatch && variantMatch[1] ? variantMatch[1].trim() : 'default'
     };
   }
 
@@ -331,13 +375,23 @@ export class ComponentService {
       return {};
     }
 
+    // Create cache key for string styles
     if (typeof styles === 'string') {
+      const cached = this.styleCache.get(styles);
+      if (cached) {
+        return cached;
+      }
+
       try {
         const parsed = JSON.parse(styles);
-        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+        const result = typeof parsed === 'object' && parsed !== null ? parsed : {};
+        this.styleCache.set(styles, result);
+        return result;
       } catch (error) {
         console.error('Failed to parse styles JSON:', error);
-        return {};
+        const emptyResult = {};
+        this.styleCache.set(styles, emptyResult);
+        return emptyResult;
       }
     }
 
@@ -345,7 +399,7 @@ export class ComponentService {
   }
 
   private static isPseudoState(state: string): boolean {
-    return PSEUDO_STATES.includes(state.toLowerCase());
+    return arrayIncludes(PSEUDO_STATES, state.toLowerCase());
   }
 
   private static generateSizeTests(componentSet: Component, kebabName: string): string {
@@ -407,22 +461,24 @@ describe('${pascalName}Component - All Variants', () => {
     stylesheetHrefPart = 'styles.css'
   ): string | undefined => {
     const targetSheet = Array.from(document.styleSheets).find((sheet) =>
-      sheet.href?.includes(stylesheetHrefPart)
+      sheet.href && sheet.href.indexOf(stylesheetHrefPart) !== -1
     );
 
-    const rootRule = Array.from(targetSheet?.cssRules || [])
+    const rootRule = Array.from(targetSheet && targetSheet.cssRules ? targetSheet.cssRules : [])
       .filter((rule) => rule instanceof CSSStyleRule)
       .find((rule) => rule.selectorText === ':root');
 
-    const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
+    const value = rootRule && rootRule.style ? rootRule.style.getPropertyValue(variableName) : undefined;
+    const trimmedValue = value ? value.trim() : undefined;
 
-    if (value?.startsWith('var(')) {
-      const nestedVar = value.match(/var\((--.+?)\)/)?.[1];
+    if (trimmedValue && trimmedValue.startsWith('var(')) {
+      const varMatch = trimmedValue.match(/var\((--.+?)\)/);
+      const nestedVar = varMatch ? varMatch[1] : undefined;
       return nestedVar
         ? resolveCssVariable(nestedVar, stylesheetHrefPart)
         : undefined;
     }
-    return value;
+    return trimmedValue;
   };
 
   const getCssPropertyForRule = (
@@ -431,12 +487,12 @@ describe('${pascalName}Component - All Variants', () => {
     prop: string
   ): string | undefined => {
     const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const style = Array.from(document.styleSheets)
-      .flatMap((sheet) => Array.from(sheet.cssRules || []))
+    const foundRule = arrayFlatMap(Array.from(document.styleSheets), (sheet) => Array.from(sheet.cssRules || []))
       .filter((r) => r instanceof CSSStyleRule)
-      .find((r) => regex.test(r.selectorText))?.style;
-
-    return style?.getPropertyValue(prop);
+      .find((r) => regex.test(r.selectorText));
+    
+    const style = foundRule ? foundRule.style : undefined;
+    return style ? style.getPropertyValue(prop) : undefined;
   };
 
   beforeEach(async () => {
@@ -460,7 +516,7 @@ ${variantTests}${sizeTests}${stateTests}
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
       this.allVariables.clear();
       
-      const variablePromises = collections.flatMap(collection =>
+      const variablePromises = arrayFlatMap(collections, collection =>
         collection.variableIds.map(variableId =>
           figma.variables.getVariableByIdAsync(variableId)
         )
@@ -522,12 +578,12 @@ ${variantTests}${sizeTests}${stateTests}
     const result: { state?: string, size?: string } = {};
 
     const stateMatch = name.match(/State=([^,]+)/i);
-    if (stateMatch?.[1]) {
+    if (stateMatch && stateMatch[1]) {
       result.state = stateMatch[1].trim();
     }
 
     const sizeMatch = name.match(/Size=([^,]+)/i);
-    if (sizeMatch?.[1]) {
+    if (sizeMatch && sizeMatch[1]) {
       result.size = sizeMatch[1].trim();
     }
 
@@ -538,7 +594,7 @@ ${variantTests}${sizeTests}${stateTests}
     return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
       Array.from(this.allVariables.values()).find(variable => {
         const figmaVariable = variable as any; // Figma variable object
-        if (figmaVariable?.id === variableId.replace(/:/g, ':')) {
+        if (figmaVariable && figmaVariable.id === variableId.replace(/:/g, ':')) {
           const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
           return `var(--${formattedName})`;
         }
@@ -548,7 +604,7 @@ ${variantTests}${sizeTests}${stateTests}
       const varId = match.replace(/var\(--([^)]+)\)/, '$1');
       for (const variable of this.allVariables.values()) {
         const figmaVariable = variable as any; // Figma variable object
-        if (figmaVariable?.id?.includes(varId) || varId.includes(figmaVariable?.id || '')) {
+        if (figmaVariable && figmaVariable.id && (figmaVariable.id.indexOf(varId) !== -1 || varId.indexOf(figmaVariable.id) !== -1)) {
           const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
           return `var(--${formattedName})`;
         }
@@ -558,91 +614,106 @@ ${variantTests}${sizeTests}${stateTests}
   }
 
   private static extractTextStyles(textElements?: any[]): Record<string, string> {
-    const textStyles: Record<string, string> = {};
-    
-    if (!textElements?.length) {
-      return textStyles;
+    if (!textElements || textElements.length === 0) {
+      return {};
     }
-    
-    textElements.forEach(textEl => {
-      if (textEl.textStyles) {
-        Object.entries(textEl.textStyles).forEach(([styleKey, value]) => {
-          if (value != null && value !== "") {
-            let expectedValue = String(value);
-            let cssProperty = '';
-            
-            if (styleKey === 'font-size') {
-              cssProperty = 'fontSize';
-            } else if (styleKey === 'font-family') {
-              cssProperty = 'fontFamily';
-            } else if (styleKey === 'font-weight') {
-              cssProperty = 'fontWeight';
-            } else if (styleKey === 'color') {
-              cssProperty = 'color';
-            } else if (styleKey === 'line-height') {
-              cssProperty = 'lineHeight';
-            } else if (styleKey === 'letter-spacing') {
-              cssProperty = 'letterSpacing';
-            }
-            
-            if (cssProperty) {
-              if (expectedValue.includes('var(')) {
-                const fallbackMatch = expectedValue.match(/var\([^,]+,\s*([^)]+)\)/);
-                if (fallbackMatch) {
-                  expectedValue = fallbackMatch[1].trim();
-                }
-              }
-              
-              // Convert hex colors to RGB (handle both 3 and 6 character hex)
-              if (expectedValue.match(/^#[0-9A-Fa-f]{3}$/) || expectedValue.match(/^#[0-9A-Fa-f]{6}$/)) {
-                let hex = expectedValue.substring(1);
-                
-                // Convert 3-character hex to 6-character hex
-                if (hex.length === 3) {
-                  hex = hex.split('').map(char => char + char).join('');
-                }
-                
-                const r = parseInt(hex.substring(0, 2), 16);
-                const g = parseInt(hex.substring(2, 4), 16);
-                const b = parseInt(hex.substring(4, 6), 16);
-                expectedValue = `rgb(${r}, ${g}, ${b})`;
-              }
-              
-              textStyles[cssProperty] = expectedValue;
-            }
-          }
-        });
+
+    // Style key mapping for consistent property names
+    const styleKeyMap: Record<string, string> = {
+      'font-size': 'fontSize',
+      'font-family': 'fontFamily',
+      'font-weight': 'fontWeight',
+      'color': 'color',
+      'line-height': 'lineHeight',
+      'letter-spacing': 'letterSpacing'
+    };
+
+    // Helper function to convert hex to RGB
+    const hexToRgb = (hex: string): string => {
+      let cleanHex = hex.substring(1);
+      
+      // Convert 3-character hex to 6-character hex
+      if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(char => char + char).join('');
       }
-    });
-    
-    return textStyles;
+      
+      const r = parseInt(cleanHex.substring(0, 2), 16);
+      const g = parseInt(cleanHex.substring(2, 4), 16);
+      const b = parseInt(cleanHex.substring(4, 6), 16);
+      return `rgb(${r}, ${g}, ${b})`;
+    };
+
+    // Process text styles using functional approach
+    return arrayFlatMap(
+      textElements.filter(textEl => textEl.textStyles),
+      textEl => 
+        objectEntries(textEl.textStyles)
+          .filter(([_, value]) => value != null && value !== "")
+          .map(([styleKey, value]) => {
+            const cssProperty = styleKeyMap[styleKey];
+            if (!cssProperty) return null;
+
+            let expectedValue = String(value);
+            
+            // Extract fallback from CSS variable
+            if (expectedValue.indexOf('var(') !== -1) {
+              const fallbackMatch = expectedValue.match(/var\([^,]+,\s*([^)]+)\)/);
+              if (fallbackMatch) {
+                expectedValue = fallbackMatch[1].trim();
+              }
+            }
+            
+            // Convert hex colors to RGB
+            if (/^#[0-9A-Fa-f]{3,6}$/.test(expectedValue)) {
+              expectedValue = hexToRgb(expectedValue);
+            }
+            
+            return [cssProperty, expectedValue];
+          })
+          .filter(Boolean)
+      )
+      .reduce((acc, [property, value]) => {
+        acc[property as string] = value as string;
+        return acc;
+      }, {} as Record<string, string>);
   }
 
   private static extractCssProperties(styles: any): Record<string, string> {
     const cssProperties: Record<string, string> = {};
-    const collectedStyles: Record<string, any> = {};
     
-    Object.entries(styles).forEach(([key, value]) => {
-      let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      if (camelCaseKey === 'background') {
-        camelCaseKey = 'backgroundColor';
+    // Convert styles to normalized format - ES5 compatible
+    const collectedStyles: Record<string, string> = {};
+    
+    for (var key in styles) {
+      if (styles.hasOwnProperty(key)) {
+        var value = styles[key];
+        var camelCaseKey = key.replace(/-([a-z])/g, function(g) { 
+          return g[1].toUpperCase(); 
+        });
+        if (camelCaseKey === 'background') {
+          camelCaseKey = 'backgroundColor';
+        }
+        collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, value);
       }
-      
-      collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, value);
-    });
+    }
     
-    if (collectedStyles.paddingTop || collectedStyles.paddingRight || collectedStyles.paddingBottom || collectedStyles.paddingLeft) {
+    // Handle shorthand properties
+    const paddingProps = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];
+    const marginProps = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
+    
+    if (paddingProps.some(prop => collectedStyles[prop])) {
       cssProperties['padding'] = 'computed';
     } else if (collectedStyles.padding) {
       cssProperties['padding'] = String(collectedStyles.padding);
     }
     
-    if (collectedStyles.marginTop || collectedStyles.marginRight || collectedStyles.marginBottom || collectedStyles.marginLeft) {
+    if (marginProps.some(prop => collectedStyles[prop])) {
       cssProperties['margin'] = 'computed';
     } else if (collectedStyles.margin) {
       cssProperties['margin'] = String(collectedStyles.margin);
     }
     
+    // Standard properties to extract
     const standardProps = [
       'backgroundColor', 'background', 'color', 
       'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing',
@@ -654,13 +725,14 @@ ${variantTests}${sizeTests}${stateTests}
       'overflow', 'cursor', 'zIndex', 'transition'
     ];
     
-    const shorthandSkip = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
+    const shorthandSkip = new Set(paddingProps.concat(marginProps));
     
-    standardProps.forEach(prop => {
-      if (collectedStyles[prop] && !shorthandSkip.includes(prop)) {
+    // Filter and assign standard properties using functional approach
+    standardProps
+      .filter(prop => collectedStyles[prop] && !shorthandSkip.has(prop))
+      .forEach(prop => {
         cssProperties[prop] = String(collectedStyles[prop]);
-      }
-    });
+      });
     
     return cssProperties;
   }
@@ -672,7 +744,7 @@ ${variantTests}${sizeTests}${stateTests}
     const allProperties = Object.assign({}, cssProperties, textStyles);
     const testableProperties = Object.keys(allProperties).filter(property => {
       const expectedValue = allProperties[property];
-      return expectedValue !== 'computed' && !(expectedValue.includes('var(') && !expectedValue.match(/var\([^,]+,\s*([^)]+)\)/));
+      return expectedValue !== 'computed' && !(expectedValue.indexOf('var(') !== -1 && !expectedValue.match(/var\([^,]+,\s*([^)]+)\)/));
     });
     
     if (testableProperties.length === 0) {
@@ -689,7 +761,7 @@ ${testableProperties.map(property => {
       const expectedValue = allProperties[property];
       let expectedTest = expectedValue;
       
-      if (expectedValue.includes('var(')) {
+      if (expectedValue.indexOf('var(') !== -1) {
         const fallbackMatch = expectedValue.match(/var\([^,]+,\s*([^)]+)\)/);
         if (fallbackMatch) {
           expectedTest = fallbackMatch[1].trim();
@@ -725,7 +797,7 @@ ${testableProperties.map(property => {
       
       if (resolvedValue) {
         if (resolvedValue.startsWith('var(')) {
-          const variableName = resolvedValue.match(/var\\((--.+?)\\)/)?.[1];
+          const varMatch = resolvedValue.match(/var\\((--.+?)\\)/);\n          const variableName = varMatch ? varMatch[1] : undefined;
           const actualValue = variableName ? resolveCssVariable(variableName) : undefined;
           expect(actualValue).toBe(check.expectedValue);
         } else {
@@ -773,7 +845,7 @@ ${Object.keys(cssProperties).map((property: string) => {
       // expect(computedStyle.${property}).toBe('expected-value');`;
       }
       
-      if (expectedValue.includes('var(')) {
+      if (expectedValue.indexOf('var(') !== -1) {
         const fallbackMatch = expectedValue.match(/var\\([^,]+,\\s*([^)]+)\\)/);
         if (fallbackMatch) {
           expectedTest = fallbackMatch[1].trim();

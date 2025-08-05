@@ -1,12 +1,100 @@
 import { GitLabSettings } from "../types";
+import { API_CONFIG, GIT_CONFIG, FILE_PATHS, ERROR_MESSAGES, LoggingService } from "../config";
+
+// Types for improved type safety
+interface GitLabProject {
+  id: number;
+  name: string;
+  default_branch: string;
+  web_url: string;
+}
+
+interface GitLabBranch {
+  name: string;
+  commit: {
+    id: string;
+    title: string;
+  };
+}
+
+interface GitLabFile {
+  file_name: string;
+  file_path: string;
+  size: number;
+  encoding: string;
+  content: string;
+  last_commit_id: string;
+}
+
+interface GitLabCommit {
+  id: string;
+  title: string;
+  message: string;
+  web_url: string;
+}
+
+interface GitLabMergeRequest {
+  id: number;
+  title: string;
+  description: string;
+  state: 'opened' | 'closed' | 'merged';
+  web_url: string;
+  source_branch: string;
+  target_branch: string;
+}
+
+interface GitLabError {
+  message: string;
+  error?: string;
+  error_description?: string;
+}
+
+// Constants from configuration
+const DEFAULT_BRANCH_NAME = GIT_CONFIG.DEFAULT_BRANCH;
+const DEFAULT_TEST_BRANCH_NAME = GIT_CONFIG.DEFAULT_TEST_BRANCH;
+const REQUEST_TIMEOUT = API_CONFIG.REQUEST_TIMEOUT;
+
+// Custom error classes
+class GitLabAPIError extends Error {
+  constructor(
+    message: string,
+    public statusCode?: number,
+    public response?: any
+  ) {
+    super(message);
+    this.name = 'GitLabAPIError';
+  }
+}
+
+class GitLabAuthError extends Error {
+  constructor(message: string = ERROR_MESSAGES.GITLAB_AUTH) {
+    super(message);
+    this.name = 'GitLabAuthError';
+  }
+}
+
+class GitLabNetworkError extends Error {
+  constructor(message: string = ERROR_MESSAGES.NETWORK_ERROR) {
+    super(message);
+    this.name = 'GitLabNetworkError';
+  }
+}
 
 export class GitLabService {
-  private static readonly GITLAB_API_BASE = "https://gitlab.fhnw.ch/api/v4";
+  private static readonly GITLAB_API_BASE = API_CONFIG.GITLAB_BASE_URL;
+  private static readonly DEFAULT_HEADERS = API_CONFIG.DEFAULT_HEADERS;
 
+  /**
+   * Save GitLab settings to Figma storage
+   */
   static async saveSettings(
     settings: GitLabSettings,
     shareWithTeam: boolean
   ): Promise<void> {
+    if (!settings || typeof settings !== 'object') {
+      throw new Error(ERROR_MESSAGES.INVALID_SETTINGS);
+    }
+
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
@@ -49,19 +137,23 @@ export class GitLabService {
         })
       );
     } catch (error: any) {
-      console.error("Error saving GitLab settings:", error);
-      throw new Error(
-        `Error saving GitLab settings: ${error.message || "Unknown error"}`
+      LoggingService.error("Error saving GitLab settings", error, LoggingService.CATEGORIES.GITLAB);
+      throw new GitLabAPIError(
+        `Error saving GitLab settings: ${error.message || "Unknown error"}`,
+        undefined,
+        error
       );
     }
   }
 
+  /**
+   * Load GitLab settings from Figma storage
+   */
   static async loadSettings(): Promise<GitLabSettings | null> {
     try {
       // Create project-specific storage key using Figma root node ID (unique per file)
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
-
 
       // Try to load shared settings from document storage first
       const documentSettings = figma.root.getSharedPluginData(
@@ -99,7 +191,7 @@ export class GitLabService {
 
           return settings;
         } catch (parseError) {
-          console.error("Error parsing document settings:", parseError);
+          LoggingService.error("Error parsing document settings", parseError, LoggingService.CATEGORIES.GITLAB);
         }
       }
 
@@ -123,22 +215,25 @@ export class GitLabService {
           figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
           return settings;
         } catch (parseError) {
-          console.error("Error parsing legacy document settings:", parseError);
+          LoggingService.error("Error parsing legacy document settings", parseError, LoggingService.CATEGORIES.GITLAB);
         }
       }
 
       return null;
-    } catch (error) {
-      console.error("Error loading GitLab settings:", error);
+    } catch (error: any) {
+      LoggingService.error("Error loading GitLab settings", error, LoggingService.CATEGORIES.GITLAB);
+      // Don't throw on load errors, just return null
       return null;
     }
   }
 
+  /**
+   * Reset all GitLab settings
+   */
   static async resetSettings(): Promise<void> {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
-
 
       // Remove shared document storage
       figma.root.setSharedPluginData("DesignSync", settingsKey, "");
@@ -153,158 +248,222 @@ export class GitLabService {
       await figma.clientStorage.deleteAsync("gitlab-settings");
 
     } catch (error: any) {
-      console.error("Error resetting GitLab settings:", error);
-      throw new Error(
-        `Error resetting GitLab settings: ${error.message || "Unknown error"}`
+      LoggingService.error("Error resetting GitLab settings", error, LoggingService.CATEGORIES.GITLAB);
+      throw new GitLabAPIError(
+        `Error resetting GitLab settings: ${error.message || "Unknown error"}`,
+        undefined,
+        error
       );
     }
   }
 
+  /**
+   * Commit CSS data to GitLab repository
+   */
   static async commitToGitLab(
     projectId: string,
     gitlabToken: string,
     commitMessage: string,
     filePath: string,
     cssData: string,
-    branchName: string = "feature/variables"
+    branchName: string = DEFAULT_BRANCH_NAME
   ): Promise<{ mergeRequestUrl?: string }> {
-    const featureBranch = branchName;
+    this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
 
-    // Get project information
-    const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
-    const defaultBranch = projectData.default_branch;
+    try {
+      const featureBranch = branchName;
 
-    // Create or get feature branch
-    await this.createFeatureBranch(
-      projectId,
-      gitlabToken,
-      featureBranch,
-      defaultBranch
-    );
+      // Get project information
+      const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
+      const defaultBranch = projectData.default_branch;
 
-    // Check if file exists and prepare commit
-    const { fileData, action } = await this.prepareFileCommit(
-      projectId,
-      gitlabToken,
-      filePath,
-      featureBranch
-    );
-
-    // Create the commit
-    await this.createCommit(
-      projectId,
-      gitlabToken,
-      featureBranch,
-      commitMessage,
-      filePath,
-      cssData,
-      action,
-      fileData?.last_commit_id
-    );
-
-    // Check for existing merge request
-    const existingMR = await this.findExistingMergeRequest(
-      projectId,
-      gitlabToken,
-      featureBranch
-    );
-
-    if (!existingMR) {
-      // Create new merge request if none exists
-      const newMR = await this.createMergeRequest(
+      // Create or get feature branch
+      await this.createFeatureBranch(
         projectId,
         gitlabToken,
         featureBranch,
-        defaultBranch,
-        commitMessage
+        defaultBranch
       );
-      return { mergeRequestUrl: newMR.web_url };
-    }
 
-    return { mergeRequestUrl: existingMR.web_url };
+      // Check if file exists and prepare commit
+      const { fileData, action } = await this.prepareFileCommit(
+        projectId,
+        gitlabToken,
+        filePath,
+        featureBranch
+      );
+
+      // Create the commit
+      await this.createCommit(
+        projectId,
+        gitlabToken,
+        featureBranch,
+        commitMessage,
+        filePath,
+        cssData,
+        action,
+        fileData && fileData.last_commit_id
+      );
+
+      // Check for existing merge request
+      const existingMR = await this.findExistingMergeRequest(
+        projectId,
+        gitlabToken,
+        featureBranch
+      );
+
+      if (!existingMR) {
+        // Create new merge request if none exists
+        const newMR = await this.createMergeRequest(
+          projectId,
+          gitlabToken,
+          featureBranch,
+          defaultBranch,
+          commitMessage
+        );
+        return { mergeRequestUrl: newMR.web_url };
+      }
+
+      return { mergeRequestUrl: existingMR.web_url };
+    } catch (error: any) {
+      LoggingService.error('Error committing to GitLab', error, LoggingService.CATEGORIES.GITLAB);
+      throw this.handleGitLabError(error, 'commit to GitLab');
+    }
   }
 
+  /**
+   * Validate commit parameters
+   */
+  private static validateCommitParameters(
+    projectId: string,
+    gitlabToken: string,
+    commitMessage: string,
+    filePath: string,
+    cssData: string
+  ): void {
+    if (!projectId || !projectId.trim()) {
+      throw new Error('Project ID is required');
+    }
+    if (!gitlabToken || !gitlabToken.trim()) {
+      throw new GitLabAuthError('GitLab token is required');
+    }
+    if (!commitMessage || !commitMessage.trim()) {
+      throw new Error('Commit message is required');
+    }
+    if (!filePath || !filePath.trim()) {
+      throw new Error('File path is required');
+    }
+    if (!cssData || !cssData.trim()) {
+      throw new Error('CSS data is required');
+    }
+  }
+
+  /**
+   * Fetch project information from GitLab API
+   */
   private static async fetchProjectInfo(
     projectId: string,
     gitlabToken: string
-  ) {
-    const projectUrl = `${this.GITLAB_API_BASE}/projects/${projectId}`;
-    const response = await fetch(projectUrl, {
-      method: "GET",
-      headers: {
-        "PRIVATE-TOKEN": gitlabToken,
-      },
-    });
+  ): Promise<GitLabProject> {
+    const projectUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}`;
+    
+    try {
+      const response = await this.makeAPIRequest(projectUrl, {
+        method: "GET",
+        headers: Object.assign({
+          "PRIVATE-TOKEN": gitlabToken
+        }, this.DEFAULT_HEADERS),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch project information");
+      return await response.json() as GitLabProject;
+    } catch (error: any) {
+      throw this.handleGitLabError(error, 'fetch project information');
     }
-
-    return await response.json();
   }
 
+  /**
+   * Create a feature branch or verify it exists
+   */
   private static async createFeatureBranch(
     projectId: string,
     gitlabToken: string,
     featureBranch: string,
     defaultBranch: string
-  ) {
-    const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/branches`;
-    const response = await fetch(createBranchUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "PRIVATE-TOKEN": gitlabToken,
-      },
-      body: JSON.stringify({
-        branch: featureBranch,
-        ref: defaultBranch,
-      }),
-    });
+  ): Promise<void> {
+    const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/branches`;
+    
+    try {
+      const response = await this.makeAPIRequest(createBranchUrl, {
+        method: "POST",
+        headers: Object.assign({
+          "PRIVATE-TOKEN": gitlabToken
+        }, this.DEFAULT_HEADERS),
+        body: JSON.stringify({
+          branch: featureBranch,
+          ref: defaultBranch,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      // If branch already exists, that's fine - we'll use it
-      if (errorData.message !== "Branch already exists") {
-        throw new Error(
-          `Failed to create branch '${featureBranch}': ${
-            errorData.message || "Unknown error"
-          }`
-        );
+      if (!response.ok) {
+        const errorData = await response.json() as GitLabError;
+        // If branch already exists, that's fine - we'll use it
+        if (errorData.message !== "Branch already exists") {
+          throw new GitLabAPIError(
+            `Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`,
+            response.status,
+            errorData
+          );
+        }
       }
+    } catch (error: any) {
+      if (error instanceof GitLabAPIError) {
+        throw error;
+      }
+      throw this.handleGitLabError(error, `create branch '${featureBranch}'`);
     }
   }
 
+  /**
+   * Check if file exists and prepare commit action
+   */
   private static async prepareFileCommit(
     projectId: string,
     gitlabToken: string,
     filePath: string,
     featureBranch: string
-  ) {
-    const checkFileUrl = `${
-      this.GITLAB_API_BASE
-    }/projects/${projectId}/repository/files/${encodeURIComponent(
-      filePath
-    )}?ref=${featureBranch}`;
-    const response = await fetch(checkFileUrl, {
-      method: "GET",
-      headers: {
-        "PRIVATE-TOKEN": gitlabToken,
-      },
-    });
+  ): Promise<{ fileData: GitLabFile | null; action: 'create' | 'update' }> {
+    const checkFileUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/files/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(featureBranch)}`;
+    
+    try {
+      const response = await this.makeAPIRequest(checkFileUrl, {
+        method: "GET",
+        headers: Object.assign({
+          "PRIVATE-TOKEN": gitlabToken
+        }, this.DEFAULT_HEADERS),
+      });
 
-    const fileExists = response.ok;
-    let fileData = null;
-    let action = "create";
+      const fileExists = response.ok;
+      let fileData: GitLabFile | null = null;
+      let action: 'create' | 'update' = "create";
 
-    if (fileExists) {
-      fileData = await response.json();
-      action = "update";
+      if (fileExists) {
+        fileData = await response.json() as GitLabFile;
+        action = "update";
+      }
+
+      return { fileData, action };
+    } catch (error: any) {
+      // If file doesn't exist (404), that's fine - we'll create it
+      if (error.statusCode === 404) {
+        return { fileData: null, action: 'create' as const };
+      }
+      throw this.handleGitLabError(error, 'check file existence');
     }
-
-    return { fileData, action };
   }
 
+  /**
+   * Create a commit with the file changes
+   */
   private static async createCommit(
     projectId: string,
     gitlabToken: string,
@@ -312,10 +471,10 @@ export class GitLabService {
     commitMessage: string,
     filePath: string,
     cssData: string,
-    action: string,
+    action: 'create' | 'update',
     lastCommitId?: string
-  ) {
-    const commitUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/repository/commits`;
+  ): Promise<GitLabCommit> {
+    const commitUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/commits`;
     const commitAction: any = {
       action,
       file_path: filePath,
@@ -327,46 +486,72 @@ export class GitLabService {
       commitAction.last_commit_id = lastCommitId;
     }
 
-    const response = await fetch(commitUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "PRIVATE-TOKEN": gitlabToken,
-      },
-      body: JSON.stringify({
-        branch: featureBranch,
-        commit_message: commitMessage,
-        actions: [commitAction],
-      }),
-    });
+    try {
+      const response = await this.makeAPIRequest(commitUrl, {
+        method: "POST",
+        headers: Object.assign({
+          "PRIVATE-TOKEN": gitlabToken
+        }, this.DEFAULT_HEADERS),
+        body: JSON.stringify({
+          branch: featureBranch,
+          commit_message: commitMessage,
+          actions: [commitAction],
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to commit to GitLab");
+      if (!response.ok) {
+        const errorData = await response.json() as GitLabError;
+        throw new GitLabAPIError(
+          errorData.message || "Failed to commit to GitLab",
+          response.status,
+          errorData
+        );
+      }
+
+      return await response.json() as GitLabCommit;
+    } catch (error: any) {
+      if (error instanceof GitLabAPIError) {
+        throw error;
+      }
+      throw this.handleGitLabError(error, 'create commit');
     }
   }
 
+  /**
+   * Find existing merge request for the branch
+   */
   private static async findExistingMergeRequest(
     projectId: string,
     gitlabToken: string,
     sourceBranch: string
-  ): Promise<any> {
-    const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests?source_branch=${sourceBranch}&state=opened`;
-    const response = await fetch(mrUrl, {
-      method: "GET",
-      headers: {
-        "PRIVATE-TOKEN": gitlabToken,
-      },
-    });
+  ): Promise<GitLabMergeRequest | null> {
+    const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests?source_branch=${encodeURIComponent(sourceBranch)}&state=opened`;
+    
+    try {
+      const response = await this.makeAPIRequest(mrUrl, {
+        method: "GET",
+        headers: Object.assign({
+          "PRIVATE-TOKEN": gitlabToken
+        }, this.DEFAULT_HEADERS),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch merge requests");
+      if (!response.ok) {
+        throw new GitLabAPIError(
+          "Failed to fetch merge requests",
+          response.status
+        );
+      }
+
+      const mergeRequests = await response.json() as GitLabMergeRequest[];
+      return mergeRequests.length > 0 ? mergeRequests[0] : null;
+    } catch (error: any) {
+      throw this.handleGitLabError(error, 'fetch merge requests');
     }
-
-    const mergeRequests = await response.json();
-    return mergeRequests.length > 0 ? mergeRequests[0] : null;
   }
 
+  /**
+   * Create a new merge request
+   */
   private static async createMergeRequest(
     projectId: string,
     gitlabToken: string,
@@ -374,32 +559,46 @@ export class GitLabService {
     targetBranch: string,
     title: string,
     description: string = "Automatically created merge request for CSS variables update"
-  ): Promise<any> {
-    const mrUrl = `${this.GITLAB_API_BASE}/projects/${projectId}/merge_requests`;
-    const response = await fetch(mrUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "PRIVATE-TOKEN": gitlabToken,
-      },
-      body: JSON.stringify({
-        source_branch: sourceBranch,
-        target_branch: targetBranch,
-        title: title,
-        description: description,
-        remove_source_branch: true,
-        squash: true,
-      }),
-    });
+  ): Promise<GitLabMergeRequest> {
+    const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests`;
+    
+    try {
+      const response = await this.makeAPIRequest(mrUrl, {
+        method: "POST",
+        headers: Object.assign({
+          "PRIVATE-TOKEN": gitlabToken
+        }, this.DEFAULT_HEADERS),
+        body: JSON.stringify({
+          source_branch: sourceBranch,
+          target_branch: targetBranch,
+          title: title,
+          description: description,
+          remove_source_branch: true,
+          squash: true,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to create merge request");
+      if (!response.ok) {
+        const errorData = await response.json() as GitLabError;
+        throw new GitLabAPIError(
+          errorData.message || "Failed to create merge request",
+          response.status,
+          errorData
+        );
+      }
+
+      return await response.json() as GitLabMergeRequest;
+    } catch (error: any) {
+      if (error instanceof GitLabAPIError) {
+        throw error;
+      }
+      throw this.handleGitLabError(error, 'create merge request');
     }
-
-    return await response.json();
   }
 
+  /**
+   * Commit component test files to GitLab
+   */
   static async commitComponentTest(
     projectId: string,
     gitlabToken: string,
@@ -407,78 +606,175 @@ export class GitLabService {
     componentName: string,
     testContent: string,
     testFilePath: string = "components/{componentName}.spec.ts",
-    branchName: string = "feature/component-tests"
+    branchName: string = DEFAULT_TEST_BRANCH_NAME
   ): Promise<{ mergeRequestUrl?: string }> {
-    // Replace {componentName} placeholder in file path if present
-    const normalizedComponentName = componentName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+    this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
 
-    // Replace all occurrences of {componentName} in the file path
-    const filePath = testFilePath.replace(
-      /{componentName}/g,
-      normalizedComponentName
-    );
+    try {
+      // Replace {componentName} placeholder in file path if present
+      const normalizedComponentName = this.normalizeComponentName(componentName);
 
-    // Create component-specific branch name - use dashes instead of slashes to avoid GitLab issues
-    const featureBranch = `${branchName}-${normalizedComponentName}`;
+      // Replace all occurrences of {componentName} in the file path
+      const filePath = testFilePath.replace(
+        /{componentName}/g,
+        normalizedComponentName
+      );
 
+      // Create component-specific branch name - use dashes instead of slashes to avoid GitLab issues
+      const featureBranch = `${branchName}-${normalizedComponentName}`;
 
-    // Get project information
-    const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
-    const defaultBranch = projectData.default_branch || "main";
+      // Get project information
+      const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
+      const defaultBranch = projectData.default_branch || "main";
 
-
-    // Create or get feature branch
-    await this.createFeatureBranch(
-      projectId,
-      gitlabToken,
-      featureBranch,
-      defaultBranch
-    );
-
-    // Check if file exists and prepare commit
-    const { fileData, action } = await this.prepareFileCommit(
-      projectId,
-      gitlabToken,
-      filePath,
-      featureBranch
-    );
-
-    // Create the commit
-    await this.createCommit(
-      projectId,
-      gitlabToken,
-      featureBranch,
-      commitMessage,
-      filePath,
-      testContent,
-      action,
-      fileData?.last_commit_id
-    );
-
-    // Check for existing merge request
-    const existingMR = await this.findExistingMergeRequest(
-      projectId,
-      gitlabToken,
-      featureBranch
-    );
-
-    if (!existingMR) {
-      // Create new merge request if none exists
-      const mrDescription = `Automatically created merge request for component test: ${componentName}`;
-      const newMR = await this.createMergeRequest(
+      // Create or get feature branch
+      await this.createFeatureBranch(
         projectId,
         gitlabToken,
         featureBranch,
-        defaultBranch,
-        commitMessage,
-        mrDescription
+        defaultBranch
       );
-      return { mergeRequestUrl: newMR.web_url };
+
+      // Check if file exists and prepare commit
+      const { fileData, action } = await this.prepareFileCommit(
+        projectId,
+        gitlabToken,
+        filePath,
+        featureBranch
+      );
+
+      // Create the commit
+      await this.createCommit(
+        projectId,
+        gitlabToken,
+        featureBranch,
+        commitMessage,
+        filePath,
+        testContent,
+        action,
+        fileData && fileData.last_commit_id
+      );
+
+      // Check for existing merge request
+      const existingMR = await this.findExistingMergeRequest(
+        projectId,
+        gitlabToken,
+        featureBranch
+      );
+
+      if (!existingMR) {
+        // Create new merge request if none exists
+        const mrDescription = `Automatically created merge request for component test: ${componentName}`;
+        const newMR = await this.createMergeRequest(
+          projectId,
+          gitlabToken,
+          featureBranch,
+          defaultBranch,
+          commitMessage,
+          mrDescription
+        );
+        return { mergeRequestUrl: newMR.web_url };
+      }
+
+      return { mergeRequestUrl: existingMR.web_url };
+    } catch (error: any) {
+      LoggingService.error('Error committing component test', error, LoggingService.CATEGORIES.GITLAB);
+      throw this.handleGitLabError(error, 'commit component test');
+    }
+  }
+
+  /**
+   * Validate component test parameters
+   */
+  private static validateComponentTestParameters(
+    projectId: string,
+    gitlabToken: string,
+    commitMessage: string,
+    componentName: string,
+    testContent: string
+  ): void {
+    if (!projectId || !projectId.trim()) {
+      throw new Error('Project ID is required');
+    }
+    if (!gitlabToken || !gitlabToken.trim()) {
+      throw new GitLabAuthError('GitLab token is required');
+    }
+    if (!commitMessage || !commitMessage.trim()) {
+      throw new Error('Commit message is required');
+    }
+    if (!componentName || !componentName.trim()) {
+      throw new Error('Component name is required');
+    }
+    if (!testContent || !testContent.trim()) {
+      throw new Error('Test content is required');
+    }
+  }
+
+  /**
+   * Normalize component name for use in file paths and branch names
+   */
+  private static normalizeComponentName(componentName: string): string {
+    return componentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  }
+
+  /**
+   * Make API request with proper error handling
+   */
+  private static async makeAPIRequest(url: string, options: RequestInit): Promise<Response> {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error: any) {
+      if (error.name === 'TypeError' && error.message.indexOf('fetch') !== -1) {
+        throw new GitLabNetworkError('Network error - unable to connect to GitLab API');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Handle GitLab API errors with proper error types and messages
+   */
+  private static handleGitLabError(error: any, operation: string): Error {
+    if (error instanceof GitLabAPIError || error instanceof GitLabAuthError || error instanceof GitLabNetworkError) {
+      return error;
     }
 
-    return { mergeRequestUrl: existingMR.web_url };
+    // Handle specific HTTP status codes
+    if (error.statusCode) {
+      switch (error.statusCode) {
+        case 401:
+        case 403:
+          return new GitLabAuthError(`Authentication failed while trying to ${operation}. Please check your GitLab token.`);
+        case 404:
+          return new GitLabAPIError(`Resource not found while trying to ${operation}. Please check your project ID.`, 404);
+        case 422:
+          return new GitLabAPIError(`Invalid data provided while trying to ${operation}. Please check your inputs.`, 422);
+        case 429:
+          return new GitLabAPIError(`Rate limit exceeded while trying to ${operation}. Please try again later.`, 429);
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return new GitLabAPIError(`GitLab server error while trying to ${operation}. Please try again later.`, error.statusCode);
+        default:
+          return new GitLabAPIError(`GitLab API error while trying to ${operation}: ${error.message || 'Unknown error'}`, error.statusCode);
+      }
+    }
+
+    // Handle network errors
+    if (error.name === 'TypeError' || error.message.indexOf('fetch') !== -1 || error.message.indexOf('network') !== -1) {
+      return new GitLabNetworkError(`Network error while trying to ${operation}`);
+    }
+
+    // Generic fallback
+    return new GitLabAPIError(`Failed to ${operation}: ${error.message || 'Unknown error'}`);
   }
 }
+
+// Export error classes for use in other modules
+export { GitLabAPIError, GitLabAuthError, GitLabNetworkError };

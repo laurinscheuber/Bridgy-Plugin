@@ -1,3 +1,5 @@
+import { CSS_UNITS, LoggingService } from "../config";
+
 export interface UnitSettings {
   collections: { [collectionName: string]: string };
   groups: { [groupPath: string]: string };
@@ -10,38 +12,38 @@ export class UnitsService {
   };
 
   // Available CSS units
-  static readonly AVAILABLE_UNITS = [
-    'px', 'rem', 'em', '%', 'vw', 'vh', 'vmin', 'vmax', 
-    'pt', 'pc', 'in', 'cm', 'mm', 'ex', 'ch', 'fr', 'none'
-  ];
+  static readonly AVAILABLE_UNITS = CSS_UNITS.AVAILABLE;
 
   // Default unit mappings based on variable name patterns
-  private static readonly DEFAULT_UNIT_PATTERNS = {
-    // Unitless values
-    'opacity': 'none',
-    'z-index': 'none',
-    'line-height': 'none',
-    'font-weight': 'none',
-    'flex': 'none',
-    'order': 'none',
+  private static readonly DEFAULT_UNIT_PATTERNS = (function() {
+    var patterns: any = {};
+    
+    // Unitless values from config
+    for (var i = 0; i < CSS_UNITS.UNITLESS_PATTERNS.length; i++) {
+      var pattern = CSS_UNITS.UNITLESS_PATTERNS[i];
+      patterns[pattern] = 'none';
+    }
     
     // Default to px for all size-related values
-    'default': 'px'
-  };
+    patterns['default'] = CSS_UNITS.DEFAULT;
+    
+    return patterns;
+  })();
 
   static getDefaultUnit(variableName: string): string {
     const name = variableName.toLowerCase();
     
-    // Check for unitless values only
-    if (name.includes('opacity') || name.includes('alpha') || 
-        name.includes('z-index') || name.includes('line-height') ||
-        name.includes('font-weight') || name.includes('flex') || 
-        name.includes('order')) {
+    // Check for unitless values using config patterns
+    const isUnitless = CSS_UNITS.UNITLESS_PATTERNS.some(pattern => 
+      name.indexOf(pattern) !== -1 || name.indexOf(pattern.replace('-', '')) !== -1
+    );
+    
+    if (isUnitless) {
       return 'none';
     }
     
     // Everything else defaults to px (width, height, border, padding, margin, radius, etc.)
-    return 'px';
+    return CSS_UNITS.DEFAULT;
   }
 
   static getUnitForVariable(variableName: string, collectionName: string, groupName?: string): string {
@@ -64,15 +66,15 @@ export class UnitsService {
 
   static updateUnitSettings(newSettings: Partial<UnitSettings>): void {
     if (newSettings.collections) {
-      this.unitSettings.collections = { ...newSettings.collections };
+      this.unitSettings.collections = Object.assign({}, newSettings.collections);
     }
     if (newSettings.groups) {
-      this.unitSettings.groups = { ...newSettings.groups };
+      this.unitSettings.groups = Object.assign({}, newSettings.groups);
     }
   }
 
   static getUnitSettings(): UnitSettings {
-    return { ...this.unitSettings };
+    return Object.assign({}, this.unitSettings);
   }
 
   static resetUnitSettingsInMemory(): void {
@@ -108,12 +110,12 @@ export class UnitsService {
         `${settingsKey}-meta`,
         JSON.stringify({
           savedAt: new Date().toISOString(),
-          savedBy: figma.currentUser?.name || "Unknown user",
+          savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
         })
       );
       
     } catch (error) {
-      console.error('Error saving unit settings:', error);
+      LoggingService.error('Error saving unit settings', error, LoggingService.CATEGORIES.UNITS);
       throw error;
     }
   }
@@ -136,7 +138,7 @@ export class UnitsService {
           this.unitSettings = JSON.parse(sharedSettings);
           return;
         } catch (parseError) {
-          console.error('Error parsing shared unit settings:', parseError);
+          LoggingService.error('Error parsing shared unit settings', parseError, LoggingService.CATEGORIES.UNITS);
         }
       }
       
@@ -152,7 +154,7 @@ export class UnitsService {
       }
       
     } catch (error) {
-      console.error('Error loading unit settings:', error);
+      LoggingService.error('Error loading unit settings', error, LoggingService.CATEGORIES.UNITS);
       // Don't throw - just use defaults
     }
   }
@@ -178,7 +180,7 @@ export class UnitsService {
       await figma.clientStorage.deleteAsync(settingsKey);
       
     } catch (error) {
-      console.error('Error resetting unit settings:', error);
+      LoggingService.error('Error resetting unit settings', error, LoggingService.CATEGORIES.UNITS);
       throw error;
     }
   }
