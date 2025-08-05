@@ -746,7 +746,6 @@
       var config_1 = require_config();
       var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
       var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
-      var REQUEST_TIMEOUT = config_1.API_CONFIG.REQUEST_TIMEOUT;
       var GitLabAPIError = class extends Error {
         constructor(message, statusCode, response) {
           super(message);
@@ -1276,13 +1275,6 @@
         static getUnitSettings() {
           return Object.assign({}, this.unitSettings);
         }
-        // TODO: is this method used anywhere?
-        static resetUnitSettingsInMemory() {
-          this.unitSettings = {
-            collections: {},
-            groups: {}
-          };
-        }
         static formatValueWithUnit(value, unit) {
           if (unit === "none" || unit === "") {
             return String(value);
@@ -1360,11 +1352,10 @@
       };
       UnitsService.AVAILABLE_UNITS = config_1.CSS_UNITS.AVAILABLE;
       UnitsService.DEFAULT_UNIT_PATTERNS = function() {
-        var patterns = {};
-        for (var i = 0; i < config_1.CSS_UNITS.UNITLESS_PATTERNS.length; i++) {
-          var pattern = config_1.CSS_UNITS.UNITLESS_PATTERNS[i];
+        const patterns = {};
+        config_1.CSS_UNITS.UNITLESS_PATTERNS.forEach((pattern) => {
           patterns[pattern] = "none";
-        }
+        });
         patterns["default"] = config_1.CSS_UNITS.DEFAULT;
         return patterns;
       }();
@@ -1470,10 +1461,10 @@
             }
             const variables = [];
             const groups = {};
-            for (const variableId of collection.variableIds) {
+            yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
               const cssVariable = yield this.processVariable(variableId, collection);
               if (!cssVariable)
-                continue;
+                return;
               const pathMatch = cssVariable.originalName.match(/^([^\/]+)\//);
               if (pathMatch) {
                 const groupName = pathMatch[1];
@@ -1484,7 +1475,7 @@
               } else {
                 variables.push(cssVariable);
               }
-            }
+            })));
             const result = {
               name: collection.name,
               variables,
@@ -1551,9 +1542,9 @@
           if (format === "css") {
             contentParts.push(":root {");
           }
-          for (const collection of collections) {
+          collections.forEach((collection) => {
             contentParts.push(this.buildCollectionContent(collection, format));
-          }
+          });
           if (format === "css") {
             contentParts.push("}");
           }
@@ -1568,18 +1559,18 @@
           const commentSuffix = format === "scss" ? "" : " */";
           parts.push(`
 ${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
-          for (const variable of collection.variables) {
+          collection.variables.forEach((variable) => {
             parts.push(this.formatVariableDeclaration(variable, format));
-          }
+          });
           const sortedGroupNames = Object.keys(collection.groups).sort();
-          for (const groupName of sortedGroupNames) {
+          sortedGroupNames.forEach((groupName) => {
             const displayName = this.formatGroupDisplayName(groupName);
             parts.push(`
 ${commentPrefix} ${displayName}${commentSuffix}`);
-            for (const variable of collection.groups[groupName]) {
+            collection.groups[groupName].forEach((variable) => {
               parts.push(this.formatVariableDeclaration(variable, format));
-            }
-          }
+            });
+          });
           return parts.join("\n");
         }
         /**
@@ -1602,14 +1593,14 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
          */
         static populateVariableCache(collections) {
           return __awaiter(this, void 0, void 0, function* () {
-            for (const collection of collections) {
-              for (const variableId of collection.variableIds) {
+            yield Promise.all(collections.map((collection) => __awaiter(this, void 0, void 0, function* () {
+              yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
                 const variable = yield figma.variables.getVariableByIdAsync(variableId);
                 if (variable) {
                   this.variableCache.set(variable.id, variable);
                 }
-              }
-            }
+              })));
+            })));
           });
         }
         /**
@@ -1688,7 +1679,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
             const collectionsData = [];
             const groupsData = [];
             const unitSettings = unitsService_1.UnitsService.getUnitSettings();
-            for (const collection of sortedCollections) {
+            yield Promise.all(sortedCollections.map((collection) => __awaiter(this, void 0, void 0, function* () {
               const hasCollectionSetting = unitSettings.collections[collection.name] !== void 0;
               const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : "Smart defaults";
               const currentUnit = unitSettings.collections[collection.name] || "";
@@ -1698,7 +1689,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 currentUnit
               });
               const groups = /* @__PURE__ */ new Set();
-              for (const variableId of collection.variableIds) {
+              yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
                 const variable = yield figma.variables.getVariableByIdAsync(variableId);
                 if (variable) {
                   const pathMatch = variable.name.match(/^([^\/]+)\//);
@@ -1706,8 +1697,8 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                     groups.add(pathMatch[1]);
                   }
                 }
-              }
-              for (const groupName of Array.from(groups).sort()) {
+              })));
+              Array.from(groups).sort().forEach((groupName) => {
                 const groupKey = `${collection.name}/${groupName}`;
                 const hasGroupSetting = unitSettings.groups[groupKey] !== void 0;
                 const hasCollectionSetting2 = unitSettings.collections[collection.name] !== void 0;
@@ -1726,8 +1717,8 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                   defaultUnit: defaultUnit2,
                   currentUnit: groupCurrentUnit
                 });
-              }
-            }
+              });
+            })));
             return { collections: collectionsData, groups: groupsData };
           });
         }
@@ -2576,14 +2567,6 @@ ${styleCheckCode}
           this.testCache.clear();
           this.nameCache.clear();
         }
-        // TODO: is this method used anywhere?
-        static getCacheStats() {
-          return {
-            styles: this.styleCache.size,
-            tests: this.testCache.size,
-            names: this.nameCache.size
-          };
-        }
         static isSimpleColorProperty(property) {
           return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
         }
@@ -3002,19 +2985,6 @@ ${variantTests}
           }
           return resolvedStyles;
         }
-        // TODO: is this method used anywhere?
-        static parseComponentVariantName(name) {
-          const result = {};
-          const stateMatch = name.match(/State=([^,]+)/i);
-          if (stateMatch && stateMatch[1]) {
-            result.state = stateMatch[1].trim();
-          }
-          const sizeMatch = name.match(/Size=([^,]+)/i);
-          if (sizeMatch && sizeMatch[1]) {
-            result.size = sizeMatch[1].trim();
-          }
-          return result;
-        }
         static replaceVariableIdsWithNames(cssValue) {
           return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
             Array.from(this.allVariables.values()).find((variable) => {
@@ -3082,10 +3052,10 @@ ${variantTests}
         static extractCssProperties(styles) {
           const cssProperties = {};
           const collectedStyles = {};
-          for (var key in styles) {
+          Object.keys(styles).forEach((key) => {
             if (styles.hasOwnProperty(key)) {
-              var value = styles[key];
-              var camelCaseKey = key.replace(/-([a-z])/g, function(g) {
+              const value = styles[key];
+              let camelCaseKey = key.replace(/-([a-z])/g, function(g) {
                 return g[1].toUpperCase();
               });
               if (camelCaseKey === "background") {
@@ -3093,7 +3063,7 @@ ${variantTests}
               }
               collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, value);
             }
-          }
+          });
           const paddingProps = ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft"];
           const marginProps = ["marginTop", "marginRight", "marginBottom", "marginLeft"];
           if (paddingProps.some((prop) => collectedStyles[prop])) {

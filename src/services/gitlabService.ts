@@ -52,8 +52,6 @@ interface GitLabError {
 // Constants from configuration
 const DEFAULT_BRANCH_NAME = GIT_CONFIG.DEFAULT_BRANCH;
 const DEFAULT_TEST_BRANCH_NAME = GIT_CONFIG.DEFAULT_TEST_BRANCH;
-// TODO: is this used anywhere?
-const REQUEST_TIMEOUT = API_CONFIG.REQUEST_TIMEOUT;
 
 // Custom error classes
 class GitLabAPIError extends Error {

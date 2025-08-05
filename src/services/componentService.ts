@@ -7,7 +7,6 @@ import { CSS_PROPERTIES } from '../config/css';
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
 const DEFAULT_ELEMENT_SELECTORS = 'button, div, span, a, p, h1, h2, h3, h4, h5, h6';
 
-// TODO: is this type used anywhere?
 type PseudoState = typeof PSEUDO_STATES[number];
 
 // Dynamic variant properties - all properties are collected from Figma
@@ -21,11 +20,6 @@ interface ParsedComponentName {
   pascalName: string;
 }
 
-// TODO: is this interface used anywhere?
-interface ComponentTestError extends Error {
-  componentName: string;
-  variant?: string;
-}
 
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
@@ -43,14 +37,6 @@ export class ComponentService {
     this.nameCache.clear();
   }
 
-  // TODO: is this method used anywhere?
-  static getCacheStats(): { styles: number; tests: number; names: number } {
-    return {
-      styles: this.styleCache.size,
-      tests: this.testCache.size,
-      names: this.nameCache.size
-    };
-  }
 
   private static isSimpleColorProperty(property: string): boolean {
     return arrayIncludes(CSS_PROPERTIES.SIMPLE_COLORS, property);
@@ -126,7 +112,6 @@ export class ComponentService {
       }
     }
 
-    // TODO: replace with forEach,
     for (const page of figma.root.children) {
       await collectNodes(page);
     }
@@ -294,7 +279,6 @@ export class ComponentService {
     const processedVariants = new Set<string>();
     const allVariantProps: VariantProps[] = []; // Collect all variant properties for @Input generation
 
-    // TODO: can we use forEach instead of for...of?
     for (const variant of componentSet.children) {
       try {
         const variantProps = this.parseVariantName(variant.name);
@@ -592,22 +576,6 @@ ${variantTests}
     return resolvedStyles;
   }
 
-    // TODO: is this method used anywhere?
-  private static parseComponentVariantName(name: string): { state?: string, size?: string } {
-    const result: { state?: string, size?: string } = {};
-
-    const stateMatch = name.match(/State=([^,]+)/i);
-    if (stateMatch && stateMatch[1]) {
-      result.state = stateMatch[1].trim();
-    }
-
-    const sizeMatch = name.match(/Size=([^,]+)/i);
-    if (sizeMatch && sizeMatch[1]) {
-      result.size = sizeMatch[1].trim();
-    }
-
-    return result;
-  }
 
   private static replaceVariableIdsWithNames(cssValue: string): string {
     return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
@@ -703,11 +671,10 @@ ${variantTests}
     // Convert styles to normalized format - ES5 compatible
     const collectedStyles: Record<string, string> = {};
 
-    // TODO: replace with forEach,  avoid using var
-    for (var key in styles) {
+    Object.keys(styles).forEach(key => {
       if (styles.hasOwnProperty(key)) {
-        var value = styles[key];
-        var camelCaseKey = key.replace(/-([a-z])/g, function(g) { 
+        const value = styles[key];
+        let camelCaseKey = key.replace(/-([a-z])/g, function(g) { 
           return g[1].toUpperCase(); 
         });
         if (camelCaseKey === 'background') {
@@ -715,7 +682,7 @@ ${variantTests}
         }
         collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, value);
       }
-    }
+    });
     
     // Handle shorthand properties
     const paddingProps = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];

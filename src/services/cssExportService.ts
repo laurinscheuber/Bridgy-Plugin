@@ -1,7 +1,6 @@
 import { VariableCollection } from '../types';
 import { UnitsService } from './unitsService';
 
-// TODO: general incosistency: some comments use //, some use /* */.
 // Constants for better maintainability
 const CSS_VARIABLE_PREFIX = '--';
 const SCSS_VARIABLE_PREFIX = '$';
@@ -93,10 +92,9 @@ export class CSSExportService {
     const variables: CSSVariable[] = [];
     const groups: GroupedVariables = {};
 
-    // TODO: can we replace this with forEach?
-    for (const variableId of collection.variableIds) {
+    await Promise.all(collection.variableIds.map(async (variableId: string) => {
       const cssVariable = await this.processVariable(variableId, collection);
-      if (!cssVariable) continue;
+      if (!cssVariable) return;
 
       // Group by prefix if contains /
       const pathMatch = cssVariable.originalName.match(/^([^\/]+)\//);
@@ -109,7 +107,7 @@ export class CSSExportService {
       } else {
         variables.push(cssVariable);
       }
-    }
+    }));
     
     const result: FormattedCollection = {
       name: collection.name,
@@ -185,10 +183,9 @@ export class CSSExportService {
       contentParts.push(':root {');
     }
 
-    // TODO: can we replace this with forEach?
-    for (const collection of collections) {
+    collections.forEach(collection => {
       contentParts.push(this.buildCollectionContent(collection, format));
-    }
+    });
     
     if (format === 'css') {
       contentParts.push('}');
@@ -208,24 +205,21 @@ export class CSSExportService {
     // Collection header
     parts.push(`\n${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
 
-    // TODO: can we replace this with forEach?
     // Standalone variables
-    for (const variable of collection.variables) {
+    collection.variables.forEach(variable => {
       parts.push(this.formatVariableDeclaration(variable, format));
-    }
+    });
     
     // Grouped variables
     const sortedGroupNames = Object.keys(collection.groups).sort();
-    // TODO: can we replace this with forEach?
-    for (const groupName of sortedGroupNames) {
+    sortedGroupNames.forEach(groupName => {
       const displayName = this.formatGroupDisplayName(groupName);
       parts.push(`\n${commentPrefix} ${displayName}${commentSuffix}`);
 
-      // TODO: can we replace this with forEach?
-      for (const variable of collection.groups[groupName]) {
+      collection.groups[groupName].forEach(variable => {
         parts.push(this.formatVariableDeclaration(variable, format));
-      }
-    }
+      });
+    });
     
     return parts.join('\n');
   }
@@ -251,16 +245,14 @@ export class CSSExportService {
    * Populate the variable cache for alias resolution
    */
   private static async populateVariableCache(collections: any[]): Promise<void> {
-    // TODO: can we replace this with forEach?
-    for (const collection of collections) {
-      // TODO: can we replace this with forEach?
-      for (const variableId of collection.variableIds) {
+    await Promise.all(collections.map(async (collection) => {
+      await Promise.all(collection.variableIds.map(async (variableId: string) => {
         const variable = await figma.variables.getVariableByIdAsync(variableId);
         if (variable) {
           this.variableCache.set(variable.id, variable);
         }
-      }
-    }
+      }));
+    }));
   }
 
   /**
@@ -356,8 +348,7 @@ export class CSSExportService {
     const groupsData = [];
     const unitSettings = UnitsService.getUnitSettings();
 
-    // TODO: can we replace this with forEach?
-    for (const collection of sortedCollections) {
+    await Promise.all(sortedCollections.map(async (collection) => {
       // Collection data - show actual smart default if no setting exists
       const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
       const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : 'Smart defaults';
@@ -370,8 +361,7 @@ export class CSSExportService {
       
       // Find all groups in this collection
       const groups = new Set<string>();
-      // TODO: can we replace this with forEach?
-      for (const variableId of collection.variableIds) {
+      await Promise.all(collection.variableIds.map(async (variableId: string) => {
         const variable = await figma.variables.getVariableByIdAsync(variableId);
         if (variable) {
           const pathMatch = variable.name.match(/^([^\/]+)\//);
@@ -379,11 +369,10 @@ export class CSSExportService {
             groups.add(pathMatch[1]);
           }
         }
-      }
+      }));
 
-      // TODO: can we replace this with forEach?
       // Group data
-      for (const groupName of Array.from(groups).sort()) {
+      Array.from(groups).sort().forEach(groupName => {
         const groupKey = `${collection.name}/${groupName}`;
         const hasGroupSetting = unitSettings.groups[groupKey] !== undefined;
         const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
@@ -404,8 +393,8 @@ export class CSSExportService {
           defaultUnit,
           currentUnit: groupCurrentUnit
         });
-      }
-    }
+      });
+    }));
     
     return { collections: collectionsData, groups: groupsData };
   }
