@@ -1,16 +1,17 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "lib": ["es2020", "dom"],
+    "target": "es2015",
+    "lib": ["es2015", "dom"],
     "moduleResolution": "node",
     "typeRoots": ["./node_modules/@types", "./node_modules/@figma"],
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "downlevelIteration": true,
     "outDir": "dist",
     "rootDir": "src",
-    "module": "esnext"
+    "module": "commonjs"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
