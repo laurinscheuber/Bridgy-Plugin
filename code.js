@@ -2567,6 +2567,7 @@ ${styleCheckCode}
       exports.ComponentService = void 0;
       var componentUtils_1 = require_componentUtils();
       var es2015_helpers_1 = require_es2015_helpers();
+      var css_1 = require_css();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
       var ComponentService = class _ComponentService {
         // Cache management
@@ -2584,41 +2585,14 @@ ${styleCheckCode}
           };
         }
         static isSimpleColorProperty(property) {
-          const simpleColorProperties = [
-            "accentColor",
-            "backgroundColor",
-            "borderColor",
-            "borderTopColor",
-            "borderRightColor",
-            "borderBottomColor",
-            "borderLeftColor",
-            "caretColor",
-            "color",
-            "columnRuleColor",
-            "fill",
-            "outlineColor",
-            "scrollbarColor",
-            "stopColor",
-            "stroke",
-            "textDecorationColor",
-            "textEmphasisColor"
-          ];
-          return (0, es2015_helpers_1.arrayIncludes)(simpleColorProperties, property);
+          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
         }
         static isComplexColorProperty(property) {
-          const complexColorProperties = [
-            "background",
-            "border",
-            "borderTop",
-            "borderRight",
-            "borderBottom",
-            "borderLeft",
-            "outline",
-            "boxShadow",
-            "textShadow",
-            "filter"
-          ];
-          return (0, es2015_helpers_1.arrayIncludes)(complexColorProperties, property);
+          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.COMPLEX_COLORS, property);
+        }
+        static hasDecimalPixelValues(value) {
+          const decimalPixelRegex = /\d+\.\d+px/;
+          return decimalPixelRegex.test(value);
         }
         static normalizeStyleValue(property, value) {
           if (typeof value !== "string") {
@@ -3263,7 +3237,13 @@ ${Object.keys(cssProperties).map((property) => {
               const b = parseInt(fullHex.substring(4, 6), 16);
               return `rgb(${r}, ${g}, ${b})`;
             });
-            return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+            const hasDecimalWarning = this.hasDecimalPixelValues(expectedValue) || expectedValue !== expectedTest && this.hasDecimalPixelValues(expectedTest);
+            if (hasDecimalWarning) {
+              return `      // Note: Figma may have rounded decimal pixel values - test may fail due to rounding
+      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+            } else {
+              return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+            }
           }).join("\n\n")}${Object.keys(textStyles).length > 0 ? "\n\n" + Object.keys(textStyles).map((property) => {
             const expectedValue = textStyles[property];
             return `      expect(computedStyle.${property}).toBe('${expectedValue}');`;

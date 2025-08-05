@@ -1,6 +1,7 @@
 import { Component, TextElement, StyleCheck } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
+import { CSS_PROPERTIES } from '../config/css';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -52,21 +53,17 @@ export class ComponentService {
   }
 
   private static isSimpleColorProperty(property: string): boolean {
-    const simpleColorProperties = [
-      'accentColor', 'backgroundColor', 'borderColor', 'borderTopColor',
-      'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'caretColor',
-      'color', 'columnRuleColor', 'fill', 'outlineColor', 'scrollbarColor',
-      'stopColor', 'stroke', 'textDecorationColor', 'textEmphasisColor'
-    ];
-    return arrayIncludes(simpleColorProperties, property);
+    return arrayIncludes(CSS_PROPERTIES.SIMPLE_COLORS, property);
   }
 
   private static isComplexColorProperty(property: string): boolean {
-    const complexColorProperties = [
-      'background', 'border', 'borderTop', 'borderRight', 'borderBottom',
-      'borderLeft', 'outline', 'boxShadow', 'textShadow', 'filter'
-    ];
-    return arrayIncludes(complexColorProperties, property);
+    return arrayIncludes(CSS_PROPERTIES.COMPLEX_COLORS, property);
+  }
+
+  private static hasDecimalPixelValues(value: string): boolean {
+    // Check for decimal pixel values like "1.5px", "0.8px", etc.
+    const decimalPixelRegex = /\d+\.\d+px/;
+    return decimalPixelRegex.test(value);
   }
 
   private static normalizeStyleValue(property: string, value: any): any {
@@ -911,7 +908,16 @@ ${Object.keys(cssProperties).map((property: string) => {
         return `rgb(${r}, ${g}, ${b})`;
       });
       
-      return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+      // Check if the original Figma value likely had decimal pixels that got rounded
+      const hasDecimalWarning = this.hasDecimalPixelValues(expectedValue) || 
+        (expectedValue !== expectedTest && this.hasDecimalPixelValues(expectedTest));
+      
+      if (hasDecimalWarning) {
+        return `      // Note: Figma may have rounded decimal pixel values - test may fail due to rounding
+      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+      } else {
+        return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+      }
     }).join('\n\n')}${Object.keys(textStyles).length > 0 ? '\n\n' + Object.keys(textStyles).map((property: string) => {
       const expectedValue = textStyles[property];
       return `      expect(computedStyle.${property}).toBe('${expectedValue}');`;
