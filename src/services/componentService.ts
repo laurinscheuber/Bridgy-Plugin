@@ -272,10 +272,8 @@ export class ComponentService {
 
     const { kebabName, pascalName } = this.parseComponentName(componentSet.name);
     const variantTests = this.generateVariantTests(componentSet, kebabName, pascalName);
-    const sizeTests = this.generateSizeTests(componentSet, kebabName);
-    const stateTests = this.generateStateTests(componentSet, kebabName);
     
-    return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests, sizeTests, stateTests);
+    return this.buildComponentSetTestTemplate(pascalName, kebabName, variantTests);
   }
 
   private static parseComponentName(name: string): ParsedComponentName {
@@ -402,53 +400,8 @@ export class ComponentService {
     return arrayIncludes(PSEUDO_STATES, state.toLowerCase());
   }
 
-  private static generateSizeTests(componentSet: Component, kebabName: string): string {
-    try {
-      const uniqueSizes = new Set(
-        componentSet.children
-          .map(variant => this.parseVariantName(variant.name).size)
-          .filter(size => size !== 'default')
-      );
 
-      if (uniqueSizes.size === 0) return '';
-
-      const sizeTestCases = Array.from(uniqueSizes)
-        .map(size => `
-    element.classList.add('${kebabName}--${size}');
-    expect(element.classList.contains('${kebabName}--${size}')).toBeTruthy();
-    element.classList.remove('${kebabName}--${size}');`).join('');
-
-      return `
-  it('should support all size variants', () => {
-    const element = fixture.nativeElement.querySelector('${DEFAULT_ELEMENT_SELECTORS}');
-    if (!element) return;
-${sizeTestCases}
-  });`;
-    } catch (error) {
-      console.error('Error generating size tests:', error);
-      return '';
-    }
-  }
-
-  private static generateStateTests(componentSet: Component, kebabName: string): string {
-    const hasInteractiveStates = componentSet.children.some(variant => 
-      this.isPseudoState(this.parseVariantName(variant.name).state)
-    );
-
-    if (!hasInteractiveStates) return '';
-
-    return `
-  it('should support all state variants', () => {
-    const selector = '.${kebabName}';
-    
-    const hoverValue = getCssPropertyForRule(selector, ':hover', 'background-color');
-    if (hoverValue) {
-      expect(hoverValue).toBeDefined();
-    }
-  });`;
-  }
-
-  private static buildComponentSetTestTemplate(pascalName: string, kebabName: string, variantTests: string, sizeTests: string, stateTests: string): string {
+  private static buildComponentSetTestTemplate(pascalName: string, kebabName: string, variantTests: string): string {
     return `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
 
@@ -507,7 +460,7 @@ describe('${pascalName}Component - All Variants', () => {
     fixture.detectChanges();
   });
 
-${variantTests}${sizeTests}${stateTests}
+${variantTests}
 });`;
   }
 
