@@ -1968,6 +1968,7 @@ ${propertyChecks}
     ];
 
     propertiesToCheck.forEach(({ property, expected }) => {
+      // TODO: Please check if this selector still matches the component's implementation
       checkStyleProperty('${componentSelector}', '${state.pseudoClass}', property, expected);
     });
   });`;
@@ -1993,6 +1994,7 @@ ${propertyChecks}
       const altSizeSelector = \`${componentSelector}.\${size}\`;  // Alternative naming
       
       sizeProperties.forEach(property => {
+        // TODO: Please check if these selectors still match the component's implementation
         const bemValue = getCssPropertyForRule(sizeSelector, '', property);
         const altValue = getCssPropertyForRule(altSizeSelector, '', property);
         
@@ -2097,6 +2099,7 @@ ${propertyChecks}
     ];
 
     propertiesToCheck.forEach(({ property, expected }) => {
+      // TODO: Please check if this selector still matches the component's implementation
       checkStyleProperty('${componentSelector}', '${pseudoClass}', property, expected);
     });
   });`;
