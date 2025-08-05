@@ -2897,9 +2897,17 @@ describe('${pascalName}Component - All Variants', () => {
     prop: string
   ): string | undefined => {
     const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const foundRule = arrayFlatMap(Array.from(document.styleSheets), (sheet) => Array.from(sheet.cssRules || []))
-      .filter((r) => r instanceof CSSStyleRule)
-      .find((r) => regex.test(r.selectorText));
+    
+    // Flatten stylesheets rules using standard JavaScript
+    let allRules: any[] = [];
+    Array.from(document.styleSheets).forEach((sheet: any) => {
+      const rules = Array.from(sheet.cssRules || []);
+      allRules = allRules.concat(rules);
+    });
+    
+    const foundRule = allRules
+      .filter((r: any) => r instanceof CSSStyleRule)
+      .find((r: any) => regex.test(r.selectorText));
     
     const style = foundRule ? foundRule.style : undefined;
     return style ? style.getPropertyValue(prop) : undefined;
