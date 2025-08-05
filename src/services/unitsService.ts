@@ -17,7 +17,8 @@ export class UnitsService {
   // Default unit mappings based on variable name patterns
   private static readonly DEFAULT_UNIT_PATTERNS = (function() {
     var patterns: any = {};
-    
+
+    // TODO: avoid using var, replace with forEach if possible
     // Unitless values from config
     for (var i = 0; i < CSS_UNITS.UNITLESS_PATTERNS.length; i++) {
       var pattern = CSS_UNITS.UNITLESS_PATTERNS[i];
@@ -77,6 +78,7 @@ export class UnitsService {
     return Object.assign({}, this.unitSettings);
   }
 
+  // TODO: is this method used anywhere?
   static resetUnitSettingsInMemory(): void {
     this.unitSettings = {
       collections: {},

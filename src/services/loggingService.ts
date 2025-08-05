@@ -38,6 +38,7 @@ export class LoggingService {
     this.currentLevel = level;
   }
 
+  // TODO: is this method used anywhere?
   /**
    * Get the current logging level
    */
@@ -82,6 +83,7 @@ export class LoggingService {
     console.debug(`[DEBUG]${category ? ` [${category}]` : ''} ${message}`, data || '');
   }
 
+  // TODO: is this method used anywhere?
   /**
    * Info level logging  
    */
@@ -112,6 +114,7 @@ export class LoggingService {
     console.error(`[ERROR]${category ? ` [${category}]` : ''} ${message}`, error || '');
   }
 
+  // TODO: all the methods below seem not used anywhere
   /**
    * Get all log entries
    */
