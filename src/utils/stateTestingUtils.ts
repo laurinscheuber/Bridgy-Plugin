@@ -97,47 +97,55 @@ export function toCamelCase(property: string): string {
 export function generateTestHelpers(): string {
   return `  const resolveCssVariable = (variableName: string, stylesheetHrefPart = 'styles.css'): string | undefined => {
     const targetSheet = Array.from(document.styleSheets)
-      .find(sheet => sheet.href && sheet.href.indexOf(stylesheetHrefPart) !== -1);
+      .find(sheet => sheet.href?.includes(stylesheetHrefPart));
 
-    const rootRule = Array.from(targetSheet && targetSheet.cssRules ? targetSheet.cssRules : [])
+    const rootRule = Array.from(targetSheet?.cssRules || [])
       .filter(rule => rule instanceof CSSStyleRule)
       .find(rule => rule.selectorText === ':root');
 
-    const value = rootRule && rootRule.style ? rootRule.style.getPropertyValue(variableName) : undefined;
-    const trimmedValue = value ? value.trim() : undefined;
-
-    if (trimmedValue && trimmedValue.startsWith('var(')) {
-      const varMatch = trimmedValue.match(/var\\((--.+?)\\)/);
-      const nestedVar = varMatch ? varMatch[1] : undefined;
+    const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
+    if (value?.startsWith('var(')) {
+      const nestedVar = value.match(/var\\((--[^)]+)\\)/)?.[1];
       return nestedVar ? resolveCssVariable(nestedVar, stylesheetHrefPart) : undefined;
     }
-    return trimmedValue;
+
+    return value;
   };
 
-  const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: string): string | undefined => {
-    // Regex necessary because Angular attaches identifier after the selector
-    const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const foundRuleCandidate = Array.from(document.styleSheets)
-      .reduce((acc, sheet) => acc.concat(Array.from(sheet.cssRules || [])), [])
-      .filter(r => r instanceof CSSStyleRule)
-      .find(r => regex.test(r.selectorText));
-    
-    const foundRuleStyle = foundRuleCandidate ? foundRuleCandidate.style : undefined;
+  const resolveCssValueWithVariables = (cssValue: string, stylesheetHrefPart = 'styles.css'): string => {
+    if (!cssValue || typeof cssValue !== 'string') {
+      return cssValue;
+    }
 
-    return foundRuleStyle ? foundRuleStyle.getPropertyValue(prop) : undefined;
+    // Replace all var() functions in the CSS value
+    return cssValue.replace(/var\\((--[^,)]+)(?:,\\s*([^)]+))?\\)/g, (match, varName, fallback) => {
+      const resolvedValue = resolveCssVariable(varName, stylesheetHrefPart);
+      return resolvedValue || fallback || match;
+    });
+  };
+
+  const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: any) => {
+    // Regex necessairy because angular attaches identifier after the selector
+    const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
+    const style = Array.from(document.styleSheets)
+      .flatMap(sheet => Array.from(sheet.cssRules || []))
+      .filter(r => r instanceof CSSStyleRule)
+      .find(r => regex.test(r.selectorText))
+      ?.style;
+
+    return style!.getPropertyValue(prop);
   };
 
   const checkStyleProperty = (selector: string, pseudoClass: string, property: string, expectedValue?: string) => {
+    // TODO: please check whether the selector is correct
     const value = getCssPropertyForRule(selector, pseudoClass, property);
     if (!value) {
       // If no value is found for this pseudo-class, that's okay - not all states need all properties
       return;
     }
 
-    if (value.startsWith('var(')) {
-      const varMatch = value.match(/var\\((--.+?)\\)/);
-      const variableName = varMatch ? varMatch[1] : undefined;
-      const resolvedValue = variableName ? resolveCssVariable(variableName) : undefined;
+    if (value.indexOf('var(') !== -1) {
+      const resolvedValue = resolveCssValueWithVariables(value);
       if (expectedValue) {
         expect(resolvedValue).toBe(expectedValue);
       } else {

@@ -450,51 +450,45 @@ describe('${pascalName}Component - All Variants', () => {
   let component: ${pascalName}Component;
   let fixture: ComponentFixture<${pascalName}Component>;
 
-  const resolveCssVariable = (
-    variableName: string,
-    stylesheetHrefPart = 'styles.css'
-  ): string | undefined => {
-    const targetSheet = Array.from(document.styleSheets).find((sheet) =>
-      sheet.href && sheet.href.indexOf(stylesheetHrefPart) !== -1
-    );
+  const resolveCssVariable = (variableName: string, stylesheetHrefPart = 'styles.css'): string | undefined => {
+    const targetSheet = Array.from(document.styleSheets)
+      .find(sheet => sheet.href?.includes(stylesheetHrefPart));
 
-    const rootRule = Array.from(targetSheet && targetSheet.cssRules ? targetSheet.cssRules : [])
-      .filter((rule) => rule instanceof CSSStyleRule)
-      .find((rule) => rule.selectorText === ':root');
+    const rootRule = Array.from(targetSheet?.cssRules || [])
+      .filter(rule => rule instanceof CSSStyleRule)
+      .find(rule => rule.selectorText === ':root');
 
-    const value = rootRule && rootRule.style ? rootRule.style.getPropertyValue(variableName) : undefined;
-    const trimmedValue = value ? value.trim() : undefined;
-
-    if (trimmedValue && trimmedValue.startsWith('var(')) {
-      const varMatch = trimmedValue.match(/var\((--.+?)\)/);
-      const nestedVar = varMatch ? varMatch[1] : undefined;
-      return nestedVar
-        ? resolveCssVariable(nestedVar, stylesheetHrefPart)
-        : undefined;
+    const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
+    if (value?.startsWith('var(')) {
+      const nestedVar = value.match(/var\\((--[^)]+)\\)/)?.[1];
+      return nestedVar ? resolveCssVariable(nestedVar, stylesheetHrefPart) : undefined;
     }
-    return trimmedValue;
+
+    return value;
   };
 
-  const getCssPropertyForRule = (
-    cssSelector: string,
-    pseudoClass: string,
-    prop: string
-  ): string | undefined => {
-    const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    
-    // Flatten stylesheets rules using standard JavaScript
-    let allRules: any[] = [];
-    Array.from(document.styleSheets).forEach((sheet: any) => {
-      const rules = Array.from(sheet.cssRules || []);
-      allRules = allRules.concat(rules);
+  const resolveCssValueWithVariables = (cssValue: string, stylesheetHrefPart = 'styles.css'): string => {
+    if (!cssValue || typeof cssValue !== 'string') {
+      return cssValue;
+    }
+
+    // Replace all var() functions in the CSS value
+    return cssValue.replace(/var\\((--[^,)]+)(?:,\\s*([^)]+))?\\)/g, (match, varName, fallback) => {
+      const resolvedValue = resolveCssVariable(varName, stylesheetHrefPart);
+      return resolvedValue || fallback || match;
     });
-    
-    const foundRule = allRules
-      .filter((r: any) => r instanceof CSSStyleRule)
-      .find((r: any) => regex.test(r.selectorText));
-    
-    const style = foundRule ? foundRule.style : undefined;
-    return style ? style.getPropertyValue(prop) : undefined;
+  };
+
+  const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: any) => {
+    // Regex necessairy because angular attaches identifier after the selector
+    const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
+    const style = Array.from(document.styleSheets)
+      .flatMap(sheet => Array.from(sheet.cssRules || []))
+      .filter(r => r instanceof CSSStyleRule)
+      .find(r => regex.test(r.selectorText))
+      ?.style;
+
+    return style!.getPropertyValue(prop);
   };
 
   beforeEach(async () => {
@@ -790,16 +784,24 @@ ${testableProperties.map(property => {
     ];
 
     propertiesToCheck.forEach((check) => {
+      // TODO: please check whether the selector is correct
       const resolvedValue = getCssPropertyForRule('.${kebabName}', '${pseudoClass}', check.cssProperty);
       
       if (resolvedValue) {
-        if (resolvedValue.startsWith('var(')) {
-          const varMatch = resolvedValue.match(/var\\((--.+?)\\)/);\n          const variableName = varMatch ? varMatch[1] : undefined;
-          const actualValue = variableName ? resolveCssVariable(variableName) : undefined;
+        if (resolvedValue.indexOf('var(') !== -1) {
+          const actualValue = resolveCssValueWithVariables(resolvedValue);
           expect(actualValue).toBe(check.expectedValue);
         } else {
           expect(resolvedValue).toBe(check.expectedValue);
         }
+      } else {
+        // Fallback to computed style if CSS rule not found
+        console.log('No CSS rule found for:', check.cssProperty);
+        ${Object.keys(variantProps).filter(key => key !== 'state').map(key => `component.${key} = '${variantProps[key]}';`).join('\n        ')}
+        fixture.detectChanges();
+        const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
+        const computedStyle = window.getComputedStyle(element);
+        expect(computedStyle.getPropertyValue(check.cssProperty)).toBe(check.expectedValue);
       }
     });
   });`;
