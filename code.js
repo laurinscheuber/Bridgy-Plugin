@@ -330,14 +330,14 @@
         OPERATION_FAILED: "Failed to {operation}: {error}"
       };
       exports.SUCCESS_MESSAGES = {
-        COMMIT_SUCCESS: "Successfully committed changes to the feature branch",
-        TEST_COMMIT_SUCCESS: "Successfully committed component test to the feature branch",
-        SETTINGS_SAVED: "Settings saved successfully",
-        EXPORT_COMPLETE: "Export completed successfully",
-        BRANCH_CREATED: "Feature branch created successfully",
-        MERGE_REQUEST_CREATED: "Merge request created successfully",
-        UNIT_SETTINGS_SAVED: "Unit settings saved successfully",
-        UNIT_SETTINGS_RESET: "Unit settings reset successfully"
+        COMMIT_SUCCESS: "Design tokens successfully committed! Your CSS variables are now ready for development.",
+        TEST_COMMIT_SUCCESS: "Component test successfully committed! The generated test is ready for your review.",
+        SETTINGS_SAVED: "GitLab settings saved and ready to use!",
+        EXPORT_COMPLETE: "Files exported successfully! You can now use them in your project.",
+        BRANCH_CREATED: "Feature branch created! Your changes are isolated and ready for review.",
+        MERGE_REQUEST_CREATED: "Merge request created! Your team can now review and merge the changes.",
+        UNIT_SETTINGS_SAVED: "CSS unit preferences saved and applied to all exports!",
+        UNIT_SETTINGS_RESET: "Unit settings reset to smart defaults!"
       };
     }
   });
@@ -652,9 +652,9 @@
       var GitLabAPIError = class extends Error {
         constructor(message, statusCode, response) {
           super(message);
-          this.statusCode = statusCode;
           this.response = response;
           this.name = "GitLabAPIError";
+          this.statusCode = statusCode;
         }
       };
       exports.GitLabAPIError = GitLabAPIError;
@@ -885,7 +885,7 @@
           return __awaiter(this, void 0, void 0, function* () {
             const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/branches`;
             try {
-              const response = yield this.makeAPIRequest(createBranchUrl, {
+              yield this.makeAPIRequest(createBranchUrl, {
                 method: "POST",
                 headers: Object.assign({
                   "PRIVATE-TOKEN": gitlabToken
@@ -895,14 +895,11 @@
                   ref: defaultBranch
                 })
               });
-              if (!response.ok) {
-                const errorData = yield response.json();
-                if (errorData.message !== "Branch already exists") {
-                  throw new GitLabAPIError(`Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`, response.status, errorData);
-                }
-              }
             } catch (error) {
               if (error instanceof GitLabAPIError) {
+                if (error.statusCode === 400 && error.message && error.message.includes("already exists")) {
+                  return;
+                }
                 throw error;
               }
               throw this.handleGitLabError(error, `create branch '${featureBranch}'`);
@@ -922,16 +919,10 @@
                   "PRIVATE-TOKEN": gitlabToken
                 }, this.DEFAULT_HEADERS)
               });
-              const fileExists = response.ok;
-              let fileData = null;
-              let action = "create";
-              if (fileExists) {
-                fileData = yield response.json();
-                action = "update";
-              }
-              return { fileData, action };
+              const fileData = yield response.json();
+              return { fileData, action: "update" };
             } catch (error) {
-              if (error.statusCode === 404) {
+              if (error instanceof GitLabAPIError && error.statusCode === 404) {
                 return { fileData: null, action: "create" };
               }
               throw this.handleGitLabError(error, "check file existence");
@@ -965,10 +956,6 @@
                   actions: [commitAction]
                 })
               });
-              if (!response.ok) {
-                const errorData = yield response.json();
-                throw new GitLabAPIError(errorData.message || "Failed to commit to GitLab", response.status, errorData);
-              }
               return yield response.json();
             } catch (error) {
               if (error instanceof GitLabAPIError) {
@@ -991,9 +978,6 @@
                   "PRIVATE-TOKEN": gitlabToken
                 }, this.DEFAULT_HEADERS)
               });
-              if (!response.ok) {
-                throw new GitLabAPIError("Failed to fetch merge requests", response.status);
-              }
               const mergeRequests = yield response.json();
               return mergeRequests.length > 0 ? mergeRequests[0] : null;
             } catch (error) {
@@ -1022,10 +1006,6 @@
                   squash: true
                 })
               });
-              if (!response.ok) {
-                const errorData = yield response.json();
-                throw new GitLabAPIError(errorData.message || "Failed to create merge request", response.status, errorData);
-              }
               return yield response.json();
             } catch (error) {
               if (error instanceof GitLabAPIError) {
@@ -1094,10 +1074,39 @@
          */
         static makeAPIRequest(url, options) {
           return __awaiter(this, void 0, void 0, function* () {
+            const timeoutMs = 3e4;
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => {
+                reject(new GitLabNetworkError("Request timed out - please check your connection to GitLab"));
+              }, timeoutMs);
+            });
             try {
-              const response = yield fetch(url, options);
+              const response = yield Promise.race([
+                fetch(url, options),
+                timeoutPromise
+              ]);
+              if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                  const errorData = yield response.json();
+                  if (errorData.message) {
+                    errorMessage = errorData.message;
+                  } else if (errorData.error) {
+                    errorMessage = errorData.error;
+                  } else if (errorData.error_description) {
+                    errorMessage = errorData.error_description;
+                  }
+                } catch (_a) {
+                }
+                const error = new GitLabAPIError(errorMessage, response.status);
+                error.statusCode = response.status;
+                throw error;
+              }
               return response;
             } catch (error) {
+              if (error instanceof GitLabAPIError || error instanceof GitLabNetworkError) {
+                throw error;
+              }
               if (error.name === "TypeError" && error.message.indexOf("fetch") !== -1) {
                 throw new GitLabNetworkError("Network error - unable to connect to GitLab API");
               }
@@ -3046,7 +3055,7 @@ ${Object.keys(cssProperties).map((property) => {
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
       var config_1 = require_config();
-      figma.showUI(__html__, { width: 850, height: 800 });
+      figma.showUI(__html__, { width: 1e3, height: 900, themeColors: true });
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
           const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
@@ -3183,24 +3192,97 @@ ${Object.keys(cssProperties).map((property) => {
               if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
                 throw new Error("Missing required fields for GitLab commit");
               }
-              const result = yield gitlabService_1.GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
-              figma.ui.postMessage({
-                type: "commit-success",
-                message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
-                mergeRequestUrl: result && result.mergeRequestUrl
-              });
+              try {
+                const result = yield gitlabService_1.GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
+                figma.ui.postMessage({
+                  type: "commit-success",
+                  message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
+                  mergeRequestUrl: result && result.mergeRequestUrl
+                });
+              } catch (error) {
+                let errorMessage = "Unknown error occurred";
+                let errorType = "unknown";
+                if (error.name === "GitLabAuthError") {
+                  errorType = "auth";
+                  errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+                } else if (error.name === "GitLabNetworkError") {
+                  errorType = "network";
+                  errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
+                } else if (error.name === "GitLabAPIError") {
+                  if (error.statusCode === 401 || error.statusCode === 403) {
+                    errorType = "auth";
+                    errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+                  } else {
+                    errorType = "api";
+                    if (error.statusCode === 404) {
+                      errorMessage = "Project not found. Please check your project ID.";
+                    } else if (error.statusCode === 422) {
+                      errorMessage = "Invalid data provided. Please check your settings and try again.";
+                    } else if (error.statusCode === 429) {
+                      errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+                    } else {
+                      errorMessage = error.message || "GitLab API error occurred.";
+                    }
+                  }
+                } else {
+                  errorMessage = error.message || "Unknown error occurred";
+                }
+                figma.ui.postMessage({
+                  type: "commit-error",
+                  error: errorMessage,
+                  errorType,
+                  statusCode: error.statusCode
+                });
+              }
               break;
             case "commit-component-test":
               if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
                 throw new Error("Missing required fields for component test commit");
               }
-              const testResult = yield gitlabService_1.GitLabService.commitComponentTest(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
-              figma.ui.postMessage({
-                type: "test-commit-success",
-                message: "Successfully committed component test to the feature branch",
-                componentName: msg.componentName,
-                mergeRequestUrl: testResult && testResult.mergeRequestUrl
-              });
+              try {
+                const testResult = yield gitlabService_1.GitLabService.commitComponentTest(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
+                figma.ui.postMessage({
+                  type: "test-commit-success",
+                  message: config_1.SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,
+                  componentName: msg.componentName,
+                  mergeRequestUrl: testResult && testResult.mergeRequestUrl
+                });
+              } catch (error) {
+                let errorMessage = "Unknown error occurred";
+                let errorType = "unknown";
+                if (error.name === "GitLabAuthError") {
+                  errorType = "auth";
+                  errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+                } else if (error.name === "GitLabNetworkError") {
+                  errorType = "network";
+                  errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
+                } else if (error.name === "GitLabAPIError") {
+                  if (error.statusCode === 401 || error.statusCode === 403) {
+                    errorType = "auth";
+                    errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+                  } else {
+                    errorType = "api";
+                    if (error.statusCode === 404) {
+                      errorMessage = "Project not found. Please check your project ID.";
+                    } else if (error.statusCode === 422) {
+                      errorMessage = "Invalid data provided. Please check your settings and try again.";
+                    } else if (error.statusCode === 429) {
+                      errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+                    } else {
+                      errorMessage = error.message || "GitLab API error occurred.";
+                    }
+                  }
+                } else {
+                  errorMessage = error.message || "Unknown error occurred";
+                }
+                figma.ui.postMessage({
+                  type: "test-commit-error",
+                  error: errorMessage,
+                  errorType,
+                  componentName: msg.componentName,
+                  statusCode: error.statusCode
+                });
+              }
               break;
             case "reset-gitlab-settings":
               yield gitlabService_1.GitLabService.resetSettings();
@@ -3226,6 +3308,8 @@ ${Object.keys(cssProperties).map((property) => {
                 type: "unit-settings-updated",
                 success: true
               });
+              break;
+            case "resize-plugin":
               break;
             default:
           }
