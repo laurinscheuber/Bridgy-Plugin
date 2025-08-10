@@ -96,4 +96,6 @@ export interface PluginMessage {
   forCommit?: boolean;
   collections?: {[key: string]: string};
   groups?: {[key: string]: string};
+  width?: number;
+  height?: number;
 } 

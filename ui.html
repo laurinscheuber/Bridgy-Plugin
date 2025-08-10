@@ -194,6 +194,39 @@
       .header-actions {
         display: flex;
         gap: var(--space-2);
+        align-items: center;
+      }
+
+      .repo-link-button {
+        display: none; /* Hidden until GitLab is configured */
+        background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+        color: var(--neutral-0);
+        border: none;
+        border-radius: var(--radius-md);
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .repo-link-button:hover {
+        background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .repo-link-button:active {
+        transform: translateY(0);
+      }
+
+      .repo-link-icon {
+        font-size: var(--text-base);
       }
       
       /* ===== MODERN TAB SYSTEM ===== */
@@ -852,6 +885,253 @@
       }
       .json-string {
         color: var(--success-600);
+      }
+
+      /* ===== NOTIFICATION SYSTEM ===== */
+      .notification-container {
+        position: fixed;
+        top: var(--space-4);
+        right: var(--space-4);
+        z-index: 1000;
+        max-width: 400px;
+      }
+
+      .notification {
+        background: var(--neutral-0);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        margin-bottom: var(--space-3);
+        box-shadow: var(--shadow-lg);
+        border-left: 4px solid;
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+        animation: slideIn 0.3s ease-out;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .notification.success {
+        border-left-color: var(--success-500);
+        background: linear-gradient(135deg, var(--neutral-0) 0%, var(--success-50) 100%);
+      }
+
+      .notification.error {
+        border-left-color: var(--error-500);
+        background: linear-gradient(135deg, var(--neutral-0) 0%, var(--error-50) 100%);
+      }
+
+      .notification-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: var(--text-sm);
+        margin-top: var(--space-1);
+      }
+
+      .notification.success .notification-icon {
+        background: var(--success-500);
+        color: var(--neutral-0);
+      }
+
+      .notification.error .notification-icon {
+        background: var(--error-500);
+        color: var(--neutral-0);
+      }
+
+      .notification-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .notification-title {
+        font-weight: 600;
+        margin-bottom: var(--space-1);
+        font-size: var(--text-sm);
+      }
+
+      .notification.success .notification-title {
+        color: var(--success-700);
+      }
+
+      .notification.error .notification-title {
+        color: var(--error-700);
+      }
+
+      .notification-message {
+        font-size: var(--text-sm);
+        color: var(--neutral-600);
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      .notification-close {
+        background: none;
+        border: none;
+        font-size: var(--text-lg);
+        color: var(--neutral-400);
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+      }
+
+      .notification-close:hover {
+        background: var(--neutral-100);
+        color: var(--neutral-600);
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      .notification.fade-out {
+        animation: fadeOut 0.3s ease-in forwards;
+      }
+
+      @keyframes fadeOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+
+      /* ===== IN-MODAL NOTIFICATIONS ===== */
+      .modal-notification {
+        margin: var(--space-4) 0;
+        padding: var(--space-4);
+        border-radius: var(--radius-lg);
+        border-left: 4px solid;
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+        animation: slideInModal 0.3s ease-out;
+      }
+
+      .modal-notification.success {
+        border-left-color: var(--success-500);
+        background: linear-gradient(135deg, var(--success-50) 0%, var(--neutral-0) 100%);
+      }
+
+      .modal-notification.error {
+        border-left-color: var(--error-500);
+        background: linear-gradient(135deg, var(--error-50) 0%, var(--neutral-0) 100%);
+      }
+
+      .modal-notification-icon {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: var(--text-base);
+        margin-top: var(--space-1);
+      }
+
+      .modal-notification.success .modal-notification-icon {
+        background: var(--success-500);
+        color: var(--neutral-0);
+      }
+
+      .modal-notification.error .modal-notification-icon {
+        background: var(--error-500);
+        color: var(--neutral-0);
+      }
+
+      .modal-notification-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .modal-notification-title {
+        font-weight: 600;
+        margin-bottom: var(--space-2);
+        font-size: var(--text-base);
+      }
+
+      .modal-notification.success .modal-notification-title {
+        color: var(--success-700);
+      }
+
+      .modal-notification.error .modal-notification-title {
+        color: var(--error-700);
+      }
+
+      .modal-notification-message {
+        font-size: var(--text-sm);
+        color: var(--neutral-700);
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      .modal-notification-message a {
+        color: var(--success-600);
+        text-decoration: underline;
+        font-weight: 500;
+      }
+
+      .modal-notification-message a:hover {
+        color: var(--success-700);
+        text-decoration: none;
+      }
+
+      .modal-notification-close {
+        background: none;
+        border: none;
+        font-size: var(--text-xl);
+        color: var(--neutral-400);
+        cursor: pointer;
+        padding: 0;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+      }
+
+      .modal-notification-close:hover {
+        background: var(--neutral-100);
+        color: var(--neutral-600);
+      }
+
+      @keyframes slideInModal {
+        from {
+          transform: translateY(-10px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
       }
       .json-number {
         color: var(--primary-600);
@@ -1545,6 +1825,9 @@
     </style>
   </head>
   <body>
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+    
     <div class="container">
       <!-- Modern Header -->
       <header class="header">
@@ -1554,6 +1837,17 @@
             <span class="header-subtitle">Figma to Angular Test Generator</span>
           </div>
           <div class="header-actions">
+            <a
+              id="repo-link-button"
+              class="repo-link-button"
+              href="#"
+              target="_blank"
+              title="Open GitLab Repository"
+              style="display: none;"
+            >
+              <span class="repo-link-icon">🔗</span>
+              <span>Repository</span>
+            </a>
           <button
             id="help-icon-btn"
             onclick="openUserGuide()"
@@ -1887,7 +2181,7 @@
               color: white;
               border: none;
               padding: 8px 12px;
-              border-radius: 4px;
+              border-radius: var(--radius-lg);
               cursor: pointer;
               display: flex;
               align-items: center;
@@ -2324,7 +2618,7 @@
               color: white;
               border: none;
               padding: 10px 16px;
-              border-radius: 4px;
+              border-radius: var(--radius-lg);
               cursor: pointer;
               font-weight: 500;
             "
@@ -2350,6 +2644,279 @@
     </div>
 
     <script>
+      // ===== NOTIFICATION SYSTEM =====
+      function showNotification(type, title, message, duration) {
+        duration = duration || 5000;
+        const container = document.getElementById('notification-container');
+        
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        
+        const icon = type === 'success' ? '✓' : '✕';
+        
+        notification.innerHTML = `
+          <div class="notification-icon">${icon}</div>
+          <div class="notification-content">
+            <div class="notification-title">${title}</div>
+            <div class="notification-message">${message}</div>
+          </div>
+          <button class="notification-close" onclick="closeNotification(this.parentElement)">×</button>
+        `;
+        
+        container.appendChild(notification);
+        
+        // Auto-remove after duration
+        if (duration > 0) {
+          setTimeout(() => {
+            closeNotification(notification);
+          }, duration);
+        }
+        
+        return notification;
+      }
+      
+      function showSuccess(title, message, duration) {
+        duration = duration || 0; // 0 = no auto-dismiss
+        return showNotification('success', title, message, duration);
+      }
+      
+      function showError(title, message, duration) {
+        duration = duration || 0; // 0 = no auto-dismiss
+        return showNotification('error', title, message, duration);
+      }
+      
+      function closeNotification(notification) {
+        if (!notification) return;
+        
+        notification.classList.add('fade-out');
+        setTimeout(() => {
+          if (notification.parentElement) {
+            notification.parentElement.removeChild(notification);
+          }
+        }, 300);
+      }
+      
+      // Clear all notifications
+      function clearAllNotifications() {
+        const container = document.getElementById('notification-container');
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+      }
+      
+      // In-Modal notification functions
+      function showModalNotification(modalId, type, title, message) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        
+        const footer = modal.querySelector('.modal-footer');
+        if (!footer) return;
+        
+        // Remove existing notifications
+        const existingNotification = modal.querySelector('.modal-notification');
+        if (existingNotification) {
+          existingNotification.remove();
+        }
+        
+        const icon = type === 'success' ? '✓' : '✕';
+        
+        const notification = document.createElement('div');
+        notification.className = `modal-notification ${type}`;
+        notification.innerHTML = `
+          <div class="modal-notification-icon">${icon}</div>
+          <div class="modal-notification-content">
+            <div class="modal-notification-title">${title}</div>
+            <div class="modal-notification-message">${message}</div>
+          </div>
+          <button class="modal-notification-close" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        footer.parentNode.insertBefore(notification, footer);
+        return notification;
+      }
+      
+      function showModalSuccess(modalId, title, message) {
+        return showModalNotification(modalId, 'success', title, message);
+      }
+      
+      function showModalError(modalId, title, message) {
+        return showModalNotification(modalId, 'error', title, message);
+      }
+      
+      // Inline notification functions (same design as modal notifications)
+      function showInlineNotification(targetElement, type, title, message, duration) {
+        if (!targetElement) return;
+        
+        duration = duration || 10000; // 10 seconds default
+        
+        // Remove any existing inline notification
+        const existingNotification = targetElement.querySelector('.inline-notification');
+        if (existingNotification) {
+          existingNotification.remove();
+        }
+        
+        const icon = type === 'success' ? '✓' : '✕';
+        
+        const notification = document.createElement('div');
+        notification.className = `inline-notification ${type}`;
+        notification.style.cssText = `
+          margin: var(--space-4) 0;
+          padding: var(--space-4);
+          border-radius: var(--radius-lg);
+          border-left: 4px solid ${type === 'success' ? 'var(--success-500)' : 'var(--error-500)'};
+          display: flex;
+          align-items: flex-start;
+          gap: var(--space-3);
+          animation: slideInModal 0.3s ease-out;
+          background: ${type === 'success' ? 'linear-gradient(135deg, var(--success-50) 0%, var(--neutral-0) 100%)' : 'linear-gradient(135deg, var(--error-50) 0%, var(--neutral-0) 100%)'};
+        `;
+        
+        notification.innerHTML = `
+          <div style="
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: var(--text-base);
+            margin-top: var(--space-1);
+            background: ${type === 'success' ? 'var(--success-500)' : 'var(--error-500)'};
+            color: var(--neutral-0);
+          ">${icon}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="
+              font-weight: 600;
+              margin-bottom: var(--space-2);
+              font-size: var(--text-base);
+              color: ${type === 'success' ? 'var(--success-700)' : 'var(--error-700)'};
+            ">${title}</div>
+            <div style="
+              font-size: var(--text-sm);
+              color: var(--neutral-700);
+              line-height: 1.4;
+              word-break: break-word;
+            ">${message}</div>
+          </div>
+          <button onclick="this.parentElement.remove()" style="
+            background: none;
+            border: none;
+            font-size: var(--text-xl);
+            color: var(--neutral-400);
+            cursor: pointer;
+            padding: 0;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+          " onmouseover="this.style.background='var(--neutral-100)'; this.style.color='var(--neutral-600)';" 
+             onmouseout="this.style.background='none'; this.style.color='var(--neutral-400)';">×</button>
+        `;
+        
+        targetElement.appendChild(notification);
+        
+        // Auto-remove after duration
+        if (duration > 0) {
+          setTimeout(() => {
+            if (notification.parentElement) {
+              notification.remove();
+            }
+          }, duration);
+        }
+        
+        return notification;
+      }
+      
+      function showInlineSuccess(targetElement, title, message, duration) {
+        return showInlineNotification(targetElement, 'success', title, message, duration);
+      }
+      
+      function showInlineError(targetElement, title, message, duration) {
+        return showInlineNotification(targetElement, 'error', title, message, duration);
+      }
+      
+      // Plugin resize management
+      function resizePlugin(width, height) {
+        // Dynamic resizing disabled to maintain consistent plugin size
+        // parent.postMessage({
+        //   pluginMessage: {
+        //     type: 'resize-plugin',
+        //     width: width,
+        //     height: height
+        //   }
+        // }, '*');
+      }
+      
+      // Dynamic resize based on content or tab - disabled
+      function resizeForCurrentContent() {
+        // Auto-resize functionality disabled to keep consistent plugin size
+        return;
+      }
+      
+      // Repository link management
+      function updateRepositoryLink() {
+        const repoButton = document.getElementById('repo-link-button');
+        if (!repoButton || !window.gitlabSettings || !window.gitlabSettings.projectId) {
+          if (repoButton) {
+            repoButton.style.display = 'none';
+          }
+          return;
+        }
+        
+        // Show button but initially disable it while we fetch project info
+        repoButton.style.display = 'inline-flex';
+        repoButton.style.opacity = '0.5';
+        repoButton.style.pointerEvents = 'none';
+        repoButton.title = 'Loading project information...';
+        
+        // Fetch project information from GitLab API to get correct URL
+        fetchProjectInfo(window.gitlabSettings.projectId, window.gitlabSettings.gitlabToken);
+      }
+      
+      async function fetchProjectInfo(projectId, token) {
+        const repoButton = document.getElementById('repo-link-button');
+        if (!repoButton) return;
+        
+        try {
+          const response = await fetch(`https://gitlab.fhnw.ch/api/v4/projects/${projectId}`, {
+            headers: {
+              'PRIVATE-TOKEN': token
+            }
+          });
+          
+          if (response.ok) {
+            const projectData = await response.json();
+            const mergeRequestsUrl = `${projectData.web_url}/-/merge_requests`;
+            
+            repoButton.href = mergeRequestsUrl;
+            repoButton.style.opacity = '1';
+            repoButton.style.pointerEvents = 'auto';
+            repoButton.title = `Open Merge Requests for ${projectData.path_with_namespace}`;
+          } else {
+            // Fallback to project ID URL if API fails
+            const fallbackUrl = `https://gitlab.fhnw.ch/project/${projectId}/-/merge_requests`;
+            repoButton.href = fallbackUrl;
+            repoButton.style.opacity = '1';
+            repoButton.style.pointerEvents = 'auto';
+            repoButton.title = `Open Merge Requests for Project ${projectId}`;
+          }
+        } catch (error) {
+          console.error('Failed to fetch project info:', error);
+          // Fallback to project ID URL
+          const fallbackUrl = `https://gitlab.fhnw.ch/project/${projectId}/-/merge_requests`;
+          repoButton.href = fallbackUrl;
+          repoButton.style.opacity = '1';
+          repoButton.style.pointerEvents = 'auto';
+          repoButton.title = `Open Merge Requests for Project ${projectId}`;
+        }
+      }
+
       window.saveUnitsSettings = function () {
         const collections = {};
         const groups = {};
@@ -2411,6 +2978,11 @@
           if (tab.dataset.tab === "units") {
             loadUnitsSettings();
           }
+          
+          // Auto-resize disabled to maintain consistent plugin size
+          // setTimeout(() => {
+          //   resizeForCurrentContent();
+          // }, 100);
         });
       });
 
@@ -2505,6 +3077,7 @@
         if (message.type === "gitlab-settings-loaded") {
           window.gitlabSettings = message.settings;
           loadConfigurationTab();
+          updateRepositoryLink();
           checkAndShowUserGuide();
         } else if (message.type === "gitlab-settings-saved") {
         } else if (message.type === "document-data") {
@@ -2513,6 +3086,11 @@
 
           renderVariables(variablesData);
           renderComponents(componentsData);
+          
+          // Auto-resize disabled to maintain consistent plugin size
+          // setTimeout(() => {
+          //   resizeForCurrentContent();
+          // }, 200);
 
           // Enable the export button only if there are variables
           if (
@@ -2547,7 +3125,8 @@
           if (message.forCommit) {
             // For commit, send the commit-component-test message
             if (!window.gitlabSettings) {
-              alert(
+              showError(
+                "Configuration Required",
                 "Please configure your GitLab settings in the Settings tab first."
               );
 
@@ -2631,7 +3210,7 @@
           }
         } else if (message.type === "error") {
           console.error("Plugin Error:", message.message);
-          alert(`Error: ${message.message}`);
+          showError("Plugin Error", message.message);
           const buttons = document.querySelectorAll("button.loading");
           buttons.forEach((button) => {
             button.classList.remove("loading");
@@ -2646,83 +3225,146 @@
           exportButton.disabled = true;
         } else if (message.type === "commit-success") {
           if (message.mergeRequestUrl) {
-            const successHTML = `
-              <div class="success-message" style="display: block;">
-                ${
-                  message.message ||
-                  "Successfully committed to GitLab repository!"
-                }
-              </div>
-            `;
-
-            const modal = document.getElementById("gitlab-modal");
-            const footer = modal.querySelector(".modal-footer");
-            const existingMessage = modal.querySelector(".success-message");
-            if (existingMessage) {
-              existingMessage.remove();
-            }
-            footer.insertAdjacentHTML("beforebegin", successHTML);
-            const commitButton = document.getElementById(
-              "commit-submit-button"
-            );
+            // Show in-modal notification with merge request link
+            const messageWithLink = message.message + ` <a href="${message.mergeRequestUrl}" target="_blank">View Merge Request →</a>`;
+            showModalSuccess("gitlab-modal", "Merge Request Created!", messageWithLink);
+            
+            // Update button to close
+            const commitButton = document.getElementById("commit-submit-button");
             commitButton.textContent = "Close";
             commitButton.classList.remove("loading");
             commitButton.disabled = false;
             commitButton.onclick = closeGitLabModal;
           } else {
-            alert(
+            showSuccess(
+              "Commit Successful",
               message.message || "Successfully committed to GitLab repository!"
             );
             closeGitLabModal();
             resetCommitButton();
           }
         } else if (message.type === "commit-error") {
-          const errorHTML = `
-            <div class="error-message" style="display: block;">
-              <p><strong>Error committing to GitLab:</strong> ${message.error}</p>
-              <p class="error-help">Please check your credentials and try again.</p>
-            </div>
-          `;
-
-          const modal = document.getElementById("gitlab-modal");
-          const footer = modal.querySelector(".modal-footer");
-          const existingMessage = modal.querySelector(".error-message");
-          if (existingMessage) {
-            existingMessage.remove();
+          // Generate appropriate help message based on error type
+          let helpMessage = "";
+          if (message.errorType === "auth") {
+            helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
+          } else if (message.errorType === "network") {
+            // Add link to GitLab project for network errors
+            const projectUrl = window.gitlabSettings?.projectId 
+              ? `https://gitlab.fhnw.ch/projects/${window.gitlabSettings.projectId}`
+              : 'https://gitlab.fhnw.ch';
+            helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection in browser →</a>`;
+          } else if (message.errorType === "api") {
+            if (message.statusCode === 404) {
+              helpMessage = "Please verify your project ID is correct and you have access to this project.";
+            } else if (message.statusCode === 429) {
+              helpMessage = "Too many requests. Please wait a few minutes before trying again.";
+            } else {
+              helpMessage = "Please check your GitLab settings and try again.";
+            }
+          } else {
+            helpMessage = "Please check your credentials and settings, then try again.";
           }
-          footer.insertAdjacentHTML("beforebegin", errorHTML);
-
+          
+          showModalError("gitlab-modal", "Commit Failed", `${message.error}<br><br><small>${helpMessage}</small>`);
           resetCommitButton();
         } else if (message.type === "test-commit-success") {
           // Handle successful component test commit
           // Find any loading commit buttons and update them
           const buttons = document.querySelectorAll("button.loading");
+          let buttonFound = false;
+          
           buttons.forEach((button) => {
             if (button.textContent === "Committing...") {
               button.classList.remove("loading");
               button.textContent = button.dataset.originalText || "Commit Test";
               button.disabled = false;
+              buttonFound = true;
 
-              // Show success message
-              const successMessage = button.parentElement.nextElementSibling;
-              if (
-                successMessage &&
-                successMessage.classList.contains("test-success-message")
-              ) {
-                successMessage.textContent = `Successfully committed test for ${message.componentName}!`;
-                successMessage.style.display = "block";
-
-                // Hide success message after 3 seconds
-                setTimeout(() => {
-                  successMessage.style.display = "none";
-                }, 3000);
-              }
+              // Find the container where to show the notification
+              const componentContainer = button.closest('.component-item') || button.parentElement;
+              
+              // Create consistent notification message
+              const title = message.mergeRequestUrl ? "Merge Request Created!" : "Test Committed";
+              const messageText = message.mergeRequestUrl 
+                ? `${message.message} <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline; font-weight: 500;">View Merge Request →</a>`
+                : message.message;
+              
+              // Show the new consistent inline notification
+              showInlineSuccess(componentContainer, title, messageText, 10000);
             }
           });
 
-          // If no buttons were found with loading state, show an alert
-          if (buttons.length === 0) {
-            alert(`Successfully committed test for ${message.componentName}!`);
+          // If no specific button was found, show global notification (fallback)
+          if (!buttonFound) {
+            const notificationMessage = message.mergeRequestUrl 
+              ? `${message.message} <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request →</a>`
+              : message.message;
+            
+            const title = message.mergeRequestUrl ? "Merge Request Created!" : "Test Committed";
+            showSuccess(title, notificationMessage, 8000); // Show for 8 seconds
+          }
+        } else if (message.type === "test-commit-error") {
+          // Handle component test commit errors
+          const buttons = document.querySelectorAll("button.loading");
+          let buttonFound = false;
+          
+          buttons.forEach((button) => {
+            if (button.textContent === "Committing...") {
+              button.classList.remove("loading");
+              button.textContent = button.dataset.originalText || "Commit Test";
+              button.disabled = false;
+              buttonFound = true;
+
+              // Find the container where to show the notification
+              const componentContainer = button.closest('.component-item') || button.parentElement;
+              
+              // Generate appropriate help message based on error type
+              let helpMessage = "";
+              if (message.errorType === "auth") {
+                helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
+              } else if (message.errorType === "network") {
+                // Add link to GitLab project for network errors
+                const projectUrl = window.gitlabSettings?.projectId 
+                  ? `https://gitlab.fhnw.ch/projects/${window.gitlabSettings.projectId}`
+                  : 'https://gitlab.fhnw.ch';
+                helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection →</a>`;
+              } else if (message.errorType === "api") {
+                if (message.statusCode === 404) {
+                  helpMessage = "Please verify your project ID and permissions.";
+                } else if (message.statusCode === 429) {
+                  helpMessage = "Rate limit exceeded. Please try again later.";
+                } else {
+                  helpMessage = "Please check your GitLab settings.";
+                }
+              } else {
+                helpMessage = "Please check your credentials and try again.";
+              }
+              
+              // Show the error with component context
+              const errorMessage = `${message.error}<br><small>${helpMessage}</small>`;
+              showInlineError(componentContainer, "Commit Failed", errorMessage, 15000);
+            }
+          });
+
+          // If no specific button was found, show global error notification (fallback)
+          if (!buttonFound) {
+            let helpMessage = "";
+            if (message.errorType === "auth") {
+              helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
+            } else if (message.errorType === "network") {
+              // Add link to GitLab project for network errors
+              const projectUrl = window.gitlabSettings?.projectId 
+                ? `https://gitlab.fhnw.ch/projects/${window.gitlabSettings.projectId}`
+                : 'https://gitlab.fhnw.ch';
+              helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection →</a>`;
+            } else if (message.errorType === "api") {
+              helpMessage = "Please check your GitLab settings and try again.";
+            } else {
+              helpMessage = "Please check your credentials and settings, then try again.";
+            }
+            
+            showError("Test Commit Failed", `${message.error} ${helpMessage}`);
           }
         } else if (message.type === "unit-settings-data") {
           // Handle units settings data
@@ -3582,7 +4224,7 @@
 
       function downloadComponentsZip(files, language) {
         if (!files || files.length === 0) {
-          alert("No components available to export");
+          showError("Export Failed", "No components available to export");
           return;
         }
 
@@ -3715,6 +4357,7 @@
       function confirmReset() {
         // Clear local settings
         window.gitlabSettings = null;
+        updateRepositoryLink();
 
         // Send reset command to backend
         parent.postMessage(
@@ -3747,7 +4390,7 @@
         closeResetConfirmation();
         closeSettingsModal();
 
-        alert("Configuration has been reset successfully!");
+        showSuccess("Configuration Reset", "Configuration has been reset successfully!");
       }
 
       // Function to check if user guide should auto-open
@@ -3785,12 +4428,12 @@
         const shareTeam = document.getElementById("config-share-team").checked;
 
         if (!projectId) {
-          alert("Please provide a Project ID");
+          showError("Validation Error", "Please provide a Project ID");
           return;
         }
 
         if (!token) {
-          alert("Please provide a Project Access Token");
+          showError("Validation Error", "Please provide a Project Access Token");
           return;
         }
 
@@ -3830,8 +4473,9 @@
 
         displayConfigMetadata();
         updateExportButtonText();
+        updateRepositoryLink();
 
-        alert("Configuration saved successfully!");
+        showSuccess("Settings Saved", "Configuration saved successfully!");
         closeSettingsModal();
       }
 
@@ -3874,6 +4518,7 @@
 
           displayConfigMetadata();
           updateExportButtonText();
+          updateRepositoryLink();
         } else {
           document.getElementById("config-save-token").checked = true;
           document.getElementById("config-share-team").checked = true;
@@ -4027,6 +4672,7 @@
       function closeGitLabModal() {
         const modal = document.getElementById("gitlab-modal");
         if (modal) {
+          // Remove old-style messages
           const successMessage = modal.querySelector(".success-message");
           if (successMessage) {
             successMessage.remove();
@@ -4034,6 +4680,12 @@
           const errorMessage = modal.querySelector(".error-message");
           if (errorMessage) {
             errorMessage.remove();
+          }
+          
+          // Remove new-style modal notifications
+          const modalNotification = modal.querySelector(".modal-notification");
+          if (modalNotification) {
+            modalNotification.remove();
           }
 
           modal.style.display = "none";
@@ -4069,7 +4721,8 @@
           !window.gitlabSettings.projectId ||
           !window.gitlabSettings.gitlabToken
         ) {
-          alert(
+          showError(
+            "Configuration Required",
             "Please configure your GitLab settings in the Config tab first."
           );
           resetCommitButton();
@@ -4133,7 +4786,7 @@
           setTimeout(() => {
             if (!currentCSSData) {
               clearInterval(checkCSSData);
-              alert("Failed to generate CSS data. Please try again.");
+              showError("Generation Failed", "Failed to generate CSS data. Please try again.");
               resetCommitButton();
             }
           }, 5000);
