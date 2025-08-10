@@ -47,13 +47,16 @@ const DEFAULT_TEST_BRANCH_NAME = GIT_CONFIG.DEFAULT_TEST_BRANCH;
 
 // Custom error classes
 class GitLabAPIError extends Error {
+  public statusCode?: number;
+  
   constructor(
     message: string,
-    public statusCode?: number,
+    statusCode?: number,
     public response?: any
   ) {
     super(message);
     this.name = 'GitLabAPIError';
+    this.statusCode = statusCode;
   }
 }
 
@@ -275,7 +278,7 @@ export class GitLabService {
     try {
       const featureBranch = branchName;
 
-      // Get project information
+      // Get project information (this will fail fast if there's no connectivity)
       const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
       const defaultBranch = projectData.default_branch;
 
@@ -395,7 +398,7 @@ export class GitLabService {
     const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/branches`;
     
     try {
-      const response = await this.makeAPIRequest(createBranchUrl, {
+      await this.makeAPIRequest(createBranchUrl, {
         method: "POST",
         headers: Object.assign({
           "PRIVATE-TOKEN": gitlabToken
@@ -405,20 +408,13 @@ export class GitLabService {
           ref: defaultBranch,
         }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json() as GitLabError;
-        // If branch already exists, that's fine - we'll use it
-        if (errorData.message !== "Branch already exists") {
-          throw new GitLabAPIError(
-            `Failed to create branch '${featureBranch}': ${errorData.message || "Unknown error"}`,
-            response.status,
-            errorData
-          );
-        }
-      }
+      // Branch created successfully
     } catch (error: any) {
       if (error instanceof GitLabAPIError) {
+        // If branch already exists (400 error), that's fine - we'll use it
+        if (error.statusCode === 400 && error.message && error.message.includes('already exists')) {
+          return; // Branch exists, continue
+        }
         throw error;
       }
       throw this.handleGitLabError(error, `create branch '${featureBranch}'`);
@@ -444,19 +440,12 @@ export class GitLabService {
         }, this.DEFAULT_HEADERS),
       });
 
-      const fileExists = response.ok;
-      let fileData: GitLabFile | null = null;
-      let action: 'create' | 'update' = "create";
-
-      if (fileExists) {
-        fileData = await response.json() as GitLabFile;
-        action = "update";
-      }
-
-      return { fileData, action };
+      // File exists, get its data
+      const fileData = await response.json() as GitLabFile;
+      return { fileData, action: 'update' as const };
     } catch (error: any) {
       // If file doesn't exist (404), that's fine - we'll create it
-      if (error.statusCode === 404) {
+      if (error instanceof GitLabAPIError && error.statusCode === 404) {
         return { fileData: null, action: 'create' as const };
       }
       throw this.handleGitLabError(error, 'check file existence');
@@ -501,15 +490,6 @@ export class GitLabService {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json() as GitLabError;
-        throw new GitLabAPIError(
-          errorData.message || "Failed to commit to GitLab",
-          response.status,
-          errorData
-        );
-      }
-
       return await response.json() as GitLabCommit;
     } catch (error: any) {
       if (error instanceof GitLabAPIError) {
@@ -536,13 +516,6 @@ export class GitLabService {
           "PRIVATE-TOKEN": gitlabToken
         }, this.DEFAULT_HEADERS),
       });
-
-      if (!response.ok) {
-        throw new GitLabAPIError(
-          "Failed to fetch merge requests",
-          response.status
-        );
-      }
 
       const mergeRequests = await response.json() as GitLabMergeRequest[];
       return mergeRequests.length > 0 ? mergeRequests[0] : null;
@@ -579,15 +552,6 @@ export class GitLabService {
           squash: true,
         }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json() as GitLabError;
-        throw new GitLabAPIError(
-          errorData.message || "Failed to create merge request",
-          response.status,
-          errorData
-        );
-      }
 
       return await response.json() as GitLabMergeRequest;
     } catch (error: any) {
@@ -726,10 +690,50 @@ export class GitLabService {
    * Make API request with proper error handling
    */
   private static async makeAPIRequest(url: string, options: RequestInit): Promise<Response> {
+    // Create a timeout promise that rejects after 30 seconds
+    const timeoutMs = 30000;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new GitLabNetworkError('Request timed out - please check your connection to GitLab'));
+      }, timeoutMs);
+    });
+
     try {
-      const response = await fetch(url, options);
+      // Race between the fetch and timeout
+      const response = await Promise.race([
+        fetch(url, options),
+        timeoutPromise
+      ]);
+      
+      // If response is not ok, throw an error with status code
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Try to get more detailed error message from response body
+        try {
+          const errorData = await response.json() as GitLabError;
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.error_description) {
+            errorMessage = errorData.error_description;
+          }
+        } catch {
+          // If we can't parse the error response, use the default message
+        }
+        
+        const error = new GitLabAPIError(errorMessage, response.status);
+        error.statusCode = response.status;
+        throw error;
+      }
+      
       return response;
     } catch (error: any) {
+      if (error instanceof GitLabAPIError || error instanceof GitLabNetworkError) {
+        throw error;
+      }
+      
       if (error.name === 'TypeError' && error.message.indexOf('fetch') !== -1) {
         throw new GitLabNetworkError('Network error - unable to connect to GitLab API');
       }

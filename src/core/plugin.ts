@@ -5,7 +5,7 @@ import { ComponentService } from "../services/componentService";
 import {SUCCESS_MESSAGES} from "../config";
 
 // Show the UI (required for inspect panel plugins)
-figma.showUI(__html__, { width: 850, height: 800 });
+figma.showUI(__html__, { width: 1000, height: 900, themeColors: true });
 
 // Store component data for later use
 let componentMap = new Map<string, any>();
@@ -186,20 +186,59 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           throw new Error("Missing required fields for GitLab commit");
         }
 
-        const result = await GitLabService.commitToGitLab(
-          msg.projectId,
-          msg.gitlabToken,
-          msg.commitMessage,
-          msg.filePath || "variables.css",
-          msg.cssData,
-          msg.branchName || "feature/variables"
-        );
+        try {
+          const result = await GitLabService.commitToGitLab(
+            msg.projectId,
+            msg.gitlabToken,
+            msg.commitMessage,
+            msg.filePath || "variables.css",
+            msg.cssData,
+            msg.branchName || "feature/variables"
+          );
 
-        figma.ui.postMessage({
-          type: "commit-success",
-          message: SUCCESS_MESSAGES.COMMIT_SUCCESS,
-          mergeRequestUrl: result && result.mergeRequestUrl,
-        });
+          figma.ui.postMessage({
+            type: "commit-success",
+            message: SUCCESS_MESSAGES.COMMIT_SUCCESS,
+            mergeRequestUrl: result && result.mergeRequestUrl,
+          });
+        } catch (error: any) {
+          // Send specific error information to UI
+          let errorMessage = "Unknown error occurred";
+          let errorType = "unknown";
+          
+          if (error.name === 'GitLabAuthError') {
+            errorType = "auth";
+            errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+          } else if (error.name === 'GitLabNetworkError') {
+            errorType = "network";
+            errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
+          } else if (error.name === 'GitLabAPIError') {
+            if (error.statusCode === 401 || error.statusCode === 403) {
+              errorType = "auth";
+              errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+            } else {
+              errorType = "api";
+              if (error.statusCode === 404) {
+                errorMessage = "Project not found. Please check your project ID.";
+              } else if (error.statusCode === 422) {
+                errorMessage = "Invalid data provided. Please check your settings and try again.";
+              } else if (error.statusCode === 429) {
+                errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+              } else {
+                errorMessage = error.message || "GitLab API error occurred.";
+              }
+            }
+          } else {
+            errorMessage = error.message || "Unknown error occurred";
+          }
+
+          figma.ui.postMessage({
+            type: "commit-error",
+            error: errorMessage,
+            errorType: errorType,
+            statusCode: error.statusCode,
+          });
+        }
         break;
 
       case "commit-component-test":
@@ -213,24 +252,63 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           throw new Error("Missing required fields for component test commit");
         }
 
-        const testResult = await GitLabService.commitComponentTest(
-          msg.projectId,
-          msg.gitlabToken,
-          msg.commitMessage,
-          msg.componentName,
-          msg.testContent,
-          msg.testFilePath ||
-            "components/{componentName}.spec.ts",
-          msg.branchName || "feature/component-tests"
-        );
+        try {
+          const testResult = await GitLabService.commitComponentTest(
+            msg.projectId,
+            msg.gitlabToken,
+            msg.commitMessage,
+            msg.componentName,
+            msg.testContent,
+            msg.testFilePath ||
+              "components/{componentName}.spec.ts",
+            msg.branchName || "feature/component-tests"
+          );
 
-        figma.ui.postMessage({
-          type: "test-commit-success",
-          message:
-            "Successfully committed component test to the feature branch",
-          componentName: msg.componentName,
-          mergeRequestUrl: testResult && testResult.mergeRequestUrl,
-        });
+          figma.ui.postMessage({
+            type: "test-commit-success",
+            message: SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,
+            componentName: msg.componentName,
+            mergeRequestUrl: testResult && testResult.mergeRequestUrl,
+          });
+        } catch (error: any) {
+          // Send specific error information to UI
+          let errorMessage = "Unknown error occurred";
+          let errorType = "unknown";
+          
+          if (error.name === 'GitLabAuthError') {
+            errorType = "auth";
+            errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+          } else if (error.name === 'GitLabNetworkError') {
+            errorType = "network";
+            errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
+          } else if (error.name === 'GitLabAPIError') {
+            if (error.statusCode === 401 || error.statusCode === 403) {
+              errorType = "auth";
+              errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+            } else {
+              errorType = "api";
+              if (error.statusCode === 404) {
+                errorMessage = "Project not found. Please check your project ID.";
+              } else if (error.statusCode === 422) {
+                errorMessage = "Invalid data provided. Please check your settings and try again.";
+              } else if (error.statusCode === 429) {
+                errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+              } else {
+                errorMessage = error.message || "GitLab API error occurred.";
+              }
+            }
+          } else {
+            errorMessage = error.message || "Unknown error occurred";
+          }
+
+          figma.ui.postMessage({
+            type: "test-commit-error",
+            error: errorMessage,
+            errorType: errorType,
+            componentName: msg.componentName,
+            statusCode: error.statusCode,
+          });
+        }
         break;
 
       case "reset-gitlab-settings":
@@ -259,6 +337,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           type: "unit-settings-updated",
           success: true,
         });
+        break;
+
+      case "resize-plugin":
+        // Disabled dynamic resizing - keep consistent size
+        // figma.ui.resize() calls removed to maintain fixed plugin size
         break;
 
       default:
