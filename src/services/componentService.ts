@@ -134,7 +134,7 @@ export class ComponentService {
     return this.componentMap.get(id);
   }
 
-  static generateTest(component: Component, generateAllVariants = false, includeStateTests = true, includeSizeTests = true): string {
+  static generateTest(component: Component, includeStateTests = true, includeSizeTests = true): string {
     const componentName = component.name;
     const kebabName = componentName
       .toLowerCase()
@@ -142,9 +142,8 @@ export class ComponentService {
       .replace(/(^-|-$)/g, "");
 
     const isComponentSet = component.type === "COMPONENT_SET";
-    // TODO: I think the generateAllVariats flag is not needed anymore, as we always generate tests for all variants
-    if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
-      // TODO: if I understand correctly, we could think about moving the generateComponentSetTest method to componentUtils.ts
+    // Always generate tests for all variants when dealing with component sets
+    if (isComponentSet && component.children && component.children.length > 0) {
       return this.generateComponentSetTest(component);
     }
 
@@ -279,13 +278,13 @@ export class ComponentService {
     const processedVariants = new Set<string>();
     const allVariantProps: VariantProps[] = []; // Collect all variant properties for @Input generation
 
-    for (const variant of componentSet.children) {
+    componentSet.children.forEach(variant => {
       try {
         const variantProps = this.parseVariantName(variant.name);
         const testId = variant.name; // Use full variant name as unique ID
         
         if (processedVariants.has(testId)) {
-          continue;
+          return;
         }
         processedVariants.add(testId);
         
@@ -308,7 +307,7 @@ export class ComponentService {
       } catch (error) {
         console.error('Error generating test for variant:', variant.name, error);
       }
-    }
+    });
 
     const result = {
       tests: variantTestParts.join(''),
@@ -329,7 +328,7 @@ export class ComponentService {
     // Split by comma and parse each property
     const parts = variantName.split(',');
     
-    for (const part of parts) {
+    parts.forEach(part => {
       const trimmedPart = part.trim();
       // Match any property in format "PropertyName=Value"
       const propertyMatch = trimmedPart.match(/^([^=]+)=(.+)$/);
@@ -351,7 +350,7 @@ export class ComponentService {
           props.state = propertyValue;
         }
       }
-    }
+    });
     
     // If no properties found, return empty object (no defaults)
     return props;
@@ -382,7 +381,6 @@ export class ComponentService {
       }
     }
 
-    // TODO: can we simplify the second check to '&& styles ?'
     return typeof styles === 'object' && styles !== null ? styles as Record<string, unknown> : {};
   }
 
@@ -539,20 +537,20 @@ ${variantTests}
 
     const resolvedStyles = Object.assign({}, styles);
     
-    for (const property in styles) {
+    Object.keys(styles).forEach(property => {
       if (styles.hasOwnProperty(property)) {
         const value = styles[property];
         if (typeof value === 'string') {
           resolvedStyles[property] = this.replaceVariableIdsWithNames(value);
         }
       }
-    }
+    });
 
     // Merge text styles into resolved styles
     if (textElements && textElements.length > 0) {
       textElements.forEach(textElement => {
         if (textElement.textStyles) {
-          for (const key in textElement.textStyles) {
+          Object.keys(textElement.textStyles).forEach(key => {
             if (textElement.textStyles.hasOwnProperty(key)) {
               const value = textElement.textStyles[key];
               if (value) {
@@ -562,7 +560,7 @@ ${variantTests}
                 resolvedStyles[kebabKey] = resolvedValue;
               }
             }
-          }
+          });
         }
       });
     }
@@ -583,13 +581,13 @@ ${variantTests}
       return match;
     }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
       const varId = match.replace(/var\(--([^)]+)\)/, '$1');
-      for (const variable of this.allVariables.values()) {
+      Array.from(this.allVariables.values()).forEach(variable => {
         const figmaVariable = variable as any; // Figma variable object
         if (figmaVariable && figmaVariable.id && (figmaVariable.id.indexOf(varId) !== -1 || varId.indexOf(figmaVariable.id) !== -1)) {
           const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
           return `var(--${formattedName})`;
         }
-      }
+      });
       return match;
     });
   }

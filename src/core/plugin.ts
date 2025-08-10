@@ -2,6 +2,7 @@ import { PluginMessage } from "../types";
 import { GitLabService } from "../services/gitlabService";
 import { CSSExportService } from "../services/cssExportService";
 import { ComponentService } from "../services/componentService";
+import {SUCCESS_MESSAGES} from "../config";
 
 // Show the UI (required for inspect panel plugins)
 figma.showUI(__html__, { width: 850, height: 800 });
@@ -29,14 +30,14 @@ async function collectDocumentData() {
       const valuesByModeEntries = [];
 
       // Handle valuesByMode in a TypeScript-friendly way
-      for (const modeId in variable.valuesByMode) {
+      Object.keys(variable.valuesByMode).forEach(modeId => {
         const value = variable.valuesByMode[modeId];
         const mode = collection.modes.find((m) => m.modeId === modeId);
         valuesByModeEntries.push({
           modeName: mode ? mode.name : "Unknown",
           value: value,
         });
-      }
+      });
 
       return {
         id: variable.id,
@@ -137,7 +138,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
         const testContent = ComponentService.generateTest(
           component,
-          msg.generateAllVariants,
           msg.includeStateTests !== false // Default to true
         );
         figma.ui.postMessage({
@@ -145,7 +145,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           componentName: msg.componentName || component.name,
           testContent: testContent,
           isComponentSet: component.type === "COMPONENT_SET",
-          hasAllVariants: msg.generateAllVariants,
           forCommit: msg.forCommit,
         });
         break;
@@ -198,7 +197,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
         figma.ui.postMessage({
           type: "commit-success",
-          message: "Successfully committed changes to the feature branch",
+          message: SUCCESS_MESSAGES.COMMIT_SUCCESS,
           mergeRequestUrl: result && result.mergeRequestUrl,
         });
         break;

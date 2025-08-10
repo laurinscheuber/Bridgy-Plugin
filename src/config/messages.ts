@@ -56,21 +56,3 @@ export const SUCCESS_MESSAGES = {
   UNIT_SETTINGS_RESET: 'Unit settings reset successfully'
 } as const;
 
-// Info Messages
-export const INFO_MESSAGES = {
-  NO_VARIANTS_FOUND: 'No variants found for component',
-  NO_SIZE_VARIANTS: 'No size variants found, returning empty string',
-  NO_TEXT_ELEMENT: 'No text element found for style testing',
-  NO_SUITABLE_ELEMENT: 'No suitable element found to test styles',
-  USING_FALLBACK: 'Using fallback approach for {feature}',
-  MIGRATION_COMPLETE: 'Settings migration completed',
-  LEGACY_CLEANUP: 'Legacy settings cleaned up'
-} as const;
-
-// Warning Messages  
-export const WARNING_MESSAGES = {
-  DEPRECATED_FEATURE: 'This feature is deprecated and will be removed in a future version',
-  INCOMPLETE_DATA: 'Some data may be incomplete',
-  PERFORMANCE_WARNING: 'This operation may take a while for large components',
-  BROWSER_COMPATIBILITY: 'Some features may not work in older browsers'
-} as const;

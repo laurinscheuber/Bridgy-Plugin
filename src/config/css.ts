@@ -1,15 +1,4 @@
-// CSS Generation Configuration
-export const CSS_CONFIG = {
-  PREFIXES: {
-    CSS_VARIABLE: '--',
-    SCSS_VARIABLE: '$'
-  },
-  DEFAULT_FORMAT: 'css' as const,
-  COLOR_CONVERSION: {
-    RGB_MULTIPLIER: 255,
-    ALPHA_PRECISION: 2
-  }
-} as const;
+
 
 // CSS Units Configuration
 export const CSS_UNITS = {
@@ -131,36 +120,5 @@ export const CSS_PROPERTIES = {
     'grid-column', 'gridColumn',
     'grid-row', 'gridRow',
     'grid-area', 'gridArea'
-  ],
-
-  // Size-related properties for responsive testing
-  TESTABLE_SIZE: [
-    'padding',
-    'font-size',
-    'line-height',
-    'border-radius',
-    'gap'
-  ] as const,
-
-  // Size properties that should be commented out in tests
-  COMMENTED_SIZE: [
-    'width',
-    'height', 
-    'min-width',
-    'min-height',
-    'max-width',
-    'max-height',
-    'justify-content',
-    'justifyContent',
-    'align-items', 
-    'alignItems',
-    'display',
-    'flex-direction',
-    'flexDirection',
-    'position',
-    'top',
-    'left',
-    'right',
-    'bottom'
-  ] as const
+  ]
 } as const;

@@ -11,24 +11,6 @@ export class UnitsService {
     groups: {}
   };
 
-  // Available CSS units
-  static readonly AVAILABLE_UNITS = CSS_UNITS.AVAILABLE;
-
-  // Default unit mappings based on variable name patterns
-  private static readonly DEFAULT_UNIT_PATTERNS = (function() {
-    const patterns: any = {};
-
-    // Unitless values from config
-    CSS_UNITS.UNITLESS_PATTERNS.forEach(pattern => {
-      patterns[pattern] = 'none';
-    });
-    
-    // Default to px for all size-related values
-    patterns['default'] = CSS_UNITS.DEFAULT;
-    
-    return patterns;
-  })();
-
   static getDefaultUnit(variableName: string): string {
     const name = variableName.toLowerCase();
     
@@ -118,7 +100,6 @@ export class UnitsService {
     try {
       const figmaFileId = figma.root.id;
       const settingsKey = `unit-settings-${figmaFileId}`;
-      
       
       // Try to load from shared document storage first
       const sharedSettings = figma.root.getSharedPluginData(

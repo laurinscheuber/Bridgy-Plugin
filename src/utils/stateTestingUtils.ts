@@ -41,20 +41,6 @@ export const INTERACTIVE_STATES: StateTestConfig[] = [
   }
 ];
 
-// Size variants that might exist
-export const SIZE_VARIANTS = ['sm', 'base', 'lg', 'xl'];
-
-// Size-related properties that typically change
-export const SIZE_PROPERTIES = [
-  'padding',
-  'font-size',
-  'line-height',
-  'height',
-  'min-height',
-  'width',
-  'min-width'
-];
-
 /**
  * Determines if a property should be tested for interactive states
  */
@@ -230,76 +216,15 @@ ${propertyChecks}
 }
 
 /**
- * Generates size variant tests for components that have multiple sizes
- */
-export function generateSizeVariantTests(
-  componentSelector: string,
-  componentName: string
-): string {
-  const sizeTests: string[] = [];
-  
-  // Test different size variants if they exist
-  const testCode = `
-  it('should have correct styles for different sizes', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    // Test size variants by checking for size-specific CSS classes or attributes
-    const sizeVariants = ['sm', 'base', 'lg', 'xl'];
-    const sizeProperties = ['padding', 'font-size', 'height', 'min-height'];
-    
-    sizeVariants.forEach(size => {
-      // Check if this size variant has specific styles
-      const sizeSelector = \`${componentSelector}--\${size}\`; // BEM naming
-      const altSizeSelector = \`${componentSelector}.\${size}\`;  // Alternative naming
-      
-      sizeProperties.forEach(property => {
-        // TODO: Please check if these selectors still match the component's implementation
-        const bemValue = getCssPropertyForRule(sizeSelector, '', property);
-        const altValue = getCssPropertyForRule(altSizeSelector, '', property);
-        
-        if (bemValue || altValue) {
-          const value = bemValue || altValue;
-          console.log(\`Size \${size} - \${property}: \${value}\`);
-          expect(value).toBeDefined();
-        }
-      });
-    });
-  });`;
-  
-  return testCode;
-}
-
-/**
- * Filters style properties to only include those relevant for state testing
- */
-export function filterInteractiveProperties(styles: Record<string, any>): Record<string, any> {
-  const filtered: Record<string, any> = {};
-  
-  for (const key in styles) {
-    if (styles.hasOwnProperty(key) && shouldTestPropertyForState(key)) {
-      filtered[key] = styles[key];
-    }
-  }
-  
-  return filtered;
-}
-
-/**
  * Analyzes component variants to find style differences between states
  */
 export function analyzeComponentStateVariants(variants: Component[]): Map<string, Map<string, any>> {
-  console.log('DEBUG: analyzeComponentStateVariants called with', variants.length, 'variants');
   const stateStyleMap = new Map<string, Map<string, any>>();
   
   // Process each variant to extract state and styles
   variants.forEach((variant, index) => {
-    console.log(`DEBUG: Processing variant ${index}: "${variant.name}"`);
-    
     // Parse variant name to extract state (e.g., "State=hover, Size=small")
     const stateName = extractStateFromVariantName(variant.name);
-    console.log(`DEBUG: Extracted state name: "${stateName}"`);
-    
     if (!stateName) {
       console.log('DEBUG: No state name found, skipping variant');
       return;
@@ -318,10 +243,8 @@ export function analyzeComponentStateVariants(variants: Component[]): Map<string
     // Store styles for this state
     const styleMap = new Map<string, any>(objectEntries(styles));
     stateStyleMap.set(stateName, styleMap);
-    console.log(`DEBUG: Stored ${styleMap.size} styles for state "${stateName}"`);
   });
   
-  console.log('DEBUG: Final state style map has', stateStyleMap.size, 'states:', Array.from(stateStyleMap.keys()));
   return stateStyleMap;
 }
 

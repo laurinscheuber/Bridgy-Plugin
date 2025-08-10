@@ -1,5 +1,5 @@
 import { GitLabSettings } from "../types";
-import { API_CONFIG, GIT_CONFIG, FILE_PATHS, ERROR_MESSAGES, LoggingService } from "../config";
+import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService } from "../config";
 
 // Types for improved type safety
 interface GitLabProject {
@@ -7,14 +7,6 @@ interface GitLabProject {
   name: string;
   default_branch: string;
   web_url: string;
-}
-
-interface GitLabBranch {
-  name: string;
-  commit: {
-    id: string;
-    title: string;
-  };
 }
 
 interface GitLabFile {

@@ -1,24 +1,5 @@
 // Testing Configuration
 export const TEST_CONFIG = {
-  SELECTORS: {
-    DEFAULT_ELEMENTS: 'button, div, span, a, p, h1, h2, h3, h4, h5, h6',
-    COMPONENT_PATTERN: '.{componentName}',
-    SIZE_MODIFIER_PATTERNS: ['{selector}--{size}', '{selector}.{size}']
-  },
-  STATES: {
-    PSEUDO: ['hover', 'active', 'focus', 'disabled'] as const,
-    CUSTOM: ['loading', 'error', 'success'] as const,
-    INTERACTIVE: ['hover', 'active', 'focus', 'disabled'] as const
-  },
-  SIZES: {
-    STANDARD: ['xs', 'sm', 'md', 'base', 'lg', 'xl', 'xxl'] as const,
-    ALTERNATIVE: ['small', 'medium', 'large', 'x-small', 'x-large'] as const,
-    DEFAULT_SET: ['sm', 'base', 'lg', 'xl'] as const
-  },
-  IMPORTS: {
-    ANGULAR_TESTING: '@angular/core/testing',
-    ANGULAR_CORE: '@angular/core'
-  },
   STATE_SPECIFIC_PROPERTIES: {
     hover: [
       'background-color', 'backgroundColor',
@@ -67,7 +48,6 @@ export const PATTERNS = {
   },
   COMPONENT_NAME: {
     STATE: /State=([^,]+)/i,
-    SIZE: /Size=([^,]+)/i,
     VARIANT: /Variant=([^,]+)/i,
     PROPERTY: /Property\s*\d*\s*=\s*([^,]+)/i,
     TYPE: /Type=([^,]+)/i

@@ -10,7 +10,7 @@
     "dist/config/constants.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.NUMERIC_CONSTANTS = exports.PLUGIN_CONFIG = exports.FILE_PATHS = exports.GIT_CONFIG = exports.API_CONFIG = void 0;
+      exports.GIT_CONFIG = exports.API_CONFIG = void 0;
       exports.API_CONFIG = {
         GITLAB_BASE_URL: "https://gitlab.fhnw.ch/api/v4",
         REQUEST_TIMEOUT: 3e4,
@@ -27,28 +27,6 @@
           tests: "Add component test for {componentName}"
         }
       };
-      exports.FILE_PATHS = {
-        DEFAULT_CSS_PATH: "src/variables.css",
-        DEFAULT_TEST_PATH: "components/{componentName}.spec.ts",
-        STORAGE_KEY_PATTERNS: {
-          gitlab: "gitlab-settings-{fileId}",
-          units: "unit-settings-{fileId}",
-          meta: "{key}-meta",
-          token: "{key}-token"
-        }
-      };
-      exports.PLUGIN_CONFIG = {
-        NAME: "DesignSync",
-        UI_WIDTH: 850,
-        UI_HEIGHT: 800,
-        SUPPORTED_FORMATS: ["css", "scss"]
-      };
-      exports.NUMERIC_CONSTANTS = {
-        RGB_MULTIPLIER: 255,
-        ALPHA_PRECISION: 2,
-        DEFAULT_TIMEOUT: 3e4,
-        MAX_RETRIES: 3
-      };
     }
   });
 
@@ -57,18 +35,7 @@
     "dist/config/css.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.CSS_PROPERTIES = exports.CSS_UNITS = exports.CSS_CONFIG = void 0;
-      exports.CSS_CONFIG = {
-        PREFIXES: {
-          CSS_VARIABLE: "--",
-          SCSS_VARIABLE: "$"
-        },
-        DEFAULT_FORMAT: "css",
-        COLOR_CONVERSION: {
-          RGB_MULTIPLIER: 255,
-          ALPHA_PRECISION: 2
-        }
-      };
+      exports.CSS_PROPERTIES = exports.CSS_UNITS = void 0;
       exports.CSS_UNITS = {
         AVAILABLE: [
           "px",
@@ -236,35 +203,6 @@
           "gridRow",
           "grid-area",
           "gridArea"
-        ],
-        // Size-related properties for responsive testing
-        TESTABLE_SIZE: [
-          "padding",
-          "font-size",
-          "line-height",
-          "border-radius",
-          "gap"
-        ],
-        // Size properties that should be commented out in tests
-        COMMENTED_SIZE: [
-          "width",
-          "height",
-          "min-width",
-          "min-height",
-          "max-width",
-          "max-height",
-          "justify-content",
-          "justifyContent",
-          "align-items",
-          "alignItems",
-          "display",
-          "flex-direction",
-          "flexDirection",
-          "position",
-          "top",
-          "left",
-          "right",
-          "bottom"
         ]
       };
     }
@@ -277,25 +215,6 @@
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.PATTERNS = exports.TEST_CONFIG = void 0;
       exports.TEST_CONFIG = {
-        SELECTORS: {
-          DEFAULT_ELEMENTS: "button, div, span, a, p, h1, h2, h3, h4, h5, h6",
-          COMPONENT_PATTERN: ".{componentName}",
-          SIZE_MODIFIER_PATTERNS: ["{selector}--{size}", "{selector}.{size}"]
-        },
-        STATES: {
-          PSEUDO: ["hover", "active", "focus", "disabled"],
-          CUSTOM: ["loading", "error", "success"],
-          INTERACTIVE: ["hover", "active", "focus", "disabled"]
-        },
-        SIZES: {
-          STANDARD: ["xs", "sm", "md", "base", "lg", "xl", "xxl"],
-          ALTERNATIVE: ["small", "medium", "large", "x-small", "x-large"],
-          DEFAULT_SET: ["sm", "base", "lg", "xl"]
-        },
-        IMPORTS: {
-          ANGULAR_TESTING: "@angular/core/testing",
-          ANGULAR_CORE: "@angular/core"
-        },
         STATE_SPECIFIC_PROPERTIES: {
           hover: [
             "background-color",
@@ -354,7 +273,6 @@
         },
         COMPONENT_NAME: {
           STATE: /State=([^,]+)/i,
-          SIZE: /Size=([^,]+)/i,
           VARIANT: /Variant=([^,]+)/i,
           PROPERTY: /Property\s*\d*\s*=\s*([^,]+)/i,
           TYPE: /Type=([^,]+)/i
@@ -372,7 +290,7 @@
     "dist/config/messages.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.WARNING_MESSAGES = exports.INFO_MESSAGES = exports.SUCCESS_MESSAGES = exports.ERROR_MESSAGES = void 0;
+      exports.SUCCESS_MESSAGES = exports.ERROR_MESSAGES = void 0;
       exports.ERROR_MESSAGES = {
         // General validation errors
         INVALID_SETTINGS: "Invalid settings provided",
@@ -420,21 +338,6 @@
         MERGE_REQUEST_CREATED: "Merge request created successfully",
         UNIT_SETTINGS_SAVED: "Unit settings saved successfully",
         UNIT_SETTINGS_RESET: "Unit settings reset successfully"
-      };
-      exports.INFO_MESSAGES = {
-        NO_VARIANTS_FOUND: "No variants found for component",
-        NO_SIZE_VARIANTS: "No size variants found, returning empty string",
-        NO_TEXT_ELEMENT: "No text element found for style testing",
-        NO_SUITABLE_ELEMENT: "No suitable element found to test styles",
-        USING_FALLBACK: "Using fallback approach for {feature}",
-        MIGRATION_COMPLETE: "Settings migration completed",
-        LEGACY_CLEANUP: "Legacy settings cleaned up"
-      };
-      exports.WARNING_MESSAGES = {
-        DEPRECATED_FEATURE: "This feature is deprecated and will be removed in a future version",
-        INCOMPLETE_DATA: "Some data may be incomplete",
-        PERFORMANCE_WARNING: "This operation may take a while for large components",
-        BROWSER_COMPATIBILITY: "Some features may not work in older browsers"
       };
     }
   });
@@ -1382,15 +1285,6 @@
         collections: {},
         groups: {}
       };
-      UnitsService.AVAILABLE_UNITS = config_1.CSS_UNITS.AVAILABLE;
-      UnitsService.DEFAULT_UNIT_PATTERNS = function() {
-        const patterns = {};
-        config_1.CSS_UNITS.UNITLESS_PATTERNS.forEach((pattern) => {
-          patterns[pattern] = "none";
-        });
-        patterns["default"] = config_1.CSS_UNITS.DEFAULT;
-        return patterns;
-      }();
     }
   });
 
@@ -1845,14 +1739,12 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
     "dist/utils/stateTestingUtils.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.SIZE_PROPERTIES = exports.SIZE_VARIANTS = exports.INTERACTIVE_STATES = exports.STATE_SPECIFIC_PROPERTIES = exports.STATIC_PROPERTIES = exports.INTERACTIVE_PROPERTIES = void 0;
+      exports.INTERACTIVE_STATES = exports.STATE_SPECIFIC_PROPERTIES = exports.STATIC_PROPERTIES = exports.INTERACTIVE_PROPERTIES = void 0;
       exports.shouldTestPropertyForState = shouldTestPropertyForState;
       exports.toKebabCase = toKebabCase;
       exports.toCamelCase = toCamelCase;
       exports.generateTestHelpers = generateTestHelpers;
       exports.generateStateTests = generateStateTests;
-      exports.generateSizeVariantTests = generateSizeVariantTests;
-      exports.filterInteractiveProperties = filterInteractiveProperties;
       exports.analyzeComponentStateVariants = analyzeComponentStateVariants;
       exports.findStyleDifferences = findStyleDifferences;
       exports.generateStateTestsFromVariants = generateStateTestsFromVariants;
@@ -1882,16 +1774,6 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
           pseudoClass: ":disabled",
           properties: exports.STATE_SPECIFIC_PROPERTIES.disabled
         }
-      ];
-      exports.SIZE_VARIANTS = ["sm", "base", "lg", "xl"];
-      exports.SIZE_PROPERTIES = [
-        "padding",
-        "font-size",
-        "line-height",
-        "height",
-        "min-height",
-        "width",
-        "min-width"
       ];
       function shouldTestPropertyForState(property) {
         const kebabProperty = property.replace(/([A-Z])/g, "-$1").toLowerCase();
@@ -2013,53 +1895,10 @@ ${propertyChecks}
         });
         return tests.join("\n");
       }
-      function generateSizeVariantTests(componentSelector, componentName) {
-        const sizeTests = [];
-        const testCode = `
-  it('should have correct styles for different sizes', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    // Test size variants by checking for size-specific CSS classes or attributes
-    const sizeVariants = ['sm', 'base', 'lg', 'xl'];
-    const sizeProperties = ['padding', 'font-size', 'height', 'min-height'];
-    
-    sizeVariants.forEach(size => {
-      // Check if this size variant has specific styles
-      const sizeSelector = \`${componentSelector}--\${size}\`; // BEM naming
-      const altSizeSelector = \`${componentSelector}.\${size}\`;  // Alternative naming
-      
-      sizeProperties.forEach(property => {
-        // TODO: Please check if these selectors still match the component's implementation
-        const bemValue = getCssPropertyForRule(sizeSelector, '', property);
-        const altValue = getCssPropertyForRule(altSizeSelector, '', property);
-        
-        if (bemValue || altValue) {
-          const value = bemValue || altValue;
-          console.log(\`Size \${size} - \${property}: \${value}\`);
-          expect(value).toBeDefined();
-        }
-      });
-    });
-  });`;
-        return testCode;
-      }
-      function filterInteractiveProperties(styles) {
-        const filtered = {};
-        for (const key in styles) {
-          if (styles.hasOwnProperty(key) && shouldTestPropertyForState(key)) {
-            filtered[key] = styles[key];
-          }
-        }
-        return filtered;
-      }
       function analyzeComponentStateVariants(variants) {
-        console.log("DEBUG: analyzeComponentStateVariants called with", variants.length, "variants");
         const stateStyleMap = /* @__PURE__ */ new Map();
         variants.forEach((variant, index) => {
-          console.log(`DEBUG: Processing variant ${index}: "${variant.name}"`);
           const stateName = extractStateFromVariantName(variant.name);
-          console.log(`DEBUG: Extracted state name: "${stateName}"`);
           if (!stateName) {
             console.log("DEBUG: No state name found, skipping variant");
             return;
@@ -2074,9 +1913,7 @@ ${propertyChecks}
           }
           const styleMap = new Map((0, es2015_helpers_1.objectEntries)(styles));
           stateStyleMap.set(stateName, styleMap);
-          console.log(`DEBUG: Stored ${styleMap.size} styles for state "${stateName}"`);
         });
-        console.log("DEBUG: Final state style map has", stateStyleMap.size, "states:", Array.from(stateStyleMap.keys()));
         return stateStyleMap;
       }
       function extractStateFromVariantName(variantName) {
@@ -2146,150 +1983,6 @@ ${propertyChecks}
     }
   });
 
-  // dist/utils/sizeVariantUtils.js
-  var require_sizeVariantUtils = __commonJS({
-    "dist/utils/sizeVariantUtils.js"(exports) {
-      "use strict";
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.generateSizeVariantTests = generateSizeVariantTests;
-      exports.generateBasicSizeTests = generateBasicSizeTests;
-      var config_1 = require_config();
-      var es2015_helpers_1 = require_es2015_helpers();
-      var TESTABLE_SIZE_PROPERTIES = config_1.CSS_PROPERTIES.TESTABLE_SIZE;
-      var COMMENTED_SIZE_PROPERTIES = config_1.CSS_PROPERTIES.COMMENTED_SIZE;
-      function generateSizeVariantTests(componentSelector, componentName, allVariants) {
-        config_1.LoggingService.debug("generateSizeVariantTests called", {
-          componentSelector,
-          componentName,
-          variantCount: allVariants ? allVariants.length : 0,
-          variants: allVariants ? allVariants.map((v) => v.name) : "none"
-        }, config_1.LoggingService.CATEGORIES.TESTING);
-        const sizeVariantMap = /* @__PURE__ */ new Map();
-        if (allVariants && allVariants.length > 0) {
-          allVariants.forEach((variant) => {
-            config_1.LoggingService.debug("Checking variant", { variantName: variant.name }, config_1.LoggingService.CATEGORIES.TESTING);
-            const sizeMatch = variant.name.match(config_1.PATTERNS.COMPONENT_NAME.SIZE);
-            const stateMatch = variant.name.match(config_1.PATTERNS.COMPONENT_NAME.STATE);
-            config_1.LoggingService.debug("Size match result", { sizeMatch, variant: variant.name }, config_1.LoggingService.CATEGORIES.TESTING);
-            if (sizeMatch) {
-              const sizeName = sizeMatch[1].toLowerCase();
-              const stateName = stateMatch && stateMatch[1] ? stateMatch[1].toLowerCase() : "default";
-              config_1.LoggingService.debug("Found size variant", { sizeName, stateName }, config_1.LoggingService.CATEGORIES.TESTING);
-              let styles;
-              try {
-                styles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
-              } catch (e) {
-                config_1.LoggingService.error("Error parsing variant styles", e, config_1.LoggingService.CATEGORIES.TESTING);
-                styles = {};
-              }
-              const existingVariants = sizeVariantMap.get(sizeName) || [];
-              existingVariants.push({
-                name: sizeName,
-                selector: `${componentSelector}--${sizeName}`,
-                // BEM naming convention
-                expectedStyles: styles,
-                state: stateName
-              });
-              sizeVariantMap.set(sizeName, existingVariants);
-            }
-          });
-        }
-        config_1.LoggingService.debug("Size variants processing complete", {
-          uniqueSizes: sizeVariantMap.size,
-          sizes: Array.from(sizeVariantMap.keys())
-        }, config_1.LoggingService.CATEGORIES.TESTING);
-        if (sizeVariantMap.size === 0) {
-          config_1.LoggingService.debug("No size variants found, returning empty string", void 0, config_1.LoggingService.CATEGORIES.TESTING);
-          return "";
-        }
-        const sizeVariants = [];
-        sizeVariantMap.forEach((variants, sizeName) => {
-          const defaultVariant = variants.find((v) => v.state === "default") || variants[0];
-          if (defaultVariant) {
-            sizeVariants.push(defaultVariant);
-          }
-        });
-        const sizeTestCode = `
-  it('should have correct styles for different size variants', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    ${sizeVariants.map((variant) => {
-          const sizeSpecificProps = {};
-          const sizeRelatedProperties = ["padding", "gap", "font-size", "line-height", "width", "height", "min-width", "min-height", "margin"];
-          sizeRelatedProperties.forEach((prop) => {
-            if (variant.expectedStyles[prop]) {
-              sizeSpecificProps[prop] = variant.expectedStyles[prop];
-            }
-            const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-            if (variant.expectedStyles[camelProp]) {
-              sizeSpecificProps[camelProp] = variant.expectedStyles[camelProp];
-            }
-          });
-          const testCases = [];
-          (0, es2015_helpers_1.objectEntries)(sizeSpecificProps).forEach(([prop, value]) => {
-            const kebabProp = prop.replace(/([A-Z])/g, "-$1").toLowerCase();
-            testCases.push(`checkStyleProperty('${variant.selector}', '', '${kebabProp}', '${value}');`);
-          });
-          if (!testCases.length) {
-            return `
-    // ${variant.name} size variant - no size-specific properties found`;
-          }
-          return `
-    // Test ${variant.name} size variant
-    ${testCases.join("\n    ")}`;
-        }).join("\n")}
-    
-    // Also test hover states for each size if they have different padding
-    ${sizeVariantMap.size > 0 ? Array.from(sizeVariantMap.entries()).map(([sizeName, variants]) => {
-          const hoverVariant = variants.find((v) => v.state === "hover");
-          if (!hoverVariant)
-            return "";
-          const defaultVariant = variants.find((v) => v.state === "default") || variants[0];
-          if (defaultVariant && hoverVariant.expectedStyles.padding !== defaultVariant.expectedStyles.padding) {
-            return `
-    // Test ${sizeName} size hover state padding
-    checkStyleProperty('.${componentSelector.substring(1)}--${sizeName}', ':hover', 'padding', '${hoverVariant.expectedStyles.padding}');`;
-          }
-          return "";
-        }).join("") : ""}
-  });`;
-        return sizeTestCode;
-      }
-      function generateBasicSizeTests(componentSelector) {
-        return `
-  it('should support different size variants', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    // Common size variant naming conventions
-    const sizeVariants = TEST_CONFIG.SIZES.STANDARD;
-    const altSizeVariants = TEST_CONFIG.SIZES.ALTERNATIVE;
-    
-    // Properties that typically change with size
-    const sizeProperties = ['padding', 'font-size', 'line-height', 'border-radius', 'gap', 'width', 'height', 'min-width', 'min-height'];
-    
-    // Test both standard size variants and alternative naming
-    const allSizeVariants = sizeVariants.concat(altSizeVariants);
-    
-    allSizeVariants.forEach(size => {
-      sizeProperties.forEach(property => {
-        // Check BEM naming: .component--size
-        const bemValue = getCssPropertyForRule('${componentSelector}--' + size, '', property);
-        // Check modifier class: .component.size
-        const modifierValue = getCssPropertyForRule('${componentSelector}.' + size, '', property);
-        
-        const value = bemValue || modifierValue;
-        if (value) {
-          expect(value).toBeDefined();
-        }
-      });
-    });
-  });`;
-      }
-    }
-  });
-
   // dist/utils/componentUtils.js
   var require_componentUtils = __commonJS({
     "dist/utils/componentUtils.js"(exports) {
@@ -2302,7 +1995,6 @@ ${propertyChecks}
       exports.generateStyleChecks = generateStyleChecks;
       exports.createTestWithStyleChecks = createTestWithStyleChecks;
       var stateTestingUtils_1 = require_stateTestingUtils();
-      var sizeVariantUtils_1 = require_sizeVariantUtils();
       var config_1 = require_config();
       var es2015_helpers_1 = require_es2015_helpers();
       function hexToRgb(hex) {
@@ -2510,20 +2202,6 @@ ${propertyChecks}
             }
           }
         }
-        let sizeTestsCode = "";
-        if (includeSizeTests) {
-          config_1.LoggingService.debug("Size testing configuration", {
-            hasComponentVariants: !!(componentVariants && componentVariants.length),
-            variantCount: componentVariants && componentVariants.length ? componentVariants.length : 0
-          }, config_1.LoggingService.CATEGORIES.TESTING);
-          if (componentVariants && componentVariants.length > 0) {
-            config_1.LoggingService.debug("Using Figma variant data for size testing", void 0, config_1.LoggingService.CATEGORIES.TESTING);
-            sizeTestsCode = (0, sizeVariantUtils_1.generateSizeVariantTests)(componentSelector, componentName, componentVariants);
-          } else {
-            config_1.LoggingService.debug("Using basic size testing approach", void 0, config_1.LoggingService.CATEGORIES.TESTING);
-            sizeTestsCode = (0, sizeVariantUtils_1.generateBasicSizeTests)(componentSelector);
-          }
-        }
         const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
         const helperFunctions = hasVariantTests ? `
 ${(0, stateTestingUtils_1.generateTestHelpers)()}
@@ -2557,7 +2235,7 @@ ${styleCheckCode}
     } else {
       LoggingService.warn('No suitable element found to test styles', undefined, LoggingService.CATEGORIES.TESTING);
     }
-  });${stateTestsCode}${sizeTestsCode}${generateTextContentTests(textElements, componentVariants)}
+  });${stateTestsCode}${generateTextContentTests(textElements, componentVariants)}
 });`;
       }
     }
@@ -2687,11 +2365,11 @@ ${styleCheckCode}
         static getComponentById(id) {
           return this.componentMap.get(id);
         }
-        static generateTest(component, generateAllVariants = false, includeStateTests = true, includeSizeTests = true) {
+        static generateTest(component, includeStateTests = true, includeSizeTests = true) {
           const componentName = component.name;
           const kebabName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
           const isComponentSet = component.type === "COMPONENT_SET";
-          if (isComponentSet && generateAllVariants && component.children && component.children.length > 0) {
+          if (isComponentSet && component.children && component.children.length > 0) {
             return this.generateComponentSetTest(component);
           }
           const componentVariants = isComponentSet ? component.children : void 0;
@@ -2790,12 +2468,12 @@ ${styleCheckCode}
           const variantTestParts = [];
           const processedVariants = /* @__PURE__ */ new Set();
           const allVariantProps = [];
-          for (const variant of componentSet.children) {
+          componentSet.children.forEach((variant) => {
             try {
               const variantProps = this.parseVariantName(variant.name);
               const testId = variant.name;
               if (processedVariants.has(testId)) {
-                continue;
+                return;
               }
               processedVariants.add(testId);
               allVariantProps.push(variantProps);
@@ -2812,7 +2490,7 @@ ${styleCheckCode}
             } catch (error) {
               console.error("Error generating test for variant:", variant.name, error);
             }
-          }
+          });
           const result = {
             tests: variantTestParts.join(""),
             variantProps: allVariantProps
@@ -2826,7 +2504,7 @@ ${styleCheckCode}
           }
           const props = {};
           const parts = variantName.split(",");
-          for (const part of parts) {
+          parts.forEach((part) => {
             const trimmedPart = part.trim();
             const propertyMatch = trimmedPart.match(/^([^=]+)=(.+)$/);
             if (propertyMatch) {
@@ -2838,7 +2516,7 @@ ${styleCheckCode}
                 props.state = propertyValue;
               }
             }
-          }
+          });
           return props;
         }
         static parseStyles(styles) {
@@ -2992,18 +2670,18 @@ ${variantTests}
             return styles;
           }
           const resolvedStyles = Object.assign({}, styles);
-          for (const property in styles) {
+          Object.keys(styles).forEach((property) => {
             if (styles.hasOwnProperty(property)) {
               const value = styles[property];
               if (typeof value === "string") {
                 resolvedStyles[property] = this.replaceVariableIdsWithNames(value);
               }
             }
-          }
+          });
           if (textElements && textElements.length > 0) {
             textElements.forEach((textElement) => {
               if (textElement.textStyles) {
-                for (const key in textElement.textStyles) {
+                Object.keys(textElement.textStyles).forEach((key) => {
                   if (textElement.textStyles.hasOwnProperty(key)) {
                     const value = textElement.textStyles[key];
                     if (value) {
@@ -3012,7 +2690,7 @@ ${variantTests}
                       resolvedStyles[kebabKey] = resolvedValue;
                     }
                   }
-                }
+                });
               }
             });
           }
@@ -3030,13 +2708,13 @@ ${variantTests}
             return match;
           }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
             const varId = match.replace(/var\(--([^)]+)\)/, "$1");
-            for (const variable of this.allVariables.values()) {
+            Array.from(this.allVariables.values()).forEach((variable) => {
               const figmaVariable = variable;
               if (figmaVariable && figmaVariable.id && (figmaVariable.id.indexOf(varId) !== -1 || varId.indexOf(figmaVariable.id) !== -1)) {
                 const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
                 return `var(--${formattedName})`;
               }
-            }
+            });
             return match;
           });
         }
@@ -3365,6 +3043,7 @@ ${Object.keys(cssProperties).map((property) => {
       var gitlabService_1 = require_gitlabService();
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
+      var config_1 = require_config();
       figma.showUI(__html__, { width: 850, height: 800 });
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -3377,14 +3056,14 @@ ${Object.keys(cssProperties).map((property) => {
               if (!variable)
                 return null;
               const valuesByModeEntries = [];
-              for (const modeId in variable.valuesByMode) {
+              Object.keys(variable.valuesByMode).forEach((modeId) => {
                 const value = variable.valuesByMode[modeId];
                 const mode = collection.modes.find((m) => m.modeId === modeId);
                 valuesByModeEntries.push({
                   modeName: mode ? mode.name : "Unknown",
                   value
                 });
-              }
+              });
               return {
                 id: variable.id,
                 name: variable.name,
@@ -3467,7 +3146,6 @@ ${Object.keys(cssProperties).map((property) => {
               }
               const testContent = componentService_1.ComponentService.generateTest(
                 component,
-                msg.generateAllVariants,
                 msg.includeStateTests !== false
                 // Default to true
               );
@@ -3476,7 +3154,6 @@ ${Object.keys(cssProperties).map((property) => {
                 componentName: msg.componentName || component.name,
                 testContent,
                 isComponentSet: component.type === "COMPONENT_SET",
-                hasAllVariants: msg.generateAllVariants,
                 forCommit: msg.forCommit
               });
               break;
@@ -3507,7 +3184,7 @@ ${Object.keys(cssProperties).map((property) => {
               const result = yield gitlabService_1.GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
               figma.ui.postMessage({
                 type: "commit-success",
-                message: "Successfully committed changes to the feature branch",
+                message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
                 mergeRequestUrl: result && result.mergeRequestUrl
               });
               break;

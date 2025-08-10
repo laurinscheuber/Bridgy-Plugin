@@ -1,7 +1,6 @@
 import { ParsedComponentName, StyleCheck, Component } from '../types';
 import { generateTestHelpers, generateStateTests, INTERACTIVE_STATES, shouldTestPropertyForState, generateStateTestsFromVariants } from './stateTestingUtils';
-import { generateSizeVariantTests, generateBasicSizeTests } from './sizeVariantUtils';
-import { PATTERNS, CSS_PROPERTIES, TEST_CONFIG, LoggingService } from '../config';
+import { PATTERNS, CSS_PROPERTIES  } from '../config';
 import { arrayIncludes } from './es2015-helpers';
 
 /**
@@ -315,24 +314,6 @@ export function createTestWithStyleChecks(
     }
   }
   
-  // Generate size variant tests
-  let sizeTestsCode = '';
-  if (includeSizeTests) {
-    LoggingService.debug('Size testing configuration', { 
-      hasComponentVariants: !!(componentVariants && componentVariants.length),
-      variantCount: componentVariants && componentVariants.length ? componentVariants.length : 0 
-    }, LoggingService.CATEGORIES.TESTING);
-    if (componentVariants && componentVariants.length > 0) {
-      LoggingService.debug('Using Figma variant data for size testing', undefined, LoggingService.CATEGORIES.TESTING);
-      // Use actual variant data from Figma
-      sizeTestsCode = generateSizeVariantTests(componentSelector, componentName, componentVariants);
-    } else {
-      LoggingService.debug('Using basic size testing approach', undefined, LoggingService.CATEGORIES.TESTING);
-      // Use basic size testing approach
-      sizeTestsCode = generateBasicSizeTests(componentSelector);
-    }
-  }
-  
   // Include helper functions if we have any tests that use variants
   const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
   const helperFunctions = hasVariantTests
@@ -368,6 +349,6 @@ ${styleCheckCode}
     } else {
       LoggingService.warn('No suitable element found to test styles', undefined, LoggingService.CATEGORIES.TESTING);
     }
-  });${stateTestsCode}${sizeTestsCode}${generateTextContentTests(textElements, componentVariants)}
+  });${stateTestsCode}${generateTextContentTests(textElements, componentVariants)}
 });`;
 } 
