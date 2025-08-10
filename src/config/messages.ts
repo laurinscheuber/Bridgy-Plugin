@@ -46,13 +46,13 @@ export const ERROR_MESSAGES = {
 
 // Success Messages
 export const SUCCESS_MESSAGES = {
-  COMMIT_SUCCESS: 'Successfully committed changes to the feature branch',
-  TEST_COMMIT_SUCCESS: 'Successfully committed component test to the feature branch',
-  SETTINGS_SAVED: 'Settings saved successfully',
-  EXPORT_COMPLETE: 'Export completed successfully',
-  BRANCH_CREATED: 'Feature branch created successfully',
-  MERGE_REQUEST_CREATED: 'Merge request created successfully',
-  UNIT_SETTINGS_SAVED: 'Unit settings saved successfully',
-  UNIT_SETTINGS_RESET: 'Unit settings reset successfully'
+  COMMIT_SUCCESS: 'Design tokens successfully committed! Your CSS variables are now ready for development.',
+  TEST_COMMIT_SUCCESS: 'Component test successfully committed! The generated test is ready for your review.',
+  SETTINGS_SAVED: 'GitLab settings saved and ready to use!',
+  EXPORT_COMPLETE: 'Files exported successfully! You can now use them in your project.',
+  BRANCH_CREATED: 'Feature branch created! Your changes are isolated and ready for review.',
+  MERGE_REQUEST_CREATED: 'Merge request created! Your team can now review and merge the changes.',
+  UNIT_SETTINGS_SAVED: 'CSS unit preferences saved and applied to all exports!',
+  UNIT_SETTINGS_RESET: 'Unit settings reset to smart defaults!'
 } as const;
 
