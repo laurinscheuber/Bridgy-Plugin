@@ -434,6 +434,8 @@ ${inputDeclarations.join('\n')}
 
 Don't forget to add this import:
 import { CommonModule } from '@angular/common';
+
+IMPORTANT: Ensure your variables file is imported in your stylesheets to make CSS variables available for testing.
 */`;
   }
 
@@ -788,9 +790,9 @@ ${testableProperties.map(property => {
       if (resolvedValue) {
         if (resolvedValue.indexOf('var(') !== -1) {
           const actualValue = resolveCssValueWithVariables(resolvedValue);
-          expect(actualValue).toBe(check.expectedValue);
+          expect(actualValue).withContext(check.property).toBe(check.expectedValue);
         } else {
-          expect(resolvedValue).toBe(check.expectedValue);
+          expect(resolvedValue).withContext(check.property).toBe(check.expectedValue);
         }
       } else {
         // Fallback to computed style if CSS rule not found
@@ -799,7 +801,7 @@ ${testableProperties.map(property => {
         fixture.detectChanges();
         const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
         const computedStyle = window.getComputedStyle(element);
-        expect(computedStyle.getPropertyValue(check.cssProperty)).toBe(check.expectedValue);
+        expect(computedStyle.getPropertyValue(check.cssProperty)).withContext(check.property).toBe(check.expectedValue);
       }
     });
   });`;
@@ -881,13 +883,13 @@ ${Object.keys(cssProperties).map((property: string) => {
       
       if (hasDecimalWarning) {
         return `      // Note: Figma may have rounded decimal pixel values - test may fail due to rounding
-      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+      expect(computedStyle.${property}).withContext('${property}').toBe('${expectedTest}');`;
       } else {
-        return `      expect(computedStyle.${property}).toBe('${expectedTest}');`;
+        return `      expect(computedStyle.${property}).withContext('${property}').toBe('${expectedTest}');`;
       }
     }).join('\n\n')}${Object.keys(textStyles).length > 0 ? '\n\n' + Object.keys(textStyles).map((property: string) => {
       const expectedValue = textStyles[property];
-      return `      expect(computedStyle.${property}).toBe('${expectedValue}');`;
+      return `      expect(computedStyle.${property}).withContext('${property}').toBe('${expectedValue}');`;
     }).join('\n\n') : ''}
 
     } else {
