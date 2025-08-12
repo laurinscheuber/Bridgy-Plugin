@@ -533,9 +533,13 @@ export class GitLabService {
     sourceBranch: string,
     targetBranch: string,
     title: string,
-    description: string = "Automatically created merge request for CSS variables update"
+    description: string = "Automatically created merge request for CSS variables update",
+    isDraft: boolean = false
   ): Promise<GitLabMergeRequest> {
     const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests`;
+    
+    // Prefix title with "Draft:" if it's a draft MR
+    const finalTitle = isDraft ? `Draft: ${title}` : title;
     
     try {
       const response = await this.makeAPIRequest(mrUrl, {
@@ -546,7 +550,7 @@ export class GitLabService {
         body: JSON.stringify({
           source_branch: sourceBranch,
           target_branch: targetBranch,
-          title: title,
+          title: finalTitle,
           description: description,
           remove_source_branch: true,
           squash: true,
@@ -637,7 +641,8 @@ export class GitLabService {
           featureBranch,
           defaultBranch,
           commitMessage,
-          mrDescription
+          mrDescription,
+          true // Mark as draft for component tests
         );
         return { mergeRequestUrl: newMR.web_url };
       }

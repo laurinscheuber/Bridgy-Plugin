@@ -989,8 +989,9 @@
          * Create a new merge request
          */
         static createMergeRequest(projectId_1, gitlabToken_1, sourceBranch_1, targetBranch_1, title_1) {
-          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, sourceBranch, targetBranch, title, description = "Automatically created merge request for CSS variables update") {
+          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, sourceBranch, targetBranch, title, description = "Automatically created merge request for CSS variables update", isDraft = false) {
             const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests`;
+            const finalTitle = isDraft ? `Draft: ${title}` : title;
             try {
               const response = yield this.makeAPIRequest(mrUrl, {
                 method: "POST",
@@ -1000,7 +1001,7 @@
                 body: JSON.stringify({
                   source_branch: sourceBranch,
                   target_branch: targetBranch,
-                  title,
+                  title: finalTitle,
                   description,
                   remove_source_branch: true,
                   squash: true
@@ -1033,7 +1034,16 @@
               const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
               if (!existingMR) {
                 const mrDescription = `Automatically created merge request for component test: ${componentName}`;
-                const newMR = yield this.createMergeRequest(projectId, gitlabToken, featureBranch, defaultBranch, commitMessage, mrDescription);
+                const newMR = yield this.createMergeRequest(
+                  projectId,
+                  gitlabToken,
+                  featureBranch,
+                  defaultBranch,
+                  commitMessage,
+                  mrDescription,
+                  true
+                  // Mark as draft for component tests
+                );
                 return { mergeRequestUrl: newMR.web_url };
               }
               return { mergeRequestUrl: existingMR.web_url };
