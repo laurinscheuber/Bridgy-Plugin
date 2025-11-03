@@ -74,14 +74,14 @@ export class UnitsService {
       
       // Save to shared document storage so all team members can access
       figma.root.setSharedPluginData(
-        "DesignSync",
+        "Bridgy",
         settingsKey,
         JSON.stringify(this.unitSettings)
       );
       
       // Track metadata
       figma.root.setSharedPluginData(
-        "DesignSync",
+        "Bridgy",
         `${settingsKey}-meta`,
         JSON.stringify({
           savedAt: new Date().toISOString(),
@@ -103,7 +103,7 @@ export class UnitsService {
       
       // Try to load from shared document storage first
       const sharedSettings = figma.root.getSharedPluginData(
-        "DesignSync",
+        "Bridgy",
         settingsKey
       );
       
@@ -147,8 +147,8 @@ export class UnitsService {
       };
       
       // Remove shared document storage
-      figma.root.setSharedPluginData("DesignSync", settingsKey, "");
-      figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
+      figma.root.setSharedPluginData("Bridgy", settingsKey, "");
+      figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
       
       // Remove personal client storage (cleanup)
       await figma.clientStorage.deleteAsync(settingsKey);

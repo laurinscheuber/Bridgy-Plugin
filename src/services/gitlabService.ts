@@ -106,7 +106,7 @@ export class GitLabService {
         }
 
         figma.root.setSharedPluginData(
-          "DesignSync",
+          "Bridgy",
           settingsKey,
           JSON.stringify(settingsToSave)
         );
@@ -122,7 +122,7 @@ export class GitLabService {
 
       // Track metadata
       figma.root.setSharedPluginData(
-        "DesignSync",
+        "Bridgy",
         `${settingsKey}-meta`,
         JSON.stringify({
           sharedWithTeam: shareWithTeam,
@@ -169,7 +169,7 @@ export class GitLabService {
    * Load shared document settings with personal token
    */
   private static async loadDocumentSettings(settingsKey: string): Promise<GitLabSettings | null> {
-    const documentSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
+    const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
     if (!documentSettings) return null;
 
     try {
@@ -184,7 +184,7 @@ export class GitLabService {
       }
 
       // Load metadata if available
-      const metaData = figma.root.getSharedPluginData("DesignSync", `${settingsKey}-meta`);
+      const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
       if (metaData) {
         try {
           const meta = JSON.parse(metaData);
@@ -216,7 +216,7 @@ export class GitLabService {
    * Load and migrate legacy settings
    */
   private static async loadLegacySettings(): Promise<GitLabSettings | null> {
-    const legacyDocumentSettings = figma.root.getSharedPluginData("DesignSync", "gitlab-settings");
+    const legacyDocumentSettings = figma.root.getSharedPluginData("Bridgy", "gitlab-settings");
     if (!legacyDocumentSettings) return null;
 
     try {
@@ -224,7 +224,7 @@ export class GitLabService {
       // Save as project-specific settings
       await this.saveSettings(settings, true);
       // Remove old global settings to prevent confusion
-      figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
+      figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
       return settings;
     } catch (parseError) {
       LoggingService.error("Error parsing legacy document settings", parseError, LoggingService.CATEGORIES.GITLAB);
@@ -241,15 +241,15 @@ export class GitLabService {
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
       // Remove shared document storage
-      figma.root.setSharedPluginData("DesignSync", settingsKey, "");
-      figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
+      figma.root.setSharedPluginData("Bridgy", settingsKey, "");
+      figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
 
       // Remove personal client storage
       await figma.clientStorage.deleteAsync(settingsKey);
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
 
       // Also remove any legacy global settings (cleanup)
-      figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
+      figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
       await figma.clientStorage.deleteAsync("gitlab-settings");
 
     } catch (error: any) {

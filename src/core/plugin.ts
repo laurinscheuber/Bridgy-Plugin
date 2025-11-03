@@ -95,8 +95,8 @@ figma.codegen.on("generate", (_event) => {
     return [
       {
         language: "PLAINTEXT",
-        code: "DesignSync - Use the plugin interface to view variables and components",
-        title: "DesignSync",
+        code: "Bridgy - Use the plugin interface to view variables and components",
+        title: "Bridgy",
       },
     ];
   } catch (error) {

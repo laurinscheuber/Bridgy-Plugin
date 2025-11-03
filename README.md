@@ -1,4 +1,4 @@
-# DesignSync
+# Bridgy
 
 A Figma plugin for synchronizing design tokens and components with your codebase.
 
