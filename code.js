@@ -10,15 +10,35 @@
     "dist/config/constants.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.GIT_CONFIG = exports.API_CONFIG = void 0;
+      exports.GIT_CONFIG = exports.buildGitLabWebUrl = exports.buildGitLabApiUrl = exports.API_CONFIG = void 0;
       exports.API_CONFIG = {
-        GITLAB_BASE_URL: "https://gitlab.fhnw.ch/api/v4",
+        DEFAULT_GITLAB_URL: "https://gitlab.com",
+        // Default to GitLab.com
+        DEFAULT_GITLAB_BASE_URL: "https://gitlab.com/api/v4",
+        // Default API URL
         REQUEST_TIMEOUT: 3e4,
         DEFAULT_HEADERS: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         }
       };
+      var buildGitLabApiUrl = (gitlabUrl) => {
+        if (!gitlabUrl)
+          return exports.API_CONFIG.DEFAULT_GITLAB_BASE_URL;
+        const cleanUrl = gitlabUrl.replace(/\/+$/, "");
+        if (cleanUrl.endsWith("/api/v4")) {
+          return cleanUrl;
+        }
+        return `${cleanUrl}/api/v4`;
+      };
+      exports.buildGitLabApiUrl = buildGitLabApiUrl;
+      var buildGitLabWebUrl = (gitlabUrl) => {
+        if (!gitlabUrl)
+          return exports.API_CONFIG.DEFAULT_GITLAB_URL;
+        const cleanUrl = gitlabUrl.replace(/\/+$/, "").replace(/\/api\/v4$/, "");
+        return cleanUrl;
+      };
+      exports.buildGitLabWebUrl = buildGitLabWebUrl;
       exports.GIT_CONFIG = {
         DEFAULT_BRANCH: "feature/variables",
         DEFAULT_TEST_BRANCH: "feature/component-tests",
@@ -674,6 +694,18 @@
       exports.GitLabNetworkError = GitLabNetworkError;
       var GitLabService = class {
         /**
+         * Get the GitLab API base URL from settings
+         */
+        static getGitLabApiBase(settings) {
+          return (0, config_1.buildGitLabApiUrl)(settings.gitlabUrl);
+        }
+        /**
+         * Get the GitLab web URL from settings
+         */
+        static getGitLabWebBase(settings) {
+          return (0, config_1.buildGitLabWebUrl)(settings.gitlabUrl);
+        }
+        /**
          * Save GitLab settings to Figma storage
          */
         static saveSettings(settings, shareWithTeam) {
@@ -817,19 +849,20 @@
         /**
          * Commit CSS data to GitLab repository
          */
-        static commitToGitLab(projectId_1, gitlabToken_1, commitMessage_1, filePath_1, cssData_1) {
-          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, commitMessage, filePath, cssData, branchName = DEFAULT_BRANCH_NAME) {
+        static commitToGitLab(settings_1, commitMessage_1, filePath_1, cssData_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, commitMessage, filePath, cssData, branchName = DEFAULT_BRANCH_NAME) {
+            const { projectId, gitlabToken } = settings;
             this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
             try {
               const featureBranch = branchName;
-              const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
+              const projectData = yield this.fetchProjectInfo(projectId, gitlabToken, settings);
               const defaultBranch = projectData.default_branch;
-              yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
-              const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
-              yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, fileData && fileData.last_commit_id);
-              const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+              yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch, settings);
+              const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch, settings);
+              yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, fileData && fileData.last_commit_id, settings);
+              const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch, settings);
               if (!existingMR) {
-                const newMR = yield this.createMergeRequest(projectId, gitlabToken, featureBranch, defaultBranch, commitMessage);
+                const newMR = yield this.createMergeRequest(projectId, gitlabToken, featureBranch, defaultBranch, commitMessage, "Automatically created merge request for CSS variables update", false, settings);
                 return { mergeRequestUrl: newMR.web_url };
               }
               return { mergeRequestUrl: existingMR.web_url };
@@ -862,9 +895,10 @@
         /**
          * Fetch project information from GitLab API
          */
-        static fetchProjectInfo(projectId, gitlabToken) {
+        static fetchProjectInfo(projectId, gitlabToken, settings) {
           return __awaiter(this, void 0, void 0, function* () {
-            const projectUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}`;
+            const apiBase = this.getGitLabApiBase(settings);
+            const projectUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}`;
             try {
               const response = yield this.makeAPIRequest(projectUrl, {
                 method: "GET",
@@ -881,9 +915,10 @@
         /**
          * Create a feature branch or verify it exists
          */
-        static createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch) {
+        static createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch, settings) {
           return __awaiter(this, void 0, void 0, function* () {
-            const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/branches`;
+            const apiBase = this.getGitLabApiBase(settings);
+            const createBranchUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/repository/branches`;
             try {
               yield this.makeAPIRequest(createBranchUrl, {
                 method: "POST",
@@ -909,9 +944,10 @@
         /**
          * Check if file exists and prepare commit action
          */
-        static prepareFileCommit(projectId, gitlabToken, filePath, featureBranch) {
+        static prepareFileCommit(projectId, gitlabToken, filePath, featureBranch, settings) {
           return __awaiter(this, void 0, void 0, function* () {
-            const checkFileUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/files/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(featureBranch)}`;
+            const apiBase = this.getGitLabApiBase(settings);
+            const checkFileUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/repository/files/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(featureBranch)}`;
             try {
               const response = yield this.makeAPIRequest(checkFileUrl, {
                 method: "GET",
@@ -932,9 +968,10 @@
         /**
          * Create a commit with the file changes
          */
-        static createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, lastCommitId) {
+        static createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, cssData, action, lastCommitId, settings) {
           return __awaiter(this, void 0, void 0, function* () {
-            const commitUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/commits`;
+            const apiBase = this.getGitLabApiBase(settings);
+            const commitUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/repository/commits`;
             const commitAction = {
               action,
               file_path: filePath,
@@ -968,9 +1005,10 @@
         /**
          * Find existing merge request for the branch
          */
-        static findExistingMergeRequest(projectId, gitlabToken, sourceBranch) {
+        static findExistingMergeRequest(projectId, gitlabToken, sourceBranch, settings) {
           return __awaiter(this, void 0, void 0, function* () {
-            const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests?source_branch=${encodeURIComponent(sourceBranch)}&state=opened`;
+            const apiBase = this.getGitLabApiBase(settings);
+            const mrUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/merge_requests?source_branch=${encodeURIComponent(sourceBranch)}&state=opened`;
             try {
               const response = yield this.makeAPIRequest(mrUrl, {
                 method: "GET",
@@ -989,8 +1027,9 @@
          * Create a new merge request
          */
         static createMergeRequest(projectId_1, gitlabToken_1, sourceBranch_1, targetBranch_1, title_1) {
-          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, sourceBranch, targetBranch, title, description = "Automatically created merge request for CSS variables update", isDraft = false) {
-            const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests`;
+          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, sourceBranch, targetBranch, title, description = "Automatically created merge request for CSS variables update", isDraft = false, settings) {
+            const apiBase = this.getGitLabApiBase(settings);
+            const mrUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/merge_requests`;
             const finalTitle = isDraft ? `Draft: ${title}` : title;
             try {
               const response = yield this.makeAPIRequest(mrUrl, {
@@ -1019,19 +1058,20 @@
         /**
          * Commit component test files to GitLab
          */
-        static commitComponentTest(projectId_1, gitlabToken_1, commitMessage_1, componentName_1, testContent_1) {
-          return __awaiter(this, arguments, void 0, function* (projectId, gitlabToken, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.spec.ts", branchName = DEFAULT_TEST_BRANCH_NAME) {
+        static commitComponentTest(settings_1, commitMessage_1, componentName_1, testContent_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.spec.ts", branchName = DEFAULT_TEST_BRANCH_NAME) {
+            const { projectId, gitlabToken } = settings;
             this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
             try {
               const normalizedComponentName = this.normalizeComponentName(componentName);
               const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
               const featureBranch = `${branchName}-${normalizedComponentName}`;
-              const projectData = yield this.fetchProjectInfo(projectId, gitlabToken);
+              const projectData = yield this.fetchProjectInfo(projectId, gitlabToken, settings);
               const defaultBranch = projectData.default_branch || "main";
-              yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch);
-              const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch);
-              yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, testContent, action, fileData && fileData.last_commit_id);
-              const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch);
+              yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch, settings);
+              const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch, settings);
+              yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, testContent, action, fileData && fileData.last_commit_id, settings);
+              const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch, settings);
               if (!existingMR) {
                 const mrDescription = `Automatically created merge request for component test: ${componentName}`;
                 const newMR = yield this.createMergeRequest(
@@ -1041,8 +1081,9 @@
                   defaultBranch,
                   commitMessage,
                   mrDescription,
-                  true
+                  true,
                   // Mark as draft for component tests
+                  settings
                 );
                 return { mergeRequestUrl: newMR.web_url };
               }
@@ -1158,7 +1199,6 @@
         }
       };
       exports.GitLabService = GitLabService;
-      GitLabService.GITLAB_API_BASE = config_1.API_CONFIG.GITLAB_BASE_URL;
       GitLabService.DEFAULT_HEADERS = config_1.API_CONFIG.DEFAULT_HEADERS;
     }
   });
@@ -3180,6 +3220,7 @@ ${Object.keys(cssProperties).map((property) => {
               break;
             case "save-gitlab-settings":
               yield gitlabService_1.GitLabService.saveSettings({
+                gitlabUrl: msg.gitlabUrl,
                 projectId: msg.projectId || "",
                 gitlabToken: msg.gitlabToken,
                 filePath: msg.filePath || "src/variables.css",
@@ -3203,7 +3244,26 @@ ${Object.keys(cssProperties).map((property) => {
                 throw new Error("Missing required fields for GitLab commit");
               }
               try {
-                const result = yield gitlabService_1.GitLabService.commitToGitLab(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
+                const settings = {
+                  gitlabUrl: msg.gitlabUrl,
+                  projectId: msg.projectId,
+                  gitlabToken: msg.gitlabToken,
+                  filePath: msg.filePath || "variables.css",
+                  testFilePath: "components/{componentName}.spec.ts",
+                  // Default value
+                  strategy: "merge-request",
+                  // Default value  
+                  branchName: msg.branchName || "feature/variables",
+                  testBranchName: "feature/component-tests",
+                  // Default value
+                  exportFormat: "css",
+                  // Default value
+                  saveToken: false,
+                  // Default value
+                  savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+                  savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+                };
+                const result = yield gitlabService_1.GitLabService.commitToGitLab(settings, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
                 figma.ui.postMessage({
                   type: "commit-success",
                   message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
@@ -3250,7 +3310,26 @@ ${Object.keys(cssProperties).map((property) => {
                 throw new Error("Missing required fields for component test commit");
               }
               try {
-                const testResult = yield gitlabService_1.GitLabService.commitComponentTest(msg.projectId, msg.gitlabToken, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
+                const settings = {
+                  gitlabUrl: msg.gitlabUrl,
+                  projectId: msg.projectId,
+                  gitlabToken: msg.gitlabToken,
+                  filePath: "variables.css",
+                  // Default value
+                  testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
+                  strategy: "merge-request",
+                  // Default value  
+                  branchName: "feature/variables",
+                  // Default value
+                  testBranchName: msg.branchName || "feature/component-tests",
+                  exportFormat: "css",
+                  // Default value
+                  saveToken: false,
+                  // Default value
+                  savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+                  savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+                };
+                const testResult = yield gitlabService_1.GitLabService.commitComponentTest(settings, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
                 figma.ui.postMessage({
                   type: "test-commit-success",
                   message: config_1.SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,

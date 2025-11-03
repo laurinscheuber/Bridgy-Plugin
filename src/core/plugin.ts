@@ -1,4 +1,4 @@
-import { PluginMessage } from "../types";
+import { PluginMessage, GitLabSettings } from "../types";
 import { GitLabService } from "../services/gitlabService";
 import { CSSExportService } from "../services/cssExportService";
 import { ComponentService } from "../services/componentService";
@@ -152,6 +152,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case "save-gitlab-settings":
         await GitLabService.saveSettings(
           {
+            gitlabUrl: msg.gitlabUrl,
             projectId: msg.projectId || "",
             gitlabToken: msg.gitlabToken,
             filePath: msg.filePath || "src/variables.css",
@@ -187,9 +188,23 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
 
         try {
+          const settings: GitLabSettings = {
+            gitlabUrl: msg.gitlabUrl,
+            projectId: msg.projectId,
+            gitlabToken: msg.gitlabToken,
+            filePath: msg.filePath || "variables.css",
+            testFilePath: "components/{componentName}.spec.ts", // Default value
+            strategy: "merge-request", // Default value  
+            branchName: msg.branchName || "feature/variables",
+            testBranchName: "feature/component-tests", // Default value
+            exportFormat: "css", // Default value
+            saveToken: false, // Default value
+            savedAt: new Date().toISOString(),
+            savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
+          };
+
           const result = await GitLabService.commitToGitLab(
-            msg.projectId,
-            msg.gitlabToken,
+            settings,
             msg.commitMessage,
             msg.filePath || "variables.css",
             msg.cssData,
@@ -253,9 +268,23 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
 
         try {
+          const settings: GitLabSettings = {
+            gitlabUrl: msg.gitlabUrl,
+            projectId: msg.projectId,
+            gitlabToken: msg.gitlabToken,
+            filePath: "variables.css", // Default value
+            testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
+            strategy: "merge-request", // Default value  
+            branchName: "feature/variables", // Default value
+            testBranchName: msg.branchName || "feature/component-tests",
+            exportFormat: "css", // Default value
+            saveToken: false, // Default value
+            savedAt: new Date().toISOString(),
+            savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
+          };
+
           const testResult = await GitLabService.commitComponentTest(
-            msg.projectId,
-            msg.gitlabToken,
+            settings,
             msg.commitMessage,
             msg.componentName,
             msg.testContent,

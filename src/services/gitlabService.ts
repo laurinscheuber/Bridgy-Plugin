@@ -1,5 +1,5 @@
 import { GitLabSettings } from "../types";
-import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService } from "../config";
+import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService, buildGitLabApiUrl, buildGitLabWebUrl } from "../config";
 
 // Types for improved type safety
 interface GitLabProject {
@@ -75,8 +75,21 @@ class GitLabNetworkError extends Error {
 }
 
 export class GitLabService {
-  private static readonly GITLAB_API_BASE = API_CONFIG.GITLAB_BASE_URL;
   private static readonly DEFAULT_HEADERS = API_CONFIG.DEFAULT_HEADERS;
+
+  /**
+   * Get the GitLab API base URL from settings
+   */
+  private static getGitLabApiBase(settings: GitLabSettings): string {
+    return buildGitLabApiUrl(settings.gitlabUrl);
+  }
+
+  /**
+   * Get the GitLab web URL from settings
+   */
+  private static getGitLabWebBase(settings: GitLabSettings): string {
+    return buildGitLabWebUrl(settings.gitlabUrl);
+  }
 
   /**
    * Save GitLab settings to Figma storage
@@ -266,20 +279,20 @@ export class GitLabService {
    * Commit CSS data to GitLab repository
    */
   static async commitToGitLab(
-    projectId: string,
-    gitlabToken: string,
+    settings: GitLabSettings,
     commitMessage: string,
     filePath: string,
     cssData: string,
     branchName: string = DEFAULT_BRANCH_NAME
   ): Promise<{ mergeRequestUrl?: string }> {
+    const { projectId, gitlabToken } = settings;
     this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
 
     try {
       const featureBranch = branchName;
 
       // Get project information (this will fail fast if there's no connectivity)
-      const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
+      const projectData = await this.fetchProjectInfo(projectId, gitlabToken, settings);
       const defaultBranch = projectData.default_branch;
 
       // Create or get feature branch
@@ -287,7 +300,8 @@ export class GitLabService {
         projectId,
         gitlabToken,
         featureBranch,
-        defaultBranch
+        defaultBranch,
+        settings
       );
 
       // Check if file exists and prepare commit
@@ -295,7 +309,8 @@ export class GitLabService {
         projectId,
         gitlabToken,
         filePath,
-        featureBranch
+        featureBranch,
+        settings
       );
 
       // Create the commit
@@ -307,14 +322,16 @@ export class GitLabService {
         filePath,
         cssData,
         action,
-        fileData && fileData.last_commit_id
+        fileData && fileData.last_commit_id,
+        settings
       );
 
       // Check for existing merge request
       const existingMR = await this.findExistingMergeRequest(
         projectId,
         gitlabToken,
-        featureBranch
+        featureBranch,
+        settings
       );
 
       if (!existingMR) {
@@ -324,7 +341,10 @@ export class GitLabService {
           gitlabToken,
           featureBranch,
           defaultBranch,
-          commitMessage
+          commitMessage,
+          "Automatically created merge request for CSS variables update",
+          false,
+          settings
         );
         return { mergeRequestUrl: newMR.web_url };
       }
@@ -368,9 +388,11 @@ export class GitLabService {
    */
   private static async fetchProjectInfo(
     projectId: string,
-    gitlabToken: string
+    gitlabToken: string,
+    settings: GitLabSettings
   ): Promise<GitLabProject> {
-    const projectUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}`;
+    const apiBase = this.getGitLabApiBase(settings);
+    const projectUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}`;
     
     try {
       const response = await this.makeAPIRequest(projectUrl, {
@@ -393,9 +415,11 @@ export class GitLabService {
     projectId: string,
     gitlabToken: string,
     featureBranch: string,
-    defaultBranch: string
+    defaultBranch: string,
+    settings: GitLabSettings
   ): Promise<void> {
-    const createBranchUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/branches`;
+    const apiBase = this.getGitLabApiBase(settings);
+    const createBranchUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/repository/branches`;
     
     try {
       await this.makeAPIRequest(createBranchUrl, {
@@ -428,9 +452,11 @@ export class GitLabService {
     projectId: string,
     gitlabToken: string,
     filePath: string,
-    featureBranch: string
+    featureBranch: string,
+    settings: GitLabSettings
   ): Promise<{ fileData: GitLabFile | null; action: 'create' | 'update' }> {
-    const checkFileUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/files/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(featureBranch)}`;
+    const apiBase = this.getGitLabApiBase(settings);
+    const checkFileUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/repository/files/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(featureBranch)}`;
     
     try {
       const response = await this.makeAPIRequest(checkFileUrl, {
@@ -463,9 +489,11 @@ export class GitLabService {
     filePath: string,
     cssData: string,
     action: 'create' | 'update',
-    lastCommitId?: string
+    lastCommitId: string | undefined,
+    settings: GitLabSettings
   ): Promise<GitLabCommit> {
-    const commitUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/repository/commits`;
+    const apiBase = this.getGitLabApiBase(settings);
+    const commitUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/repository/commits`;
     const commitAction: any = {
       action,
       file_path: filePath,
@@ -505,9 +533,11 @@ export class GitLabService {
   private static async findExistingMergeRequest(
     projectId: string,
     gitlabToken: string,
-    sourceBranch: string
+    sourceBranch: string,
+    settings: GitLabSettings
   ): Promise<GitLabMergeRequest | null> {
-    const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests?source_branch=${encodeURIComponent(sourceBranch)}&state=opened`;
+    const apiBase = this.getGitLabApiBase(settings);
+    const mrUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/merge_requests?source_branch=${encodeURIComponent(sourceBranch)}&state=opened`;
     
     try {
       const response = await this.makeAPIRequest(mrUrl, {
@@ -534,9 +564,11 @@ export class GitLabService {
     targetBranch: string,
     title: string,
     description: string = "Automatically created merge request for CSS variables update",
-    isDraft: boolean = false
+    isDraft: boolean = false,
+    settings: GitLabSettings
   ): Promise<GitLabMergeRequest> {
-    const mrUrl = `${this.GITLAB_API_BASE}/projects/${encodeURIComponent(projectId)}/merge_requests`;
+    const apiBase = this.getGitLabApiBase(settings);
+    const mrUrl = `${apiBase}/projects/${encodeURIComponent(projectId)}/merge_requests`;
     
     // Prefix title with "Draft:" if it's a draft MR
     const finalTitle = isDraft ? `Draft: ${title}` : title;
@@ -570,14 +602,14 @@ export class GitLabService {
    * Commit component test files to GitLab
    */
   static async commitComponentTest(
-    projectId: string,
-    gitlabToken: string,
+    settings: GitLabSettings,
     commitMessage: string,
     componentName: string,
     testContent: string,
     testFilePath: string = "components/{componentName}.spec.ts",
     branchName: string = DEFAULT_TEST_BRANCH_NAME
   ): Promise<{ mergeRequestUrl?: string }> {
+    const { projectId, gitlabToken } = settings;
     this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
 
     try {
@@ -594,7 +626,7 @@ export class GitLabService {
       const featureBranch = `${branchName}-${normalizedComponentName}`;
 
       // Get project information
-      const projectData = await this.fetchProjectInfo(projectId, gitlabToken);
+      const projectData = await this.fetchProjectInfo(projectId, gitlabToken, settings);
       const defaultBranch = projectData.default_branch || "main";
 
       // Create or get feature branch
@@ -602,7 +634,8 @@ export class GitLabService {
         projectId,
         gitlabToken,
         featureBranch,
-        defaultBranch
+        defaultBranch,
+        settings
       );
 
       // Check if file exists and prepare commit
@@ -610,7 +643,8 @@ export class GitLabService {
         projectId,
         gitlabToken,
         filePath,
-        featureBranch
+        featureBranch,
+        settings
       );
 
       // Create the commit
@@ -622,14 +656,16 @@ export class GitLabService {
         filePath,
         testContent,
         action,
-        fileData && fileData.last_commit_id
+        fileData && fileData.last_commit_id,
+        settings
       );
 
       // Check for existing merge request
       const existingMR = await this.findExistingMergeRequest(
         projectId,
         gitlabToken,
-        featureBranch
+        featureBranch,
+        settings
       );
 
       if (!existingMR) {
@@ -642,7 +678,8 @@ export class GitLabService {
           defaultBranch,
           commitMessage,
           mrDescription,
-          true // Mark as draft for component tests
+          true, // Mark as draft for component tests
+          settings
         );
         return { mergeRequestUrl: newMR.web_url };
       }

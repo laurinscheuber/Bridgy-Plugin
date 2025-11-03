@@ -46,6 +46,7 @@ export interface Component {
 }
 
 export interface GitLabSettings {
+  gitlabUrl?: string; // New field for custom GitLab URL
   projectId: string;
   gitlabToken?: string;
   filePath?: string;
@@ -76,6 +77,7 @@ export interface PluginMessage {
   language?: string;
   componentId?: string;
   componentName?: string;
+  gitlabUrl?: string;
   projectId?: string;
   gitlabToken?: string;
   commitMessage?: string;

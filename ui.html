@@ -2201,6 +2201,18 @@
           </p>
 
           <div class="form-group">
+            <label for="config-gitlab-url">GitLab Instance URL</label>
+            <input
+              type="text"
+              id="config-gitlab-url"
+              placeholder="https://gitlab.com (leave empty for GitLab.com)"
+            />
+            <small style="color: #666; font-size: 12px; display: block; margin-top: 4px;">
+              Enter your GitLab instance URL (e.g., https://gitlab.company.com). Leave empty to use GitLab.com.
+            </small>
+          </div>
+
+          <div class="form-group">
             <label for="config-project-id">Project ID</label>
             <input
               type="text"
@@ -2908,6 +2920,30 @@
     </div>
 
     <script>
+      // ===== GITLAB URL HELPERS =====
+      function buildGitLabApiUrl(gitlabUrl) {
+        if (!gitlabUrl) return "https://gitlab.com/api/v4";
+        
+        // Remove trailing slash if present
+        const cleanUrl = gitlabUrl.replace(/\/+$/, '');
+        
+        // Add /api/v4 if not already present
+        if (cleanUrl.endsWith('/api/v4')) {
+          return cleanUrl;
+        }
+        
+        return `${cleanUrl}/api/v4`;
+      }
+
+      function buildGitLabWebUrl(gitlabUrl) {
+        if (!gitlabUrl) return "https://gitlab.com";
+        
+        // Remove trailing slash and /api/v4 if present
+        const cleanUrl = gitlabUrl.replace(/\/+$/, '').replace(/\/api\/v4$/, '');
+        
+        return cleanUrl;
+      }
+
       // ===== NOTIFICATION SYSTEM =====
       function showNotification(type, title, message, duration) {
         duration = duration || 5000;
@@ -3148,7 +3184,8 @@
         if (!repoButton) return;
         
         try {
-          const response = await fetch(`https://gitlab.fhnw.ch/api/v4/projects/${projectId}`, {
+          const apiUrl = buildGitLabApiUrl(window.gitlabSettings?.gitlabUrl);
+          const response = await fetch(`${apiUrl}/projects/${projectId}`, {
             headers: {
               'PRIVATE-TOKEN': token
             }
@@ -3164,7 +3201,8 @@
             repoButton.title = `Open Merge Requests for ${projectData.path_with_namespace}`;
           } else {
             // Fallback to project ID URL if API fails
-            const fallbackUrl = `https://gitlab.fhnw.ch/project/${projectId}/-/merge_requests`;
+            const webUrl = buildGitLabWebUrl(window.gitlabSettings?.gitlabUrl);
+            const fallbackUrl = `${webUrl}/project/${projectId}/-/merge_requests`;
             repoButton.href = fallbackUrl;
             repoButton.style.opacity = '1';
             repoButton.style.pointerEvents = 'auto';
@@ -3173,7 +3211,8 @@
         } catch (error) {
           console.error('Failed to fetch project info:', error);
           // Fallback to project ID URL
-          const fallbackUrl = `https://gitlab.fhnw.ch/project/${projectId}/-/merge_requests`;
+          const webUrl = buildGitLabWebUrl(window.gitlabSettings?.gitlabUrl);
+          const fallbackUrl = `${webUrl}/project/${projectId}/-/merge_requests`;
           repoButton.href = fallbackUrl;
           repoButton.style.opacity = '1';
           repoButton.style.pointerEvents = 'auto';
@@ -3418,6 +3457,7 @@
               {
                 pluginMessage: {
                   type: "commit-component-test",
+                  gitlabUrl: window.gitlabSettings.gitlabUrl,
                   projectId: window.gitlabSettings.projectId,
                   gitlabToken: window.gitlabSettings.gitlabToken,
                   commitMessage: commitMessage,
@@ -3515,8 +3555,8 @@
           } else if (message.errorType === "network") {
             // Add link to GitLab project for network errors
             const projectUrl = window.gitlabSettings?.projectId 
-              ? `https://gitlab.fhnw.ch/projects/${window.gitlabSettings.projectId}`
-              : 'https://gitlab.fhnw.ch';
+              ? `${buildGitLabWebUrl(window.gitlabSettings.gitlabUrl)}/projects/${window.gitlabSettings.projectId}`
+              : buildGitLabWebUrl(window.gitlabSettings.gitlabUrl);
             helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection in browser →</a>`;
           } else if (message.errorType === "api") {
             if (message.statusCode === 404) {
@@ -4761,6 +4801,9 @@ ${checkboxes}
       }
 
       function saveConfiguration() {
+        const gitlabUrl = document
+          .getElementById("config-gitlab-url")
+          .value.trim();
         const projectId = document
           .getElementById("config-project-id")
           .value.trim();
@@ -4795,6 +4838,7 @@ ${checkboxes}
         }
 
         window.gitlabSettings = {
+          gitlabUrl: gitlabUrl || undefined, // Don't save empty string
           projectId: projectId,
           filePath: filePath,
           exportFormat: exportFormat,
@@ -4838,6 +4882,8 @@ ${checkboxes}
 
       function loadConfigurationTab() {
         if (window.gitlabSettings) {
+          document.getElementById("config-gitlab-url").value =
+            window.gitlabSettings.gitlabUrl || "";
           document.getElementById("config-project-id").value =
             window.gitlabSettings.projectId || "";
           document.getElementById("config-file-path").value =
@@ -5122,6 +5168,7 @@ ${checkboxes}
                 {
                   pluginMessage: {
                     type: "commit-to-gitlab",
+                    gitlabUrl: window.gitlabSettings.gitlabUrl,
                     projectId,
                     gitlabToken,
                     commitMessage,

@@ -16,8 +16,11 @@
   "networkAccess": {
     "allowedDomains": [
       "https://cdnjs.cloudflare.com",
-      "https://gitlab.fhnw.ch"
-    ]
+      "https://gitlab.com",
+      "https://gitlab.fhnw.ch",
+      "*"
+    ],
+    "reasoning": "This plugin needs to connect to any GitLab instance (gitlab.com, self-hosted GitLab servers, or enterprise GitLab installations) to commit design tokens and component tests. Users can configure their own GitLab URL in the plugin settings."
   },
   "permissions": ["currentuser"]
 }
