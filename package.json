@@ -5,7 +5,7 @@
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && node build.js && npm run bundle",
-    "bundle": "esbuild dist/index.js --bundle --platform=browser --outfile=code.js",
+    "bundle": "esbuild dist/index.js --bundle --platform=browser --format=iife --outfile=code.js",
     "watch": "tsc -p tsconfig.json --watch",
     "dev": "npm run watch"
   },

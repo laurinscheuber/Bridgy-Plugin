@@ -167,6 +167,109 @@
         padding: var(--space-6);
         margin-bottom: var(--space-6);
         box-shadow: var(--shadow-md);
+        position: relative;
+        overflow: visible;
+      }
+
+      .beta-badge {
+        position: absolute;
+        top: -10px;
+        right: 20px;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+        color: white;
+        padding: 4px 16px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        box-shadow: 0 2px 8px rgba(255, 82, 82, 0.3);
+        transform: rotate(3deg);
+        z-index: 10;
+      }
+
+      /* Feedback Section Styles */
+      .feedback-section {
+        background: linear-gradient(135deg, #f8f9ff 0%, #f0e6ff 100%);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        margin-bottom: var(--space-6);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .feedback-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--space-3);
+      }
+
+      .feedback-title {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--text-base);
+        font-weight: 600;
+        color: var(--primary-700);
+      }
+
+      .feedback-buttons {
+        display: flex;
+        gap: var(--space-2);
+        margin-top: var(--space-3);
+      }
+
+      .feedback-button {
+        flex: 1;
+        background: white;
+        border: 1px solid var(--neutral-200);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-md);
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: var(--text-sm);
+        color: var(--neutral-700);
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-1);
+      }
+
+      .feedback-button:hover {
+        border-color: var(--primary-500);
+        background: var(--primary-50);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .feedback-button-icon {
+        font-size: var(--text-lg);
+      }
+
+      .feedback-description {
+        font-size: var(--text-sm);
+        color: var(--neutral-600);
+        line-height: 1.5;
+        margin-bottom: var(--space-2);
+      }
+
+      .feedback-website-link {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        color: var(--primary-600);
+        text-decoration: none;
+        font-size: var(--text-sm);
+        font-weight: 500;
+        transition: color 0.2s ease;
+      }
+
+      .feedback-website-link:hover {
+        color: var(--primary-700);
+        text-decoration: underline;
       }
       
       .header-content {
@@ -1837,6 +1940,7 @@
     <div class="container">
       <!-- Modern Header -->
       <header class="header">
+        <div class="beta-badge">BETA</div>
         <div class="header-content">
           <div class="header-title">
             <h1>Bridgy</h1>
@@ -1883,6 +1987,28 @@
             </svg>
           </button>
           <button
+            id="feedback-icon-btn"
+            onclick="openFeedback()"
+            class="settings-icon"
+            title="Send Feedback"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button
             id="settings-icon-btn"
             onclick="openSettingsModal()"
             class="settings-icon"
@@ -1910,6 +2036,43 @@
           </div>
         </div>
       </header>
+
+      <!-- Prominent Feedback Section -->
+      <div class="feedback-section">
+        <div class="feedback-header">
+          <div class="feedback-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z"></path>
+            </svg>
+            Welcome to Bridgy BETA!
+          </div>
+          <a href="https://bridgy-plugin.com/" target="_blank" class="feedback-website-link">
+            Visit our website
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        </div>
+        <p class="feedback-description">
+          Thank you for trying Bridgy! We're actively improving based on your feedback. Your input helps us build the best Figma to code experience.
+        </p>
+        <div class="feedback-buttons">
+          <button class="feedback-button" onclick="openGitHubFeedback('bug')">
+            <span class="feedback-button-icon">🐛</span>
+            <span>Report Bug</span>
+          </button>
+          <button class="feedback-button" onclick="openGitHubFeedback('feature')">
+            <span class="feedback-button-icon">💡</span>
+            <span>Request Feature</span>
+          </button>
+          <button class="feedback-button" onclick="openFeedback()">
+            <span class="feedback-button-icon">💭</span>
+            <span>More Info</span>
+          </button>
+        </div>
+      </div>
 
       <div class="tabs">
         <div class="tab active" data-tab="variables">Variables</div>
@@ -2631,6 +2794,101 @@
           >
             Yes, Reset Everything
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="display: inline; vertical-align: middle; margin-right: 8px"
+            >
+              <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z"></path>
+            </svg>
+            We'd Love Your Feedback!
+          </h3>
+          <span class="close" onclick="closeFeedbackModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div style="background: linear-gradient(135deg, #f8f9ff 0%, #f0e6ff 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h4 style="margin: 0 0 12px; color: #7c3aed; font-size: 18px;">Welcome to Bridgy BETA! 🚀</h4>
+            <p style="margin: 0 0 16px; color: #4b5563; line-height: 1.6;">
+              Thank you for being an early adopter! Bridgy is currently in <strong>BETA</strong>, which means we're actively developing new features and improving existing ones based on your valuable feedback.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+              <div style="background: white; padding: 12px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <strong style="color: #10b981;">✅ Current Features:</strong>
+              </div>
+              <ul style="margin: 8px 0; padding-left: 24px; color: #4b5563; line-height: 1.8;">
+                <li><strong>CSS/SCSS Export</strong> - Download or push design tokens directly to GitLab</li>
+                <li><strong>Angular Unit Tests</strong> - Generate component tests from your Figma designs</li>
+                <li><strong>GitLab Integration</strong> - Seamless version control and collaboration</li>
+                <li><strong>Component Analysis</strong> - Smart detection of your design components</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="https://bridgy-plugin.com/" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.2); transition: all 0.2s;">
+              Visit Our Website →
+            </a>
+            <p style="margin-top: 8px; color: #6b7280; font-size: 14px;">
+              Learn about our roadmap, version history, and upcoming features
+            </p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 20px;">
+            <h5 style="margin: 0 0 12px; color: #374151;">How to Provide Feedback:</h5>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <button 
+                onclick="openGitHubFeedback('bug')" 
+                style="background: white; border: 1px solid #e5e7eb; padding: 12px; border-radius: 6px; text-align: left; cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 1px 3px rgba(139, 92, 246, 0.2)'"
+                onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+              >
+                <strong>🐛 Report a Bug</strong>
+                <span style="display: block; color: #6b7280; font-size: 14px; margin-top: 4px;">Found something that's not working right?</span>
+              </button>
+              <button 
+                onclick="openGitHubFeedback('feature')" 
+                style="background: white; border: 1px solid #e5e7eb; padding: 12px; border-radius: 6px; text-align: left; cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 1px 3px rgba(139, 92, 246, 0.2)'"
+                onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+              >
+                <strong>💡 Request a Feature</strong>
+                <span style="display: block; color: #6b7280; font-size: 14px; margin-top: 4px;">Have an idea to make Bridgy better?</span>
+              </button>
+              <button 
+                onclick="openGitHubFeedback('general')" 
+                style="background: white; border: 1px solid #e5e7eb; padding: 12px; border-radius: 6px; text-align: left; cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 1px 3px rgba(139, 92, 246, 0.2)'"
+                onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+              >
+                <strong>💭 General Feedback</strong>
+                <span style="display: block; color: #6b7280; font-size: 14px; margin-top: 4px;">Share your thoughts and experiences</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">
+              Your feedback helps shape the future of Bridgy. Thank you for being part of our journey! 💜
+            </p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button onclick="closeFeedbackModal()">Close</button>
         </div>
       </div>
     </div>
@@ -4345,6 +4603,99 @@
       // Function to close user guide modal
       function closeUserGuide() {
         document.getElementById("user-guide-modal").style.display = "none";
+      }
+
+      // Function to open feedback modal
+      function openFeedback() {
+        document.getElementById("feedback-modal").style.display = "block";
+      }
+
+      // Function to close feedback modal
+      function closeFeedbackModal() {
+        document.getElementById("feedback-modal").style.display = "none";
+      }
+
+      // Function to open GitHub with specific feedback type
+      function openGitHubFeedback(type) {
+        // Get plugin version from the UI
+        const pluginVersion = "1.0.0"; // You might want to dynamically get this
+        const figmaVersion = "Figma Desktop"; // This is a placeholder
+        
+        let issueTitle = '';
+        let labels = 'feedback';
+        let checkboxes = '';
+        
+        switch(type) {
+          case 'bug':
+            issueTitle = '[BUG] ';
+            labels = 'bug,feedback';
+            checkboxes = `- [x] Bug Report
+- [ ] Feature Request
+- [ ] Improvement Suggestion
+- [ ] General Feedback`;
+            break;
+          case 'feature':
+            issueTitle = '[FEATURE REQUEST] ';
+            labels = 'enhancement,feedback';
+            checkboxes = `- [ ] Bug Report
+- [x] Feature Request
+- [ ] Improvement Suggestion
+- [ ] General Feedback`;
+            break;
+          case 'general':
+            issueTitle = '[FEEDBACK] ';
+            labels = 'feedback';
+            checkboxes = `- [ ] Bug Report
+- [ ] Feature Request
+- [ ] Improvement Suggestion
+- [x] General Feedback`;
+            break;
+        }
+        
+        // Create the issue body with pre-filled information
+        const issueBody = encodeURIComponent(`## Feedback Type
+<!-- Please select one -->
+${checkboxes}
+
+## Your Feedback
+<!-- Please describe your feedback in detail -->
+
+
+## Context
+<!-- Optional: What were you trying to do when you thought of this feedback? -->
+
+
+## Additional Information
+<!-- Optional: Any mockups, examples, or additional context -->
+
+
+---
+*Plugin Version:* ${pluginVersion}
+*Figma Version:* ${figmaVersion}`);
+        
+        const encodedTitle = encodeURIComponent(issueTitle);
+        const githubUrl = `https://github.com/laurinscheuber/Bridgy-Plugin/issues/new?title=${encodedTitle}&body=${issueBody}&labels=${labels}`;
+        
+        // Close the modal first
+        closeFeedbackModal();
+        
+        // Open GitHub in a new tab
+        window.open(githubUrl, '_blank');
+        
+        // Show a notification with proper parameters
+        let notificationMessage = '';
+        switch(type) {
+          case 'bug':
+            notificationMessage = 'Opening GitHub to report a bug...';
+            break;
+          case 'feature':
+            notificationMessage = 'Opening GitHub to request a feature...';
+            break;
+          case 'general':
+            notificationMessage = 'Opening GitHub to share your feedback...';
+            break;
+        }
+        showNotification("info", "Feedback", notificationMessage, 3000);
       }
 
       // Function to show reset confirmation modal
