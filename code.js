@@ -691,12 +691,12 @@
                 if (!settings.saveToken) {
                   delete settingsToSave.gitlabToken;
                 }
-                figma.root.setSharedPluginData("DesignSync", settingsKey, JSON.stringify(settingsToSave));
+                figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
                   yield figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
                 }
               }
-              figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, JSON.stringify({
+              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
                 sharedWithTeam: shareWithTeam,
                 savedAt: settings.savedAt,
                 savedBy: settings.savedBy
@@ -736,7 +736,7 @@
          */
         static loadDocumentSettings(settingsKey) {
           return __awaiter(this, void 0, void 0, function* () {
-            const documentSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
+            const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
             if (!documentSettings)
               return null;
             try {
@@ -747,7 +747,7 @@
                   settings.gitlabToken = personalToken;
                 }
               }
-              const metaData = figma.root.getSharedPluginData("DesignSync", `${settingsKey}-meta`);
+              const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
               if (metaData) {
                 try {
                   const meta = JSON.parse(metaData);
@@ -780,13 +780,13 @@
          */
         static loadLegacySettings() {
           return __awaiter(this, void 0, void 0, function* () {
-            const legacyDocumentSettings = figma.root.getSharedPluginData("DesignSync", "gitlab-settings");
+            const legacyDocumentSettings = figma.root.getSharedPluginData("Bridgy", "gitlab-settings");
             if (!legacyDocumentSettings)
               return null;
             try {
               const settings = JSON.parse(legacyDocumentSettings);
               yield this.saveSettings(settings, true);
-              figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
+              figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
               return settings;
             } catch (parseError) {
               config_1.LoggingService.error("Error parsing legacy document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
@@ -802,11 +802,11 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              figma.root.setSharedPluginData("DesignSync", settingsKey, "");
-              figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
+              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
+              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
-              figma.root.setSharedPluginData("DesignSync", "gitlab-settings", "");
+              figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
               yield figma.clientStorage.deleteAsync("gitlab-settings");
             } catch (error) {
               config_1.LoggingService.error("Error resetting GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
@@ -1241,8 +1241,8 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `unit-settings-${figmaFileId}`;
-              figma.root.setSharedPluginData("DesignSync", settingsKey, JSON.stringify(this.unitSettings));
-              figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, JSON.stringify({
+              figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(this.unitSettings));
+              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
               }));
@@ -1258,7 +1258,7 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `unit-settings-${figmaFileId}`;
-              const sharedSettings = figma.root.getSharedPluginData("DesignSync", settingsKey);
+              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
               if (sharedSettings) {
                 try {
                   this.unitSettings = JSON.parse(sharedSettings);
@@ -1289,8 +1289,8 @@
                 collections: {},
                 groups: {}
               };
-              figma.root.setSharedPluginData("DesignSync", settingsKey, "");
-              figma.root.setSharedPluginData("DesignSync", `${settingsKey}-meta`, "");
+              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
+              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
             } catch (error) {
               config_1.LoggingService.error("Error resetting unit settings", error, config_1.LoggingService.CATEGORIES.UNITS);
@@ -3129,8 +3129,8 @@ ${Object.keys(cssProperties).map((property) => {
           return [
             {
               language: "PLAINTEXT",
-              code: "DesignSync - Use the plugin interface to view variables and components",
-              title: "DesignSync"
+              code: "Bridgy - Use the plugin interface to view variables and components",
+              title: "Bridgy"
             }
           ];
         } catch (error) {
