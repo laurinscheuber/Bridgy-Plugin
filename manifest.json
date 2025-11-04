@@ -1,11 +1,11 @@
 {
   "name": "Bridgy",
-  "id": "1234567890123456789",
+  "id": "1567565193447398652",
   "api": "1.0.0",
   "main": "code.js",
   "capabilities": ["inspect", "vscode", "codegen"],
   "enableProposedApi": false,
-  "documentAccess": "document",
+  "documentAccess": "dynamic-page",
   "editorType": ["figma", "dev"],
   "codegenLanguages": [
     {"label": "Angular", "value": "angular"},
