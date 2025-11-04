@@ -825,37 +825,76 @@
       /* ===== MODERN TABLES ===== */
       table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         margin-top: var(--space-2);
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.02);
         backdrop-filter: blur(10px);
-        border-radius: 15px;
+        border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
       
       th {
         text-align: left;
-        background: rgba(139, 92, 246, 0.2);
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.15));
         backdrop-filter: blur(10px);
         padding: var(--space-3) var(--space-4);
         font-weight: 600;
         color: white;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(139, 92, 246, 0.2);
         font-size: var(--text-sm);
+        position: relative;
+      }
+      
+      th:first-child {
+        border-top-left-radius: 12px;
+        width: 30%;
+      }
+      
+      th:nth-child(2) {
+        width: 15%;
+      }
+      
+      th:last-child {
+        border-top-right-radius: 12px;
+        width: 55%;
       }
       
       td {
         padding: var(--space-3) var(--space-4);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         vertical-align: top;
         font-size: var(--text-sm);
-        color: white;
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.01);
+      }
+      
+      td:first-child {
+        font-weight: 500;
+        color: #c4b5fd;
+        font-family: 'SF Mono', Consolas, monospace;
+      }
+      
+      td:nth-child(2) {
+        color: #a78bfa;
+        font-weight: 500;
+        font-size: var(--text-xs);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
       
       tr:hover td {
-        background: rgba(139, 92, 246, 0.1);
+        background: rgba(139, 92, 246, 0.06);
+      }
+      
+      tr:last-child td:first-child {
+        border-bottom-left-radius: 12px;
+      }
+      
+      tr:last-child td:last-child {
+        border-bottom-right-radius: 12px;
       }
       
       tr:last-child td {
@@ -878,10 +917,89 @@
         transform: scale(1.1);
       }
 
+      /* ===== COLLAPSIBLE GROUPS ===== */
+      .variable-subgroup {
+        margin-bottom: var(--space-4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+      }
+      
+      .subgroup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-4);
+        cursor: pointer;
+        background: rgba(139, 92, 246, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        transition: all 0.2s ease;
+      }
+      
+      .subgroup-header:hover {
+        background: rgba(139, 92, 246, 0.1);
+      }
+      
+      .subgroup-title {
+        margin: 0;
+        color: white;
+        font-size: var(--text-lg);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+      
+      .subgroup-toggle {
+        font-size: 18px;
+        transition: transform 0.2s ease;
+        color: #c4b5fd;
+      }
+      
+      .subgroup-content {
+        overflow: hidden;
+        transition: max-height 0.3s ease, opacity 0.2s ease;
+      }
+      
+      .subgroup-content.collapsed {
+        max-height: 0;
+        opacity: 0;
+      }
+      
+      .subgroup-content.expanded {
+        max-height: 2000px;
+        opacity: 1;
+      }
+      
+      .subgroup-header.collapsed .subgroup-toggle {
+        transform: rotate(-90deg);
+      }
+      
+      .subgroup-stats {
+        font-size: var(--text-xs);
+        color: rgba(255, 255, 255, 0.6);
+        background: rgba(139, 92, 246, 0.15);
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: var(--space-2);
+      }
+
       /* ===== MODERN SEARCH ===== */
       .search-container {
         margin-bottom: var(--space-4);
-        position: relative;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: linear-gradient(135deg, rgba(16, 16, 20, 0.95), rgba(24, 24, 27, 0.95));
+        backdrop-filter: blur(20px);
+        padding: var(--space-3) 0;
+        margin: 0 calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+        border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
       }
       
       .search-input {
@@ -2360,9 +2478,25 @@
             placeholder="Search variables..."
           />
         </div>
-        <div style="display: flex; gap: 10px; margin-bottom: 16px">
+        <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
           <button id="export-css-button" disabled>Export Variables</button>
           <button id="commit-repo-button" disabled>Commit to Repository</button>
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button 
+              onclick="expandAllGroups()" 
+              style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
+              title="Expand all variable groups"
+            >
+              Expand All
+            </button>
+            <button 
+              onclick="collapseAllGroups()" 
+              style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
+              title="Collapse all variable groups"
+            >
+              Collapse All
+            </button>
+          </div>
         </div>
         <div id="variables-container">
           <div class="loading">Loading variables</div>
@@ -3225,12 +3359,13 @@
             'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'span', 'div',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
             'code', 'pre', 'blockquote', 'button', 'svg', 'path', 'circle',
-            'select', 'option'
+            'select', 'option', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
           ];
 
           // Remove any tags not in allowlist
           sanitized = sanitized.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (match, tagName) => {
-            return allowedTags.includes(tagName.toLowerCase()) ? match : '';
+            const lowerTagName = tagName.toLowerCase();
+            return allowedTags.indexOf(lowerTagName) !== -1 ? match : '';
           });
 
           return sanitized;
@@ -4285,21 +4420,29 @@
                 <div class="variable-subgroup ${
                   hasMixedValues ? "has-validation-issues" : ""
                 }" id="${groupId}">
-                  <h4 class="subgroup-title">
-                    ${displayName}
-                    ${
-                      hasMixedValues
-                        ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
-                        : ""
-                    }
-                  </h4>
+                  <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
+                    <div class="subgroup-title">
+                      ${displayName}
+                      <span class="subgroup-stats">${variables.length} variable${variables.length !== 1 ? 's' : ''}</span>
+                      ${
+                        hasMixedValues
+                          ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
+                          : ""
+                      }
+                    </div>
+                    <span class="subgroup-toggle">▼</span>
+                  </div>
+                  <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
               const varsWithCollection = variables.map((v) => ({
                 ...v,
                 collection: collection.name,
               }));
               html += renderVariableTable(varsWithCollection);
-              html += "</div>";
+              html += `
+                  </div>
+                </div>
+              `;
             });
 
             html += "</div>";
@@ -6225,6 +6368,46 @@ ${checkboxes}
             window.gitlabSettings.exportFormat = this.value;
           }
           updateExportButtonText();
+        });
+      }
+
+      // Toggle collapsible subgroups
+      function toggleSubgroup(groupId) {
+        const content = document.getElementById(groupId + '-content');
+        const header = document.querySelector(`#${groupId} .subgroup-header`);
+        
+        if (!content || !header) return;
+        
+        if (content.classList.contains('collapsed')) {
+          content.classList.remove('collapsed');
+          content.classList.add('expanded');
+          header.classList.remove('collapsed');
+        } else {
+          content.classList.remove('expanded');
+          content.classList.add('collapsed');
+          header.classList.add('collapsed');
+        }
+      }
+
+      // Expand all groups function
+      function expandAllGroups() {
+        document.querySelectorAll('.subgroup-content').forEach(content => {
+          content.classList.remove('collapsed');
+          content.classList.add('expanded');
+        });
+        document.querySelectorAll('.subgroup-header').forEach(header => {
+          header.classList.remove('collapsed');
+        });
+      }
+
+      // Collapse all groups function
+      function collapseAllGroups() {
+        document.querySelectorAll('.subgroup-content').forEach(content => {
+          content.classList.remove('expanded');
+          content.classList.add('collapsed');
+        });
+        document.querySelectorAll('.subgroup-header').forEach(header => {
+          header.classList.add('collapsed');
         });
       }
 
