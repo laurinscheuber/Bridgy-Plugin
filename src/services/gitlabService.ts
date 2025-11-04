@@ -1,5 +1,7 @@
 import { GitLabSettings } from "../types";
 import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService, buildGitLabApiUrl, buildGitLabWebUrl } from "../config";
+import { SecurityUtils } from "../utils/securityUtils";
+import { ErrorHandler } from "../utils/errorHandler";
 
 // Types for improved type safety
 interface GitLabProject {
@@ -124,12 +126,31 @@ export class GitLabService {
           JSON.stringify(settingsToSave)
         );
 
-        // If token should be saved, also save it personally for this user
+        // If token should be saved, encrypt it before storing
         if (settings.saveToken && settings.gitlabToken) {
-          await figma.clientStorage.setAsync(
-            `${settingsKey}-token`,
-            settings.gitlabToken
-          );
+          try {
+            const encryptionKey = SecurityUtils.generateEncryptionKey();
+            const encryptedToken = SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
+            await figma.clientStorage.setAsync(
+              `${settingsKey}-token`,
+              encryptedToken
+            );
+            await figma.clientStorage.setAsync(
+              `${settingsKey}-key`,
+              encryptionKey
+            );
+          } catch (error) {
+            ErrorHandler.handleError(error as Error, {
+              operation: 'encrypt_token',
+              component: 'GitLabService',
+              severity: 'high'
+            });
+            // Still save unencrypted as fallback
+            await figma.clientStorage.setAsync(
+              `${settingsKey}-token`,
+              settings.gitlabToken
+            );
+          }
         }
       }
 
@@ -190,9 +211,26 @@ export class GitLabService {
 
       // Try to load personal token if settings indicate it should be saved
       if (settings.saveToken && !settings.gitlabToken) {
-        const personalToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
-        if (personalToken) {
-          settings.gitlabToken = personalToken;
+        const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+        const encryptionKey = await figma.clientStorage.getAsync(`${settingsKey}-key`);
+        
+        if (encryptedToken && encryptionKey) {
+          try {
+            // Try to decrypt the token
+            const decryptedToken = SecurityUtils.decryptData(encryptedToken, encryptionKey);
+            settings.gitlabToken = decryptedToken;
+          } catch (error) {
+            ErrorHandler.handleError(error as Error, {
+              operation: 'decrypt_token',
+              component: 'GitLabService',
+              severity: 'medium'
+            });
+            // If decryption fails, treat as unencrypted token (backward compatibility)
+            settings.gitlabToken = encryptedToken;
+          }
+        } else if (encryptedToken) {
+          // Fallback for unencrypted tokens (backward compatibility)
+          settings.gitlabToken = encryptedToken;
         }
       }
 
@@ -257,9 +295,10 @@ export class GitLabService {
       figma.root.setSharedPluginData("Bridgy", settingsKey, "");
       figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
 
-      // Remove personal client storage
+      // Remove personal client storage including encryption keys
       await figma.clientStorage.deleteAsync(settingsKey);
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+      await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
 
       // Also remove any legacy global settings (cleanup)
       figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
@@ -285,10 +324,10 @@ export class GitLabService {
     cssData: string,
     branchName: string = DEFAULT_BRANCH_NAME
   ): Promise<{ mergeRequestUrl?: string }> {
-    const { projectId, gitlabToken } = settings;
-    this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
+    return await ErrorHandler.withErrorHandling(async () => {
+      const { projectId, gitlabToken } = settings;
+      this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
 
-    try {
       const featureBranch = branchName;
 
       // Get project information (this will fail fast if there's no connectivity)
@@ -350,14 +389,15 @@ export class GitLabService {
       }
 
       return { mergeRequestUrl: existingMR.web_url };
-    } catch (error: any) {
-      LoggingService.error('Error committing to GitLab', error, LoggingService.CATEGORIES.GITLAB);
-      throw this.handleGitLabError(error, 'commit to GitLab');
-    }
+    }, {
+      operation: 'commit_to_gitlab',
+      component: 'GitLabService',
+      severity: 'high'
+    });
   }
 
   /**
-   * Validate commit parameters
+   * Validate commit parameters with comprehensive security checks
    */
   private static validateCommitParameters(
     projectId: string,
@@ -366,20 +406,53 @@ export class GitLabService {
     filePath: string,
     cssData: string
   ): void {
+    // Project ID validation - numeric or namespace/project format
     if (!projectId || !projectId.trim()) {
       throw new Error('Project ID is required');
     }
+    const projectIdPattern = /^(\d+|[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)$/;
+    if (!projectIdPattern.test(projectId.trim())) {
+      throw new Error('Invalid project ID format. Use numeric ID or namespace/project format.');
+    }
+    
+    // Token validation - GitLab tokens should be alphanumeric with specific prefixes
     if (!gitlabToken || !gitlabToken.trim()) {
       throw new GitLabAuthError('GitLab token is required');
     }
+    const tokenPattern = /^(glpat-|glrt-|gldt-|GR1348941|gitlab-ci-token:)?[a-zA-Z0-9_-]{20,}$/;
+    if (!tokenPattern.test(gitlabToken.trim())) {
+      throw new GitLabAuthError('Invalid GitLab token format');
+    }
+    
+    // Commit message validation - length and XSS prevention
     if (!commitMessage || !commitMessage.trim()) {
       throw new Error('Commit message is required');
     }
+    if (commitMessage.length > 500) {
+      throw new Error('Commit message too long (max 500 characters)');
+    }
+    if (/<script|javascript:|on\w+\s*=/i.test(commitMessage)) {
+      throw new Error('Commit message contains potentially unsafe content');
+    }
+    
+    // File path validation - prevent path traversal
     if (!filePath || !filePath.trim()) {
       throw new Error('File path is required');
     }
+    if (filePath.includes('..') || filePath.includes('\\') || filePath.startsWith('/')) {
+      throw new Error('Invalid file path - path traversal detected');
+    }
+    const filePathPattern = /^[a-zA-Z0-9/_.-]+\.(css|scss|less)$/;
+    if (!filePathPattern.test(filePath)) {
+      throw new Error('File path must be a valid CSS/SCSS/LESS file path');
+    }
+    
+    // CSS data validation
     if (!cssData || !cssData.trim()) {
       throw new Error('CSS data is required');
+    }
+    if (cssData.length > 1024 * 1024) { // 1MB limit
+      throw new Error('CSS data too large (max 1MB)');
     }
   }
 
@@ -609,10 +682,10 @@ export class GitLabService {
     testFilePath: string = "components/{componentName}.spec.ts",
     branchName: string = DEFAULT_TEST_BRANCH_NAME
   ): Promise<{ mergeRequestUrl?: string }> {
-    const { projectId, gitlabToken } = settings;
-    this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
+    return await ErrorHandler.withErrorHandling(async () => {
+      const { projectId, gitlabToken } = settings;
+      this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
 
-    try {
       // Replace {componentName} placeholder in file path if present
       const normalizedComponentName = this.normalizeComponentName(componentName);
 
@@ -685,10 +758,11 @@ export class GitLabService {
       }
 
       return { mergeRequestUrl: existingMR.web_url };
-    } catch (error: any) {
-      LoggingService.error('Error committing component test', error, LoggingService.CATEGORIES.GITLAB);
-      throw this.handleGitLabError(error, 'commit component test');
-    }
+    }, {
+      operation: 'commit_component_test',
+      component: 'GitLabService',
+      severity: 'high'
+    });
   }
 
   /**

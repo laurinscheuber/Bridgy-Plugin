@@ -2,6 +2,7 @@ import { Component, TextElement, StyleCheck } from '../types';
 import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, normalizeColorForTesting, normalizeComplexColorValue } from '../utils/componentUtils';
 import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
 import { CSS_PROPERTIES } from '../config/css';
+import { ErrorHandler } from '../utils/errorHandler';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -25,16 +26,37 @@ export class ComponentService {
   private static componentMap = new Map<string, Component>();
   private static allVariables = new Map<string, unknown>();
   
-  // Performance optimization caches
+  // Performance optimization caches with size limits
   private static styleCache = new Map<string, Record<string, unknown>>();
   private static testCache = new Map<string, string>();
   private static nameCache = new Map<string, ParsedComponentName>();
+  
+  // Cache size limits to prevent memory leaks
+  private static readonly MAX_CACHE_SIZE = 1000;
+  private static readonly CACHE_CLEANUP_THRESHOLD = 800;
 
-  // Cache management
+  // Cache management with LRU eviction
   static clearCaches(): void {
     this.styleCache.clear();
     this.testCache.clear();
     this.nameCache.clear();
+  }
+
+  private static enforcesCacheLimit<K, V>(cache: Map<K, V>): void {
+    if (cache.size > this.MAX_CACHE_SIZE) {
+      // Remove oldest entries (LRU approximation)
+      const keysToDelete = Array.from(cache.keys()).slice(0, cache.size - this.CACHE_CLEANUP_THRESHOLD);
+      keysToDelete.forEach(key => cache.delete(key));
+    }
+  }
+
+  private static addToCache<K, V>(cache: Map<K, V>, key: K, value: V): void {
+    // If key exists, delete it first to move it to end (LRU)
+    if (cache.has(key)) {
+      cache.delete(key);
+    }
+    cache.set(key, value);
+    this.enforcesCacheLimit(cache);
   }
 
 
@@ -69,65 +91,106 @@ export class ComponentService {
   }
 
   static async collectComponents(): Promise<Component[]> {
-    await this.collectAllVariables();
-    const componentsData: Component[] = [];
-    const componentSets: Component[] = [];
-    this.componentMap = new Map<string, Component>();
+    return await ErrorHandler.withErrorHandling(async () => {
+      await this.collectAllVariables();
+      const componentsData: Component[] = [];
+      const componentSets: Component[] = [];
+      this.componentMap = new Map<string, Component>();
 
-    async function collectNodes(node: BaseNode) {
-      if (!("type" in node)) {
-        return;
-      }
-
-      if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
-          const componentStyles = await node.getCSSAsync();
-          
-          const textElements = await ComponentService.extractTextElements(node);
-          const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
-          
-          const componentData: Component = {
-            id: node.id,
-            name: node.name,
-            type: node.type,
-            styles: resolvedStyles,
-            pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
-            parentId: node.parent && node.parent.id,
-            children: [],
-            textElements: textElements,
-            hasTextContent: textElements.length > 0,
-          };
-
-          ComponentService.componentMap.set(node.id, componentData);
-
-          if (node.type === "COMPONENT_SET") {
-            componentSets.push(componentData);
-          } else {
-            componentsData.push(componentData);
+      async function collectNodes(node: BaseNode) {
+        try {
+          if (!("type" in node)) {
+            return;
           }
-        }
 
-      if ("children" in node) {
-        for (const child of node.children) {
-          await collectNodes(child);
+          if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+            try {
+              const componentStyles = await node.getCSSAsync();
+              
+              const textElements = await ComponentService.extractTextElements(node);
+              const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
+              
+              const componentData: Component = {
+                id: node.id,
+                name: node.name,
+                type: node.type,
+                styles: resolvedStyles,
+                pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
+                parentId: node.parent && node.parent.id,
+                children: [],
+                textElements: textElements,
+                hasTextContent: textElements.length > 0,
+              };
+
+              ComponentService.componentMap.set(node.id, componentData);
+
+              if (node.type === "COMPONENT_SET") {
+                componentSets.push(componentData);
+              } else {
+                componentsData.push(componentData);
+              }
+            } catch (nodeError) {
+              ErrorHandler.handleError(nodeError as Error, {
+                operation: `process_component_${node.name}`,
+                component: 'ComponentService',
+                severity: 'medium'
+              });
+              // Continue processing other components
+            }
+          }
+
+          if ("children" in node) {
+            for (const child of node.children) {
+              await collectNodes(child);
+            }
+          }
+        } catch (childError) {
+          ErrorHandler.handleError(childError as Error, {
+            operation: 'collect_component_children',
+            component: 'ComponentService',
+            severity: 'medium'
+          });
+          // Continue processing other nodes
         }
       }
-    }
 
-    for (const page of figma.root.children) {
-      await collectNodes(page);
-    }
-
-    componentsData.forEach(component => {
-      if (component.parentId) {
-        const parent = this.componentMap.get(component.parentId);
-        if (parent && parent.type === "COMPONENT_SET") {
-          parent.children.push(component);
-          component.isChild = true;
+      for (const page of figma.root.children) {
+        try {
+          await collectNodes(page);
+        } catch (pageError) {
+          ErrorHandler.handleError(pageError as Error, {
+            operation: `collect_page_components_${page.name}`,
+            component: 'ComponentService',
+            severity: 'medium'
+          });
+          // Continue processing other pages
         }
       }
+
+      try {
+        componentsData.forEach(component => {
+          if (component.parentId) {
+            const parent = this.componentMap.get(component.parentId);
+            if (parent && parent.type === "COMPONENT_SET") {
+              parent.children.push(component);
+              component.isChild = true;
+            }
+          }
+        });
+      } catch (organizationError) {
+        ErrorHandler.handleError(organizationError as Error, {
+          operation: 'organize_component_hierarchy',
+          component: 'ComponentService',
+          severity: 'low'
+        });
+      }
+
+      return componentSets.concat(componentsData.filter(comp => !comp.isChild));
+    }, {
+      operation: 'collect_components',
+      component: 'ComponentService',
+      severity: 'high'
     });
-
-    return componentSets.concat(componentsData.filter(comp => !comp.isChild));
   }
 
   static getComponentById(id: string): Component | undefined {
@@ -508,13 +571,20 @@ ${variantTests}
   }
 
   private static async collectAllVariables(): Promise<void> {
-    try {
+    return await ErrorHandler.withErrorHandling(async () => {
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
       this.allVariables.clear();
       
       const variablePromises = arrayFlatMap(collections, collection =>
         collection.variableIds.map(variableId =>
-          figma.variables.getVariableByIdAsync(variableId)
+          figma.variables.getVariableByIdAsync(variableId).catch(error => {
+            ErrorHandler.handleError(error as Error, {
+              operation: `get_variable_${variableId}`,
+              component: 'ComponentService',
+              severity: 'low'
+            });
+            return null; // Return null for failed variables
+          })
         )
       );
       
@@ -522,14 +592,24 @@ ${variantTests}
       
       variables.forEach(variable => {
         if (variable) {
-          this.allVariables.set(variable.id, variable);
-          const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-          this.allVariables.set(formattedName, variable);
+          try {
+            this.allVariables.set(variable.id, variable);
+            const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+            this.allVariables.set(formattedName, variable);
+          } catch (error) {
+            ErrorHandler.handleError(error as Error, {
+              operation: `process_variable_${variable.name}`,
+              component: 'ComponentService',
+              severity: 'low'
+            });
+          }
         }
       });
-    } catch (error) {
-      console.error("Error collecting variables:", error);
-    }
+    }, {
+      operation: 'collect_all_variables',
+      component: 'ComponentService',
+      severity: 'medium'
+    });
   }
 
   private static resolveStyleVariables(styles: any, textElements?: TextElement[], componentName?: string): any {
@@ -899,63 +979,94 @@ ${Object.keys(cssProperties).map((property: string) => {
   }
 
   private static async extractTextElements(node: ComponentNode | ComponentSetNode): Promise<TextElement[]> {
-    const textElements: TextElement[] = [];
-    
-    async function traverseNode(currentNode: SceneNode): Promise<void> {
-      if (currentNode.type === 'TEXT') {
-        const textNode = currentNode as TextNode;
-        
-        let textStyles: any = {};
+    return await ErrorHandler.withErrorHandling(async () => {
+      const textElements: TextElement[] = [];
+      
+      async function traverseNode(currentNode: SceneNode): Promise<void> {
         try {
-          const nodeStyles = await textNode.getCSSAsync();
-          textStyles = {
-            fontSize: nodeStyles['font-size'],
-            fontFamily: nodeStyles['font-family'],
-            fontWeight: nodeStyles['font-weight'],
-            lineHeight: nodeStyles['line-height'],
-            letterSpacing: nodeStyles['letter-spacing'],
-            textAlign: nodeStyles['text-align'],
-            color: nodeStyles['color'],
-            textDecoration: nodeStyles['text-decoration'],
-            textTransform: nodeStyles['text-transform'],
-            fontStyle: nodeStyles['font-style'],
-            fontVariant: nodeStyles['font-variant'],
-            textShadow: nodeStyles['text-shadow'],
-            wordSpacing: nodeStyles['word-spacing'],
-            whiteSpace: nodeStyles['white-space'],
-            textIndent: nodeStyles['text-indent'],
-            textOverflow: nodeStyles['text-overflow']
-          };
-          
-          Object.keys(textStyles).forEach(key => {
-            if (textStyles[key] == null || textStyles[key] === '') {
-              delete textStyles[key];
+          if (currentNode.type === 'TEXT') {
+            const textNode = currentNode as TextNode;
+            
+            let textStyles: any = {};
+            let nodeStyles: any = {};
+            
+            try {
+              nodeStyles = await textNode.getCSSAsync();
+              textStyles = {
+                fontSize: nodeStyles['font-size'],
+                fontFamily: nodeStyles['font-family'],
+                fontWeight: nodeStyles['font-weight'],
+                lineHeight: nodeStyles['line-height'],
+                letterSpacing: nodeStyles['letter-spacing'],
+                textAlign: nodeStyles['text-align'],
+                color: nodeStyles['color'],
+                textDecoration: nodeStyles['text-decoration'],
+                textTransform: nodeStyles['text-transform'],
+                fontStyle: nodeStyles['font-style'],
+                fontVariant: nodeStyles['font-variant'],
+                textShadow: nodeStyles['text-shadow'],
+                wordSpacing: nodeStyles['word-spacing'],
+                whiteSpace: nodeStyles['white-space'],
+                textIndent: nodeStyles['text-indent'],
+                textOverflow: nodeStyles['text-overflow']
+              };
+              
+              Object.keys(textStyles).forEach(key => {
+                if (textStyles[key] == null || textStyles[key] === '') {
+                  delete textStyles[key];
+                }
+              });
+            } catch (styleError) {
+              ErrorHandler.handleError(styleError as Error, {
+                operation: `get_text_styles_${textNode.id}`,
+                component: 'ComponentService',
+                severity: 'low'
+              });
+              // Continue with empty styles
             }
+            
+            try {
+              const textElement: TextElement = {
+                id: textNode.id,
+                content: textNode.characters || '',
+                type: 'TEXT',
+                styles: nodeStyles,
+                textStyles: textStyles
+              };
+              
+              textElements.push(textElement);
+            } catch (elementError) {
+              ErrorHandler.handleError(elementError as Error, {
+                operation: `create_text_element_${textNode.id}`,
+                component: 'ComponentService',
+                severity: 'low'
+              });
+              // Continue processing other text elements
+            }
+          }
+          
+          if ('children' in currentNode) {
+            for (const child of currentNode.children) {
+              await traverseNode(child);
+            }
+          }
+        } catch (nodeError) {
+          ErrorHandler.handleError(nodeError as Error, {
+            operation: `traverse_text_node_${currentNode.id}`,
+            component: 'ComponentService',
+            severity: 'low'
           });
-        } catch (e) {
-          console.error('Error getting text styles:', e);
+          // Continue processing other nodes
         }
-        
-        const textElement: TextElement = {
-          id: textNode.id,
-          content: textNode.characters,
-          type: 'TEXT',
-          styles: await textNode.getCSSAsync(),
-          textStyles: textStyles
-        };
-        
-        textElements.push(textElement);
       }
       
-      if ('children' in currentNode) {
-        for (const child of currentNode.children) {
-          await traverseNode(child);
-        }
-      }
-    }
-    
-    await traverseNode(node);
-    
-    return textElements;
+      await traverseNode(node);
+      
+      return textElements;
+    }, {
+      operation: 'extract_text_elements',
+      component: 'ComponentService',
+      severity: 'medium'
+    });
   }
 } 

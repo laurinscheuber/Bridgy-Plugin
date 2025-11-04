@@ -1,5 +1,6 @@
 import { VariableCollection } from '../types';
 import { UnitsService } from './unitsService';
+import { ErrorHandler } from '../utils/errorHandler';
 
 // Constants for better maintainability
 const CSS_VARIABLE_PREFIX = '--';
@@ -33,22 +34,40 @@ export class CSSExportService {
    * Export variables in the specified format (CSS or SCSS)
    */
   static async exportVariables(format: CSSFormat = DEFAULT_FORMAT): Promise<string> {
-    try {
+    return await ErrorHandler.withErrorHandling(async () => {
+      // Validate format
+      const validFormats = ['css', 'scss'];
+      if (validFormats.indexOf(format.toLowerCase()) === -1) {
+        throw new Error(`Invalid export format: ${format}. Must be 'css' or 'scss'.`);
+      }
+
       await this.initialize();
       const collections = await this.getProcessedCollections();
+      
+      if (!collections || collections.length === 0) {
+        throw new Error('No variables found to export. Please ensure you have created variables in your Figma file.');
+      }
+
       return this.buildExportContent(collections, format);
-    } catch (error: any) {
-      console.error("Error exporting CSS:", error);
-      throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
-    }
+    }, {
+      operation: 'export_variables',
+      component: 'CSSExportService',
+      severity: 'high'
+    });
   }
 
   /**
    * Initialize the service by clearing caches and loading settings
    */
   private static async initialize(): Promise<void> {
-    this.clearCaches();
-    await UnitsService.loadUnitSettings();
+    return await ErrorHandler.withErrorHandling(async () => {
+      this.clearCaches();
+      await UnitsService.loadUnitSettings();
+    }, {
+      operation: 'initialize_css_export_service',
+      component: 'CSSExportService',
+      severity: 'medium'
+    });
   }
 
   /**
@@ -63,20 +82,40 @@ export class CSSExportService {
    * Get processed collections with variables organized by groups
    */
   private static async getProcessedCollections(): Promise<FormattedCollection[]> {
-    const collections = await figma.variables.getLocalVariableCollectionsAsync();
-    await this.populateVariableCache(collections);
-    
-    const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-    const processedCollections: FormattedCollection[] = [];
-    
-    for (const collection of sortedCollections) {
-      const processed = await this.processCollection(collection);
-      if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
-        processedCollections.push(processed);
+    return await ErrorHandler.withErrorHandling(async () => {
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      
+      if (!collections || collections.length === 0) {
+        throw new Error('No variable collections found in this Figma file.');
       }
-    }
-    
-    return processedCollections;
+
+      await this.populateVariableCache(collections);
+      
+      const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+      const processedCollections: FormattedCollection[] = [];
+      
+      for (const collection of sortedCollections) {
+        try {
+          const processed = await this.processCollection(collection);
+          if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
+            processedCollections.push(processed);
+          }
+        } catch (collectionError) {
+          ErrorHandler.handleError(collectionError as Error, {
+            operation: `process_collection_${collection.name}`,
+            component: 'CSSExportService',
+            severity: 'medium'
+          });
+          // Continue processing other collections
+        }
+      }
+      
+      return processedCollections;
+    }, {
+      operation: 'get_processed_collections',
+      component: 'CSSExportService',
+      severity: 'high'
+    });
   }
 
   /**
@@ -245,14 +284,38 @@ export class CSSExportService {
    * Populate the variable cache for alias resolution
    */
   private static async populateVariableCache(collections: any[]): Promise<void> {
-    await Promise.all(collections.map(async (collection) => {
-      await Promise.all(collection.variableIds.map(async (variableId: string) => {
-        const variable = await figma.variables.getVariableByIdAsync(variableId);
-        if (variable) {
-          this.variableCache.set(variable.id, variable);
+    return await ErrorHandler.withErrorHandling(async () => {
+      await Promise.all(collections.map(async (collection) => {
+        try {
+          await Promise.all(collection.variableIds.map(async (variableId: string) => {
+            try {
+              const variable = await figma.variables.getVariableByIdAsync(variableId);
+              if (variable) {
+                this.variableCache.set(variable.id, variable);
+              }
+            } catch (variableError) {
+              ErrorHandler.handleError(variableError as Error, {
+                operation: `cache_variable_${variableId}`,
+                component: 'CSSExportService',
+                severity: 'low'
+              });
+              // Continue caching other variables
+            }
+          }));
+        } catch (collectionError) {
+          ErrorHandler.handleError(collectionError as Error, {
+            operation: `cache_collection_variables_${collection.name}`,
+            component: 'CSSExportService',
+            severity: 'medium'
+          });
+          // Continue processing other collections
         }
       }));
-    }));
+    }, {
+      operation: 'populate_variable_cache',
+      component: 'CSSExportService',
+      severity: 'medium'
+    });
   }
 
   /**
@@ -340,63 +403,101 @@ export class CSSExportService {
     collections: Array<{name: string, defaultUnit: string, currentUnit: string}>,
     groups: Array<{collectionName: string, groupName: string, defaultUnit: string, currentUnit: string}>
   }> {
-    await UnitsService.loadUnitSettings();
-    const collections = await figma.variables.getLocalVariableCollectionsAsync();
-    const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-    
-    const collectionsData = [];
-    const groupsData = [];
-    const unitSettings = UnitsService.getUnitSettings();
-
-    await Promise.all(sortedCollections.map(async (collection) => {
-      // Collection data - show actual smart default if no setting exists
-      const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
-      const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : 'Smart defaults';
-      const currentUnit = unitSettings.collections[collection.name] || '';
-      collectionsData.push({
-        name: collection.name,
-        defaultUnit,
-        currentUnit
-      });
+    return await ErrorHandler.withErrorHandling(async () => {
+      await UnitsService.loadUnitSettings();
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
       
-      // Find all groups in this collection
-      const groups = new Set<string>();
-      await Promise.all(collection.variableIds.map(async (variableId: string) => {
-        const variable = await figma.variables.getVariableByIdAsync(variableId);
-        if (variable) {
-          const pathMatch = variable.name.match(/^([^\/]+)\//);
-          if (pathMatch) {
-            groups.add(pathMatch[1]);
-          }
+      if (!collections || collections.length === 0) {
+        return { collections: [], groups: [] };
+      }
+
+      const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+      
+      const collectionsData = [];
+      const groupsData = [];
+      const unitSettings = UnitsService.getUnitSettings();
+
+      await Promise.all(sortedCollections.map(async (collection) => {
+        try {
+          // Collection data - show actual smart default if no setting exists
+          const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
+          const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : 'Smart defaults';
+          const currentUnit = unitSettings.collections[collection.name] || '';
+          collectionsData.push({
+            name: collection.name,
+            defaultUnit,
+            currentUnit
+          });
+          
+          // Find all groups in this collection
+          const groups = new Set<string>();
+          await Promise.all(collection.variableIds.map(async (variableId: string) => {
+            try {
+              const variable = await figma.variables.getVariableByIdAsync(variableId);
+              if (variable) {
+                const pathMatch = variable.name.match(/^([^\/]+)\//);
+                if (pathMatch) {
+                  groups.add(pathMatch[1]);
+                }
+              }
+            } catch (variableError) {
+              ErrorHandler.handleError(variableError as Error, {
+                operation: `get_variable_for_groups_${variableId}`,
+                component: 'CSSExportService',
+                severity: 'low'
+              });
+              // Continue processing other variables
+            }
+          }));
+
+          // Group data
+          Array.from(groups).sort().forEach(groupName => {
+            try {
+              const groupKey = `${collection.name}/${groupName}`;
+              const hasGroupSetting = unitSettings.groups[groupKey] !== undefined;
+              const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
+              
+              let defaultUnit: string;
+              if (hasGroupSetting) {
+                defaultUnit = unitSettings.groups[groupKey];
+              } else if (hasCollectionSetting) {
+                defaultUnit = `Inherits: ${unitSettings.collections[collection.name]}`;
+              } else {
+                defaultUnit = 'Smart defaults';
+              }
+              
+              const groupCurrentUnit: string = unitSettings.groups[groupKey] || '';
+              groupsData.push({
+                collectionName: collection.name,
+                groupName,
+                defaultUnit,
+                currentUnit: groupCurrentUnit
+              });
+            } catch (groupError) {
+              ErrorHandler.handleError(groupError as Error, {
+                operation: `process_group_${groupName}`,
+                component: 'CSSExportService',
+                severity: 'low'
+              });
+              // Continue processing other groups
+            }
+          });
+        } catch (collectionError) {
+          ErrorHandler.handleError(collectionError as Error, {
+            operation: `get_unit_settings_for_collection_${collection.name}`,
+            component: 'CSSExportService',
+            severity: 'medium'
+          });
+          // Continue processing other collections
         }
       }));
-
-      // Group data
-      Array.from(groups).sort().forEach(groupName => {
-        const groupKey = `${collection.name}/${groupName}`;
-        const hasGroupSetting = unitSettings.groups[groupKey] !== undefined;
-        const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
-        
-        let defaultUnit: string;
-        if (hasGroupSetting) {
-          defaultUnit = unitSettings.groups[groupKey];
-        } else if (hasCollectionSetting) {
-          defaultUnit = `Inherits: ${unitSettings.collections[collection.name]}`;
-        } else {
-          defaultUnit = 'Smart defaults';
-        }
-        
-        const groupCurrentUnit: string = unitSettings.groups[groupKey] || '';
-        groupsData.push({
-          collectionName: collection.name,
-          groupName,
-          defaultUnit,
-          currentUnit: groupCurrentUnit
-        });
-      });
-    }));
-    
-    return { collections: collectionsData, groups: groupsData };
+      
+      return { collections: collectionsData, groups: groupsData };
+    }, {
+      operation: 'get_unit_settings_data',
+      component: 'CSSExportService',
+      severity: 'medium'
+    });
   }
 
   // Update unit settings

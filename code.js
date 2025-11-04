@@ -715,6 +715,447 @@
     }
   });
 
+  // dist/utils/securityUtils.js
+  var require_securityUtils = __commonJS({
+    "dist/utils/securityUtils.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.SecurityUtils = void 0;
+      var SecurityUtils = class {
+        /**
+         * Sanitize HTML content to prevent XSS attacks
+         * @param htmlString Raw HTML string
+         * @returns Sanitized HTML string
+         */
+        static sanitizeHTML(htmlString) {
+          if (typeof htmlString !== "string") {
+            return "";
+          }
+          let sanitized = htmlString.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "").replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "").replace(/on\w+\s*=\s*["'][^"']*["']/gi, "").replace(/on\w+\s*=\s*[^>\s]+/gi, "").replace(/javascript:/gi, "").replace(/vbscript:/gi, "").replace(/data:/gi, "");
+          const allowedTags = [
+            "p",
+            "br",
+            "strong",
+            "em",
+            "b",
+            "i",
+            "u",
+            "span",
+            "div",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
+            "code",
+            "pre",
+            "blockquote",
+            "select",
+            "option",
+            "button",
+            "svg",
+            "path",
+            "circle"
+          ];
+          sanitized = sanitized.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (match, tagName) => {
+            const lowerTagName = tagName.toLowerCase();
+            return allowedTags.indexOf(lowerTagName) !== -1 ? match : "";
+          });
+          return sanitized;
+        }
+        /**
+         * Create safe DOM element with text content (prevents XSS)
+         * @param tagName HTML tag name
+         * @param textContent Safe text content
+         * @param className Optional CSS class
+         * @returns HTML string
+         */
+        static createSafeElement(tagName, textContent, className) {
+          const escapedText = this.escapeHTML(textContent);
+          const classAttr = className ? ` class="${this.escapeHTML(className)}"` : "";
+          return `<${tagName}${classAttr}>${escapedText}</${tagName}>`;
+        }
+        /**
+         * Escape HTML entities to prevent XSS
+         * @param text Raw text
+         * @returns Escaped text
+         */
+        static escapeHTML(text) {
+          if (typeof text !== "string") {
+            return "";
+          }
+          const htmlEscapes = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#x27;",
+            "/": "&#x2F;"
+          };
+          return text.replace(/[&<>"'/]/g, (match) => htmlEscapes[match]);
+        }
+        /**
+         * Validate and sanitize user input
+         * @param input User input
+         * @param maxLength Maximum allowed length
+         * @returns Sanitized input
+         */
+        static sanitizeInput(input, maxLength = 1e3) {
+          if (typeof input !== "string") {
+            return "";
+          }
+          let sanitized = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").replace(/\s+/g, " ").trim();
+          if (sanitized.length > maxLength) {
+            sanitized = sanitized.substring(0, maxLength);
+          }
+          return sanitized;
+        }
+        /**
+         * Validate GitLab URL format
+         * @param url GitLab URL
+         * @returns true if valid GitLab URL
+         */
+        static isValidGitLabURL(url) {
+          if (typeof url !== "string") {
+            return false;
+          }
+          try {
+            const parsedUrl = new URL(url);
+            if (parsedUrl.protocol !== "https:") {
+              return false;
+            }
+            const gitlabPatterns = [
+              /^gitlab\.com$/,
+              /^.*\.gitlab\.com$/,
+              /^.*\.gitlab\.io$/,
+              /gitlab/i
+              // Allow custom GitLab instances with "gitlab" in domain
+            ];
+            return gitlabPatterns.some((pattern) => pattern.test(parsedUrl.hostname));
+          } catch (_a) {
+            return false;
+          }
+        }
+        static checkRateLimit(key, maxRequests = 10, windowMs = 6e4) {
+          const now = Date.now();
+          const windowStart = now - windowMs;
+          const current = this.rateLimitCache.get(key);
+          if (!current || current.resetTime < windowStart) {
+            this.rateLimitCache.set(key, { count: 1, resetTime: now });
+            return true;
+          }
+          if (current.count >= maxRequests) {
+            return false;
+          }
+          current.count++;
+          return true;
+        }
+        /**
+         * Simple encryption for sensitive data storage
+         * @param data Data to encrypt
+         * @param key Encryption key
+         * @returns Encrypted string
+         */
+        static encryptData(data, key) {
+          if (typeof data !== "string" || typeof key !== "string") {
+            throw new Error("Data and key must be strings");
+          }
+          const keyBytes = new TextEncoder().encode(key);
+          const dataBytes = new TextEncoder().encode(data);
+          const encrypted = new Uint8Array(dataBytes.length);
+          for (let i = 0; i < dataBytes.length; i++) {
+            encrypted[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
+          }
+          return btoa(String.fromCharCode(...encrypted));
+        }
+        /**
+         * Decrypt data encrypted with encryptData
+         * @param encryptedData Encrypted data string
+         * @param key Decryption key
+         * @returns Decrypted string
+         */
+        static decryptData(encryptedData, key) {
+          if (typeof encryptedData !== "string" || typeof key !== "string") {
+            throw new Error("Encrypted data and key must be strings");
+          }
+          try {
+            const encrypted = new Uint8Array(atob(encryptedData).split("").map((char) => char.charCodeAt(0)));
+            const keyBytes = new TextEncoder().encode(key);
+            const decrypted = new Uint8Array(encrypted.length);
+            for (let i = 0; i < encrypted.length; i++) {
+              decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
+            }
+            return new TextDecoder().decode(decrypted);
+          } catch (error) {
+            throw new Error("Failed to decrypt data - invalid format or key");
+          }
+        }
+        /**
+         * Generate a simple key for encryption based on session/user
+         * @returns Encryption key
+         */
+        static generateEncryptionKey() {
+          var _a, _b;
+          const fileId = ((_b = (_a = globalThis.figma) === null || _a === void 0 ? void 0 : _a.root) === null || _b === void 0 ? void 0 : _b.id) || "default";
+          const userAgent = navigator.userAgent;
+          const timestamp = Math.floor(Date.now() / (1e3 * 60 * 60 * 24));
+          return btoa(`${fileId}:${userAgent.slice(0, 20)}:${timestamp}`).slice(0, 32);
+        }
+      };
+      exports.SecurityUtils = SecurityUtils;
+      SecurityUtils.rateLimitCache = /* @__PURE__ */ new Map();
+    }
+  });
+
+  // dist/utils/errorHandler.js
+  var require_errorHandler = __commonJS({
+    "dist/utils/errorHandler.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.ErrorHandler = void 0;
+      var ErrorHandler = class {
+        /**
+         * Handle and log errors with context
+         */
+        static handleError(error, context) {
+          const fullContext = {
+            operation: context.operation || "unknown",
+            component: context.component || "unknown",
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            severity: context.severity || "medium"
+          };
+          this.errorLog.push({ error, context: fullContext });
+          if (this.errorLog.length > this.MAX_ERROR_LOG_SIZE) {
+            this.errorLog.shift();
+          }
+          switch (fullContext.severity) {
+            case "critical":
+              console.error("CRITICAL ERROR:", error.message, fullContext);
+              break;
+            case "high":
+              console.error("HIGH SEVERITY:", error.message, fullContext);
+              break;
+            case "medium":
+              console.warn("MEDIUM SEVERITY:", error.message, fullContext);
+              break;
+            case "low":
+              console.log("LOW SEVERITY:", error.message, fullContext);
+              break;
+          }
+        }
+        /**
+         * Create user-friendly error message
+         */
+        static getUserFriendlyMessage(error, operation) {
+          const errorLower = error.message.toLowerCase();
+          if (errorLower.includes("network") || errorLower.includes("fetch")) {
+            return `Unable to connect to GitLab. Please check your internet connection and GitLab server status.`;
+          }
+          if (errorLower.includes("unauthorized") || errorLower.includes("401") || errorLower.includes("403")) {
+            return `Authentication failed. Please check your GitLab token and permissions in Settings.`;
+          }
+          if (errorLower.includes("invalid") || errorLower.includes("validation")) {
+            return `Invalid input: ${error.message}`;
+          }
+          if (errorLower.includes("rate limit") || errorLower.includes("429")) {
+            return `Too many requests. Please wait a moment and try again.`;
+          }
+          if (operation.includes("export") || operation.includes("generate")) {
+            return `Failed to ${operation}. Please try again or contact support if the issue persists.`;
+          }
+          return `An error occurred during ${operation}. Please try again.`;
+        }
+        /**
+         * Wrap async operations with error handling
+         */
+        static withErrorHandling(operation, context) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              return yield operation();
+            } catch (error) {
+              this.handleError(error, context);
+              throw error;
+            }
+          });
+        }
+        /**
+         * Sanitize error for UI display (remove sensitive info)
+         */
+        static sanitizeErrorForUI(error) {
+          let message = this.getUserFriendlyMessage(error, "operation");
+          message = message.replace(/token[=:]\s*[a-zA-Z0-9_-]+/gi, "token=***").replace(/password[=:]\s*[^\s]+/gi, "password=***").replace(/key[=:]\s*[a-zA-Z0-9_-]+/gi, "key=***");
+          return {
+            message,
+            type: error.name || "Error"
+          };
+        }
+        /**
+         * Get error statistics for monitoring
+         */
+        static getErrorStats() {
+          const bySeverity = this.errorLog.reduce((acc, { context }) => {
+            acc[context.severity] = (acc[context.severity] || 0) + 1;
+            return acc;
+          }, {});
+          const recent = this.errorLog.slice(-10).map(({ context }) => ({
+            operation: context.operation,
+            timestamp: context.timestamp,
+            severity: context.severity
+          }));
+          return {
+            total: this.errorLog.length,
+            bySeverity,
+            recent
+          };
+        }
+        /**
+         * Clear error log
+         */
+        static clearErrorLog() {
+          this.errorLog = [];
+        }
+        /**
+         * Show user-friendly error message in UI
+         */
+        static showUserError(error, operation) {
+          const userMessage = this.getUserFriendlyMessage(error, operation);
+          if (typeof figma !== "undefined" && figma.ui) {
+            try {
+              figma.ui.postMessage({
+                type: "show-error",
+                title: "Operation Failed",
+                message: userMessage,
+                operation
+              });
+            } catch (uiError) {
+              console.error("Failed to show UI error:", uiError);
+            }
+          }
+          this.handleError(error, {
+            operation,
+            component: "UI",
+            severity: "high"
+          });
+        }
+        /**
+         * Show success message in UI
+         */
+        static showUserSuccess(message, operation) {
+          if (typeof figma !== "undefined" && figma.ui) {
+            try {
+              figma.ui.postMessage({
+                type: "show-success",
+                title: "Success",
+                message,
+                operation
+              });
+            } catch (uiError) {
+              console.error("Failed to show UI success:", uiError);
+            }
+          }
+        }
+        /**
+         * Wrap async operations with comprehensive error handling and UI feedback
+         */
+        static withErrorHandlingAndUI(operation_1, context_1) {
+          return __awaiter(this, arguments, void 0, function* (operation, context, showUIFeedback = true) {
+            try {
+              const result = yield operation();
+              if (showUIFeedback && context.operation) {
+                this.showUserSuccess(`${context.operation} completed successfully`, context.operation);
+              }
+              return result;
+            } catch (error) {
+              this.handleError(error, context);
+              if (showUIFeedback && context.operation) {
+                this.showUserError(error, context.operation);
+              }
+              throw error;
+            }
+          });
+        }
+        /**
+         * Validate and sanitize user input to prevent errors
+         */
+        static validateInput(input, fieldName, rules) {
+          if (rules.required && (input === null || input === void 0 || input === "")) {
+            return { isValid: false, error: `${fieldName} is required` };
+          }
+          if (input === null || input === void 0 || input === "") {
+            return { isValid: true };
+          }
+          const inputStr = String(input);
+          if (rules.minLength && inputStr.length < rules.minLength) {
+            return { isValid: false, error: `${fieldName} must be at least ${rules.minLength} characters` };
+          }
+          if (rules.maxLength && inputStr.length > rules.maxLength) {
+            return { isValid: false, error: `${fieldName} must be no more than ${rules.maxLength} characters` };
+          }
+          if (rules.pattern && !rules.pattern.test(inputStr)) {
+            return { isValid: false, error: `${fieldName} format is invalid` };
+          }
+          if (rules.type) {
+            switch (rules.type) {
+              case "number":
+                if (isNaN(Number(input))) {
+                  return { isValid: false, error: `${fieldName} must be a valid number` };
+                }
+                break;
+              case "email":
+                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailPattern.test(inputStr)) {
+                  return { isValid: false, error: `${fieldName} must be a valid email address` };
+                }
+                break;
+              case "url":
+                try {
+                  new URL(inputStr);
+                } catch (_a) {
+                  return { isValid: false, error: `${fieldName} must be a valid URL` };
+                }
+                break;
+            }
+          }
+          return { isValid: true };
+        }
+      };
+      exports.ErrorHandler = ErrorHandler;
+      ErrorHandler.errorLog = [];
+      ErrorHandler.MAX_ERROR_LOG_SIZE = 100;
+    }
+  });
+
   // dist/services/gitlabService.js
   var require_gitlabService = __commonJS({
     "dist/services/gitlabService.js"(exports) {
@@ -749,6 +1190,8 @@
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.GitLabNetworkError = exports.GitLabAuthError = exports.GitLabAPIError = exports.GitLabService = void 0;
       var config_1 = require_config();
+      var securityUtils_1 = require_securityUtils();
+      var errorHandler_1 = require_errorHandler();
       var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
       var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
       var GitLabAPIError = class extends Error {
@@ -807,7 +1250,19 @@
                 }
                 figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
-                  yield figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
+                  try {
+                    const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
+                    const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
+                    yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+                    yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
+                  } catch (error) {
+                    errorHandler_1.ErrorHandler.handleError(error, {
+                      operation: "encrypt_token",
+                      component: "GitLabService",
+                      severity: "high"
+                    });
+                    yield figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
+                  }
                 }
               }
               figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
@@ -856,9 +1311,22 @@
             try {
               const settings = JSON.parse(documentSettings);
               if (settings.saveToken && !settings.gitlabToken) {
-                const personalToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-                if (personalToken) {
-                  settings.gitlabToken = personalToken;
+                const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
+                const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
+                if (encryptedToken && encryptionKey) {
+                  try {
+                    const decryptedToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                    settings.gitlabToken = decryptedToken;
+                  } catch (error) {
+                    errorHandler_1.ErrorHandler.handleError(error, {
+                      operation: "decrypt_token",
+                      component: "GitLabService",
+                      severity: "medium"
+                    });
+                    settings.gitlabToken = encryptedToken;
+                  }
+                } else if (encryptedToken) {
+                  settings.gitlabToken = encryptedToken;
                 }
               }
               const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
@@ -920,6 +1388,7 @@
               figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
               figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
               yield figma.clientStorage.deleteAsync("gitlab-settings");
             } catch (error) {
@@ -933,9 +1402,9 @@
          */
         static commitToGitLab(settings_1, commitMessage_1, filePath_1, cssData_1) {
           return __awaiter(this, arguments, void 0, function* (settings, commitMessage, filePath, cssData, branchName = DEFAULT_BRANCH_NAME) {
-            const { projectId, gitlabToken } = settings;
-            this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
-            try {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const { projectId, gitlabToken } = settings;
+              this.validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData);
               const featureBranch = branchName;
               const projectData = yield this.fetchProjectInfo(projectId, gitlabToken, settings);
               const defaultBranch = projectData.default_branch;
@@ -948,30 +1417,55 @@
                 return { mergeRequestUrl: newMR.web_url };
               }
               return { mergeRequestUrl: existingMR.web_url };
-            } catch (error) {
-              config_1.LoggingService.error("Error committing to GitLab", error, config_1.LoggingService.CATEGORIES.GITLAB);
-              throw this.handleGitLabError(error, "commit to GitLab");
-            }
+            }), {
+              operation: "commit_to_gitlab",
+              component: "GitLabService",
+              severity: "high"
+            });
           });
         }
         /**
-         * Validate commit parameters
+         * Validate commit parameters with comprehensive security checks
          */
         static validateCommitParameters(projectId, gitlabToken, commitMessage, filePath, cssData) {
           if (!projectId || !projectId.trim()) {
             throw new Error("Project ID is required");
           }
+          const projectIdPattern = /^(\d+|[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)$/;
+          if (!projectIdPattern.test(projectId.trim())) {
+            throw new Error("Invalid project ID format. Use numeric ID or namespace/project format.");
+          }
           if (!gitlabToken || !gitlabToken.trim()) {
             throw new GitLabAuthError("GitLab token is required");
+          }
+          const tokenPattern = /^(glpat-|glrt-|gldt-|GR1348941|gitlab-ci-token:)?[a-zA-Z0-9_-]{20,}$/;
+          if (!tokenPattern.test(gitlabToken.trim())) {
+            throw new GitLabAuthError("Invalid GitLab token format");
           }
           if (!commitMessage || !commitMessage.trim()) {
             throw new Error("Commit message is required");
           }
+          if (commitMessage.length > 500) {
+            throw new Error("Commit message too long (max 500 characters)");
+          }
+          if (/<script|javascript:|on\w+\s*=/i.test(commitMessage)) {
+            throw new Error("Commit message contains potentially unsafe content");
+          }
           if (!filePath || !filePath.trim()) {
             throw new Error("File path is required");
           }
+          if (filePath.includes("..") || filePath.includes("\\") || filePath.startsWith("/")) {
+            throw new Error("Invalid file path - path traversal detected");
+          }
+          const filePathPattern = /^[a-zA-Z0-9/_.-]+\.(css|scss|less)$/;
+          if (!filePathPattern.test(filePath)) {
+            throw new Error("File path must be a valid CSS/SCSS/LESS file path");
+          }
           if (!cssData || !cssData.trim()) {
             throw new Error("CSS data is required");
+          }
+          if (cssData.length > 1024 * 1024) {
+            throw new Error("CSS data too large (max 1MB)");
           }
         }
         /**
@@ -1142,9 +1636,9 @@
          */
         static commitComponentTest(settings_1, commitMessage_1, componentName_1, testContent_1) {
           return __awaiter(this, arguments, void 0, function* (settings, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.spec.ts", branchName = DEFAULT_TEST_BRANCH_NAME) {
-            const { projectId, gitlabToken } = settings;
-            this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
-            try {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const { projectId, gitlabToken } = settings;
+              this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
               const normalizedComponentName = this.normalizeComponentName(componentName);
               const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
               const featureBranch = `${branchName}-${normalizedComponentName}`;
@@ -1170,10 +1664,11 @@
                 return { mergeRequestUrl: newMR.web_url };
               }
               return { mergeRequestUrl: existingMR.web_url };
-            } catch (error) {
-              config_1.LoggingService.error("Error committing component test", error, config_1.LoggingService.CATEGORIES.GITLAB);
-              throw this.handleGitLabError(error, "commit component test");
-            }
+            }), {
+              operation: "commit_component_test",
+              component: "GitLabService",
+              severity: "high"
+            });
           });
         }
         /**
@@ -1594,6 +2089,7 @@
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CSSExportService = void 0;
       var unitsService_1 = require_unitsService();
+      var errorHandler_1 = require_errorHandler();
       var CSS_VARIABLE_PREFIX = "--";
       var SCSS_VARIABLE_PREFIX = "$";
       var DEFAULT_FORMAT = "css";
@@ -1603,14 +2099,22 @@
          */
         static exportVariables() {
           return __awaiter(this, arguments, void 0, function* (format = DEFAULT_FORMAT) {
-            try {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const validFormats = ["css", "scss"];
+              if (validFormats.indexOf(format.toLowerCase()) === -1) {
+                throw new Error(`Invalid export format: ${format}. Must be 'css' or 'scss'.`);
+              }
               yield this.initialize();
               const collections = yield this.getProcessedCollections();
+              if (!collections || collections.length === 0) {
+                throw new Error("No variables found to export. Please ensure you have created variables in your Figma file.");
+              }
               return this.buildExportContent(collections, format);
-            } catch (error) {
-              console.error("Error exporting CSS:", error);
-              throw new Error(`Error exporting CSS: ${error.message || "Unknown error"}`);
-            }
+            }), {
+              operation: "export_variables",
+              component: "CSSExportService",
+              severity: "high"
+            });
           });
         }
         /**
@@ -1618,8 +2122,14 @@
          */
         static initialize() {
           return __awaiter(this, void 0, void 0, function* () {
-            this.clearCaches();
-            yield unitsService_1.UnitsService.loadUnitSettings();
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              this.clearCaches();
+              yield unitsService_1.UnitsService.loadUnitSettings();
+            }), {
+              operation: "initialize_css_export_service",
+              component: "CSSExportService",
+              severity: "medium"
+            });
           });
         }
         /**
@@ -1634,17 +2144,34 @@
          */
         static getProcessedCollections() {
           return __awaiter(this, void 0, void 0, function* () {
-            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-            yield this.populateVariableCache(collections);
-            const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-            const processedCollections = [];
-            for (const collection of sortedCollections) {
-              const processed = yield this.processCollection(collection);
-              if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
-                processedCollections.push(processed);
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              if (!collections || collections.length === 0) {
+                throw new Error("No variable collections found in this Figma file.");
               }
-            }
-            return processedCollections;
+              yield this.populateVariableCache(collections);
+              const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+              const processedCollections = [];
+              for (const collection of sortedCollections) {
+                try {
+                  const processed = yield this.processCollection(collection);
+                  if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
+                    processedCollections.push(processed);
+                  }
+                } catch (collectionError) {
+                  errorHandler_1.ErrorHandler.handleError(collectionError, {
+                    operation: `process_collection_${collection.name}`,
+                    component: "CSSExportService",
+                    severity: "medium"
+                  });
+                }
+              }
+              return processedCollections;
+            }), {
+              operation: "get_processed_collections",
+              component: "CSSExportService",
+              severity: "high"
+            });
           });
         }
         /**
@@ -1791,14 +2318,36 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
          */
         static populateVariableCache(collections) {
           return __awaiter(this, void 0, void 0, function* () {
-            yield Promise.all(collections.map((collection) => __awaiter(this, void 0, void 0, function* () {
-              yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
-                const variable = yield figma.variables.getVariableByIdAsync(variableId);
-                if (variable) {
-                  this.variableCache.set(variable.id, variable);
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              yield Promise.all(collections.map((collection) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                  yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                      const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                      if (variable) {
+                        this.variableCache.set(variable.id, variable);
+                      }
+                    } catch (variableError) {
+                      errorHandler_1.ErrorHandler.handleError(variableError, {
+                        operation: `cache_variable_${variableId}`,
+                        component: "CSSExportService",
+                        severity: "low"
+                      });
+                    }
+                  })));
+                } catch (collectionError) {
+                  errorHandler_1.ErrorHandler.handleError(collectionError, {
+                    operation: `cache_collection_variables_${collection.name}`,
+                    component: "CSSExportService",
+                    severity: "medium"
+                  });
                 }
               })));
-            })));
+            }), {
+              operation: "populate_variable_cache",
+              component: "CSSExportService",
+              severity: "medium"
+            });
           });
         }
         /**
@@ -1871,53 +2420,86 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         // Get unit settings data for the settings interface
         static getUnitSettingsData() {
           return __awaiter(this, void 0, void 0, function* () {
-            yield unitsService_1.UnitsService.loadUnitSettings();
-            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-            const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-            const collectionsData = [];
-            const groupsData = [];
-            const unitSettings = unitsService_1.UnitsService.getUnitSettings();
-            yield Promise.all(sortedCollections.map((collection) => __awaiter(this, void 0, void 0, function* () {
-              const hasCollectionSetting = unitSettings.collections[collection.name] !== void 0;
-              const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : "Smart defaults";
-              const currentUnit = unitSettings.collections[collection.name] || "";
-              collectionsData.push({
-                name: collection.name,
-                defaultUnit,
-                currentUnit
-              });
-              const groups = /* @__PURE__ */ new Set();
-              yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
-                const variable = yield figma.variables.getVariableByIdAsync(variableId);
-                if (variable) {
-                  const pathMatch = variable.name.match(/^([^\/]+)\//);
-                  if (pathMatch) {
-                    groups.add(pathMatch[1]);
-                  }
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              yield unitsService_1.UnitsService.loadUnitSettings();
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              if (!collections || collections.length === 0) {
+                return { collections: [], groups: [] };
+              }
+              const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+              const collectionsData = [];
+              const groupsData = [];
+              const unitSettings = unitsService_1.UnitsService.getUnitSettings();
+              yield Promise.all(sortedCollections.map((collection) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                  const hasCollectionSetting = unitSettings.collections[collection.name] !== void 0;
+                  const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : "Smart defaults";
+                  const currentUnit = unitSettings.collections[collection.name] || "";
+                  collectionsData.push({
+                    name: collection.name,
+                    defaultUnit,
+                    currentUnit
+                  });
+                  const groups = /* @__PURE__ */ new Set();
+                  yield Promise.all(collection.variableIds.map((variableId) => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                      const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                      if (variable) {
+                        const pathMatch = variable.name.match(/^([^\/]+)\//);
+                        if (pathMatch) {
+                          groups.add(pathMatch[1]);
+                        }
+                      }
+                    } catch (variableError) {
+                      errorHandler_1.ErrorHandler.handleError(variableError, {
+                        operation: `get_variable_for_groups_${variableId}`,
+                        component: "CSSExportService",
+                        severity: "low"
+                      });
+                    }
+                  })));
+                  Array.from(groups).sort().forEach((groupName) => {
+                    try {
+                      const groupKey = `${collection.name}/${groupName}`;
+                      const hasGroupSetting = unitSettings.groups[groupKey] !== void 0;
+                      const hasCollectionSetting2 = unitSettings.collections[collection.name] !== void 0;
+                      let defaultUnit2;
+                      if (hasGroupSetting) {
+                        defaultUnit2 = unitSettings.groups[groupKey];
+                      } else if (hasCollectionSetting2) {
+                        defaultUnit2 = `Inherits: ${unitSettings.collections[collection.name]}`;
+                      } else {
+                        defaultUnit2 = "Smart defaults";
+                      }
+                      const groupCurrentUnit = unitSettings.groups[groupKey] || "";
+                      groupsData.push({
+                        collectionName: collection.name,
+                        groupName,
+                        defaultUnit: defaultUnit2,
+                        currentUnit: groupCurrentUnit
+                      });
+                    } catch (groupError) {
+                      errorHandler_1.ErrorHandler.handleError(groupError, {
+                        operation: `process_group_${groupName}`,
+                        component: "CSSExportService",
+                        severity: "low"
+                      });
+                    }
+                  });
+                } catch (collectionError) {
+                  errorHandler_1.ErrorHandler.handleError(collectionError, {
+                    operation: `get_unit_settings_for_collection_${collection.name}`,
+                    component: "CSSExportService",
+                    severity: "medium"
+                  });
                 }
               })));
-              Array.from(groups).sort().forEach((groupName) => {
-                const groupKey = `${collection.name}/${groupName}`;
-                const hasGroupSetting = unitSettings.groups[groupKey] !== void 0;
-                const hasCollectionSetting2 = unitSettings.collections[collection.name] !== void 0;
-                let defaultUnit2;
-                if (hasGroupSetting) {
-                  defaultUnit2 = unitSettings.groups[groupKey];
-                } else if (hasCollectionSetting2) {
-                  defaultUnit2 = `Inherits: ${unitSettings.collections[collection.name]}`;
-                } else {
-                  defaultUnit2 = "Smart defaults";
-                }
-                const groupCurrentUnit = unitSettings.groups[groupKey] || "";
-                groupsData.push({
-                  collectionName: collection.name,
-                  groupName,
-                  defaultUnit: defaultUnit2,
-                  currentUnit: groupCurrentUnit
-                });
-              });
-            })));
-            return { collections: collectionsData, groups: groupsData };
+              return { collections: collectionsData, groups: groupsData };
+            }), {
+              operation: "get_unit_settings_data",
+              component: "CSSExportService",
+              severity: "medium"
+            });
           });
         }
         // Update unit settings
@@ -2549,13 +3131,27 @@ ${styleCheckCode}
       var componentUtils_1 = require_componentUtils();
       var es2015_helpers_1 = require_es2015_helpers();
       var css_1 = require_css();
+      var errorHandler_1 = require_errorHandler();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
       var ComponentService = class _ComponentService {
-        // Cache management
+        // Cache management with LRU eviction
         static clearCaches() {
           this.styleCache.clear();
           this.testCache.clear();
           this.nameCache.clear();
+        }
+        static enforcesCacheLimit(cache) {
+          if (cache.size > this.MAX_CACHE_SIZE) {
+            const keysToDelete = Array.from(cache.keys()).slice(0, cache.size - this.CACHE_CLEANUP_THRESHOLD);
+            keysToDelete.forEach((key) => cache.delete(key));
+          }
+        }
+        static addToCache(cache, key, value) {
+          if (cache.has(key)) {
+            cache.delete(key);
+          }
+          cache.set(key, value);
+          this.enforcesCacheLimit(cache);
         }
         static isSimpleColorProperty(property) {
           return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
@@ -2581,57 +3177,95 @@ ${styleCheckCode}
         }
         static collectComponents() {
           return __awaiter(this, void 0, void 0, function* () {
-            yield this.collectAllVariables();
-            const componentsData = [];
-            const componentSets = [];
-            this.componentMap = /* @__PURE__ */ new Map();
-            function collectNodes(node) {
-              return __awaiter(this, void 0, void 0, function* () {
-                if (!("type" in node)) {
-                  return;
-                }
-                if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
-                  const componentStyles = yield node.getCSSAsync();
-                  const textElements = yield _ComponentService.extractTextElements(node);
-                  const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
-                  const componentData = {
-                    id: node.id,
-                    name: node.name,
-                    type: node.type,
-                    styles: resolvedStyles,
-                    pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
-                    parentId: node.parent && node.parent.id,
-                    children: [],
-                    textElements,
-                    hasTextContent: textElements.length > 0
-                  };
-                  _ComponentService.componentMap.set(node.id, componentData);
-                  if (node.type === "COMPONENT_SET") {
-                    componentSets.push(componentData);
-                  } else {
-                    componentsData.push(componentData);
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              yield this.collectAllVariables();
+              const componentsData = [];
+              const componentSets = [];
+              this.componentMap = /* @__PURE__ */ new Map();
+              function collectNodes(node) {
+                return __awaiter(this, void 0, void 0, function* () {
+                  try {
+                    if (!("type" in node)) {
+                      return;
+                    }
+                    if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                      try {
+                        const componentStyles = yield node.getCSSAsync();
+                        const textElements = yield _ComponentService.extractTextElements(node);
+                        const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
+                        const componentData = {
+                          id: node.id,
+                          name: node.name,
+                          type: node.type,
+                          styles: resolvedStyles,
+                          pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
+                          parentId: node.parent && node.parent.id,
+                          children: [],
+                          textElements,
+                          hasTextContent: textElements.length > 0
+                        };
+                        _ComponentService.componentMap.set(node.id, componentData);
+                        if (node.type === "COMPONENT_SET") {
+                          componentSets.push(componentData);
+                        } else {
+                          componentsData.push(componentData);
+                        }
+                      } catch (nodeError) {
+                        errorHandler_1.ErrorHandler.handleError(nodeError, {
+                          operation: `process_component_${node.name}`,
+                          component: "ComponentService",
+                          severity: "medium"
+                        });
+                      }
+                    }
+                    if ("children" in node) {
+                      for (const child of node.children) {
+                        yield collectNodes(child);
+                      }
+                    }
+                  } catch (childError) {
+                    errorHandler_1.ErrorHandler.handleError(childError, {
+                      operation: "collect_component_children",
+                      component: "ComponentService",
+                      severity: "medium"
+                    });
                   }
-                }
-                if ("children" in node) {
-                  for (const child of node.children) {
-                    yield collectNodes(child);
-                  }
-                }
-              });
-            }
-            for (const page of figma.root.children) {
-              yield collectNodes(page);
-            }
-            componentsData.forEach((component) => {
-              if (component.parentId) {
-                const parent = this.componentMap.get(component.parentId);
-                if (parent && parent.type === "COMPONENT_SET") {
-                  parent.children.push(component);
-                  component.isChild = true;
+                });
+              }
+              for (const page of figma.root.children) {
+                try {
+                  yield collectNodes(page);
+                } catch (pageError) {
+                  errorHandler_1.ErrorHandler.handleError(pageError, {
+                    operation: `collect_page_components_${page.name}`,
+                    component: "ComponentService",
+                    severity: "medium"
+                  });
                 }
               }
+              try {
+                componentsData.forEach((component) => {
+                  if (component.parentId) {
+                    const parent = this.componentMap.get(component.parentId);
+                    if (parent && parent.type === "COMPONENT_SET") {
+                      parent.children.push(component);
+                      component.isChild = true;
+                    }
+                  }
+                });
+              } catch (organizationError) {
+                errorHandler_1.ErrorHandler.handleError(organizationError, {
+                  operation: "organize_component_hierarchy",
+                  component: "ComponentService",
+                  severity: "low"
+                });
+              }
+              return componentSets.concat(componentsData.filter((comp) => !comp.isChild));
+            }), {
+              operation: "collect_components",
+              component: "ComponentService",
+              severity: "high"
             });
-            return componentSets.concat(componentsData.filter((comp) => !comp.isChild));
           });
         }
         static getComponentById(id) {
@@ -2922,21 +3556,38 @@ ${variantTests}
         }
         static collectAllVariables() {
           return __awaiter(this, void 0, void 0, function* () {
-            try {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
               this.allVariables.clear();
-              const variablePromises = (0, es2015_helpers_1.arrayFlatMap)(collections, (collection) => collection.variableIds.map((variableId) => figma.variables.getVariableByIdAsync(variableId)));
+              const variablePromises = (0, es2015_helpers_1.arrayFlatMap)(collections, (collection) => collection.variableIds.map((variableId) => figma.variables.getVariableByIdAsync(variableId).catch((error) => {
+                errorHandler_1.ErrorHandler.handleError(error, {
+                  operation: `get_variable_${variableId}`,
+                  component: "ComponentService",
+                  severity: "low"
+                });
+                return null;
+              })));
               const variables = yield Promise.all(variablePromises);
               variables.forEach((variable) => {
                 if (variable) {
-                  this.allVariables.set(variable.id, variable);
-                  const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-                  this.allVariables.set(formattedName, variable);
+                  try {
+                    this.allVariables.set(variable.id, variable);
+                    const formattedName = variable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+                    this.allVariables.set(formattedName, variable);
+                  } catch (error) {
+                    errorHandler_1.ErrorHandler.handleError(error, {
+                      operation: `process_variable_${variable.name}`,
+                      component: "ComponentService",
+                      severity: "low"
+                    });
+                  }
                 }
               });
-            } catch (error) {
-              console.error("Error collecting variables:", error);
-            }
+            }), {
+              operation: "collect_all_variables",
+              component: "ComponentService",
+              severity: "medium"
+            });
           });
         }
         static resolveStyleVariables(styles, textElements, componentName) {
@@ -3218,58 +3869,85 @@ ${Object.keys(cssProperties).map((property) => {
         }
         static extractTextElements(node) {
           return __awaiter(this, void 0, void 0, function* () {
-            const textElements = [];
-            function traverseNode(currentNode) {
-              return __awaiter(this, void 0, void 0, function* () {
-                if (currentNode.type === "TEXT") {
-                  const textNode = currentNode;
-                  let textStyles = {};
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const textElements = [];
+              function traverseNode(currentNode) {
+                return __awaiter(this, void 0, void 0, function* () {
                   try {
-                    const nodeStyles = yield textNode.getCSSAsync();
-                    textStyles = {
-                      fontSize: nodeStyles["font-size"],
-                      fontFamily: nodeStyles["font-family"],
-                      fontWeight: nodeStyles["font-weight"],
-                      lineHeight: nodeStyles["line-height"],
-                      letterSpacing: nodeStyles["letter-spacing"],
-                      textAlign: nodeStyles["text-align"],
-                      color: nodeStyles["color"],
-                      textDecoration: nodeStyles["text-decoration"],
-                      textTransform: nodeStyles["text-transform"],
-                      fontStyle: nodeStyles["font-style"],
-                      fontVariant: nodeStyles["font-variant"],
-                      textShadow: nodeStyles["text-shadow"],
-                      wordSpacing: nodeStyles["word-spacing"],
-                      whiteSpace: nodeStyles["white-space"],
-                      textIndent: nodeStyles["text-indent"],
-                      textOverflow: nodeStyles["text-overflow"]
-                    };
-                    Object.keys(textStyles).forEach((key) => {
-                      if (textStyles[key] == null || textStyles[key] === "") {
-                        delete textStyles[key];
+                    if (currentNode.type === "TEXT") {
+                      const textNode = currentNode;
+                      let textStyles = {};
+                      let nodeStyles = {};
+                      try {
+                        nodeStyles = yield textNode.getCSSAsync();
+                        textStyles = {
+                          fontSize: nodeStyles["font-size"],
+                          fontFamily: nodeStyles["font-family"],
+                          fontWeight: nodeStyles["font-weight"],
+                          lineHeight: nodeStyles["line-height"],
+                          letterSpacing: nodeStyles["letter-spacing"],
+                          textAlign: nodeStyles["text-align"],
+                          color: nodeStyles["color"],
+                          textDecoration: nodeStyles["text-decoration"],
+                          textTransform: nodeStyles["text-transform"],
+                          fontStyle: nodeStyles["font-style"],
+                          fontVariant: nodeStyles["font-variant"],
+                          textShadow: nodeStyles["text-shadow"],
+                          wordSpacing: nodeStyles["word-spacing"],
+                          whiteSpace: nodeStyles["white-space"],
+                          textIndent: nodeStyles["text-indent"],
+                          textOverflow: nodeStyles["text-overflow"]
+                        };
+                        Object.keys(textStyles).forEach((key) => {
+                          if (textStyles[key] == null || textStyles[key] === "") {
+                            delete textStyles[key];
+                          }
+                        });
+                      } catch (styleError) {
+                        errorHandler_1.ErrorHandler.handleError(styleError, {
+                          operation: `get_text_styles_${textNode.id}`,
+                          component: "ComponentService",
+                          severity: "low"
+                        });
                       }
+                      try {
+                        const textElement = {
+                          id: textNode.id,
+                          content: textNode.characters || "",
+                          type: "TEXT",
+                          styles: nodeStyles,
+                          textStyles
+                        };
+                        textElements.push(textElement);
+                      } catch (elementError) {
+                        errorHandler_1.ErrorHandler.handleError(elementError, {
+                          operation: `create_text_element_${textNode.id}`,
+                          component: "ComponentService",
+                          severity: "low"
+                        });
+                      }
+                    }
+                    if ("children" in currentNode) {
+                      for (const child of currentNode.children) {
+                        yield traverseNode(child);
+                      }
+                    }
+                  } catch (nodeError) {
+                    errorHandler_1.ErrorHandler.handleError(nodeError, {
+                      operation: `traverse_text_node_${currentNode.id}`,
+                      component: "ComponentService",
+                      severity: "low"
                     });
-                  } catch (e) {
-                    console.error("Error getting text styles:", e);
                   }
-                  const textElement = {
-                    id: textNode.id,
-                    content: textNode.characters,
-                    type: "TEXT",
-                    styles: yield textNode.getCSSAsync(),
-                    textStyles
-                  };
-                  textElements.push(textElement);
-                }
-                if ("children" in currentNode) {
-                  for (const child of currentNode.children) {
-                    yield traverseNode(child);
-                  }
-                }
-              });
-            }
-            yield traverseNode(node);
-            return textElements;
+                });
+              }
+              yield traverseNode(node);
+              return textElements;
+            }), {
+              operation: "extract_text_elements",
+              component: "ComponentService",
+              severity: "medium"
+            });
           });
         }
       };
@@ -3279,6 +3957,8 @@ ${Object.keys(cssProperties).map((property) => {
       ComponentService.styleCache = /* @__PURE__ */ new Map();
       ComponentService.testCache = /* @__PURE__ */ new Map();
       ComponentService.nameCache = /* @__PURE__ */ new Map();
+      ComponentService.MAX_CACHE_SIZE = 1e3;
+      ComponentService.CACHE_CLEANUP_THRESHOLD = 800;
     }
   });
 
