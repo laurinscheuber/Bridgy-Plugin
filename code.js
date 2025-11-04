@@ -77,13 +77,95 @@
           "none"
         ],
         DEFAULT: "px",
+        // Improved Smart Default Patterns
         UNITLESS_PATTERNS: [
+          // Core unitless properties
           "opacity",
           "z-index",
           "line-height",
           "font-weight",
           "flex",
-          "order"
+          "order",
+          // Grid & Flexbox unitless
+          "flex-grow",
+          "flexgrow",
+          "flex-shrink",
+          "flexshrink",
+          "grid-column",
+          "gridcolumn",
+          "grid-row",
+          "gridrow",
+          "grid-area",
+          "gridarea",
+          "column-count",
+          "columncount",
+          // Animation & Transform unitless
+          "animation-iteration-count",
+          "animationiterationcount",
+          "scale",
+          "rotate",
+          // Other unitless properties
+          "aspect-ratio",
+          "aspectratio",
+          "tab-size",
+          "tabsize",
+          "zoom",
+          "counter-reset",
+          "counterreset"
+        ],
+        // Typography units (prefer rem/em)
+        TYPOGRAPHY_PATTERNS: [
+          "font-size",
+          "fontsize",
+          "size",
+          "text",
+          "letter-spacing",
+          "letterspacing",
+          "word-spacing",
+          "wordspacing",
+          "text-indent",
+          "textindent"
+        ],
+        // Relative sizing (prefer %)
+        RELATIVE_PATTERNS: [
+          "width",
+          "height",
+          "top",
+          "right",
+          "bottom",
+          "left",
+          "inset"
+        ],
+        // Viewport units (prefer vw/vh)
+        VIEWPORT_PATTERNS: [
+          "viewport",
+          "screen",
+          "full-width",
+          "fullwidth",
+          "full-height",
+          "fullheight",
+          "container-width",
+          "containerwidth",
+          "breakpoint"
+        ],
+        // Border radius (prefer px for small values, % for large)
+        BORDER_RADIUS_PATTERNS: [
+          "radius",
+          "rounded",
+          "corner",
+          "border-radius",
+          "borderradius"
+        ],
+        // Spacing (prefer rem for consistency)
+        SPACING_PATTERNS: [
+          "margin",
+          "padding",
+          "gap",
+          "space",
+          "spacing",
+          "gutter",
+          "offset",
+          "indent"
         ]
       };
       exports.CSS_PROPERTIES = {
@@ -1240,9 +1322,77 @@
       var UnitsService = class {
         static getDefaultUnit(variableName) {
           const name = variableName.toLowerCase();
-          const isUnitless = config_1.CSS_UNITS.UNITLESS_PATTERNS.some((pattern) => name.indexOf(pattern) !== -1 || name.indexOf(pattern.replace("-", "")) !== -1);
-          if (isUnitless) {
+          const matchesPatterns = (patterns) => {
+            return patterns.some((pattern) => {
+              const normalizedPattern = pattern.toLowerCase();
+              const wordBoundaryPattern = new RegExp(`\\b${normalizedPattern.replace(/[-_]/g, "[-_]?")}\\b`);
+              return wordBoundaryPattern.test(name) || name.includes(normalizedPattern) && (name.startsWith(normalizedPattern + "-") || name.startsWith(normalizedPattern + "_") || name.endsWith("-" + normalizedPattern) || name.endsWith("_" + normalizedPattern) || name === normalizedPattern);
+            });
+          };
+          if (matchesPatterns(config_1.CSS_UNITS.UNITLESS_PATTERNS)) {
             return "none";
+          }
+          if (matchesPatterns(config_1.CSS_UNITS.TYPOGRAPHY_PATTERNS)) {
+            if (name.includes("line") || name.includes("leading")) {
+              return "none";
+            }
+            return "rem";
+          }
+          if (matchesPatterns(config_1.CSS_UNITS.SPACING_PATTERNS)) {
+            return "rem";
+          }
+          if (matchesPatterns(config_1.CSS_UNITS.VIEWPORT_PATTERNS)) {
+            if (name.includes("width") || name.includes("w-")) {
+              return "vw";
+            }
+            if (name.includes("height") || name.includes("h-")) {
+              return "vh";
+            }
+            return "vw";
+          }
+          if (matchesPatterns(config_1.CSS_UNITS.BORDER_RADIUS_PATTERNS)) {
+            if (name.includes("pill") || name.includes("circle") || name.includes("full")) {
+              return "%";
+            }
+            return "px";
+          }
+          if (name.includes("color") || name.includes("bg") || name.includes("background") || name.includes("border-color") || name.includes("text-color")) {
+            return "none";
+          }
+          if (name.includes("duration") || name.includes("delay") || name.includes("time")) {
+            return "none";
+          }
+          if (name.includes("border") && (name.includes("width") || name.includes("size"))) {
+            return "px";
+          }
+          if (name.includes("shadow") || name.includes("blur") || name.includes("spread")) {
+            return "px";
+          }
+          if (matchesPatterns(config_1.CSS_UNITS.RELATIVE_PATTERNS)) {
+            if (name.includes("container") || name.includes("col") || name.includes("sidebar")) {
+              return "%";
+            }
+            if (name.includes("icon") || name.includes("avatar") || name.includes("thumb")) {
+              return "px";
+            }
+            return "%";
+          }
+          if (name.startsWith("size-") || name.startsWith("space-")) {
+            return "rem";
+          }
+          if (name.startsWith("breakpoint-") || name.startsWith("container-")) {
+            return "px";
+          }
+          if (name.includes("button") || name.includes("input") || name.includes("card")) {
+            if (name.includes("padding") || name.includes("margin") || name.includes("gap")) {
+              return "rem";
+            }
+            if (name.includes("border") || name.includes("outline")) {
+              return "px";
+            }
+          }
+          if (/\d/.test(name) || name.includes("size") || name.includes("width") || name.includes("height")) {
+            return "px";
           }
           return config_1.CSS_UNITS.DEFAULT;
         }
@@ -1274,6 +1424,69 @@
             return String(value);
           }
           return `${value}${unit}`;
+        }
+        /**
+         * Get explanation for why a specific unit was chosen for a variable
+         * Useful for UI tooltips and documentation
+         */
+        static getUnitRationale(variableName) {
+          const name = variableName.toLowerCase();
+          const chosenUnit = this.getDefaultUnit(variableName);
+          const matchesPatterns = (patterns) => {
+            return patterns.some((pattern) => {
+              const normalizedPattern = pattern.toLowerCase();
+              return name.includes(normalizedPattern) || name.includes(normalizedPattern.replace("-", "")) || name.includes(normalizedPattern.replace("-", "_"));
+            });
+          };
+          if (chosenUnit === "none") {
+            if (matchesPatterns(config_1.CSS_UNITS.UNITLESS_PATTERNS)) {
+              return `Unitless: CSS property "${variableName}" doesn't require units`;
+            }
+            if (name.includes("color") || name.includes("bg") || name.includes("background")) {
+              return "Color values don't require units";
+            }
+            if (name.includes("duration") || name.includes("delay") || name.includes("time")) {
+              return "Timing values use CSS-specific units (s, ms)";
+            }
+            if (name.includes("line") || name.includes("leading")) {
+              return "Line-height multipliers are unitless";
+            }
+          }
+          if (chosenUnit === "rem") {
+            if (matchesPatterns(config_1.CSS_UNITS.TYPOGRAPHY_PATTERNS)) {
+              return "Typography: rem units scale with root font size for accessibility";
+            }
+            if (matchesPatterns(config_1.CSS_UNITS.SPACING_PATTERNS)) {
+              return "Spacing: rem units maintain consistent proportions with text";
+            }
+            if (name.startsWith("size-") || name.startsWith("space-")) {
+              return "Design tokens: rem provides scalable, consistent sizing";
+            }
+          }
+          if (chosenUnit === "%") {
+            if (matchesPatterns(config_1.CSS_UNITS.RELATIVE_PATTERNS)) {
+              return "Relative sizing: % units create responsive, container-relative dimensions";
+            }
+            if (name.includes("pill") || name.includes("circle") || name.includes("full")) {
+              return "Large radius: % creates perfect circles and pills";
+            }
+          }
+          if (chosenUnit === "vw" || chosenUnit === "vh") {
+            return `Viewport units: ${chosenUnit} scales with ${chosenUnit === "vw" ? "width" : "height"} for full-screen designs`;
+          }
+          if (chosenUnit === "px") {
+            if (name.includes("border") || name.includes("outline")) {
+              return "Borders: px provides pixel-perfect precision for thin lines";
+            }
+            if (name.includes("shadow") || name.includes("blur")) {
+              return "Effects: px gives precise control over shadows and blur";
+            }
+            if (name.includes("icon") || name.includes("avatar") || name.includes("thumb")) {
+              return "Fixed assets: px ensures consistent sizing regardless of context";
+            }
+            return "Default: px provides precise, absolute positioning";
+          }
+          return `Smart default: ${chosenUnit} chosen based on variable name analysis`;
         }
         // Save unit settings to shared Figma storage (accessible by all team members)
         static saveUnitSettings() {

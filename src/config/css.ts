@@ -5,12 +5,52 @@ export const CSS_UNITS = {
   AVAILABLE: [
     'px', 'rem', 'em', '%', 'vw', 'vh', 'vmin', 'vmax', 
     'pt', 'pc', 'in', 'cm', 'mm', 'ex', 'ch', 'fr', 'none'
-  ] as const,
+  ],
   DEFAULT: 'px',
+  
+  // Improved Smart Default Patterns
   UNITLESS_PATTERNS: [
-    'opacity', 'z-index', 'line-height', 'font-weight', 'flex', 'order'
+    // Core unitless properties
+    'opacity', 'z-index', 'line-height', 'font-weight', 'flex', 'order',
+    
+    // Grid & Flexbox unitless
+    'flex-grow', 'flexgrow', 'flex-shrink', 'flexshrink', 'grid-column', 'gridcolumn', 
+    'grid-row', 'gridrow', 'grid-area', 'gridarea', 'column-count', 'columncount',
+    
+    // Animation & Transform unitless
+    'animation-iteration-count', 'animationiterationcount', 'scale', 'rotate',
+    
+    // Other unitless properties
+    'aspect-ratio', 'aspectratio', 'tab-size', 'tabsize', 'zoom', 'counter-reset', 'counterreset'
+  ],
+  
+  // Typography units (prefer rem/em)
+  TYPOGRAPHY_PATTERNS: [
+    'font-size', 'fontsize', 'size', 'text', 'letter-spacing', 'letterspacing', 
+    'word-spacing', 'wordspacing', 'text-indent', 'textindent'
+  ],
+  
+  // Relative sizing (prefer %)
+  RELATIVE_PATTERNS: [
+    'width', 'height', 'top', 'right', 'bottom', 'left', 'inset'
+  ],
+  
+  // Viewport units (prefer vw/vh)
+  VIEWPORT_PATTERNS: [
+    'viewport', 'screen', 'full-width', 'fullwidth', 'full-height', 'fullheight',
+    'container-width', 'containerwidth', 'breakpoint'
+  ],
+  
+  // Border radius (prefer px for small values, % for large)
+  BORDER_RADIUS_PATTERNS: [
+    'radius', 'rounded', 'corner', 'border-radius', 'borderradius'
+  ],
+  
+  // Spacing (prefer rem for consistency)
+  SPACING_PATTERNS: [
+    'margin', 'padding', 'gap', 'space', 'spacing', 'gutter', 'offset', 'indent'
   ] as const
-} as const;
+};
 
 // CSS Properties Lists
 export const CSS_PROPERTIES = {
@@ -43,7 +83,7 @@ export const CSS_PROPERTIES = {
     'webkitTapHighlightColor',
     'webkitTextFillColor',
     'webkitTextStrokeColor'
-  ] as const,
+  ],
 
   // Complex color properties (may contain multiple values including colors)
   COMPLEX_COLORS: [
@@ -57,7 +97,7 @@ export const CSS_PROPERTIES = {
     'boxShadow',
     'textShadow',
     'filter'
-  ] as const,
+  ],
 
   // Layout properties (often structural, not styling)
   LAYOUT: [
@@ -66,7 +106,7 @@ export const CSS_PROPERTIES = {
     'display',
     'flexDirection',
     'position'
-  ] as const,
+  ],
 
   // Interactive properties (change on hover/focus/active)
   INTERACTIVE: [
@@ -121,4 +161,4 @@ export const CSS_PROPERTIES = {
     'grid-row', 'gridRow',
     'grid-area', 'gridArea'
   ]
-} as const;
+};
