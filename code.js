@@ -5,12 +5,265 @@
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
 
+  // dist/config/environments.js
+  var require_environments = __commonJS({
+    "dist/config/environments.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.EnvironmentManager = exports.ENVIRONMENTS = void 0;
+      exports.ENVIRONMENTS = {
+        "gitlab.com": {
+          gitlabBaseUrl: "https://gitlab.com",
+          allowedDomains: ["gitlab.com", "*.gitlab.com", "*.gitlab.io"],
+          name: "GitLab.com",
+          description: "Official GitLab SaaS platform",
+          requiresCustomToken: false
+        },
+        "gitlab.fhnw.ch": {
+          gitlabBaseUrl: "https://gitlab.fhnw.ch",
+          allowedDomains: ["gitlab.fhnw.ch", "*.gitlab.fhnw.ch"],
+          name: "FHNW GitLab",
+          description: "University of Applied Sciences Northwestern Switzerland",
+          requiresCustomToken: false
+        },
+        custom: {
+          gitlabBaseUrl: "",
+          // Will be set by user
+          allowedDomains: [],
+          // Will be populated based on URL
+          name: "Custom GitLab",
+          description: "Self-hosted or enterprise GitLab instance",
+          requiresCustomToken: true
+        }
+      };
+      var EnvironmentManager = class {
+        /**
+         * Get environment configuration by key
+         */
+        static getEnvironment(key) {
+          return exports.ENVIRONMENTS[key] || null;
+        }
+        /**
+         * Get all available environments
+         */
+        static getAllEnvironments() {
+          return Object.assign({}, exports.ENVIRONMENTS);
+        }
+        /**
+         * Add or update a custom environment configuration
+         */
+        static saveCustomEnvironment(key, config) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const customConfigs = yield this.getCustomEnvironments();
+              customConfigs[key] = Object.assign(Object.assign({}, config), { requiresCustomToken: true });
+              yield figma.clientStorage.setAsync(this.CUSTOM_CONFIG_KEY, JSON.stringify(customConfigs));
+            } catch (error) {
+              console.error("Failed to save custom environment:", error);
+              throw error;
+            }
+          });
+        }
+        /**
+         * Get custom environments from storage
+         */
+        static getCustomEnvironments() {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const stored = yield figma.clientStorage.getAsync(this.CUSTOM_CONFIG_KEY);
+              return stored ? JSON.parse(stored) : {};
+            } catch (error) {
+              console.error("Failed to load custom environments:", error);
+              return {};
+            }
+          });
+        }
+        /**
+         * Get all environments (built-in + custom)
+         */
+        static getAllEnvironmentsWithCustom() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const customConfigs = yield this.getCustomEnvironments();
+            return Object.assign(Object.assign({}, exports.ENVIRONMENTS), customConfigs);
+          });
+        }
+        /**
+         * Validate a GitLab URL and extract domain info
+         */
+        static validateGitLabUrl(url) {
+          try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== "https:") {
+              return { isValid: false, error: "GitLab URL must use HTTPS" };
+            }
+            const domain = parsed.hostname;
+            if (!domain || domain.length < 3) {
+              return { isValid: false, error: "Invalid domain" };
+            }
+            return { isValid: true, domain };
+          } catch (error) {
+            return { isValid: false, error: "Invalid URL format" };
+          }
+        }
+        /**
+         * Auto-configure environment from GitLab URL
+         */
+        static autoConfigureFromUrl(gitlabUrl) {
+          const validation = this.validateGitLabUrl(gitlabUrl);
+          if (!validation.isValid || !validation.domain) {
+            return null;
+          }
+          const domain = validation.domain;
+          for (const key in exports.ENVIRONMENTS) {
+            const config = exports.ENVIRONMENTS[key];
+            if (config.allowedDomains.some((allowed) => {
+              if (allowed.startsWith("*.")) {
+                const suffix = allowed.substring(2);
+                return domain.endsWith(suffix);
+              }
+              return domain === allowed;
+            })) {
+              return config;
+            }
+          }
+          return {
+            gitlabBaseUrl: gitlabUrl,
+            allowedDomains: [domain, `*.${domain}`],
+            name: `Custom (${domain})`,
+            description: `Self-hosted GitLab at ${domain}`,
+            requiresCustomToken: true
+          };
+        }
+        /**
+         * Remove a custom environment
+         */
+        static removeCustomEnvironment(key) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const customConfigs = yield this.getCustomEnvironments();
+              delete customConfigs[key];
+              yield figma.clientStorage.setAsync(this.CUSTOM_CONFIG_KEY, JSON.stringify(customConfigs));
+            } catch (error) {
+              console.error("Failed to remove custom environment:", error);
+              throw error;
+            }
+          });
+        }
+        /**
+         * Get the appropriate environment for a GitLab URL
+         */
+        static getEnvironmentForUrl(gitlabUrl) {
+          return __awaiter(this, void 0, void 0, function* () {
+            if (!gitlabUrl)
+              return null;
+            const autoConfig = this.autoConfigureFromUrl(gitlabUrl);
+            if (autoConfig && !autoConfig.requiresCustomToken) {
+              return autoConfig;
+            }
+            const customEnvs = yield this.getCustomEnvironments();
+            for (const key in customEnvs) {
+              const config = customEnvs[key];
+              if (config.gitlabBaseUrl === gitlabUrl) {
+                return config;
+              }
+            }
+            return autoConfig;
+          });
+        }
+        /**
+         * Generate manifest.json domains for build-time injection
+         */
+        static generateManifestDomains(environments) {
+          const envs = environments || exports.ENVIRONMENTS;
+          const domains = /* @__PURE__ */ new Set();
+          domains.add("https://cdnjs.cloudflare.com");
+          for (const key in envs) {
+            const config = envs[key];
+            if (config.gitlabBaseUrl) {
+              try {
+                const url = new URL(config.gitlabBaseUrl);
+                domains.add(`https://${url.hostname}`);
+              } catch (e) {
+              }
+            }
+            config.allowedDomains.forEach((domain) => {
+              if (!domain.startsWith("*.")) {
+                domains.add(`https://${domain}`);
+              } else {
+                domains.add(`https://${domain}`);
+              }
+            });
+          }
+          return Array.from(domains).sort();
+        }
+      };
+      exports.EnvironmentManager = EnvironmentManager;
+      EnvironmentManager.CUSTOM_CONFIG_KEY = "bridgy-custom-environments";
+      exports.default = EnvironmentManager;
+    }
+  });
+
   // dist/config/constants.js
   var require_constants = __commonJS({
     "dist/config/constants.js"(exports) {
       "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.GIT_CONFIG = exports.buildGitLabWebUrl = exports.buildGitLabApiUrl = exports.API_CONFIG = void 0;
+      exports.GIT_CONFIG = exports.buildGitLabWebUrlSync = exports.buildGitLabWebUrl = exports.buildGitLabApiUrlSync = exports.buildGitLabApiUrl = exports.API_CONFIG = void 0;
+      var environments_1 = require_environments();
       exports.API_CONFIG = {
         DEFAULT_GITLAB_URL: "https://gitlab.com",
         // Default to GitLab.com
@@ -22,7 +275,19 @@
           "Accept": "application/json"
         }
       };
-      var buildGitLabApiUrl = (gitlabUrl) => {
+      var buildGitLabApiUrl = (gitlabUrl) => __awaiter(void 0, void 0, void 0, function* () {
+        if (!gitlabUrl)
+          return exports.API_CONFIG.DEFAULT_GITLAB_BASE_URL;
+        const environment = yield environments_1.EnvironmentManager.getEnvironmentForUrl(gitlabUrl);
+        const baseUrl = (environment === null || environment === void 0 ? void 0 : environment.gitlabBaseUrl) || gitlabUrl;
+        const cleanUrl = baseUrl.replace(/\/+$/, "");
+        if (cleanUrl.endsWith("/api/v4")) {
+          return cleanUrl;
+        }
+        return `${cleanUrl}/api/v4`;
+      });
+      exports.buildGitLabApiUrl = buildGitLabApiUrl;
+      var buildGitLabApiUrlSync = (gitlabUrl) => {
         if (!gitlabUrl)
           return exports.API_CONFIG.DEFAULT_GITLAB_BASE_URL;
         const cleanUrl = gitlabUrl.replace(/\/+$/, "");
@@ -31,14 +296,23 @@
         }
         return `${cleanUrl}/api/v4`;
       };
-      exports.buildGitLabApiUrl = buildGitLabApiUrl;
-      var buildGitLabWebUrl = (gitlabUrl) => {
+      exports.buildGitLabApiUrlSync = buildGitLabApiUrlSync;
+      var buildGitLabWebUrl = (gitlabUrl) => __awaiter(void 0, void 0, void 0, function* () {
+        if (!gitlabUrl)
+          return exports.API_CONFIG.DEFAULT_GITLAB_URL;
+        const environment = yield environments_1.EnvironmentManager.getEnvironmentForUrl(gitlabUrl);
+        const baseUrl = (environment === null || environment === void 0 ? void 0 : environment.gitlabBaseUrl) || gitlabUrl;
+        const cleanUrl = baseUrl.replace(/\/+$/, "").replace(/\/api\/v4$/, "");
+        return cleanUrl;
+      });
+      exports.buildGitLabWebUrl = buildGitLabWebUrl;
+      var buildGitLabWebUrlSync = (gitlabUrl) => {
         if (!gitlabUrl)
           return exports.API_CONFIG.DEFAULT_GITLAB_URL;
         const cleanUrl = gitlabUrl.replace(/\/+$/, "").replace(/\/api\/v4$/, "");
         return cleanUrl;
       };
-      exports.buildGitLabWebUrl = buildGitLabWebUrl;
+      exports.buildGitLabWebUrlSync = buildGitLabWebUrlSync;
       exports.GIT_CONFIG = {
         DEFAULT_BRANCH: "feature/variables",
         DEFAULT_TEST_BRANCH: "feature/component-tests",
@@ -1156,6 +1430,201 @@
     }
   });
 
+  // dist/services/cryptoService.js
+  var require_cryptoService = __commonJS({
+    "dist/services/cryptoService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.CryptoService = void 0;
+      var errorHandler_1 = require_errorHandler();
+      var CryptoService = class {
+        /**
+         * Derives an encryption key from a password and salt
+         */
+        static deriveKey(password, salt) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const encoder = new TextEncoder();
+              const passwordKey = yield crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveKey"]);
+              return yield crypto.subtle.deriveKey({
+                name: "PBKDF2",
+                salt,
+                iterations: this.ITERATIONS,
+                hash: "SHA-256"
+              }, passwordKey, {
+                name: "AES-GCM",
+                length: this.KEY_LENGTH
+              }, false, ["encrypt", "decrypt"]);
+            } catch (error) {
+              errorHandler_1.ErrorHandler.handleError(error, {
+                operation: "derive_key",
+                component: "CryptoService",
+                severity: "high"
+              });
+              throw error;
+            }
+          });
+        }
+        /**
+         * Generates a unique key for each Figma file
+         */
+        static getFileKey() {
+          var _a;
+          const userId = ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.id) || "anonymous";
+          const fileId = figma.root.id;
+          return `${userId}-${fileId}`;
+        }
+        /**
+         * Encrypts sensitive data using AES-GCM
+         */
+        static encrypt(plaintext) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const salt = crypto.getRandomValues(new Uint8Array(this.SALT_LENGTH));
+              const iv = crypto.getRandomValues(new Uint8Array(this.IV_LENGTH));
+              const key = yield this.deriveKey(this.getFileKey(), new Uint8Array(salt));
+              const encoder = new TextEncoder();
+              const ciphertext = yield crypto.subtle.encrypt({
+                name: "AES-GCM",
+                iv,
+                tagLength: this.TAG_LENGTH
+              }, key, encoder.encode(plaintext));
+              const encryptedData = {
+                ciphertext: this.bufferToBase64(ciphertext),
+                iv: this.bufferToBase64(iv),
+                salt: this.bufferToBase64(salt)
+              };
+              return JSON.stringify(encryptedData);
+            } catch (error) {
+              errorHandler_1.ErrorHandler.handleError(error, {
+                operation: "encrypt",
+                component: "CryptoService",
+                severity: "high"
+              });
+              throw error;
+            }
+          });
+        }
+        /**
+         * Decrypts data encrypted with encrypt()
+         */
+        static decrypt(encryptedString) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const encryptedData = JSON.parse(encryptedString);
+              const salt = this.base64ToBuffer(encryptedData.salt);
+              const iv = this.base64ToBuffer(encryptedData.iv);
+              const ciphertext = this.base64ToBuffer(encryptedData.ciphertext);
+              const key = yield this.deriveKey(this.getFileKey(), new Uint8Array(salt));
+              const decrypted = yield crypto.subtle.decrypt({
+                name: "AES-GCM",
+                iv,
+                tagLength: this.TAG_LENGTH
+              }, key, ciphertext);
+              const decoder = new TextDecoder();
+              return decoder.decode(decrypted);
+            } catch (error) {
+              errorHandler_1.ErrorHandler.handleError(error, {
+                operation: "decrypt",
+                component: "CryptoService",
+                severity: "high"
+              });
+              throw error;
+            }
+          });
+        }
+        /**
+         * Converts ArrayBuffer to base64 string
+         */
+        static bufferToBase64(buffer) {
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          return btoa(binary);
+        }
+        /**
+         * Converts base64 string to ArrayBuffer
+         */
+        static base64ToBuffer(base64) {
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes.buffer;
+        }
+        /**
+         * Checks if Web Crypto API is available
+         */
+        static isAvailable() {
+          return typeof crypto !== "undefined" && crypto.subtle !== void 0 && typeof crypto.getRandomValues === "function";
+        }
+        /**
+         * Migrates from old XOR encryption to new encryption
+         * This is a one-time operation during the upgrade
+         */
+        static migrateFromXOR(xorEncrypted, key) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const decrypted = this.xorDecrypt(xorEncrypted, key);
+              return yield this.encrypt(decrypted);
+            } catch (error) {
+              console.error("Migration failed, returning empty string");
+              return "";
+            }
+          });
+        }
+        /**
+         * Legacy XOR decryption for migration purposes only
+         */
+        static xorDecrypt(encrypted, key) {
+          const encryptedBytes = new Uint8Array(atob(encrypted).split("").map((c) => c.charCodeAt(0)));
+          const keyBytes = new TextEncoder().encode(key);
+          const decrypted = new Uint8Array(encryptedBytes.length);
+          for (let i = 0; i < encryptedBytes.length; i++) {
+            decrypted[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length];
+          }
+          return new TextDecoder().decode(decrypted);
+        }
+      };
+      exports.CryptoService = CryptoService;
+      CryptoService.ITERATIONS = 1e5;
+      CryptoService.KEY_LENGTH = 256;
+      CryptoService.TAG_LENGTH = 128;
+      CryptoService.SALT_LENGTH = 16;
+      CryptoService.IV_LENGTH = 12;
+    }
+  });
+
   // dist/services/gitlabService.js
   var require_gitlabService = __commonJS({
     "dist/services/gitlabService.js"(exports) {
@@ -1192,6 +1661,7 @@
       var config_1 = require_config();
       var securityUtils_1 = require_securityUtils();
       var errorHandler_1 = require_errorHandler();
+      var cryptoService_1 = require_cryptoService();
       var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
       var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
       var GitLabAPIError = class extends Error {
@@ -1222,13 +1692,13 @@
          * Get the GitLab API base URL from settings
          */
         static getGitLabApiBase(settings) {
-          return (0, config_1.buildGitLabApiUrl)(settings.gitlabUrl);
+          return (0, config_1.buildGitLabApiUrlSync)(settings.gitlabUrl);
         }
         /**
          * Get the GitLab web URL from settings
          */
         static getGitLabWebBase(settings) {
-          return (0, config_1.buildGitLabWebUrl)(settings.gitlabUrl);
+          return (0, config_1.buildGitLabWebUrlSync)(settings.gitlabUrl);
         }
         /**
          * Save GitLab settings to Figma storage
@@ -1251,17 +1721,31 @@
                 figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
                   try {
-                    const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
-                    const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
-                    yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-                    yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
+                    if (cryptoService_1.CryptoService.isAvailable()) {
+                      const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.gitlabToken);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+                      yield figma.clientStorage.setAsync(
+                        `${settingsKey}-crypto`,
+                        "v2"
+                        // Version marker for new encryption
+                      );
+                      if (settings._needsCryptoMigration) {
+                        yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+                        delete settings._needsCryptoMigration;
+                      }
+                    } else {
+                      const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
+                      const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
+                    }
                   } catch (error) {
                     errorHandler_1.ErrorHandler.handleError(error, {
                       operation: "encrypt_token",
                       component: "GitLabService",
                       severity: "high"
                     });
-                    yield figma.clientStorage.setAsync(`${settingsKey}-token`, settings.gitlabToken);
+                    delete settingsToSave.gitlabToken;
                   }
                 }
               }
@@ -1312,21 +1796,28 @@
               const settings = JSON.parse(documentSettings);
               if (settings.saveToken && !settings.gitlabToken) {
                 const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-                const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
-                if (encryptedToken && encryptionKey) {
+                const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+                if (encryptedToken) {
                   try {
-                    const decryptedToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
-                    settings.gitlabToken = decryptedToken;
+                    if (cryptoVersion === "v2" && cryptoService_1.CryptoService.isAvailable()) {
+                      const decryptedToken = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
+                      settings.gitlabToken = decryptedToken;
+                    } else if (yield figma.clientStorage.getAsync(`${settingsKey}-key`)) {
+                      const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
+                      const decryptedToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                      settings.gitlabToken = decryptedToken;
+                      settings._needsCryptoMigration = true;
+                    } else {
+                      settings.gitlabToken = encryptedToken;
+                      settings._needsCryptoMigration = true;
+                    }
                   } catch (error) {
                     errorHandler_1.ErrorHandler.handleError(error, {
                       operation: "decrypt_token",
                       component: "GitLabService",
                       severity: "medium"
                     });
-                    settings.gitlabToken = encryptedToken;
                   }
-                } else if (encryptedToken) {
-                  settings.gitlabToken = encryptedToken;
                 }
               }
               const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
@@ -1776,6 +2267,61 @@
             return new GitLabNetworkError(`Network error while trying to ${operation}`);
           }
           return new GitLabAPIError(`Failed to ${operation}: ${error.message || "Unknown error"}`);
+        }
+        /**
+         * Clears all stored tokens (for security/logout)
+         */
+        static clearAllTokens() {
+          return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+              const fileId = (_a = figma.root) === null || _a === void 0 ? void 0 : _a.id;
+              if (!fileId)
+                return;
+              const settingsKey = `gitlab-settings-${fileId}`;
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
+              yield figma.clientStorage.deleteAsync(settingsKey);
+              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              if (sharedSettings) {
+                try {
+                  const settings = JSON.parse(sharedSettings);
+                  settings.saveToken = false;
+                  delete settings.gitlabToken;
+                  figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+                } catch (e) {
+                }
+              }
+              config_1.LoggingService.info("All GitLab tokens cleared", config_1.LoggingService.CATEGORIES.GITLAB);
+            } catch (error) {
+              errorHandler_1.ErrorHandler.handleError(error, {
+                operation: "clear_tokens",
+                component: "GitLabService",
+                severity: "low"
+              });
+            }
+          });
+        }
+        /**
+         * Gets token expiration info (for future implementation)
+         */
+        static getTokenInfo() {
+          return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const fileId = (_a = figma.root) === null || _a === void 0 ? void 0 : _a.id;
+            if (!fileId) {
+              return { encrypted: false, version: "none", hasToken: false };
+            }
+            const settingsKey = `gitlab-settings-${fileId}`;
+            const token = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
+            const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+            return {
+              hasToken: !!token,
+              encrypted: !!token,
+              version: cryptoVersion || (token ? "v1" : "none")
+            };
+          });
         }
       };
       exports.GitLabService = GitLabService;
@@ -3098,6 +3644,301 @@ ${styleCheckCode}
     }
   });
 
+  // dist/services/cacheService.js
+  var require_cacheService = __commonJS({
+    "dist/services/cacheService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.PerformanceCache = exports.CSSCache = exports.CacheService = void 0;
+      var CacheService = class {
+        constructor(options = {}) {
+          this.cache = /* @__PURE__ */ new Map();
+          this.stats = {
+            hits: 0,
+            misses: 0,
+            evictions: 0,
+            currentSize: 0,
+            hitRate: 0
+          };
+          this.options = Object.assign({ maxSize: 500, defaultTtl: 5 * 60 * 1e3, enableStats: true }, options);
+        }
+        /**
+         * Get value from cache
+         */
+        get(key) {
+          const entry = this.cache.get(key);
+          if (!entry) {
+            this.updateStats("miss");
+            return null;
+          }
+          const now = Date.now();
+          if (now - entry.timestamp > (this.options.defaultTtl || 0)) {
+            this.cache.delete(key);
+            this.updateStats("miss");
+            return null;
+          }
+          entry.accessCount++;
+          entry.lastAccessed = now;
+          this.updateStats("hit");
+          return entry.value;
+        }
+        /**
+         * Set value in cache
+         */
+        set(key, value, ttl) {
+          const now = Date.now();
+          if (!this.cache.has(key) && this.cache.size >= (this.options.maxSize || 500)) {
+            this.evictLRU();
+          }
+          this.cache.set(key, {
+            value,
+            timestamp: now,
+            accessCount: 1,
+            lastAccessed: now
+          });
+          this.stats.currentSize = this.cache.size;
+        }
+        /**
+         * Check if key exists and is not expired
+         */
+        has(key) {
+          return this.get(key) !== null;
+        }
+        /**
+         * Delete specific key
+         */
+        delete(key) {
+          const deleted = this.cache.delete(key);
+          this.stats.currentSize = this.cache.size;
+          return deleted;
+        }
+        /**
+         * Clear all cache entries
+         */
+        clear() {
+          this.cache.clear();
+          this.stats.currentSize = 0;
+        }
+        /**
+         * Get or set with async function
+         */
+        getOrSet(key, factory, ttl) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const cached = this.get(key);
+            if (cached !== null) {
+              return cached;
+            }
+            const value = yield factory();
+            this.set(key, value, ttl);
+            return value;
+          });
+        }
+        /**
+         * Evict least recently used entry
+         */
+        evictLRU() {
+          let oldestKey = "";
+          let oldestTime = Number.MAX_SAFE_INTEGER;
+          for (const [key, entry] of this.cache.entries()) {
+            if (entry.lastAccessed < oldestTime) {
+              oldestTime = entry.lastAccessed;
+              oldestKey = key;
+            }
+          }
+          if (oldestKey) {
+            this.cache.delete(oldestKey);
+            this.stats.evictions++;
+          }
+        }
+        /**
+         * Update cache statistics
+         */
+        updateStats(type) {
+          if (!this.options.enableStats)
+            return;
+          if (type === "hit") {
+            this.stats.hits++;
+          } else {
+            this.stats.misses++;
+          }
+          const total = this.stats.hits + this.stats.misses;
+          this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;
+        }
+        /**
+         * Get cache statistics
+         */
+        getStats() {
+          return Object.assign({}, this.stats);
+        }
+        /**
+         * Cleanup expired entries
+         */
+        cleanup() {
+          const now = Date.now();
+          const ttl = this.options.defaultTtl || 0;
+          let cleaned = 0;
+          for (const [key, entry] of this.cache.entries()) {
+            if (now - entry.timestamp > ttl) {
+              this.cache.delete(key);
+              cleaned++;
+            }
+          }
+          this.stats.currentSize = this.cache.size;
+          return cleaned;
+        }
+        /**
+         * Get cache keys for debugging
+         */
+        keys() {
+          return Array.from(this.cache.keys());
+        }
+        /**
+         * Get cache size
+         */
+        size() {
+          return this.cache.size;
+        }
+      };
+      exports.CacheService = CacheService;
+      var CSSCache = class _CSSCache extends CacheService {
+        constructor() {
+          super({
+            maxSize: 1e3,
+            defaultTtl: 10 * 60 * 1e3,
+            // 10 minutes for CSS data
+            enableStats: true
+          });
+        }
+        static getInstance() {
+          if (!_CSSCache.instance) {
+            _CSSCache.instance = new _CSSCache();
+          }
+          return _CSSCache.instance;
+        }
+        /**
+         * Generate cache key for a node's CSS
+         */
+        static generateKey(nodeId, nodeType, hashCode) {
+          return `css-${nodeType}-${nodeId}${hashCode ? `-${hashCode}` : ""}`;
+        }
+        /**
+         * Cache CSS for a node
+         */
+        cacheNodeCSS(nodeId, nodeType, css) {
+          const key = _CSSCache.generateKey(nodeId, nodeType);
+          this.set(key, css);
+        }
+        /**
+         * Get cached CSS for a node
+         */
+        getNodeCSS(nodeId, nodeType) {
+          const key = _CSSCache.generateKey(nodeId, nodeType);
+          return this.get(key);
+        }
+        /**
+         * Check if node CSS is cached
+         */
+        hasNodeCSS(nodeId, nodeType) {
+          const key = _CSSCache.generateKey(nodeId, nodeType);
+          return this.has(key);
+        }
+        /**
+         * Clear CSS cache for specific node
+         */
+        clearNodeCSS(nodeId, nodeType) {
+          const key = _CSSCache.generateKey(nodeId, nodeType);
+          this.delete(key);
+        }
+        /**
+         * Get cache efficiency report
+         */
+        getEfficiencyReport() {
+          const stats = this.getStats();
+          const recommendations = [];
+          if (stats.hitRate < 0.5) {
+            recommendations.push("Low hit rate - consider increasing cache TTL");
+          }
+          if (stats.evictions > stats.hits * 0.1) {
+            recommendations.push("High eviction rate - consider increasing cache size");
+          }
+          if (stats.currentSize < (this.options.maxSize || 0) * 0.3) {
+            recommendations.push("Cache underutilized - consider reducing cache size");
+          }
+          return { stats, recommendations };
+        }
+      };
+      exports.CSSCache = CSSCache;
+      var PerformanceCache = class _PerformanceCache extends CacheService {
+        constructor() {
+          super({
+            maxSize: 200,
+            defaultTtl: 60 * 60 * 1e3,
+            // 1 hour for performance metrics
+            enableStats: false
+          });
+        }
+        static getInstance() {
+          if (!_PerformanceCache.instance) {
+            _PerformanceCache.instance = new _PerformanceCache();
+          }
+          return _PerformanceCache.instance;
+        }
+        /**
+         * Cache operation duration
+         */
+        cacheDuration(operation, duration) {
+          const key = `perf-${operation}-${Date.now()}`;
+          this.set(key, duration);
+        }
+        /**
+         * Get average duration for operation
+         */
+        getAverageDuration(operation) {
+          const pattern = `perf-${operation}-`;
+          const durations = [];
+          for (const key of this.keys()) {
+            if (key.startsWith(pattern)) {
+              const duration = this.get(key);
+              if (duration !== null) {
+                durations.push(duration);
+              }
+            }
+          }
+          return durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+        }
+      };
+      exports.PerformanceCache = PerformanceCache;
+      exports.default = CacheService;
+    }
+  });
+
   // dist/services/componentService.js
   var require_componentService = __commonJS({
     "dist/services/componentService.js"(exports) {
@@ -3135,14 +3976,12 @@ ${styleCheckCode}
       var es2015_helpers_1 = require_es2015_helpers();
       var css_1 = require_css();
       var errorHandler_1 = require_errorHandler();
+      var cacheService_1 = require_cacheService();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
+      var cssCache = cacheService_1.CSSCache.getInstance();
+      var perfCache = cacheService_1.PerformanceCache.getInstance();
       var ComponentService = class _ComponentService {
-        // Cache management with LRU eviction
-        static clearCaches() {
-          this.styleCache.clear();
-          this.testCache.clear();
-          this.nameCache.clear();
-        }
+        // Legacy cache management (replaced by new CacheService)
         static enforcesCacheLimit(cache) {
           if (cache.size > this.MAX_CACHE_SIZE) {
             const keysToDelete = Array.from(cache.keys()).slice(0, cache.size - this.CACHE_CLEANUP_THRESHOLD);
@@ -3193,7 +4032,17 @@ ${styleCheckCode}
                     }
                     if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
                       try {
-                        const componentStyles = yield node.getCSSAsync();
+                        const startTime = performance.now();
+                        let componentStyles;
+                        const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
+                        if (cachedCSS) {
+                          componentStyles = JSON.parse(cachedCSS);
+                        } else {
+                          componentStyles = yield node.getCSSAsync();
+                          cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
+                          const duration = performance.now() - startTime;
+                          perfCache.cacheDuration("getCSSAsync", duration);
+                        }
                         const textElements = yield _ComponentService.extractTextElements(node);
                         const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
                         const componentData = {
@@ -3237,7 +4086,7 @@ ${styleCheckCode}
               }
               try {
                 yield figma.loadAllPagesAsync();
-                for (const page of figma.root.children) {
+                const pagePromises = figma.root.children.map((page) => __awaiter(this, void 0, void 0, function* () {
                   try {
                     yield collectNodes(page);
                   } catch (pageError) {
@@ -3246,8 +4095,10 @@ ${styleCheckCode}
                       component: "ComponentService",
                       severity: "medium"
                     });
+                    return [];
                   }
-                }
+                }));
+                yield Promise.all(pagePromises);
               } catch (loadError) {
                 errorHandler_1.ErrorHandler.handleError(loadError, {
                   operation: "load_all_pages",
@@ -3891,7 +4742,16 @@ ${Object.keys(cssProperties).map((property) => {
                       let textStyles = {};
                       let nodeStyles = {};
                       try {
-                        nodeStyles = yield textNode.getCSSAsync();
+                        const cachedStyles = cssCache.getNodeCSS(textNode.id, "TEXT");
+                        if (cachedStyles) {
+                          nodeStyles = JSON.parse(cachedStyles);
+                        } else {
+                          const startTime = performance.now();
+                          nodeStyles = yield textNode.getCSSAsync();
+                          cssCache.cacheNodeCSS(textNode.id, "TEXT", JSON.stringify(nodeStyles));
+                          const duration = performance.now() - startTime;
+                          perfCache.cacheDuration("getCSSAsync-text", duration);
+                        }
                         textStyles = {
                           fontSize: nodeStyles["font-size"],
                           fontFamily: nodeStyles["font-family"],
@@ -3961,6 +4821,39 @@ ${Object.keys(cssProperties).map((property) => {
               severity: "medium"
             });
           });
+        }
+        /**
+         * Get cache performance statistics
+         */
+        static getCacheStats() {
+          const cssReport = cssCache.getEfficiencyReport();
+          const avgCSSTime = perfCache.getAverageDuration("getCSSAsync");
+          const avgTextCSSTime = perfCache.getAverageDuration("getCSSAsync-text");
+          const performanceStats = {
+            averageCSSTime: avgCSSTime,
+            averageTextCSSTime: avgTextCSSTime,
+            totalCachedItems: cssCache.size()
+          };
+          return {
+            css: cssReport.stats,
+            performance: performanceStats,
+            recommendations: cssReport.recommendations
+          };
+        }
+        /**
+         * Clear all caches (useful for testing or memory cleanup)
+         */
+        static clearCaches() {
+          cssCache.clear();
+          perfCache.clear();
+        }
+        /**
+         * Cleanup expired cache entries
+         */
+        static cleanupCaches() {
+          const cssCleared = cssCache.cleanup();
+          const perfCleared = perfCache.cleanup();
+          return { cssCleared, perfCleared };
         }
       };
       exports.ComponentService = ComponentService;

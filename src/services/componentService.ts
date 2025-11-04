@@ -3,10 +3,15 @@ import { parseComponentName, generateStyleChecks, createTestWithStyleChecks, nor
 import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
 import { CSS_PROPERTIES } from '../config/css';
 import { ErrorHandler } from '../utils/errorHandler';
+import { CSSCache, PerformanceCache } from './cacheService';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
 const DEFAULT_ELEMENT_SELECTORS = 'button, div, span, a, p, h1, h2, h3, h4, h5, h6';
+
+// Cache instances
+const cssCache = CSSCache.getInstance();
+const perfCache = PerformanceCache.getInstance();
 
 type PseudoState = typeof PSEUDO_STATES[number];
 
@@ -35,12 +40,7 @@ export class ComponentService {
   private static readonly MAX_CACHE_SIZE = 1000;
   private static readonly CACHE_CLEANUP_THRESHOLD = 800;
 
-  // Cache management with LRU eviction
-  static clearCaches(): void {
-    this.styleCache.clear();
-    this.testCache.clear();
-    this.nameCache.clear();
-  }
+  // Legacy cache management (replaced by new CacheService)
 
   private static enforcesCacheLimit<K, V>(cache: Map<K, V>): void {
     if (cache.size > this.MAX_CACHE_SIZE) {
@@ -105,7 +105,20 @@ export class ComponentService {
 
           if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
             try {
-              const componentStyles = await node.getCSSAsync();
+              // Use cached CSS or fetch if not cached
+              const startTime = performance.now();
+              let componentStyles: any;
+              const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
+              
+              if (cachedCSS) {
+                componentStyles = JSON.parse(cachedCSS);
+              } else {
+                componentStyles = await node.getCSSAsync();
+                cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
+                
+                const duration = performance.now() - startTime;
+                perfCache.cacheDuration('getCSSAsync', duration);
+              }
               
               const textElements = await ComponentService.extractTextElements(node);
               const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
@@ -158,8 +171,8 @@ export class ComponentService {
       try {
         await figma.loadAllPagesAsync();
         
-        // Now we can access all pages
-        for (const page of figma.root.children) {
+        // Process all pages in parallel for better performance
+        const pagePromises = figma.root.children.map(async (page) => {
           try {
             await collectNodes(page);
           } catch (pageError) {
@@ -168,9 +181,13 @@ export class ComponentService {
               component: 'ComponentService',
               severity: 'medium'
             });
-            // Continue processing other pages
+            // Return empty array to continue processing other pages
+            return [];
           }
-        }
+        });
+        
+        // Wait for all pages to complete
+        await Promise.all(pagePromises);
       } catch (loadError) {
         ErrorHandler.handleError(loadError as Error, {
           operation: 'load_all_pages',
@@ -1003,7 +1020,18 @@ ${Object.keys(cssProperties).map((property: string) => {
             let nodeStyles: any = {};
             
             try {
-              nodeStyles = await textNode.getCSSAsync();
+              // Use cached CSS for text nodes or fetch if not cached
+              const cachedStyles = cssCache.getNodeCSS(textNode.id, 'TEXT');
+              if (cachedStyles) {
+                nodeStyles = JSON.parse(cachedStyles);
+              } else {
+                const startTime = performance.now();
+                nodeStyles = await textNode.getCSSAsync();
+                cssCache.cacheNodeCSS(textNode.id, 'TEXT', JSON.stringify(nodeStyles));
+                
+                const duration = performance.now() - startTime;
+                perfCache.cacheDuration('getCSSAsync-text', duration);
+              }
               textStyles = {
                 fontSize: nodeStyles['font-size'],
                 fontFamily: nodeStyles['font-family'],
@@ -1080,5 +1108,50 @@ ${Object.keys(cssProperties).map((property: string) => {
       component: 'ComponentService',
       severity: 'medium'
     });
+  }
+
+  /**
+   * Get cache performance statistics
+   */
+  static getCacheStats(): {
+    css: any;
+    performance: any;
+    recommendations: string[];
+  } {
+    const cssReport = cssCache.getEfficiencyReport();
+    
+    // Get performance insights
+    const avgCSSTime = perfCache.getAverageDuration('getCSSAsync');
+    const avgTextCSSTime = perfCache.getAverageDuration('getCSSAsync-text');
+    
+    const performanceStats = {
+      averageCSSTime: avgCSSTime,
+      averageTextCSSTime: avgTextCSSTime,
+      totalCachedItems: cssCache.size()
+    };
+
+    return {
+      css: cssReport.stats,
+      performance: performanceStats,
+      recommendations: cssReport.recommendations
+    };
+  }
+
+  /**
+   * Clear all caches (useful for testing or memory cleanup)
+   */
+  static clearCaches(): void {
+    cssCache.clear();
+    perfCache.clear();
+  }
+
+  /**
+   * Cleanup expired cache entries
+   */
+  static cleanupCaches(): { cssCleared: number; perfCleared: number } {
+    const cssCleared = cssCache.cleanup();
+    const perfCleared = perfCache.cleanup();
+    
+    return { cssCleared, perfCleared };
   }
 } 

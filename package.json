@@ -4,16 +4,26 @@
   "description": "Figma plugin for synchronizing design tokens and components",
   "main": "code.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node build.js && npm run bundle",
+    "build": "npm run update-manifest && tsc -p tsconfig.json && node build.js && npm run bundle",
     "bundle": "esbuild dist/index.js --bundle --platform=browser --format=iife --outfile=code.js",
     "watch": "tsc -p tsconfig.json --watch",
-    "dev": "npm run watch"
+    "dev": "npm run watch",
+    "update-manifest": "node scripts/update-manifest.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "echo 'No linter configured yet'",
+    "typecheck": "tsc --noEmit"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "@figma/plugin-typings": "^1.82.0",
+    "@vitest/ui": "^4.0.7",
     "esbuild": "^0.25.5",
-    "typescript": "^5.3.3"
+    "jsdom": "^27.1.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.7"
   }
 }

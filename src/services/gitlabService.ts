@@ -1,7 +1,8 @@
 import { GitLabSettings } from "../types";
-import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService, buildGitLabApiUrl, buildGitLabWebUrl } from "../config";
+import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService, buildGitLabApiUrlSync, buildGitLabWebUrlSync } from "../config";
 import { SecurityUtils } from "../utils/securityUtils";
 import { ErrorHandler } from "../utils/errorHandler";
+import { CryptoService } from "./cryptoService";
 
 // Types for improved type safety
 interface GitLabProject {
@@ -83,14 +84,14 @@ export class GitLabService {
    * Get the GitLab API base URL from settings
    */
   private static getGitLabApiBase(settings: GitLabSettings): string {
-    return buildGitLabApiUrl(settings.gitlabUrl);
+    return buildGitLabApiUrlSync(settings.gitlabUrl);
   }
 
   /**
    * Get the GitLab web URL from settings
    */
   private static getGitLabWebBase(settings: GitLabSettings): string {
-    return buildGitLabWebUrl(settings.gitlabUrl);
+    return buildGitLabWebUrlSync(settings.gitlabUrl);
   }
 
   /**
@@ -129,27 +130,44 @@ export class GitLabService {
         // If token should be saved, encrypt it before storing
         if (settings.saveToken && settings.gitlabToken) {
           try {
-            const encryptionKey = SecurityUtils.generateEncryptionKey();
-            const encryptedToken = SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
-            await figma.clientStorage.setAsync(
-              `${settingsKey}-token`,
-              encryptedToken
-            );
-            await figma.clientStorage.setAsync(
-              `${settingsKey}-key`,
-              encryptionKey
-            );
+            if (CryptoService.isAvailable()) {
+              // Use secure Web Crypto API encryption
+              const encryptedToken = await CryptoService.encrypt(settings.gitlabToken);
+              await figma.clientStorage.setAsync(
+                `${settingsKey}-token`,
+                encryptedToken
+              );
+              await figma.clientStorage.setAsync(
+                `${settingsKey}-crypto`,
+                'v2' // Version marker for new encryption
+              );
+              
+              // Clean up old encryption artifacts if migration happened
+              if ((settings as any)._needsCryptoMigration) {
+                await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+                delete (settings as any)._needsCryptoMigration;
+              }
+            } else {
+              // Fallback to old encryption if Web Crypto not available
+              const encryptionKey = SecurityUtils.generateEncryptionKey();
+              const encryptedToken = SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
+              await figma.clientStorage.setAsync(
+                `${settingsKey}-token`,
+                encryptedToken
+              );
+              await figma.clientStorage.setAsync(
+                `${settingsKey}-key`,
+                encryptionKey
+              );
+            }
           } catch (error) {
             ErrorHandler.handleError(error as Error, {
               operation: 'encrypt_token',
               component: 'GitLabService',
               severity: 'high'
             });
-            // Still save unencrypted as fallback
-            await figma.clientStorage.setAsync(
-              `${settingsKey}-token`,
-              settings.gitlabToken
-            );
+            // Do not save token if encryption fails
+            delete settingsToSave.gitlabToken;
           }
         }
       }
@@ -212,25 +230,34 @@ export class GitLabService {
       // Try to load personal token if settings indicate it should be saved
       if (settings.saveToken && !settings.gitlabToken) {
         const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
-        const encryptionKey = await figma.clientStorage.getAsync(`${settingsKey}-key`);
+        const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
         
-        if (encryptedToken && encryptionKey) {
+        if (encryptedToken) {
           try {
-            // Try to decrypt the token
-            const decryptedToken = SecurityUtils.decryptData(encryptedToken, encryptionKey);
-            settings.gitlabToken = decryptedToken;
+            if (cryptoVersion === 'v2' && CryptoService.isAvailable()) {
+              // Decrypt using new Web Crypto API
+              const decryptedToken = await CryptoService.decrypt(encryptedToken);
+              settings.gitlabToken = decryptedToken;
+            } else if (await figma.clientStorage.getAsync(`${settingsKey}-key`)) {
+              // Fallback to old XOR decryption
+              const encryptionKey = await figma.clientStorage.getAsync(`${settingsKey}-key`);
+              const decryptedToken = SecurityUtils.decryptData(encryptedToken, encryptionKey);
+              settings.gitlabToken = decryptedToken;
+              
+              // Migrate to new encryption on next save
+              settings._needsCryptoMigration = true;
+            } else {
+              // Very old unencrypted tokens (backward compatibility)
+              settings.gitlabToken = encryptedToken;
+              settings._needsCryptoMigration = true;
+            }
           } catch (error) {
             ErrorHandler.handleError(error as Error, {
               operation: 'decrypt_token',
               component: 'GitLabService',
               severity: 'medium'
             });
-            // If decryption fails, treat as unencrypted token (backward compatibility)
-            settings.gitlabToken = encryptedToken;
           }
-        } else if (encryptedToken) {
-          // Fallback for unencrypted tokens (backward compatibility)
-          settings.gitlabToken = encryptedToken;
         }
       }
 
@@ -901,6 +928,67 @@ export class GitLabService {
 
     // Generic fallback
     return new GitLabAPIError(`Failed to ${operation}: ${error.message || 'Unknown error'}`);
+  }
+
+  /**
+   * Clears all stored tokens (for security/logout)
+   */
+  static async clearAllTokens(): Promise<void> {
+    try {
+      const fileId = figma.root?.id;
+      if (!fileId) return;
+
+      const settingsKey = `gitlab-settings-${fileId}`;
+      
+      // Clear token and encryption keys
+      await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+      await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+      await figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
+      
+      // Clear personal storage
+      await figma.clientStorage.deleteAsync(settingsKey);
+      
+      // Update shared settings to remove saveToken flag
+      const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+      if (sharedSettings) {
+        try {
+          const settings = JSON.parse(sharedSettings);
+          settings.saveToken = false;
+          delete settings.gitlabToken;
+          figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      
+      LoggingService.info("All GitLab tokens cleared", LoggingService.CATEGORIES.GITLAB);
+    } catch (error) {
+      ErrorHandler.handleError(error as Error, {
+        operation: 'clear_tokens',
+        component: 'GitLabService',
+        severity: 'low'
+      });
+    }
+  }
+
+  /**
+   * Gets token expiration info (for future implementation)
+   */
+  static async getTokenInfo(): Promise<{ encrypted: boolean; version: string; hasToken: boolean }> {
+    const fileId = figma.root?.id;
+    if (!fileId) {
+      return { encrypted: false, version: 'none', hasToken: false };
+    }
+
+    const settingsKey = `gitlab-settings-${fileId}`;
+    const token = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+    const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+    
+    return {
+      hasToken: !!token,
+      encrypted: !!token,
+      version: cryptoVersion || (token ? 'v1' : 'none')
+    };
   }
 }
 

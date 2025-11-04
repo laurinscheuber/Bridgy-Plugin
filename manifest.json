@@ -3,25 +3,44 @@
   "id": "1567565193447398652",
   "api": "1.0.0",
   "main": "code.js",
-  "capabilities": ["inspect", "vscode", "codegen"],
+  "capabilities": [
+    "inspect",
+    "vscode",
+    "codegen"
+  ],
   "enableProposedApi": false,
   "documentAccess": "dynamic-page",
-  "editorType": ["figma", "dev"],
+  "editorType": [
+    "figma",
+    "dev"
+  ],
   "codegenLanguages": [
-    {"label": "Angular", "value": "angular"},
-    {"label": "TypeScript", "value": "typescript"},
-    {"label": "JavaScript", "value": "javascript"}
+    {
+      "label": "Angular",
+      "value": "angular"
+    },
+    {
+      "label": "TypeScript",
+      "value": "typescript"
+    },
+    {
+      "label": "JavaScript",
+      "value": "javascript"
+    }
   ],
   "ui": "ui.html",
   "networkAccess": {
     "allowedDomains": [
+      "https://*.gitlab.com",
+      "https://*.gitlab.fhnw.ch",
+      "https://*.gitlab.io",
       "https://cdnjs.cloudflare.com",
       "https://gitlab.com",
-      "https://gitlab.fhnw.ch",
-      "https://*.gitlab.com",
-      "https://*.gitlab.io"
+      "https://gitlab.fhnw.ch"
     ],
-    "reasoning": "This plugin connects to GitLab instances for committing design tokens and component tests. Access is limited to gitlab.com and its subdomains for security."
+    "reasoning": "This plugin connects to GitLab instances (GitLab.com, FHNW GitLab) for committing design tokens and component tests. JSZip is loaded from CDN for file export functionality."
   },
-  "permissions": ["currentuser"]
+  "permissions": [
+    "currentuser"
+  ]
 }

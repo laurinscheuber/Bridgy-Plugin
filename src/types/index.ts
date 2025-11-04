@@ -59,6 +59,7 @@ export interface GitLabSettings {
   savedAt: string;
   savedBy: string;
   isPersonal?: boolean;
+  _needsCryptoMigration?: boolean; // Internal flag for token encryption migration
 }
 
 export interface StyleCheck {
