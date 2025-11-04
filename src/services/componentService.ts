@@ -97,75 +97,6 @@ export class ComponentService {
       const componentSets: Component[] = [];
       this.componentMap = new Map<string, Component>();
 
-      async function collectNodes(node: BaseNode) {
-        try {
-          if (!("type" in node)) {
-            return;
-          }
-
-          if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
-            try {
-              // Use cached CSS or fetch if not cached
-              const startTime = performance.now();
-              let componentStyles: any;
-              const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
-              
-              if (cachedCSS) {
-                componentStyles = JSON.parse(cachedCSS);
-              } else {
-                componentStyles = await node.getCSSAsync();
-                cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
-                
-                const duration = performance.now() - startTime;
-                perfCache.cacheDuration('getCSSAsync', duration);
-              }
-              
-              const textElements = await ComponentService.extractTextElements(node);
-              const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
-              
-              const componentData: Component = {
-                id: node.id,
-                name: node.name,
-                type: node.type,
-                styles: resolvedStyles,
-                pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
-                parentId: node.parent && node.parent.id,
-                children: [],
-                textElements: textElements,
-                hasTextContent: textElements.length > 0,
-              };
-
-              ComponentService.componentMap.set(node.id, componentData);
-
-              if (node.type === "COMPONENT_SET") {
-                componentSets.push(componentData);
-              } else {
-                componentsData.push(componentData);
-              }
-            } catch (nodeError) {
-              ErrorHandler.handleError(nodeError as Error, {
-                operation: `process_component_${node.name}`,
-                component: 'ComponentService',
-                severity: 'medium'
-              });
-              // Continue processing other components
-            }
-          }
-
-          if ("children" in node) {
-            for (const child of node.children) {
-              await collectNodes(child);
-            }
-          }
-        } catch (childError) {
-          ErrorHandler.handleError(childError as Error, {
-            operation: 'collect_component_children',
-            component: 'ComponentService',
-            severity: 'medium'
-          });
-          // Continue processing other nodes
-        }
-      }
 
       // Load all pages asynchronously for dynamic-page access
       try {
@@ -173,21 +104,106 @@ export class ComponentService {
         
         // Process all pages in parallel for better performance
         const pagePromises = figma.root.children.map(async (page) => {
+          const pageComponents: Component[] = [];
+          const pageComponentSets: Component[] = [];
+          
+          // Create a page-specific collectNodes function to avoid race conditions
+          async function collectPageNodes(node: BaseNode) {
+            try {
+              if (!("type" in node)) {
+                return;
+              }
+
+              if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                try {
+                  // Use cached CSS or fetch if not cached
+                  const startTime = performance.now();
+                  let componentStyles: any;
+                  const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
+                  
+                  if (cachedCSS) {
+                    componentStyles = JSON.parse(cachedCSS);
+                  } else {
+                    componentStyles = await node.getCSSAsync();
+                    cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
+                    
+                    const duration = performance.now() - startTime;
+                    perfCache.cacheDuration('getCSSAsync', duration);
+                  }
+                  
+                  const textElements = await ComponentService.extractTextElements(node);
+                  const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
+                  
+                  const componentData: Component = {
+                    id: node.id,
+                    name: node.name,
+                    type: node.type,
+                    styles: resolvedStyles,
+                    pageName: page.name,
+                    parentId: node.parent && node.parent.id,
+                    children: [],
+                    textElements: textElements,
+                    hasTextContent: textElements.length > 0
+                  };
+
+                  ComponentService.componentMap.set(node.id, componentData);
+                  
+                  // Add to appropriate collection based on type
+                  if (node.type === "COMPONENT_SET") {
+                    pageComponentSets.push(componentData);
+                  } else {
+                    pageComponents.push(componentData);
+                  }
+                } catch (componentError) {
+                  ErrorHandler.handleError(componentError as Error, {
+                    operation: `process_component_${node.name}`,
+                    component: 'ComponentService',
+                    severity: 'medium'
+                  });
+                }
+              }
+
+              if ("children" in node && node.children) {
+                for (const child of node.children) {
+                  try {
+                    await collectPageNodes(child);
+                  } catch (childError) {
+                    ErrorHandler.handleError(childError as Error, {
+                      operation: 'collect_component_children',
+                      component: 'ComponentService',
+                      severity: 'medium'
+                    });
+                  }
+                }
+              }
+            } catch (nodeError) {
+              ErrorHandler.handleError(nodeError as Error, {
+                operation: 'collect_node',
+                component: 'ComponentService',
+                severity: 'medium'
+              });
+            }
+          }
+          
           try {
-            await collectNodes(page);
+            await collectPageNodes(page);
+            return { components: pageComponents, componentSets: pageComponentSets };
           } catch (pageError) {
             ErrorHandler.handleError(pageError as Error, {
               operation: `collect_page_components_${page.name}`,
               component: 'ComponentService',
               severity: 'medium'
             });
-            // Return empty array to continue processing other pages
-            return [];
+            return { components: [], componentSets: [] };
           }
         });
         
-        // Wait for all pages to complete
-        await Promise.all(pagePromises);
+        // Wait for all pages to complete and merge results
+        const pageResults = await Promise.all(pagePromises);
+        pageResults.forEach(({ components, componentSets: pageSets }) => {
+          componentsData.push(...components);
+          componentSets.push(...pageSets);
+        });
       } catch (loadError) {
         ErrorHandler.handleError(loadError as Error, {
           operation: 'load_all_pages',

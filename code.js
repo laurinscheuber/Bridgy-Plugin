@@ -4024,81 +4024,96 @@ ${styleCheckCode}
               const componentsData = [];
               const componentSets = [];
               this.componentMap = /* @__PURE__ */ new Map();
-              function collectNodes(node) {
-                return __awaiter(this, void 0, void 0, function* () {
-                  try {
-                    if (!("type" in node)) {
-                      return;
-                    }
-                    if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+              try {
+                yield figma.loadAllPagesAsync();
+                const pagePromises = figma.root.children.map((page) => __awaiter(this, void 0, void 0, function* () {
+                  const pageComponents = [];
+                  const pageComponentSets = [];
+                  function collectPageNodes(node) {
+                    return __awaiter(this, void 0, void 0, function* () {
                       try {
-                        const startTime = performance.now();
-                        let componentStyles;
-                        const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
-                        if (cachedCSS) {
-                          componentStyles = JSON.parse(cachedCSS);
-                        } else {
-                          componentStyles = yield node.getCSSAsync();
-                          cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
-                          const duration = performance.now() - startTime;
-                          perfCache.cacheDuration("getCSSAsync", duration);
+                        if (!("type" in node)) {
+                          return;
                         }
-                        const textElements = yield _ComponentService.extractTextElements(node);
-                        const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
-                        const componentData = {
-                          id: node.id,
-                          name: node.name,
-                          type: node.type,
-                          styles: resolvedStyles,
-                          pageName: node.parent && node.parent.name ? node.parent.name : "Unknown",
-                          parentId: node.parent && node.parent.id,
-                          children: [],
-                          textElements,
-                          hasTextContent: textElements.length > 0
-                        };
-                        _ComponentService.componentMap.set(node.id, componentData);
-                        if (node.type === "COMPONENT_SET") {
-                          componentSets.push(componentData);
-                        } else {
-                          componentsData.push(componentData);
+                        if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                          try {
+                            const startTime = performance.now();
+                            let componentStyles;
+                            const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
+                            if (cachedCSS) {
+                              componentStyles = JSON.parse(cachedCSS);
+                            } else {
+                              componentStyles = yield node.getCSSAsync();
+                              cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
+                              const duration = performance.now() - startTime;
+                              perfCache.cacheDuration("getCSSAsync", duration);
+                            }
+                            const textElements = yield _ComponentService.extractTextElements(node);
+                            const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
+                            const componentData = {
+                              id: node.id,
+                              name: node.name,
+                              type: node.type,
+                              styles: resolvedStyles,
+                              pageName: page.name,
+                              parentId: node.parent && node.parent.id,
+                              children: [],
+                              textElements,
+                              hasTextContent: textElements.length > 0
+                            };
+                            _ComponentService.componentMap.set(node.id, componentData);
+                            if (node.type === "COMPONENT_SET") {
+                              pageComponentSets.push(componentData);
+                            } else {
+                              pageComponents.push(componentData);
+                            }
+                          } catch (componentError) {
+                            errorHandler_1.ErrorHandler.handleError(componentError, {
+                              operation: `process_component_${node.name}`,
+                              component: "ComponentService",
+                              severity: "medium"
+                            });
+                          }
+                        }
+                        if ("children" in node && node.children) {
+                          for (const child of node.children) {
+                            try {
+                              yield collectPageNodes(child);
+                            } catch (childError) {
+                              errorHandler_1.ErrorHandler.handleError(childError, {
+                                operation: "collect_component_children",
+                                component: "ComponentService",
+                                severity: "medium"
+                              });
+                            }
+                          }
                         }
                       } catch (nodeError) {
                         errorHandler_1.ErrorHandler.handleError(nodeError, {
-                          operation: `process_component_${node.name}`,
+                          operation: "collect_node",
                           component: "ComponentService",
                           severity: "medium"
                         });
                       }
-                    }
-                    if ("children" in node) {
-                      for (const child of node.children) {
-                        yield collectNodes(child);
-                      }
-                    }
-                  } catch (childError) {
-                    errorHandler_1.ErrorHandler.handleError(childError, {
-                      operation: "collect_component_children",
-                      component: "ComponentService",
-                      severity: "medium"
                     });
                   }
-                });
-              }
-              try {
-                yield figma.loadAllPagesAsync();
-                const pagePromises = figma.root.children.map((page) => __awaiter(this, void 0, void 0, function* () {
                   try {
-                    yield collectNodes(page);
+                    yield collectPageNodes(page);
+                    return { components: pageComponents, componentSets: pageComponentSets };
                   } catch (pageError) {
                     errorHandler_1.ErrorHandler.handleError(pageError, {
                       operation: `collect_page_components_${page.name}`,
                       component: "ComponentService",
                       severity: "medium"
                     });
-                    return [];
+                    return { components: [], componentSets: [] };
                   }
                 }));
-                yield Promise.all(pagePromises);
+                const pageResults = yield Promise.all(pagePromises);
+                pageResults.forEach(({ components, componentSets: pageSets }) => {
+                  componentsData.push(...components);
+                  componentSets.push(...pageSets);
+                });
               } catch (loadError) {
                 errorHandler_1.ErrorHandler.handleError(loadError, {
                   operation: "load_all_pages",
