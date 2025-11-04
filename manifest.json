@@ -5,7 +5,7 @@
   "main": "code.js",
   "capabilities": ["inspect", "vscode", "codegen"],
   "enableProposedApi": false,
-  "documentAccess": "document",
+  "documentAccess": "dynamic-page",
   "editorType": ["figma", "dev"],
   "codegenLanguages": [
     {"label": "Angular", "value": "angular"},

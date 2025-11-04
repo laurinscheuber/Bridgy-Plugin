@@ -3235,16 +3235,25 @@ ${styleCheckCode}
                   }
                 });
               }
-              for (const page of figma.root.children) {
-                try {
-                  yield collectNodes(page);
-                } catch (pageError) {
-                  errorHandler_1.ErrorHandler.handleError(pageError, {
-                    operation: `collect_page_components_${page.name}`,
-                    component: "ComponentService",
-                    severity: "medium"
-                  });
+              try {
+                yield figma.loadAllPagesAsync();
+                for (const page of figma.root.children) {
+                  try {
+                    yield collectNodes(page);
+                  } catch (pageError) {
+                    errorHandler_1.ErrorHandler.handleError(pageError, {
+                      operation: `collect_page_components_${page.name}`,
+                      component: "ComponentService",
+                      severity: "medium"
+                    });
+                  }
                 }
+              } catch (loadError) {
+                errorHandler_1.ErrorHandler.handleError(loadError, {
+                  operation: "load_all_pages",
+                  component: "ComponentService",
+                  severity: "high"
+                });
               }
               try {
                 componentsData.forEach((component) => {

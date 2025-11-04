@@ -154,17 +154,29 @@ export class ComponentService {
         }
       }
 
-      for (const page of figma.root.children) {
-        try {
-          await collectNodes(page);
-        } catch (pageError) {
-          ErrorHandler.handleError(pageError as Error, {
-            operation: `collect_page_components_${page.name}`,
-            component: 'ComponentService',
-            severity: 'medium'
-          });
-          // Continue processing other pages
+      // Load all pages asynchronously for dynamic-page access
+      try {
+        await figma.loadAllPagesAsync();
+        
+        // Now we can access all pages
+        for (const page of figma.root.children) {
+          try {
+            await collectNodes(page);
+          } catch (pageError) {
+            ErrorHandler.handleError(pageError as Error, {
+              operation: `collect_page_components_${page.name}`,
+              component: 'ComponentService',
+              severity: 'medium'
+            });
+            // Continue processing other pages
+          }
         }
+      } catch (loadError) {
+        ErrorHandler.handleError(loadError as Error, {
+          operation: 'load_all_pages',
+          component: 'ComponentService',
+          severity: 'high'
+        });
       }
 
       try {
