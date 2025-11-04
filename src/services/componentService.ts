@@ -154,15 +154,17 @@ export class ComponentService {
         }
       }
 
-      // With dynamic-page access, only scan the current page
-      try {
-        await collectNodes(figma.currentPage);
-      } catch (pageError) {
-        ErrorHandler.handleError(pageError as Error, {
-          operation: `collect_current_page_components`,
-          component: 'ComponentService',
-          severity: 'medium'
-        });
+      for (const page of figma.root.children) {
+        try {
+          await collectNodes(page);
+        } catch (pageError) {
+          ErrorHandler.handleError(pageError as Error, {
+            operation: `collect_page_components_${page.name}`,
+            component: 'ComponentService',
+            severity: 'medium'
+          });
+          // Continue processing other pages
+        }
       }
 
       try {
