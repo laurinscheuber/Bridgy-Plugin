@@ -415,13 +415,19 @@ export class GitLabService {
       throw new Error('Invalid project ID format. Use numeric ID or namespace/project format.');
     }
     
-    // Token validation - GitLab tokens should be alphanumeric with specific prefixes
+    // Token validation - very lenient, just check basic requirements
     if (!gitlabToken || !gitlabToken.trim()) {
       throw new GitLabAuthError('GitLab token is required');
     }
-    const tokenPattern = /^(glpat-|glrt-|gldt-|GR1348941|gitlab-ci-token:)?[a-zA-Z0-9_-]{20,}$/;
-    if (!tokenPattern.test(gitlabToken.trim())) {
-      throw new GitLabAuthError('Invalid GitLab token format');
+    
+    const trimmedToken = gitlabToken.trim();
+    if (trimmedToken.length < 8) {
+      throw new GitLabAuthError('GitLab token must be at least 8 characters long');
+    }
+    
+    // Only reject tokens with obviously invalid characters
+    if (/[\s"'<>]/.test(trimmedToken)) {
+      throw new GitLabAuthError('GitLab token contains invalid characters');
     }
     
     // Commit message validation - length and XSS prevention

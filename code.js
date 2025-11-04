@@ -901,9 +901,9 @@
         static generateEncryptionKey() {
           var _a, _b;
           const fileId = ((_b = (_a = globalThis.figma) === null || _a === void 0 ? void 0 : _a.root) === null || _b === void 0 ? void 0 : _b.id) || "default";
-          const userAgent = navigator.userAgent;
+          const sessionId = Math.random().toString(36).substring(2, 15);
           const timestamp = Math.floor(Date.now() / (1e3 * 60 * 60 * 24));
-          return btoa(`${fileId}:${userAgent.slice(0, 20)}:${timestamp}`).slice(0, 32);
+          return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
         }
       };
       exports.SecurityUtils = SecurityUtils;
@@ -1438,9 +1438,12 @@
           if (!gitlabToken || !gitlabToken.trim()) {
             throw new GitLabAuthError("GitLab token is required");
           }
-          const tokenPattern = /^(glpat-|glrt-|gldt-|GR1348941|gitlab-ci-token:)?[a-zA-Z0-9_-]{20,}$/;
-          if (!tokenPattern.test(gitlabToken.trim())) {
-            throw new GitLabAuthError("Invalid GitLab token format");
+          const trimmedToken = gitlabToken.trim();
+          if (trimmedToken.length < 8) {
+            throw new GitLabAuthError("GitLab token must be at least 8 characters long");
+          }
+          if (/[\s"'<>]/.test(trimmedToken)) {
+            throw new GitLabAuthError("GitLab token contains invalid characters");
           }
           if (!commitMessage || !commitMessage.trim()) {
             throw new Error("Commit message is required");

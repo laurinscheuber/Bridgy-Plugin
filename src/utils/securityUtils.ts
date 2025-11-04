@@ -216,11 +216,11 @@ export class SecurityUtils {
    * @returns Encryption key
    */
   static generateEncryptionKey(): string {
-    // Use figma file ID + timestamp as key components
+    // Use figma file ID + timestamp as key components (without navigator.userAgent)
     const fileId = (globalThis as any).figma?.root?.id || 'default';
-    const userAgent = navigator.userAgent;
+    const sessionId = Math.random().toString(36).substring(2, 15); // Random session identifier
     const timestamp = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // Daily rotation
     
-    return btoa(`${fileId}:${userAgent.slice(0, 20)}:${timestamp}`).slice(0, 32);
+    return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
   }
 }

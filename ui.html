@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://gitlab.com https://*.gitlab.com https://gitlab.fhnw.ch https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://gitlab.com https://*.gitlab.com https://gitlab.fhnw.ch https://*.gitlab.fhnw.ch https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), clipboard-write=(), display-capture=()" />
     <!-- Note: Permissions policy warnings are expected in Figma plugin environment but don't affect functionality -->
     <title>Bridgy UI</title>
@@ -1000,57 +1000,44 @@
         position: sticky;
         top: 0;
         z-index: 100;
-        background: linear-gradient(135deg, rgba(16, 16, 20, 0.95), rgba(24, 24, 27, 0.95));
-        backdrop-filter: blur(20px);
+        background: transparent;
         padding: var(--space-3) 0;
         margin: 0 calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
         padding-left: var(--space-4);
         padding-right: var(--space-4);
-        border-bottom: 1px solid rgba(139, 92, 246, 0.2);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(139, 92, 246, 0.3);
       }
       
       .search-input {
         width: 100%;
-        padding: 1rem 1.5rem 1rem 3rem;
-        border: 1px solid rgba(139, 92, 246, 0.2);
+        padding: 1rem 1.5rem;
+        border: 2px solid rgba(139, 92, 246, 0.6);
         border-radius: 16px;
         font-size: var(--text-sm);
         font-weight: 500;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.05));
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(20px);
         color: white;
         position: relative;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
       }
       
       .search-input::placeholder {
-        color: rgba(196, 181, 253, 0.7);
+        color: rgba(255, 255, 255, 0.8);
         font-weight: 400;
       }
       
       .search-input:focus {
-        border-color: rgba(139, 92, 246, 0.6);
+        border-color: rgba(139, 92, 246, 1);
         outline: none;
-        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.25), 0 0 0 1px rgba(139, 92, 246, 0.3);
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.1));
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4), 0 0 0 2px rgba(139, 92, 246, 0.5);
+        background: rgba(0, 0, 0, 0.8);
         transform: translateY(-1px);
       }
       
       .search-input-wrapper {
         position: relative;
-      }
-      
-      .search-input-wrapper::before {
-        content: "🔍";
-        position: absolute;
-        left: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 16px;
-        color: rgba(196, 181, 253, 0.7);
-        z-index: 1;
-        pointer-events: none;
       }
 
       /* ===== MODERN COMPONENT LISTS ===== */
@@ -1463,6 +1450,43 @@
           transform: translateX(100%);
           opacity: 0;
         }
+      }
+
+      /* ===== NOTIFICATION LINKS ===== */
+      .notification-message a,
+      .modal-notification-message a {
+        color: #c4b5fd;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+        background: rgba(139, 92, 246, 0.2);
+        border: 1px solid rgba(139, 92, 246, 0.4);
+        border-radius: var(--radius-md);
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+      
+      .notification-message a:hover,
+      .modal-notification-message a:hover {
+        background: rgba(139, 92, 246, 0.3);
+        border-color: rgba(139, 92, 246, 0.6);
+        color: #ddd6fe;
+        transform: translateX(2px);
+      }
+      
+      .notification-message a::after,
+      .modal-notification-message a::after {
+        content: " →";
+        margin-left: var(--space-1);
+        transition: transform 0.2s ease;
+        display: inline-block;
+      }
+      
+      .notification-message a:hover::after,
+      .modal-notification-message a:hover::after {
+        transform: translateX(3px);
       }
 
       /* ===== IN-MODAL NOTIFICATIONS ===== */
@@ -2535,12 +2559,14 @@
 
       <div class="tab-content" id="components-content">
         <div class="search-container">
-          <input
-            type="text"
-            class="search-input"
-            id="component-search"
-            placeholder="Search components..."
-          />
+          <div class="search-input-wrapper">
+            <input
+              type="text"
+              class="search-input"
+              id="component-search"
+              placeholder="Search components..."
+            />
+          </div>
         </div>
 
         <div id="components-container">
@@ -2740,45 +2766,74 @@
 
           <div
             style="
-              background-color: #e3f2fd;
-              border: 1px solid #bbdefb;
-              border-radius: 4px;
-              padding: 10px;
-              margin: 10px 0;
-              font-size: 14px;
-              color: #1565c0;
+              background: rgba(139, 92, 246, 0.1);
+              border: 1px solid rgba(139, 92, 246, 0.3);
+              border-radius: 12px;
+              padding: 12px 16px;
+              margin: 16px 0;
+              font-size: 13px;
+              color: #c4b5fd;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              backdrop-filter: blur(10px);
             "
           >
-            <p style="margin: 0">ℹ️ Info: only be changed by Dev Team</p>
+            <div style="
+              background: rgba(139, 92, 246, 0.2);
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              font-size: 12px;
+            ">ℹ️</div>
+            <p style="margin: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9)">Can only be changed by Dev Team</p>
           </div>
 
           <!-- Configuration Metadata -->
           <div
             id="config-metadata"
             style="
-              background-color: #f8f9fa;
-              border: 1px solid #e9ecef;
-              border-radius: 4px;
-              padding: 10px;
-              margin: 10px 0;
-              font-size: 12px;
-              color: #6c757d;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              border-radius: 12px;
+              padding: 12px 16px;
+              margin: 16px 0;
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.8);
               display: none;
+              backdrop-filter: blur(10px);
             "
           >
-            <div style="display: flex; align-items: center; gap: 8px">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
-              </svg>
-              <span id="config-metadata-text">Last saved: Loading...</span>
+            <div style="display: flex; align-items: center; gap: 10px">
+              <div style="
+                background: rgba(255, 255, 255, 0.1);
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+              ">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(196, 181, 253, 0.8)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <span id="config-metadata-text" style="font-weight: 400; line-height: 1.5;">Last saved: Loading...</span>
             </div>
           </div>
         </div>
@@ -3401,13 +3456,37 @@
             'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'span', 'div',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
             'code', 'pre', 'blockquote', 'button', 'svg', 'path', 'circle',
-            'select', 'option', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
+            'select', 'option', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'a'
           ];
 
-          // Remove any tags not in allowlist
-          sanitized = sanitized.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (match, tagName) => {
+          // Remove any tags not in allowlist, but preserve safe attributes for allowed tags
+          sanitized = sanitized.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)(\s[^>]*)?>/g, (match, tagName, attrs) => {
             const lowerTagName = tagName.toLowerCase();
-            return allowedTags.indexOf(lowerTagName) !== -1 ? match : '';
+            if (allowedTags.indexOf(lowerTagName) === -1) {
+              return '';
+            }
+            
+            // Special handling for <a> tags - preserve href and target attributes only
+            if (lowerTagName === 'a' && attrs) {
+              let safeAttrs = '';
+              
+              // Extract href attribute
+              const hrefMatch = attrs.match(/\shref="([^"]*)"/);
+              if (hrefMatch && hrefMatch[1] && hrefMatch[1].startsWith('https://')) {
+                safeAttrs += ` href="${hrefMatch[1]}"`;
+              }
+              
+              // Extract target attribute
+              const targetMatch = attrs.match(/\starget="([^"]*)"/);
+              if (targetMatch && (targetMatch[1] === '_blank' || targetMatch[1] === '_self')) {
+                safeAttrs += ` target="${targetMatch[1]}"`;
+              }
+              
+              return `<${tagName}${safeAttrs}>`;
+            }
+            
+            // For other tags, return as-is
+            return match;
           });
 
           return sanitized;
@@ -3428,6 +3507,105 @@
           };
 
           return text.replace(/[&<>"'/]/g, (match) => htmlEscapes[match]);
+        }
+
+        /**
+         * Validate GitLab URL format
+         * @param {string} url GitLab URL
+         * @returns {boolean} true if valid GitLab URL
+         */
+        static isValidGitLabURL(url) {
+          if (typeof url !== 'string') {
+            return false;
+          }
+
+          try {
+            const parsedUrl = new URL(url);
+            
+            // Must be HTTPS
+            if (parsedUrl.protocol !== 'https:') {
+              return false;
+            }
+
+            // Check for common GitLab patterns
+            const gitlabPatterns = [
+              /^gitlab\.com$/,
+              /^.*\.gitlab\.com$/,
+              /^.*\.gitlab\.io$/,
+              /gitlab/i // Allow custom GitLab instances with "gitlab" in domain
+            ];
+
+            return gitlabPatterns.some(pattern => pattern.test(parsedUrl.hostname));
+          } catch {
+            return false;
+          }
+        }
+
+        /**
+         * Simple encryption for sensitive data storage
+         * @param {string} data Data to encrypt
+         * @param {string} key Encryption key
+         * @returns {string} Encrypted string
+         */
+        static encryptData(data, key) {
+          if (typeof data !== 'string' || typeof key !== 'string') {
+            throw new Error('Data and key must be strings');
+          }
+
+          // Simple XOR encryption for basic obfuscation
+          const keyBytes = new TextEncoder().encode(key);
+          const dataBytes = new TextEncoder().encode(data);
+          const encrypted = new Uint8Array(dataBytes.length);
+
+          for (let i = 0; i < dataBytes.length; i++) {
+            encrypted[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
+          }
+
+          // Convert to base64 for storage
+          return btoa(String.fromCharCode(...encrypted));
+        }
+
+        /**
+         * Decrypt data encrypted with encryptData
+         * @param {string} encryptedData Encrypted data string
+         * @param {string} key Decryption key
+         * @returns {string} Decrypted string
+         */
+        static decryptData(encryptedData, key) {
+          if (typeof encryptedData !== 'string' || typeof key !== 'string') {
+            throw new Error('Encrypted data and key must be strings');
+          }
+
+          try {
+            // Decode from base64
+            const encrypted = new Uint8Array(
+              atob(encryptedData).split('').map(char => char.charCodeAt(0))
+            );
+
+            const keyBytes = new TextEncoder().encode(key);
+            const decrypted = new Uint8Array(encrypted.length);
+
+            for (let i = 0; i < encrypted.length; i++) {
+              decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
+            }
+
+            return new TextDecoder().decode(decrypted);
+          } catch (error) {
+            throw new Error('Failed to decrypt data - invalid format or key');
+          }
+        }
+
+        /**
+         * Generate a simple key for encryption based on session/user
+         * @returns {string} Encryption key
+         */
+        static generateEncryptionKey() {
+          // Use figma file ID + timestamp as key components (without navigator.userAgent)
+          const fileId = (typeof figma !== 'undefined' && figma.root) ? figma.root.id : 'default';
+          const sessionId = Math.random().toString(36).substring(2, 15); // Random session identifier
+          const timestamp = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // Daily rotation
+          
+          return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
         }
       }
 
@@ -3465,11 +3643,15 @@
         
         const icon = type === 'success' ? '✓' : '✕';
         
+        // Check if message contains safe HTML (only allow <a> tags)
+        const isHTMLMessage = message.includes('<a ') && message.includes('</a>');
+        const safeMessage = isHTMLMessage ? SecurityUtils.sanitizeHTML(message) : SecurityUtils.escapeHTML(message);
+        
         notification.innerHTML = SecurityUtils.sanitizeHTML(`
           <div class="notification-icon">${SecurityUtils.escapeHTML(icon)}</div>
           <div class="notification-content">
             <div class="notification-title">${SecurityUtils.escapeHTML(title)}</div>
-            <div class="notification-message">${SecurityUtils.escapeHTML(message)}</div>
+            <div class="notification-message">${safeMessage}</div>
           </div>
           <button class="notification-close" onclick="closeNotification(this.parentElement)">×</button>
         `);
@@ -3531,13 +3713,17 @@
         
         const icon = type === 'success' ? '✓' : '✕';
         
+        // Check if message contains safe HTML (only allow <a> tags)
+        const isHTMLMessage = message.includes('<a ') && message.includes('</a>');
+        const safeMessage = isHTMLMessage ? SecurityUtils.sanitizeHTML(message) : SecurityUtils.escapeHTML(message);
+        
         const notification = document.createElement('div');
         notification.className = `modal-notification ${type}`;
         notification.innerHTML = SecurityUtils.sanitizeHTML(`
           <div class="modal-notification-icon">${SecurityUtils.escapeHTML(icon)}</div>
           <div class="modal-notification-content">
             <div class="modal-notification-title">${SecurityUtils.escapeHTML(title)}</div>
-            <div class="modal-notification-message">${SecurityUtils.escapeHTML(message)}</div>
+            <div class="modal-notification-message">${safeMessage}</div>
           </div>
           <button class="modal-notification-close" onclick="this.parentElement.remove()">×</button>
         `);
@@ -5639,7 +5825,15 @@ ${checkboxes}
             throw new Error("Configuration form elements not found");
           }
 
-          const gitlabUrl = urlElement.value.trim();
+          let gitlabUrl = urlElement.value.trim();
+          
+          // Auto-prepend https:// if URL doesn't have protocol
+          if (gitlabUrl && !gitlabUrl.startsWith('http://') && !gitlabUrl.startsWith('https://')) {
+            gitlabUrl = 'https://' + gitlabUrl;
+            // Update the input field with the corrected URL
+            urlElement.value = gitlabUrl;
+          }
+          
           const projectId = projectIdElement.value.trim();
           const filePath = filePathElement.value.trim() || "src/variables.css";
           const exportFormat = formatElement.value;
@@ -5682,10 +5876,15 @@ ${checkboxes}
             return;
           }
 
-          // Validate token format
-          const tokenPattern = /^(glpat-|glrt-|gldt-|GR1348941|gitlab-ci-token:)?[a-zA-Z0-9_-]{20,}$/;
-          if (!tokenPattern.test(token)) {
-            showError("Validation Error", "Invalid GitLab token format");
+          // Validate token format - very lenient, just check length and basic characters
+          if (token.length < 8) {
+            showError("Validation Error", "GitLab token must be at least 8 characters long.");
+            return;
+          }
+          
+          // Only reject tokens with obviously invalid characters (spaces, quotes, etc.)
+          if (/[\s"'<>]/.test(token)) {
+            showError("Validation Error", "GitLab token contains invalid characters.");
             return;
           }
 
@@ -5695,14 +5894,14 @@ ${checkboxes}
             return;
           }
 
-          // Validate GitLab URL if provided
-          if (gitlabUrl && !isValidGitLabURL(gitlabUrl)) {
-            showError("Validation Error", "Invalid GitLab URL. Must be HTTPS and contain 'gitlab'");
+          // Validate GitLab URL only if provided (empty is allowed - defaults to gitlab.com)
+          if (gitlabUrl && !SecurityUtils.isValidGitLabURL(gitlabUrl)) {
+            showError("Validation Error", "Invalid GitLab URL. Must be HTTPS and contain 'gitlab' in the domain");
             return;
           }
 
           window.gitlabSettings = {
-            gitlabUrl: gitlabUrl || undefined, // Don't save empty string
+            gitlabUrl: gitlabUrl || "", // Keep empty string to show in UI
             projectId: projectId,
             filePath: filePath,
             exportFormat: exportFormat,
@@ -5721,6 +5920,7 @@ ${checkboxes}
             {
               pluginMessage: {
                 type: "save-gitlab-settings",
+                gitlabUrl: gitlabUrl,
                 projectId: projectId,
                 filePath: filePath,
                 exportFormat: exportFormat,
@@ -5740,7 +5940,7 @@ ${checkboxes}
           updateExportButtonText();
           updateRepositoryLink();
 
-          showSuccess("Settings Saved", "Configuration saved successfully!");
+          showSuccess("Settings Saved", "Configuration saved successfully!", 4000);
           closeSettingsModal();
         } catch (error) {
           console.error('Error saving configuration:', error);
@@ -6029,10 +6229,8 @@ ${checkboxes}
             throw new Error('GitLab token is required. Please configure your GitLab settings.');
           }
 
-          // Validate GitLab URL
-          if (!window.gitlabSettings.gitlabUrl || !window.gitlabSettings.gitlabUrl.trim()) {
-            throw new Error('GitLab URL is required. Please configure your GitLab settings.');
-          }
+          // GitLab URL is optional - if empty, it defaults to gitlab.com
+          // No validation needed here since buildGitLabApiUrl handles empty URLs
 
           // Validate commit message
           const commitMessageElement = document.getElementById("commit-message");
