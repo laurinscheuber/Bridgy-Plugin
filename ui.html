@@ -52,12 +52,15 @@
         --success-50: #f0fdf4;
         --success-500: #22c55e;
         --success-600: #16a34a;
+        --success-700: #15803d;
         --warning-50: #fefce8;
         --warning-500: #eab308;
         --warning-600: #ca8a04;
+        --warning-700: #a16207;
         --error-50: #fef2f2;
         --error-500: #ef4444;
         --error-600: #dc2626;
+        --error-700: #b91c1c;
         
         /* Action Colors */
         --generate-color: #c4b5fd;
@@ -681,6 +684,14 @@
         background: rgba(251, 191, 36, 0.2);
         color: #fbbf24;
         border: 1px solid rgba(251, 191, 36, 0.4);
+      }
+      
+      .badge-variant {
+        background: rgba(139, 92, 246, 0.2);
+        color: #c4b5fd;
+        border: 1px solid rgba(139, 92, 246, 0.4);
+        font-size: 11px;
+        margin-right: 4px;
       }
 
       /* ===== MODERN COMPONENT CARDS ===== */
@@ -2271,44 +2282,62 @@
       }
 
       .validation-issue-item strong {
-        color: var(--error-700);
+        color: #fbbf24;
         font-weight: 600;
       }
 
       .issue-description {
-        color: var(--warning-700);
+        color: rgba(255, 255, 255, 0.9);
         font-style: italic;
         margin-left: auto;
         margin-right: var(--space-2);
       }
 
       .issue-link {
-        color: var(--primary-600);
+        color: #c4b5fd;
         text-decoration: none;
         font-weight: 600;
-        padding: var(--space-1) var(--space-2);
-        border-radius: var(--radius-sm);
+        padding: var(--space-2) var(--space-3);
+        border-radius: 8px;
         transition: all 0.2s ease;
-        background: var(--primary-50);
-        border: 1px solid var(--primary-200);
+        background: rgba(139, 92, 246, 0.2);
+        border: 1px solid rgba(139, 92, 246, 0.4);
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
       }
 
       .issue-link:hover {
-        background: var(--primary-100);
+        background: rgba(139, 92, 246, 0.3);
+        color: #ddd6fe;
         text-decoration: none;
         transform: translateY(-1px);
+        border-color: rgba(139, 92, 246, 0.6);
+      }
+
+      .issue-link svg {
+        transition: transform 0.2s ease;
+      }
+
+      .issue-link:hover svg {
+        transform: translateX(2px);
       }
 
       .validation-help {
-        padding: var(--space-2);
-        background: var(--neutral-0);
+        padding: var(--space-3);
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
         border-radius: var(--radius-md);
-        border: 1px solid var(--error-200);
+        border: 1px solid rgba(239, 68, 68, 0.3);
       }
 
       .validation-help small {
-        color: var(--warning-700);
-        font-size: var(--text-xs);
+        color: rgba(255, 255, 255, 0.9);
+        font-size: var(--text-sm);
+        font-weight: 500;
       }
 
       .has-validation-issues {
@@ -2317,7 +2346,8 @@
       }
 
       .has-validation-issues .subgroup-title {
-        color: var(--error-700) !important;
+        color: var(--error-200) !important;
+        font-weight: 600;
       }
 
       .validation-warning {
@@ -3434,15 +3464,15 @@
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
             .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, (match) => {
-              // Allow onclick for toggleSubgroup function
-              if (match.includes('toggleSubgroup(')) {
+              // Allow onclick for specific safe functions
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(')) {
                 return match;
               }
               return '';
             })
             .replace(/on\w+\s*=\s*[^>\s]+/gi, (match) => {
-              // Allow onclick for toggleSubgroup function
-              if (match.includes('toggleSubgroup(')) {
+              // Allow onclick for specific safe functions
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(')) {
                 return match;
               }
               return '';
@@ -4564,11 +4594,14 @@
                   .map(
                     (issue) => `
                   <div class="validation-issue-item">
-                    <strong>${issue.collection}</strong> → <strong>${issue.displayName}</strong>
+                    <strong>${issue.displayName}</strong>
                     <span class="issue-description">Contains both direct values and variable links</span>
-                    <a href="#" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}'); return false;">
+                    <button type="button" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                        <path d="m9 18 6-6-6-6"/>
+                      </svg>
                       Go to section
-                    </a>
+                    </button>
                   </div>
                 `
                   )
@@ -4771,20 +4804,26 @@
       function parseComponentName(name) {
         const result = {
           name: name,
-          type: null,
-          state: null,
+          variants: []
         };
 
-        // Check for Type=X pattern
-        const typeMatch = name.match(/Type=([^,]+)/i);
-        if (typeMatch && typeMatch[1]) {
-          result.type = typeMatch[1].trim();
-        }
-
-        // Check for State=X pattern
-        const stateMatch = name.match(/State=([^,]+)/i);
-        if (stateMatch && stateMatch[1]) {
-          result.state = stateMatch[1].trim();
+        // Extract all property=value patterns (Type=, State=, Size=, etc.)
+        const variantMatches = name.match(/([A-Za-z]+)=([^,]+)/g);
+        if (variantMatches) {
+          variantMatches.forEach(match => {
+            const [property, value] = match.split('=');
+            if (property && value) {
+              result.variants.push({
+                property: property.trim(),
+                value: value.trim()
+              });
+            }
+          });
+          
+          // Remove variant information from the name to avoid duplication
+          result.name = name.replace(/,?\s*([A-Za-z]+)=([^,]+)/g, '').trim();
+          // Clean up any remaining commas or extra spaces
+          result.name = result.name.replace(/^,\s*|,\s*$/g, '').trim();
         }
 
         return result;
@@ -5100,8 +5139,10 @@
                   <span class="component-name">${parsedName.name}</span>
                   <span class="badge badge-component-set">Component Set</span>
                   ${
-                    parsedName.type
-                      ? `<span class="badge badge-type">${parsedName.type}</span>`
+                    parsedName.variants.length > 0
+                      ? parsedName.variants.map(variant => 
+                          `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                        ).join('')
                       : ""
                   }
                 </div>
@@ -5138,16 +5179,12 @@
                             <span class="component-name">${
                               childParsed.name
                             }</span>
-                            <span class="badge badge-component">Component</span>
                             ${
-                              childParsed.type
-                                ? `<span class="badge badge-type">${childParsed.type}</span>`
-                                : ""
-                            }
-                            ${
-                              childParsed.state
-                                ? `<span class="badge badge-state">${childParsed.state}</span>`
-                                : ""
+                              childParsed.variants.length > 0
+                                ? childParsed.variants.map(variant => 
+                                    `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                                  ).join('')
+                                : '<span class="badge badge-component">Component</span>'
                             }
                           </div>
                           <div class="component-styles" onclick="toggleStyles(this)">
@@ -5176,16 +5213,12 @@
             <div class="component-regular">
               <div class="component-meta">
                 <span class="component-name">${parsedName.name}</span>
-                <span class="badge badge-component">Component</span>
                 ${
-                  parsedName.type
-                    ? `<span class="badge badge-type">${parsedName.type}</span>`
-                    : ""
-                }
-                ${
-                  parsedName.state
-                    ? `<span class="badge badge-state">${parsedName.state}</span>`
-                    : ""
+                  parsedName.variants.length > 0
+                    ? parsedName.variants.map(variant => 
+                        `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                      ).join('')
+                    : '<span class="badge badge-component">Component</span>'
                 }
               </div>
               <div class="component-styles" onclick="toggleStyles(this)">
