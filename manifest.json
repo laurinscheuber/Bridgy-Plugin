@@ -36,7 +36,8 @@
       "https://*.gitlab.io",
       "https://cdnjs.cloudflare.com",
       "https://gitlab.com",
-      "https://gitlab.fhnw.ch"
+      "https://gitlab.fhnw.ch",
+      "https://static.figma.com"
     ],
     "reasoning": "This plugin connects to GitLab instances (GitLab.com, FHNW GitLab) for committing design tokens and component tests. JSZip is loaded from CDN for file export functionality."
   },

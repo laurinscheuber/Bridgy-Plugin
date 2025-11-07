@@ -31,6 +31,9 @@ function generateManifestDomains(environments = DEFAULT_ENVIRONMENTS) {
 
   // Add CDN for JSZip
   domains.add('https://cdnjs.cloudflare.com');
+  
+  // Add Figma static domain for fonts
+  domains.add('https://static.figma.com');
 
   // Add all environment domains
   for (const config of Object.values(environments)) {

@@ -12,10 +12,14 @@ let componentMap = new Map<string, any>();
 
 // Collect all variables and components from the document
 async function collectDocumentData() {
-  // Collection variables
-  const variableCollections =
-    await figma.variables.getLocalVariableCollectionsAsync();
-  const variablesData = [];
+  console.log('collectDocumentData: Starting data collection...');
+  
+  try {
+    // Collection variables
+    console.log('collectDocumentData: Fetching variable collections...');
+    const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
+    console.log(`collectDocumentData: Found ${variableCollections.length} variable collections`);
+    const variablesData = [];
 
   // Sort collections alphabetically by name
   const sortedCollections = variableCollections.sort((a, b) =>
@@ -56,15 +60,43 @@ async function collectDocumentData() {
     });
   }
 
-  // Collect components
-  const componentsData = await ComponentService.collectComponents();
+    // Collect components
+    console.log('collectDocumentData: About to collect components...');
+    console.log('collectDocumentData: Current document has', figma.root.children.length, 'pages');
+    
+    const componentsData = await ComponentService.collectComponents();
+    console.log('collectDocumentData: ComponentService.collectComponents() returned:', componentsData);
+    console.log('collectDocumentData: Collected components count:', componentsData?.length || 0);
+    
+    if (!componentsData || componentsData.length === 0) {
+      console.warn('collectDocumentData: No components found! This might indicate an issue.');
+      console.log('collectDocumentData: Document structure:', {
+        rootType: figma.root.type,
+        pagesCount: figma.root.children.length,
+        pageNames: figma.root.children.map(page => page.name)
+      });
+    }
 
-  // Send the data to the UI
-  figma.ui.postMessage({
-    type: "document-data",
-    variablesData,
-    componentsData,
-  });
+    // Send the data to the UI
+    console.log('collectDocumentData: Sending data to UI...');
+    figma.ui.postMessage({
+      type: "document-data",
+      variablesData,
+      componentsData: componentsData || [],
+    });
+    
+    console.log('collectDocumentData: Data collection completed successfully');
+  } catch (error) {
+    console.error('collectDocumentData: Error during data collection:', error);
+    
+    // Send error to UI so user knows something went wrong
+    figma.ui.postMessage({
+      type: "document-data-error",
+      error: error instanceof Error ? error.message : 'Unknown error during data collection',
+      variablesData: [], // Send empty arrays as fallback
+      componentsData: [],
+    });
+  }
 }
 
 // Load saved GitLab settings if available

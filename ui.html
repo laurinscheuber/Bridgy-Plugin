@@ -4187,10 +4187,39 @@
           variablesData = message.variablesData;
           componentsData = message.componentsData;
 
+          console.log('UI: Received document data successfully');
+          console.log('UI: Variables data:', variablesData);
+          console.log('UI: Components data:', componentsData);
+          console.log('UI: Components count:', componentsData ? componentsData.length : 'undefined');
+          
+          if (!componentsData || componentsData.length === 0) {
+            console.warn('UI: No components received! This might indicate an issue with component collection.');
+          }
+          
           renderVariables(variablesData);
           renderComponents(componentsData);
           
           // Auto-resize disabled to maintain consistent plugin size
+        } else if (message.type === "document-data-error") {
+          console.error('UI: Error during document data collection:', message.error);
+          
+          // Show error to user
+          const componentsContainer = document.getElementById('components-container');
+          if (componentsContainer) {
+            componentsContainer.innerHTML = `
+              <div style="color: #ef4444; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">Error Loading Components</h3>
+                <p style="margin: 0; font-size: 13px;">${message.error}</p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; opacity: 0.8;">Check the developer console for more details.</p>
+              </div>
+            `;
+          }
+          
+          // Still try to render variables if they exist
+          if (message.variablesData) {
+            variablesData = message.variablesData;
+            renderVariables(variablesData);
+          }
           // setTimeout(() => {
           //   resizeForCurrentContent();
           // }, 200);
@@ -5114,9 +5143,12 @@
       }
 
       function renderComponents(data) {
+        console.log('renderComponents called with data:', data);
+        console.log('renderComponents data length:', data ? data.length : 'data is null/undefined');
+        
         const container = document.getElementById("components-container");
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
           container.innerHTML = '';
           const noItemsDiv = document.createElement('div');
           noItemsDiv.className = 'no-items';

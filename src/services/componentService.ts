@@ -92,18 +92,34 @@ export class ComponentService {
 
   static async collectComponents(): Promise<Component[]> {
     return await ErrorHandler.withErrorHandling(async () => {
+      console.log('ComponentService.collectComponents: Starting component collection...');
+      
       await this.collectAllVariables();
+      console.log('ComponentService.collectComponents: Variables collected, allVariables size:', this.allVariables.size);
+      
       const componentsData: Component[] = [];
       const componentSets: Component[] = [];
       this.componentMap = new Map<string, Component>();
 
-
       // Load all pages asynchronously for dynamic-page access
       try {
+        console.log('ComponentService.collectComponents: About to load all pages...');
         await figma.loadAllPagesAsync();
+        console.log(`ComponentService.collectComponents: Successfully loaded ${figma.root.children.length} pages`);
+        
+        // Log page details for debugging
+        figma.root.children.forEach((page, index) => {
+          console.log(`ComponentService.collectComponents: Page ${index + 1}: "${page.name}" (type: ${page.type})`);
+        });
         
         // Process all pages in parallel for better performance
         const pagePromises = figma.root.children.map(async (page) => {
+          console.log(`ComponentService: Processing page "${page.name}"`);
+          
+          if (page.type !== 'PAGE') {
+            console.log(`ComponentService: Skipping non-page node: ${page.type}`);
+            return { components: [], componentSets: [] };
+          }
           const pageComponents: Component[] = [];
           const pageComponentSets: Component[] = [];
           
@@ -115,9 +131,10 @@ export class ComponentService {
               }
 
               if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                console.log(`ComponentService: Found ${node.type}: "${node.name}" (id: ${node.id})`);
                 try {
                   // Use cached CSS or fetch if not cached
-                  const startTime = performance.now();
+                  const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
                   let componentStyles: any;
                   const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
                   
@@ -127,7 +144,8 @@ export class ComponentService {
                     componentStyles = await node.getCSSAsync();
                     cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
                     
-                    const duration = performance.now() - startTime;
+                    const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                    const duration = endTime - startTime;
                     perfCache.cacheDuration('getCSSAsync', duration);
                   }
                   
@@ -199,11 +217,37 @@ export class ComponentService {
         });
         
         // Wait for all pages to complete and merge results
+        console.log('ComponentService.collectComponents: Waiting for all page processing to complete...');
         const pageResults = await Promise.all(pagePromises);
-        pageResults.forEach(({ components, componentSets: pageSets }) => {
+        console.log('ComponentService.collectComponents: All page processing completed, merging results...');
+        
+        pageResults.forEach(({ components, componentSets: pageSets }, index) => {
+          console.log(`ComponentService.collectComponents: Page ${index + 1} results - ${components.length} components, ${pageSets.length} component sets`);
           componentsData.push(...components);
           componentSets.push(...pageSets);
         });
+        
+        // Debug: Log what we found
+        console.log(`ComponentService.collectComponents: SUMMARY - Found ${componentsData.length} components and ${componentSets.length} component sets across ${pageResults.length} pages`);
+        
+        // Log individual component names for debugging
+        if (componentsData.length > 0) {
+          console.log('ComponentService.collectComponents: Individual components found:');
+          componentsData.forEach((comp, index) => {
+            console.log(`  ${index + 1}. "${comp.name}" (${comp.type}) from page "${comp.pageName}"`);
+          });
+        } else {
+          console.warn('ComponentService.collectComponents: NO INDIVIDUAL COMPONENTS FOUND!');
+        }
+        
+        if (componentSets.length > 0) {
+          console.log('ComponentService.collectComponents: Component sets found:');
+          componentSets.forEach((set, index) => {
+            console.log(`  ${index + 1}. "${set.name}" (${set.type}) from page "${set.pageName}" with ${set.children?.length || 0} children`);
+          });
+        } else {
+          console.warn('ComponentService.collectComponents: NO COMPONENT SETS FOUND!');
+        }
       } catch (loadError) {
         ErrorHandler.handleError(loadError as Error, {
           operation: 'load_all_pages',
@@ -230,7 +274,19 @@ export class ComponentService {
         });
       }
 
-      return componentSets.concat(componentsData.filter(comp => !comp.isChild));
+      const finalComponents = componentSets.concat(componentsData.filter(comp => !comp.isChild));
+      console.log(`ComponentService.collectComponents: FINAL RESULT - Returning ${finalComponents.length} total components (${componentSets.length} sets + ${componentsData.filter(comp => !comp.isChild).length} standalone components)`);
+      
+      if (finalComponents.length === 0) {
+        console.error('ComponentService.collectComponents: CRITICAL - No components returned! This indicates a serious issue.');
+        console.error('ComponentService.collectComponents: Debug info:', {
+          totalPages: figma.root.children.length,
+          componentMapSize: this.componentMap.size,
+          allVariablesSize: this.allVariables.size
+        });
+      }
+      
+      return finalComponents;
     }, {
       operation: 'collect_components',
       component: 'ComponentService',
@@ -1041,11 +1097,12 @@ ${Object.keys(cssProperties).map((property: string) => {
               if (cachedStyles) {
                 nodeStyles = JSON.parse(cachedStyles);
               } else {
-                const startTime = performance.now();
+                const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
                 nodeStyles = await textNode.getCSSAsync();
                 cssCache.cacheNodeCSS(textNode.id, 'TEXT', JSON.stringify(nodeStyles));
                 
-                const duration = performance.now() - startTime;
+                const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                const duration = endTime - startTime;
                 perfCache.cacheDuration('getCSSAsync-text', duration);
               }
               textStyles = {

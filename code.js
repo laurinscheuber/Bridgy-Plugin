@@ -4020,13 +4020,25 @@ ${styleCheckCode}
         static collectComponents() {
           return __awaiter(this, void 0, void 0, function* () {
             return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              console.log("ComponentService.collectComponents: Starting component collection...");
               yield this.collectAllVariables();
+              console.log("ComponentService.collectComponents: Variables collected, allVariables size:", this.allVariables.size);
               const componentsData = [];
               const componentSets = [];
               this.componentMap = /* @__PURE__ */ new Map();
               try {
+                console.log("ComponentService.collectComponents: About to load all pages...");
                 yield figma.loadAllPagesAsync();
+                console.log(`ComponentService.collectComponents: Successfully loaded ${figma.root.children.length} pages`);
+                figma.root.children.forEach((page, index) => {
+                  console.log(`ComponentService.collectComponents: Page ${index + 1}: "${page.name}" (type: ${page.type})`);
+                });
                 const pagePromises = figma.root.children.map((page) => __awaiter(this, void 0, void 0, function* () {
+                  console.log(`ComponentService: Processing page "${page.name}"`);
+                  if (page.type !== "PAGE") {
+                    console.log(`ComponentService: Skipping non-page node: ${page.type}`);
+                    return { components: [], componentSets: [] };
+                  }
                   const pageComponents = [];
                   const pageComponentSets = [];
                   function collectPageNodes(node) {
@@ -4036,8 +4048,9 @@ ${styleCheckCode}
                           return;
                         }
                         if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+                          console.log(`ComponentService: Found ${node.type}: "${node.name}" (id: ${node.id})`);
                           try {
-                            const startTime = performance.now();
+                            const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
                             let componentStyles;
                             const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
                             if (cachedCSS) {
@@ -4045,7 +4058,8 @@ ${styleCheckCode}
                             } else {
                               componentStyles = yield node.getCSSAsync();
                               cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
-                              const duration = performance.now() - startTime;
+                              const endTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+                              const duration = endTime - startTime;
                               perfCache.cacheDuration("getCSSAsync", duration);
                             }
                             const textElements = yield _ComponentService.extractTextElements(node);
@@ -4109,11 +4123,32 @@ ${styleCheckCode}
                     return { components: [], componentSets: [] };
                   }
                 }));
+                console.log("ComponentService.collectComponents: Waiting for all page processing to complete...");
                 const pageResults = yield Promise.all(pagePromises);
-                pageResults.forEach(({ components, componentSets: pageSets }) => {
+                console.log("ComponentService.collectComponents: All page processing completed, merging results...");
+                pageResults.forEach(({ components, componentSets: pageSets }, index) => {
+                  console.log(`ComponentService.collectComponents: Page ${index + 1} results - ${components.length} components, ${pageSets.length} component sets`);
                   componentsData.push(...components);
                   componentSets.push(...pageSets);
                 });
+                console.log(`ComponentService.collectComponents: SUMMARY - Found ${componentsData.length} components and ${componentSets.length} component sets across ${pageResults.length} pages`);
+                if (componentsData.length > 0) {
+                  console.log("ComponentService.collectComponents: Individual components found:");
+                  componentsData.forEach((comp, index) => {
+                    console.log(`  ${index + 1}. "${comp.name}" (${comp.type}) from page "${comp.pageName}"`);
+                  });
+                } else {
+                  console.warn("ComponentService.collectComponents: NO INDIVIDUAL COMPONENTS FOUND!");
+                }
+                if (componentSets.length > 0) {
+                  console.log("ComponentService.collectComponents: Component sets found:");
+                  componentSets.forEach((set, index) => {
+                    var _a;
+                    console.log(`  ${index + 1}. "${set.name}" (${set.type}) from page "${set.pageName}" with ${((_a = set.children) === null || _a === void 0 ? void 0 : _a.length) || 0} children`);
+                  });
+                } else {
+                  console.warn("ComponentService.collectComponents: NO COMPONENT SETS FOUND!");
+                }
               } catch (loadError) {
                 errorHandler_1.ErrorHandler.handleError(loadError, {
                   operation: "load_all_pages",
@@ -4138,7 +4173,17 @@ ${styleCheckCode}
                   severity: "low"
                 });
               }
-              return componentSets.concat(componentsData.filter((comp) => !comp.isChild));
+              const finalComponents = componentSets.concat(componentsData.filter((comp) => !comp.isChild));
+              console.log(`ComponentService.collectComponents: FINAL RESULT - Returning ${finalComponents.length} total components (${componentSets.length} sets + ${componentsData.filter((comp) => !comp.isChild).length} standalone components)`);
+              if (finalComponents.length === 0) {
+                console.error("ComponentService.collectComponents: CRITICAL - No components returned! This indicates a serious issue.");
+                console.error("ComponentService.collectComponents: Debug info:", {
+                  totalPages: figma.root.children.length,
+                  componentMapSize: this.componentMap.size,
+                  allVariablesSize: this.allVariables.size
+                });
+              }
+              return finalComponents;
             }), {
               operation: "collect_components",
               component: "ComponentService",
@@ -4761,10 +4806,11 @@ ${Object.keys(cssProperties).map((property) => {
                         if (cachedStyles) {
                           nodeStyles = JSON.parse(cachedStyles);
                         } else {
-                          const startTime = performance.now();
+                          const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
                           nodeStyles = yield textNode.getCSSAsync();
                           cssCache.cacheNodeCSS(textNode.id, "TEXT", JSON.stringify(nodeStyles));
-                          const duration = performance.now() - startTime;
+                          const endTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+                          const duration = endTime - startTime;
                           perfCache.cacheDuration("getCSSAsync-text", duration);
                         }
                         textStyles = {
@@ -4921,43 +4967,71 @@ ${Object.keys(cssProperties).map((property) => {
       figma.showUI(__html__, { width: 1e3, height: 900, themeColors: true });
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
-          const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
-          const variablesData = [];
-          const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
-          for (const collection of sortedCollections) {
-            const variablesPromises = collection.variableIds.map((id) => __awaiter(this, void 0, void 0, function* () {
-              const variable = yield figma.variables.getVariableByIdAsync(id);
-              if (!variable)
-                return null;
-              const valuesByModeEntries = [];
-              Object.keys(variable.valuesByMode).forEach((modeId) => {
-                const value = variable.valuesByMode[modeId];
-                const mode = collection.modes.find((m) => m.modeId === modeId);
-                valuesByModeEntries.push({
-                  modeName: mode ? mode.name : "Unknown",
-                  value
+          console.log("collectDocumentData: Starting data collection...");
+          try {
+            console.log("collectDocumentData: Fetching variable collections...");
+            const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
+            console.log(`collectDocumentData: Found ${variableCollections.length} variable collections`);
+            const variablesData = [];
+            const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
+            for (const collection of sortedCollections) {
+              const variablesPromises = collection.variableIds.map((id) => __awaiter(this, void 0, void 0, function* () {
+                const variable = yield figma.variables.getVariableByIdAsync(id);
+                if (!variable)
+                  return null;
+                const valuesByModeEntries = [];
+                Object.keys(variable.valuesByMode).forEach((modeId) => {
+                  const value = variable.valuesByMode[modeId];
+                  const mode = collection.modes.find((m) => m.modeId === modeId);
+                  valuesByModeEntries.push({
+                    modeName: mode ? mode.name : "Unknown",
+                    value
+                  });
                 });
+                return {
+                  id: variable.id,
+                  name: variable.name,
+                  resolvedType: variable.resolvedType,
+                  valuesByMode: valuesByModeEntries
+                };
+              }));
+              const variablesResult = yield Promise.all(variablesPromises);
+              const variables = variablesResult.filter((item) => item !== null);
+              variablesData.push({
+                name: collection.name,
+                variables
               });
-              return {
-                id: variable.id,
-                name: variable.name,
-                resolvedType: variable.resolvedType,
-                valuesByMode: valuesByModeEntries
-              };
-            }));
-            const variablesResult = yield Promise.all(variablesPromises);
-            const variables = variablesResult.filter((item) => item !== null);
-            variablesData.push({
-              name: collection.name,
-              variables
+            }
+            console.log("collectDocumentData: About to collect components...");
+            console.log("collectDocumentData: Current document has", figma.root.children.length, "pages");
+            const componentsData = yield componentService_1.ComponentService.collectComponents();
+            console.log("collectDocumentData: ComponentService.collectComponents() returned:", componentsData);
+            console.log("collectDocumentData: Collected components count:", (componentsData === null || componentsData === void 0 ? void 0 : componentsData.length) || 0);
+            if (!componentsData || componentsData.length === 0) {
+              console.warn("collectDocumentData: No components found! This might indicate an issue.");
+              console.log("collectDocumentData: Document structure:", {
+                rootType: figma.root.type,
+                pagesCount: figma.root.children.length,
+                pageNames: figma.root.children.map((page) => page.name)
+              });
+            }
+            console.log("collectDocumentData: Sending data to UI...");
+            figma.ui.postMessage({
+              type: "document-data",
+              variablesData,
+              componentsData: componentsData || []
+            });
+            console.log("collectDocumentData: Data collection completed successfully");
+          } catch (error) {
+            console.error("collectDocumentData: Error during data collection:", error);
+            figma.ui.postMessage({
+              type: "document-data-error",
+              error: error instanceof Error ? error.message : "Unknown error during data collection",
+              variablesData: [],
+              // Send empty arrays as fallback
+              componentsData: []
             });
           }
-          const componentsData = yield componentService_1.ComponentService.collectComponents();
-          figma.ui.postMessage({
-            type: "document-data",
-            variablesData,
-            componentsData
-          });
         });
       }
       function loadSavedGitLabSettings() {
