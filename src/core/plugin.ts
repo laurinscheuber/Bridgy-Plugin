@@ -12,13 +12,9 @@ let componentMap = new Map<string, any>();
 
 // Collect all variables and components from the document
 async function collectDocumentData() {
-  console.log('collectDocumentData: Starting data collection...');
-  
   try {
     // Collection variables
-    console.log('collectDocumentData: Fetching variable collections...');
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
-    console.log(`collectDocumentData: Found ${variableCollections.length} variable collections`);
     const variablesData = [];
 
   // Sort collections alphabetically by name
@@ -61,33 +57,20 @@ async function collectDocumentData() {
   }
 
     // Collect components
-    console.log('collectDocumentData: About to collect components...');
-    console.log('collectDocumentData: Current document has', figma.root.children.length, 'pages');
-    
     const componentsData = await ComponentService.collectComponents();
-    console.log('collectDocumentData: ComponentService.collectComponents() returned:', componentsData);
-    console.log('collectDocumentData: Collected components count:', componentsData?.length || 0);
     
     if (!componentsData || componentsData.length === 0) {
-      console.warn('collectDocumentData: No components found! This might indicate an issue.');
-      console.log('collectDocumentData: Document structure:', {
-        rootType: figma.root.type,
-        pagesCount: figma.root.children.length,
-        pageNames: figma.root.children.map(page => page.name)
-      });
+      console.warn('No components found in document');
     }
 
     // Send the data to the UI
-    console.log('collectDocumentData: Sending data to UI...');
     figma.ui.postMessage({
       type: "document-data",
       variablesData,
       componentsData: componentsData || [],
     });
-    
-    console.log('collectDocumentData: Data collection completed successfully');
   } catch (error) {
-    console.error('collectDocumentData: Error during data collection:', error);
+    console.error('Error collecting document data:', error);
     
     // Send error to UI so user knows something went wrong
     figma.ui.postMessage({

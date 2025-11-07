@@ -4020,23 +4020,14 @@ ${styleCheckCode}
         static collectComponents() {
           return __awaiter(this, void 0, void 0, function* () {
             return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
-              console.log("ComponentService.collectComponents: Starting component collection...");
               yield this.collectAllVariables();
-              console.log("ComponentService.collectComponents: Variables collected, allVariables size:", this.allVariables.size);
               const componentsData = [];
               const componentSets = [];
               this.componentMap = /* @__PURE__ */ new Map();
               try {
-                console.log("ComponentService.collectComponents: About to load all pages...");
                 yield figma.loadAllPagesAsync();
-                console.log(`ComponentService.collectComponents: Successfully loaded ${figma.root.children.length} pages`);
-                figma.root.children.forEach((page, index) => {
-                  console.log(`ComponentService.collectComponents: Page ${index + 1}: "${page.name}" (type: ${page.type})`);
-                });
                 const pagePromises = figma.root.children.map((page) => __awaiter(this, void 0, void 0, function* () {
-                  console.log(`ComponentService: Processing page "${page.name}"`);
                   if (page.type !== "PAGE") {
-                    console.log(`ComponentService: Skipping non-page node: ${page.type}`);
                     return { components: [], componentSets: [] };
                   }
                   const pageComponents = [];
@@ -4048,7 +4039,6 @@ ${styleCheckCode}
                           return;
                         }
                         if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
-                          console.log(`ComponentService: Found ${node.type}: "${node.name}" (id: ${node.id})`);
                           try {
                             const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
                             let componentStyles;
@@ -4123,32 +4113,11 @@ ${styleCheckCode}
                     return { components: [], componentSets: [] };
                   }
                 }));
-                console.log("ComponentService.collectComponents: Waiting for all page processing to complete...");
                 const pageResults = yield Promise.all(pagePromises);
-                console.log("ComponentService.collectComponents: All page processing completed, merging results...");
-                pageResults.forEach(({ components, componentSets: pageSets }, index) => {
-                  console.log(`ComponentService.collectComponents: Page ${index + 1} results - ${components.length} components, ${pageSets.length} component sets`);
+                pageResults.forEach(({ components, componentSets: pageSets }) => {
                   componentsData.push(...components);
                   componentSets.push(...pageSets);
                 });
-                console.log(`ComponentService.collectComponents: SUMMARY - Found ${componentsData.length} components and ${componentSets.length} component sets across ${pageResults.length} pages`);
-                if (componentsData.length > 0) {
-                  console.log("ComponentService.collectComponents: Individual components found:");
-                  componentsData.forEach((comp, index) => {
-                    console.log(`  ${index + 1}. "${comp.name}" (${comp.type}) from page "${comp.pageName}"`);
-                  });
-                } else {
-                  console.warn("ComponentService.collectComponents: NO INDIVIDUAL COMPONENTS FOUND!");
-                }
-                if (componentSets.length > 0) {
-                  console.log("ComponentService.collectComponents: Component sets found:");
-                  componentSets.forEach((set, index) => {
-                    var _a;
-                    console.log(`  ${index + 1}. "${set.name}" (${set.type}) from page "${set.pageName}" with ${((_a = set.children) === null || _a === void 0 ? void 0 : _a.length) || 0} children`);
-                  });
-                } else {
-                  console.warn("ComponentService.collectComponents: NO COMPONENT SETS FOUND!");
-                }
               } catch (loadError) {
                 errorHandler_1.ErrorHandler.handleError(loadError, {
                   operation: "load_all_pages",
@@ -4174,15 +4143,6 @@ ${styleCheckCode}
                 });
               }
               const finalComponents = componentSets.concat(componentsData.filter((comp) => !comp.isChild));
-              console.log(`ComponentService.collectComponents: FINAL RESULT - Returning ${finalComponents.length} total components (${componentSets.length} sets + ${componentsData.filter((comp) => !comp.isChild).length} standalone components)`);
-              if (finalComponents.length === 0) {
-                console.error("ComponentService.collectComponents: CRITICAL - No components returned! This indicates a serious issue.");
-                console.error("ComponentService.collectComponents: Debug info:", {
-                  totalPages: figma.root.children.length,
-                  componentMapSize: this.componentMap.size,
-                  allVariablesSize: this.allVariables.size
-                });
-              }
               return finalComponents;
             }), {
               operation: "collect_components",
@@ -4967,11 +4927,8 @@ ${Object.keys(cssProperties).map((property) => {
       figma.showUI(__html__, { width: 1e3, height: 900, themeColors: true });
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
-          console.log("collectDocumentData: Starting data collection...");
           try {
-            console.log("collectDocumentData: Fetching variable collections...");
             const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
-            console.log(`collectDocumentData: Found ${variableCollections.length} variable collections`);
             const variablesData = [];
             const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
             for (const collection of sortedCollections) {
@@ -5002,28 +4959,17 @@ ${Object.keys(cssProperties).map((property) => {
                 variables
               });
             }
-            console.log("collectDocumentData: About to collect components...");
-            console.log("collectDocumentData: Current document has", figma.root.children.length, "pages");
             const componentsData = yield componentService_1.ComponentService.collectComponents();
-            console.log("collectDocumentData: ComponentService.collectComponents() returned:", componentsData);
-            console.log("collectDocumentData: Collected components count:", (componentsData === null || componentsData === void 0 ? void 0 : componentsData.length) || 0);
             if (!componentsData || componentsData.length === 0) {
-              console.warn("collectDocumentData: No components found! This might indicate an issue.");
-              console.log("collectDocumentData: Document structure:", {
-                rootType: figma.root.type,
-                pagesCount: figma.root.children.length,
-                pageNames: figma.root.children.map((page) => page.name)
-              });
+              console.warn("No components found in document");
             }
-            console.log("collectDocumentData: Sending data to UI...");
             figma.ui.postMessage({
               type: "document-data",
               variablesData,
               componentsData: componentsData || []
             });
-            console.log("collectDocumentData: Data collection completed successfully");
           } catch (error) {
-            console.error("collectDocumentData: Error during data collection:", error);
+            console.error("Error collecting document data:", error);
             figma.ui.postMessage({
               type: "document-data-error",
               error: error instanceof Error ? error.message : "Unknown error during data collection",
