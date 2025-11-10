@@ -3593,14 +3593,14 @@
             .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(')) {
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('console.log(') || match.includes('alert(')) {
                 return match;
               }
               return '';
             })
             .replace(/on\w+\s*=\s*[^>\s]+/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(')) {
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('console.log(') || match.includes('alert(')) {
                 return match;
               }
               return '';
@@ -3904,6 +3904,11 @@
 
       // Initialize loading progress on page load
       document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 DOM Content Loaded - Plugin UI starting!');
+        console.log('Available elements:', {
+          componentsContainer: !!document.getElementById('components-container'),
+          variablesContainer: !!document.getElementById('variables-container')
+        });
         updatePluginLoadingProgress(loadingSteps[0], 10);
       });
 
@@ -4241,14 +4246,29 @@
 
       function setFallbackRepositoryLink(projectId, repoButton) {
         try {
-          // Fallback to project ID URL if API fails
+          // Fallback to project URL - handle both numeric ID and namespace/project format
           const webUrl = buildGitLabWebUrl(window.gitlabSettings?.gitlabUrl);
           if (webUrl && projectId) {
-            const fallbackUrl = `${webUrl}/${encodeURIComponent(projectId)}/-/merge_requests`;
+            let fallbackUrl;
+            
+            // If projectId looks like a namespace/project (contains slash), use it directly
+            if (projectId.includes('/')) {
+              fallbackUrl = `${webUrl}/${encodeURIComponent(projectId)}/-/merge_requests`;
+            } else {
+              // For numeric project IDs, we can't generate a proper URL without API
+              // So link to the project overview instead of merge requests
+              fallbackUrl = `${webUrl}/projects/${encodeURIComponent(projectId)}`;
+            }
+            
             repoButton.href = fallbackUrl;
             repoButton.style.opacity = '1';
             repoButton.style.pointerEvents = 'auto';
-            repoButton.title = `Open Merge Requests for Project ${projectId}`;
+            
+            if (projectId.includes('/')) {
+              repoButton.title = `Open Merge Requests for ${projectId}`;
+            } else {
+              repoButton.title = `Open Project ${projectId} (configure namespace/project format for direct merge request access)`;
+            }
           } else {
             // Final fallback - disable button if we can't build URL
             repoButton.style.opacity = '0.5';
@@ -4595,14 +4615,15 @@
             downloadTest(message.componentName, message.testContent);
             const buttons = document.querySelectorAll("button.loading");
             buttons.forEach((button) => {
-              if (button.textContent === "Generating...") {
+              if (button.textContent === "Generating test..." || button.textContent === "Generating...") {
                 button.classList.remove("loading");
+                // Clear timeout if it exists
+                if (button.dataset.timeoutId) {
+                  clearTimeout(parseInt(button.dataset.timeoutId));
+                  delete button.dataset.timeoutId;
+                }
                 // Restore the original button text
-                button.textContent =
-                  button.dataset.originalText ||
-                  (button.classList.contains("generate-all-variants-button")
-                    ? "Generate Test for All Variants"
-                    : "Generate Test");
+                button.textContent = button.dataset.originalText || "Generate Test";
                 button.disabled = false;
 
                 const successMessage = button.parentElement.nextElementSibling;
@@ -4703,33 +4724,34 @@
           let buttonFound = false;
           
           buttons.forEach((button) => {
-            if (button.textContent === "Committing...") {
+            if (button.textContent === "Committing test..." || button.textContent === "Committing...") {
               button.classList.remove("loading");
+              // Clear timeout if it exists
+              if (button.dataset.timeoutId) {
+                clearTimeout(parseInt(button.dataset.timeoutId));
+                delete button.dataset.timeoutId;
+              }
               button.textContent = button.dataset.originalText || "Commit Test";
               button.disabled = false;
               buttonFound = true;
 
-              // Find the container where to show the notification
-              const componentContainer = button.closest('.component-item') || button.parentElement;
+              // Show success notification matching variable commit style
+              const notificationMessage = message.mergeRequestUrl 
+                ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request →</a>`
+                : "Component test committed successfully!";
               
-              // Create consistent notification message
-              const title = message.mergeRequestUrl ? "Merge Request Created!" : "Test Committed";
-              const messageText = message.mergeRequestUrl 
-                ? `${message.message} <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline; font-weight: 500;">View Merge Request →</a>`
-                : message.message;
-              
-              // Show the new consistent inline notification
-              showInlineSuccess(componentContainer, title, messageText, 10000);
+              const title = message.mergeRequestUrl ? "Merge Request Created!" : "Commit Successful";
+              showSuccess(title, notificationMessage, 8000); // Show for 8 seconds
             }
           });
 
           // If no specific button was found, show global notification (fallback)
           if (!buttonFound) {
             const notificationMessage = message.mergeRequestUrl 
-              ? `${message.message} <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request →</a>`
-              : message.message;
+              ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request →</a>`
+              : "Component test committed successfully!";
             
-            const title = message.mergeRequestUrl ? "Merge Request Created!" : "Test Committed";
+            const title = message.mergeRequestUrl ? "Merge Request Created!" : "Commit Successful";
             showSuccess(title, notificationMessage, 8000); // Show for 8 seconds
           }
         } else if (message.type === "test-commit-error") {
@@ -5497,8 +5519,8 @@
                   </div>
                 </div>
                 <div class="component-actions">
-                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test</button>
-                  <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
+                  <button class="generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate">Generate Test</button>
+                  <button class="commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit">Commit Test</button>
                 </div>
               </div>
               <div class="component-set-children" id="children-${index}">
@@ -5555,8 +5577,8 @@
                   }
                 </div>
                 <div class="component-actions">
-                  <button class="generate-all-variants-button" onclick="generateTest('${component.id}', '${component.name}', this, true)">Generate Test</button>
-                  <button class="commit-all-variants-button" onclick="generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
+                  <button class="generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate">Generate Test</button>
+                  <button class="commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit">Commit Test</button>
                 </div>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
@@ -5568,7 +5590,7 @@
         html += `</div>`;
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
 
-        // Add event listeners for navigation buttons
+        // Add event listeners for navigation buttons and component action buttons
         container.addEventListener('click', function(event) {
           if (event.target.closest('.nav-icon')) {
             const button = event.target.closest('.nav-icon');
@@ -5576,6 +5598,20 @@
             if (componentId) {
               console.log('Clicked nav icon for component:', componentId);
               window.selectComponent(componentId);
+            }
+          }
+          
+          // Handle generate/commit test buttons
+          if (event.target.matches('.generate-all-variants-button, .commit-all-variants-button')) {
+            event.stopPropagation();
+            const button = event.target;
+            const componentId = button.getAttribute('data-component-id');
+            const componentName = button.getAttribute('data-component-name');
+            const action = button.getAttribute('data-action');
+            
+            if (componentId && componentName) {
+              const isCommit = action === 'commit';
+              generateTest(componentId, componentName, button, true, isCommit);
             }
           }
         });
@@ -5722,6 +5758,8 @@
         exportButton.textContent = `Export Variables as ${formatText}`;
       }
 
+
+
       function generateTest(
         componentId,
         componentName,
@@ -5746,10 +5784,13 @@
 
           // Enhanced loading state for test generation
           const loadingText = forCommit ? "Committing test..." : "Generating test...";
-          showButtonLoading(button, loadingText);
           
-          // Store original data for recovery
-          button.dataset.originalText = originalText;
+          // Store original text before changing it
+          if (!button.dataset.originalText) {
+            button.dataset.originalText = button.textContent;
+          }
+          
+          showButtonLoading(button, loadingText);
           
           const successMessage = button.parentElement.nextElementSibling;
           if (
@@ -5763,10 +5804,10 @@
           const timeoutId = setTimeout(() => {
             console.warn('Test generation timed out');
             button.classList.remove("loading");
-            button.textContent = originalText;
+            button.textContent = button.dataset.originalText || 'Generate Test';
             button.disabled = false;
             showError('Generation Timeout', 'Test generation took too long. Please try again.');
-          }, 30000); // 30 seconds timeout
+          }, 60000); // 60 seconds timeout
 
           // Store timeout ID for potential cleanup
           button.dataset.timeoutId = timeoutId;
@@ -5784,7 +5825,6 @@
           "*"
           );
 
-          button.dataset.originalText = originalText;
         } catch (error) {
           console.error('Error in generateTest:', error);
           
@@ -7086,5 +7126,6 @@ ${checkboxes}
       }
 
     </script>
+    
   </body>
 </html>
