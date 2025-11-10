@@ -2767,15 +2767,29 @@
             const variable = yield figma.variables.getVariableByIdAsync(variableId);
             if (!variable)
               return null;
-            const defaultModeId = collection.modes[0].modeId;
-            const value = variable.valuesByMode[defaultModeId];
+            
             const formattedName = this.formatVariableName(variable.name);
-            const cssValue = this.resolveCSSValue(variable, value, collection);
-            if (cssValue === null)
+            
+            // Process all modes, not just the first one
+            const modes = {};
+            const hasMultipleModes = collection.modes.length > 1;
+            
+            for (const mode of collection.modes) {
+              const value = variable.valuesByMode[mode.modeId];
+              const cssValue = this.resolveCSSValue(variable, value, collection);
+              if (cssValue !== null) {
+                modes[mode.name] = cssValue;
+              }
+            }
+            
+            if (Object.keys(modes).length === 0) {
               return null;
+            }
+            
             return {
               name: formattedName,
-              value: cssValue,
+              value: modes[collection.modes[0].name], // Default value (for :root)
+              modes: hasMultipleModes ? modes : null, // All mode values
               originalName: variable.name
             };
           });
@@ -2813,36 +2827,74 @@
          */
         static buildExportContent(collections, format) {
           const contentParts = [];
+          
+          // Check if any variables have multiple modes
+          const hasMultiModeVariables = collections.some(collection => 
+            collection.variables.some(variable => variable.modes !== null) ||
+            Object.values(collection.groups).some(group => 
+              group.some(variable => variable.modes !== null)
+            )
+          );
+          
           if (format === "css") {
             contentParts.push(":root {");
-          }
-          collections.forEach((collection) => {
-            contentParts.push(this.buildCollectionContent(collection, format));
-          });
-          if (format === "css") {
+            collections.forEach((collection) => {
+              contentParts.push(this.buildCollectionContent(collection, format, false));
+            });
             contentParts.push("}");
+            
+            // If there are multi-mode variables, generate data-theme selectors
+            if (hasMultiModeVariables) {
+              const allModeNames = this.getAllModeNames(collections);
+              allModeNames.slice(1).forEach((modeName) => {
+                contentParts.push(`\n[data-theme="${modeName}"] {`);
+                collections.forEach((collection) => {
+                  contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
+                });
+                contentParts.push("}");
+              });
+            }
+          } else {
+            // SCSS format - keep original behavior for now
+            collections.forEach((collection) => {
+              contentParts.push(this.buildCollectionContent(collection, format, false));
+            });
           }
+          
           return contentParts.join("\n");
         }
         /**
          * Build content for a single collection
          */
-        static buildCollectionContent(collection, format) {
+        static buildCollectionContent(collection, format, isThemeSpecific = false, themeName = null) {
           const parts = [];
           const commentPrefix = format === "scss" ? "//" : "  /*";
           const commentSuffix = format === "scss" ? "" : " */";
-          parts.push(`
+          
+          if (!isThemeSpecific) {
+            parts.push(`
 ${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
+          }
+          
           collection.variables.forEach((variable) => {
-            parts.push(this.formatVariableDeclaration(variable, format));
+            const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+            if (declaration && declaration.trim()) {
+              parts.push(declaration);
+            }
           });
+          
           const sortedGroupNames = Object.keys(collection.groups).sort();
           sortedGroupNames.forEach((groupName) => {
             const displayName = this.formatGroupDisplayName(groupName);
-            parts.push(`
+            if (!isThemeSpecific) {
+              parts.push(`
 ${commentPrefix} ${displayName}${commentSuffix}`);
+            }
             collection.groups[groupName].forEach((variable) => {
-              parts.push(this.formatVariableDeclaration(variable, format));
+              const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+              if (declaration && declaration.trim()) {
+                parts.push(declaration);
+              }
             });
           });
           return parts.join("\n");
@@ -2850,17 +2902,48 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         /**
          * Format a variable declaration for the given format
          */
-        static formatVariableDeclaration(variable, format) {
-          if (format === "scss") {
-            return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${variable.value};`;
+        static formatVariableDeclaration(variable, format, isThemeSpecific = false, themeName = null) {
+          let value = variable.value;
+          
+          // For theme-specific declarations, use the value for that specific theme
+          if (isThemeSpecific && variable.modes && themeName && variable.modes[themeName]) {
+            value = variable.modes[themeName];
+          } else if (isThemeSpecific && (!variable.modes || !variable.modes[themeName])) {
+            // Skip variables that don't have this theme mode
+            return "";
           }
-          return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${variable.value};`;
+          
+          if (format === "scss") {
+            return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
+          }
+          return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
         }
         /**
          * Format group name for display
          */
         static formatGroupDisplayName(groupName) {
           return groupName.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        }
+        /**
+         * Get all unique mode names from collections
+         */
+        static getAllModeNames(collections) {
+          const modeNames = new Set();
+          collections.forEach(collection => {
+            collection.variables.forEach(variable => {
+              if (variable.modes) {
+                Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+              }
+            });
+            Object.values(collection.groups).forEach(group => {
+              group.forEach(variable => {
+                if (variable.modes) {
+                  Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+                }
+              });
+            });
+          });
+          return Array.from(modeNames).sort();
         }
         /**
          * Populate the variable cache for alias resolution
