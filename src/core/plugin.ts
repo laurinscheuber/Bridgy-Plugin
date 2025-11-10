@@ -151,6 +151,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           throw new Error(`Component with ID ${msg.componentId} not found`);
         }
 
+        // Load component details lazily if not already loaded
+        await ComponentService.loadComponentDetails(msg.componentId);
+        
         const testContent = ComponentService.generateTest(
           component,
           msg.includeStateTests !== false // Default to true
@@ -162,6 +165,76 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           isComponentSet: component.type === "COMPONENT_SET",
           forCommit: msg.forCommit,
         });
+        break;
+
+      case "load-component-styles":
+        if (!msg.componentId) {
+          throw new Error(`Missing required component ID for loading styles`);
+        }
+
+        const targetComponent = ComponentService.getComponentById(msg.componentId);
+        if (!targetComponent) {
+          throw new Error(`Component with ID ${msg.componentId} not found`);
+        }
+
+        // Load component styles lazily
+        const { styles, textElements } = await ComponentService.loadComponentDetails(msg.componentId);
+        
+        figma.ui.postMessage({
+          type: "component-styles-loaded",
+          componentId: msg.componentId,
+          styles: styles || {},
+          textElements: textElements || [],
+        });
+        break;
+
+      case "select-component":
+        try {
+          console.log('Backend: Received select-component for ID:', msg.componentId);
+          
+          if (!msg.componentId) {
+            throw new Error(`Missing required component ID for selection`);
+          }
+
+          const nodeToSelect = await figma.getNodeByIdAsync(msg.componentId);
+          console.log('Backend: Found node:', nodeToSelect?.name, nodeToSelect?.type, nodeToSelect?.parent?.type);
+          
+          if (!nodeToSelect) {
+            throw new Error(`Component with ID ${msg.componentId} not found`);
+          }
+
+          // Check if node is a scene node (can be selected)
+          const isSceneNode = nodeToSelect.type !== 'DOCUMENT' && nodeToSelect.type !== 'PAGE';
+          console.log('Backend: Is scene node:', isSceneNode);
+          
+          if (!isSceneNode) {
+            throw new Error(`Node ${msg.componentId} is not a selectable scene node (type: ${nodeToSelect.type})`);
+          }
+
+          // Navigate to the correct page first if needed
+          if (nodeToSelect.parent && nodeToSelect.parent.type === 'PAGE' && nodeToSelect.parent !== figma.currentPage) {
+            console.log('Backend: Switching to page:', nodeToSelect.parent.name);
+            figma.currentPage = nodeToSelect.parent as PageNode;
+          }
+
+          // Select and navigate to the component
+          figma.currentPage.selection = [nodeToSelect as SceneNode];
+          figma.viewport.scrollAndZoomIntoView([nodeToSelect as SceneNode]);
+          
+          console.log('Backend: Successfully selected and navigated to component');
+          
+          figma.ui.postMessage({
+            type: "component-selected",
+            componentId: msg.componentId,
+            componentName: nodeToSelect.name,
+          });
+        } catch (error) {
+          console.error('Backend: Error selecting component:', error);
+          figma.ui.postMessage({
+            type: "error",
+            message: `Failed to select component: ${error.message}`,
+          });
+        }
         break;
 
       case "save-gitlab-settings":
