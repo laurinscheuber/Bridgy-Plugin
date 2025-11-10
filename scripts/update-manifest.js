@@ -18,11 +18,52 @@ const DEFAULT_ENVIRONMENTS = {
     name: 'GitLab.com',
     description: 'Official GitLab SaaS platform'
   },
-  'gitlab.fhnw.ch': {
-    gitlabBaseUrl: 'https://gitlab.fhnw.ch', 
-    allowedDomains: ['gitlab.fhnw.ch', '*.gitlab.fhnw.ch'],
-    name: 'FHNW GitLab',
-    description: 'University of Applied Sciences Northwestern Switzerland'
+  // Support for common GitLab hosting patterns (Figma only allows wildcards at beginning of domain)
+  'gitlab-enterprise': {
+    allowedDomains: [
+      // GitLab.com patterns
+      '*.gitlab.com',
+      '*.gitlab.io',
+      // Common GitLab TLD patterns - wildcards AND base domains
+      'gitlab.de', '*.gitlab.de',
+      'gitlab.ch', '*.gitlab.ch', 
+      'gitlab.fr', '*.gitlab.fr',
+      'gitlab.org', '*.gitlab.org',
+      'gitlab.net', '*.gitlab.net',
+      'gitlab.edu', '*.gitlab.edu',
+      'gitlab.gov', '*.gitlab.gov',
+      'gitlab.uk', '*.gitlab.uk',
+      'gitlab.eu', '*.gitlab.eu',
+      'gitlab.co.uk', '*.gitlab.co.uk',
+      'gitlab.it', '*.gitlab.it',
+      'gitlab.es', '*.gitlab.es',
+      'gitlab.nl', '*.gitlab.nl',
+      'gitlab.be', '*.gitlab.be',
+      'gitlab.at', '*.gitlab.at',
+      'gitlab.se', '*.gitlab.se',
+      'gitlab.no', '*.gitlab.no',
+      'gitlab.dk', '*.gitlab.dk',
+      'gitlab.fi', '*.gitlab.fi',
+      // Alternative common git hosting patterns
+      '*.git.com',
+      '*.git.org', 
+      '*.git.net',
+      '*.git.de',
+      '*.git.ch',
+      '*.git.fr',
+      '*.git.eu',
+      '*.code.com',
+      '*.code.org',
+      '*.code.de',
+      '*.code.ch',
+      '*.scm.com',
+      '*.scm.org',
+      '*.repo.com',
+      '*.repo.org',
+      '*.vcs.com'
+    ],
+    name: 'Enterprise GitLab Instances', 
+    description: 'Support for enterprise and self-hosted GitLab instances with common hosting patterns'
   }
 };
 
