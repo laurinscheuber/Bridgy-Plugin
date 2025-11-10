@@ -1115,6 +1115,197 @@
         to { transform: rotate(360deg); }
       }
 
+      /* ===== ENHANCED LOADING SYSTEM ===== */
+      .plugin-loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 1;
+        transition: opacity 0.5s ease-out;
+      }
+
+      .plugin-loading-overlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .plugin-loading-content {
+        text-align: center;
+        max-width: 280px;
+      }
+
+      .plugin-loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(139, 92, 246, 0.2);
+        border-top: 3px solid #8b5cf6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto var(--space-4);
+      }
+
+      .plugin-loading-title {
+        font-size: var(--font-size-lg);
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: var(--space-2);
+      }
+
+      .plugin-loading-status {
+        font-size: var(--font-size-sm);
+        color: rgba(255, 255, 255, 0.6);
+        min-height: 20px;
+      }
+
+      .plugin-loading-progress {
+        width: 200px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        margin: var(--space-4) auto 0;
+        overflow: hidden;
+      }
+
+      .plugin-loading-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #8b5cf6, #a855f7);
+        border-radius: 2px;
+        transition: width 0.3s ease;
+        width: 0%;
+      }
+
+      /* Enhanced loading states for content areas */
+      .content-loading {
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-8);
+      }
+
+      .content-loading-spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid rgba(139, 92, 246, 0.2);
+        border-top: 2px solid #8b5cf6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: var(--space-3);
+      }
+
+      .content-loading-text {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: var(--font-size-sm);
+      }
+
+      /* ===== COMPONENT NAVIGATION STYLES ===== */
+      .nav-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: rgba(139, 92, 246, 0.2);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: var(--radius-md);
+        color: #8b5cf6;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-right: var(--space-2);
+        flex-shrink: 0;
+      }
+
+      .nav-icon:hover {
+        background: rgba(139, 92, 246, 0.3);
+        border-color: rgba(139, 92, 246, 0.5);
+        transform: scale(1.1);
+        color: #a855f7;
+      }
+
+      .nav-icon:active {
+        transform: scale(0.95);
+      }
+
+      .component-header-content {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        flex: 1;
+      }
+
+      .child-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4);
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: var(--radius-md);
+        margin: var(--space-1) 0;
+        min-height: 40px;
+        flex-wrap: wrap;
+      }
+
+      .child-header .component-meta {
+        flex: 1;
+        min-width: 0; /* Allows text to wrap */
+      }
+
+      .child-header .component-name {
+        word-break: break-word;
+        max-width: 100%;
+      }
+
+      .child-header .nav-icon {
+        width: 20px;
+        height: 20px;
+      }
+
+      .component-actions {
+        display: flex;
+        gap: var(--space-2);
+        margin-left: auto;
+      }
+
+      .component-set-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .component-set-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-radius: var(--radius-sm);
+        margin-right: var(--space-2);
+      }
+
+      .component-set-toggle:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .component-set-toggle svg {
+        transition: transform 0.2s ease;
+      }
+
+      .component-set.expanded .component-set-toggle svg {
+        transform: rotate(90deg);
+      }
+
       /* ===== MODERN COMPONENT HIERARCHY ===== */
       .component-set {
         background: rgba(255, 255, 255, 0.05);
@@ -1292,6 +1483,28 @@
       
       .style-content-wrapper {
         width: 100%;
+      }
+      
+      .style-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px;
+        color: var(--neutral-400);
+        font-size: 14px;
+        font-style: italic;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 6px;
+        border: 1px dashed var(--neutral-600);
+      }
+      
+      .loading-spinner {
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
       }
       
       .expand-indicator {
@@ -1722,6 +1935,20 @@
         background: linear-gradient(135deg, #d97706, #f59e0b);
         color: white !important;
         transform: translateY(-2px);
+      }
+
+      .commit-all-variants-button:disabled {
+        background: rgba(255, 255, 255, 0.1) !important;
+        color: rgba(255, 255, 255, 0.5) !important;
+        transform: none !important;
+        cursor: not-allowed;
+      }
+
+      .commit-all-variants-button:disabled:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        color: rgba(255, 255, 255, 0.5) !important;
+        transform: none !important;
+        cursor: not-allowed;
       }
       
       .action-buttons {
@@ -2405,6 +2632,18 @@
     </style>
   </head>
   <body>
+    <!-- Initial Loading Overlay -->
+    <div id="plugin-loading-overlay" class="plugin-loading-overlay">
+      <div class="plugin-loading-content">
+        <div class="plugin-loading-spinner"></div>
+        <div class="plugin-loading-title">Bridgy</div>
+        <div id="plugin-loading-status" class="plugin-loading-status">Initializing plugin...</div>
+        <div class="plugin-loading-progress">
+          <div id="plugin-loading-progress-bar" class="plugin-loading-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Notification Container -->
     <div id="notification-container" class="notification-container"></div>
     
@@ -2415,7 +2654,6 @@
         <div class="header-content">
           <div class="header-title">
             <h1>Bridgy</h1>
-            <span class="header-subtitle">Figma to Angular Test Generator</span>
           </div>
           <div class="header-actions">
             <a
@@ -2455,28 +2693,6 @@
                 stroke-width="2"
               />
               <circle cx="12" cy="17" r="1" fill="currentColor" />
-            </svg>
-          </button>
-          <button
-            id="feedback-icon-btn"
-            onclick="openFeedback()"
-            class="settings-icon"
-            title="Send Feedback"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
             </svg>
           </button>
           <button
@@ -2538,9 +2754,9 @@
             <span class="feedback-button-icon">💡</span>
             <span>Request Feature</span>
           </button>
-          <button class="feedback-button" onclick="openFeedback()">
+          <button class="feedback-button" onclick="openGitHubFeedback('general')">
             <span class="feedback-button-icon">💭</span>
-            <span>More Info</span>
+            <span>General Feedback</span>
           </button>
         </div>
       </div>
@@ -2583,7 +2799,10 @@
           </div>
         </div>
         <div id="variables-container">
-          <div class="loading">Loading variables</div>
+          <div class="content-loading">
+            <div class="content-loading-spinner"></div>
+            <div class="content-loading-text">Loading variables and design tokens...</div>
+          </div>
         </div>
       </div>
 
@@ -2600,7 +2819,10 @@
         </div>
 
         <div id="components-container">
-          <div class="loading">Loading components</div>
+          <div class="content-loading">
+            <div class="content-loading-spinner"></div>
+            <div class="content-loading-text">Scanning document for components...</div>
+          </div>
         </div>
       </div>
 
@@ -2696,10 +2918,10 @@
             <input
               type="text"
               id="config-gitlab-url"
-              placeholder="https://gitlab.com (leave empty for GitLab.com)"
+              placeholder="https://gitlab.company.com (leave empty for GitLab.com)"
             />
             <small style="color: rgba(255, 255, 255, 0.8); font-size: 12px; display: block; margin-top: 4px;">
-              Enter your GitLab instance URL (e.g., https://gitlab.company.com). Leave empty to use GitLab.com.
+              Enter your GitLab instance URL (e.g., gitlab.company.com, git.organization.edu). Supports most enterprise and self-hosted GitLab instances. Leave empty to use GitLab.com.
             </small>
           </div>
 
@@ -3341,100 +3563,6 @@
       </div>
     </div>
 
-    <!-- Feedback Modal -->
-    <div id="feedback-modal" class="modal" style="display: none">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style="display: inline; vertical-align: middle; margin-right: 8px"
-            >
-              <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z"></path>
-            </svg>
-            We'd Love Your Feedback!
-          </h3>
-          <span class="close" onclick="closeFeedbackModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-          <div style="background: rgba(139, 92, 246, 0.1); backdrop-filter: blur(10px); padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid rgba(139, 92, 246, 0.3); box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);">
-            <h4 style="margin: 0 0 12px; color: white; font-size: 18px; font-weight: 600;">Welcome to Bridgy BETA! 🚀</h4>
-            <p style="margin: 0 0 16px; color: rgba(255, 255, 255, 0.85); line-height: 1.6;">
-              Thank you for being an early adopter! Bridgy is currently in <strong>BETA</strong>, which means we're actively developing new features and improving existing ones based on your valuable feedback.
-            </p>
-            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-              <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); padding: 12px 16px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid rgba(255, 255, 255, 0.2);">
-                <strong style="color: #22c55e;">✅ Current Features:</strong>
-              </div>
-              <ul style="margin: 8px 0; padding-left: 24px; color: rgba(255, 255, 255, 0.85); line-height: 1.8;">
-                <li><strong>CSS/SCSS Export</strong> - Download or push design tokens directly to GitLab</li>
-                <li><strong>Angular Unit Tests</strong> - Generate component tests from your Figma designs</li>
-                <li><strong>GitLab Integration</strong> - Seamless version control and collaboration</li>
-                <li><strong>Component Analysis</strong> - Smart detection of your design components</li>
-              </ul>
-            </div>
-          </div>
-
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="https://bridgy-plugin.com/" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 12px 24px; border-radius: 15px; text-decoration: none; font-weight: 600; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.2); transition: all 0.2s;">
-              Visit Our Website →
-            </a>
-            <p style="margin-top: 8px; color: #6b7280; font-size: 14px;">
-              Learn about our roadmap, version history, and upcoming features
-            </p>
-          </div>
-
-          <div style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); padding: 16px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); margin-top: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
-            <h5 style="margin: 0 0 12px; color: white;">How to Provide Feedback:</h5>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              <button 
-                onclick="openGitHubFeedback('bug')" 
-                style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 12px; border-radius: 6px; text-align: left; cursor: pointer; transition: all 0.2s;"
-                onmouseover="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 1px 3px rgba(139, 92, 246, 0.2)'"
-                onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
-              >
-                <strong>🐛 Report a Bug</strong>
-                <span style="display: block; color: #6b7280; font-size: 14px; margin-top: 4px;">Found something that's not working right?</span>
-              </button>
-              <button 
-                onclick="openGitHubFeedback('feature')" 
-                style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 12px; border-radius: 6px; text-align: left; cursor: pointer; transition: all 0.2s;"
-                onmouseover="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 1px 3px rgba(139, 92, 246, 0.2)'"
-                onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
-              >
-                <strong>💡 Request a Feature</strong>
-                <span style="display: block; color: #6b7280; font-size: 14px; margin-top: 4px;">Have an idea to make Bridgy better?</span>
-              </button>
-              <button 
-                onclick="openGitHubFeedback('general')" 
-                style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 12px; border-radius: 6px; text-align: left; cursor: pointer; transition: all 0.2s;"
-                onmouseover="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 1px 3px rgba(139, 92, 246, 0.2)'"
-                onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
-              >
-                <strong>💭 General Feedback</strong>
-                <span style="display: block; color: #6b7280; font-size: 14px; margin-top: 4px;">Share your thoughts and experiences</span>
-              </button>
-            </div>
-          </div>
-
-          <div style="text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">
-              Your feedback helps shape the future of Bridgy. Thank you for being part of our journey! 💜
-            </p>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button onclick="closeFeedbackModal()">Close</button>
-        </div>
-      </div>
-    </div>
 
     <!-- Success message (hidden by default) -->
     <div id="success-message" class="success-message" style="display: none">
@@ -3661,6 +3789,134 @@
         const cleanUrl = gitlabUrl.replace(/\/+$/, '').replace(/\/api\/v4$/, '');
         
         return cleanUrl;
+      }
+
+      // ===== GITLAB CONFIGURATION HELPERS =====
+      function isGitLabConfigured() {
+        return window.gitlabSettings && 
+               window.gitlabSettings.projectId && 
+               window.gitlabSettings.projectId.trim() && 
+               window.gitlabSettings.gitlabToken && 
+               window.gitlabSettings.gitlabToken.trim();
+      }
+
+      function updateCommitButtonStates() {
+        const hasVariables = variablesData && 
+          variablesData.some((collection) => collection.variables.length > 0);
+        
+        const isConfigured = isGitLabConfigured();
+        
+        // Variables tab commit button
+        const commitButton = document.getElementById("commit-repo-button");
+        if (commitButton) {
+          const shouldEnable = hasVariables && isConfigured;
+          commitButton.disabled = !shouldEnable;
+          
+          if (!isConfigured) {
+            commitButton.title = "Configure GitLab settings in the Settings tab to enable commits";
+          } else if (!hasVariables) {
+            commitButton.title = "No variables available to commit";
+          } else {
+            commitButton.title = "Commit variables to GitLab repository";
+          }
+        }
+        
+        // Components tab commit buttons
+        const componentCommitButtons = document.querySelectorAll('.commit-all-variants-button');
+        componentCommitButtons.forEach(button => {
+          button.disabled = !isConfigured;
+          
+          if (!isConfigured) {
+            button.title = "Configure GitLab settings in the Settings tab to enable commits";
+          } else {
+            button.title = "Generate and commit component test to repository";
+          }
+        });
+      }
+
+      // ===== LOADING SYSTEM =====
+      let loadingProgress = 0;
+      const loadingSteps = [
+        'Initializing plugin...',
+        'Loading GitLab settings...',
+        'Scanning document structure...',
+        'Collecting variables and tokens...',
+        'Processing components...',
+        'Finalizing interface...'
+      ];
+
+      function updatePluginLoadingProgress(step, percentage) {
+        const statusElement = document.getElementById('plugin-loading-status');
+        const progressBar = document.getElementById('plugin-loading-progress-bar');
+        
+        if (statusElement && progressBar) {
+          statusElement.textContent = step;
+          progressBar.style.width = percentage + '%';
+        }
+      }
+
+      function hidePluginLoadingOverlay() {
+        const overlay = document.getElementById('plugin-loading-overlay');
+        if (overlay) {
+          overlay.classList.add('fade-out');
+          setTimeout(() => {
+            overlay.style.display = 'none';
+          }, 500);
+        }
+      }
+
+      function showContentLoading(containerId, message) {
+        const container = document.getElementById(containerId);
+        if (container) {
+          container.innerHTML = `
+            <div class="content-loading">
+              <div class="content-loading-spinner"></div>
+              <div class="content-loading-text">${message}</div>
+            </div>
+          `;
+        }
+      }
+
+      function showButtonLoading(button, loadingText) {
+        if (button && !button.classList.contains('loading')) {
+          button.dataset.originalText = button.textContent;
+          button.textContent = loadingText;
+          button.classList.add('loading');
+          button.disabled = true;
+        }
+      }
+
+      function hideButtonLoading(button) {
+        if (button && button.classList.contains('loading')) {
+          button.textContent = button.dataset.originalText || button.textContent;
+          button.classList.remove('loading');
+          button.disabled = false;
+        }
+      }
+
+      function hideContentLoading(containerId) {
+        const container = document.getElementById(containerId);
+        if (container && container.querySelector('.content-loading')) {
+          // Remove loading state - content will be restored by calling functions
+          container.innerHTML = '';
+        }
+      }
+
+      // Initialize loading progress on page load
+      document.addEventListener('DOMContentLoaded', function() {
+        updatePluginLoadingProgress(loadingSteps[0], 10);
+      });
+
+      // ===== COMPONENT NAVIGATION =====
+      window.selectComponent = function(componentId) {
+        console.log('Selecting component:', componentId);
+        
+        parent.postMessage({
+          pluginMessage: {
+            type: "select-component",
+            componentId: componentId
+          }
+        }, "*");
       }
 
       // ===== NOTIFICATION SYSTEM =====
@@ -4150,6 +4406,13 @@
         }
       }
 
+      // Auto-open user guide if no GitLab settings are loaded after 2 seconds
+      setTimeout(() => {
+        if (!window.gitlabSettingsLoaded) {
+          checkAndShowUserGuide();
+        }
+      }, 2000);
+
       // Listen for messages from the plugin
       window.onmessage = (event) => {
         try {
@@ -4178,17 +4441,40 @@
           }
 
         if (message.type === "gitlab-settings-loaded") {
+          updatePluginLoadingProgress(loadingSteps[1], 25);
           window.gitlabSettings = message.settings;
+          window.gitlabSettingsLoaded = true;
           loadConfigurationTab();
           updateRepositoryLink();
+          updateCommitButtonStates();
           checkAndShowUserGuide();
         } else if (message.type === "gitlab-settings-saved") {
         } else if (message.type === "document-data") {
+          updatePluginLoadingProgress(loadingSteps[3], 75);
           variablesData = message.variablesData;
           componentsData = message.componentsData;
           
           renderVariables(variablesData);
           renderComponents(componentsData);
+          
+          // Enable the export button only if there are variables
+          if (
+            variablesData &&
+            variablesData.some((collection) => collection.variables.length > 0)
+          ) {
+            exportButton.disabled = false;
+          } else {
+            exportButton.disabled = true;
+          }
+          
+          // Update commit button states based on both variables and settings
+          updateCommitButtonStates();
+          
+          // Complete loading and hide overlay
+          updatePluginLoadingProgress(loadingSteps[5], 100);
+          setTimeout(() => {
+            hidePluginLoadingOverlay();
+          }, 500);
           
           // Auto-resize disabled to maintain consistent plugin size
         } else if (message.type === "document-data-error") {
@@ -4238,6 +4524,13 @@
           if (message.shouldDownload) {
             const format = message.exportFormat || "css";
             downloadCSS(message.cssData, format);
+            
+            // Cleanup loading states after successful export
+            const exportButton = document.getElementById("export-css-button");
+            if (exportButton) {
+              hideButtonLoading(exportButton);
+            }
+            renderVariables(variablesData); // Restore variables display
           }
         } else if (message.type === "angular-export-data") {
           // Trigger ZIP download with component data based on selected language
@@ -4347,6 +4640,13 @@
           });
 
           exportButton.disabled = true;
+          
+          // Cleanup any content loading states on error
+          renderVariables(variablesData);
+          renderComponents(componentsData);
+        } else if (message.type === "component-selected") {
+          // Show success notification when component is selected
+          showNotification('success', 'Navigation', `Navigated to component: ${message.componentName}`, 3000);
         } else if (message.type === "commit-success") {
           if (message.mergeRequestUrl) {
             // Show in-modal notification with merge request link
@@ -4509,6 +4809,30 @@
               saveButton.textContent = originalText;
               saveButton.style.backgroundColor = "";
             }, 2000);
+          }
+        } else if (message.type === "component-styles-loaded") {
+          // Handle loaded component styles
+          const componentId = message.componentId;
+          const styles = message.styles;
+          const textElements = message.textElements;
+          
+          // Find the component element that was loading
+          const componentElement = document.querySelector(`[data-component-id="${componentId}"]`);
+          
+          if (componentElement) {
+            // Get component name from the element (look for the component name in the meta div)
+            const metaDiv = componentElement.parentElement.querySelector('.component-meta');
+            const componentName = metaDiv ? metaDiv.querySelector('.component-name')?.textContent || 'Component' : 'Component';
+            
+            // Format the loaded styles and update the content
+            const formattedStyles = formatStyles(styles, textElements, componentName);
+            
+            // Update the content with the loaded styles, keeping the close button
+            componentElement.innerHTML = formattedStyles + 
+              '<button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>';
+            
+            // Clean up the loading data
+            delete componentElement.dataset.originalContent;
           }
         }
         } catch (error) {
@@ -5153,34 +5477,25 @@
 
             html += `
             <div class="component-set">
-              <div class="component-set-header" data-index="${index}" onclick="toggleComponentSet(${index})">
-                <div class="component-set-toggle">+</div>
-                <div class="component-meta">
-                  <span class="component-name">${parsedName.name}</span>
-                  <span class="badge badge-component-set">Component Set</span>
-                  ${
-                    parsedName.variants.length > 0
-                      ? parsedName.variants.map(variant => 
-                          `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
-                        ).join('')
-                      : ""
-                  }
+              <div class="component-set-header">
+                <div class="component-header-content">
+                  <div class="component-set-toggle" data-index="${index}" onclick="toggleComponentSet(${index})">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9.5 7L14.5 12L9.5 17V7Z"/>
+                    </svg>
+                  </div>
+                  <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component in Figma">
+                    📍
+                  </button>
+                  <div class="component-meta">
+                    <span class="component-name">${parsedName.name}</span>
+                    <span class="badge badge-component-set">Component Set</span>
+                  </div>
                 </div>
-              </div>
-              <div class="component-set-actions">
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${
-                    component.id
-                  }', '${
-              component.name
-            }', this, true)">Generate Test</button>
-                  <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${
-                    component.id
-                  }', '${
-              component.name
-            }', this, true, true)">Commit Test</button>
+                <div class="component-actions">
+                  <button class="generate-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true)">Generate Test</button>
+                  <button class="commit-all-variants-button" onclick="event.stopPropagation(); generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
                 </div>
-                <div class="test-success-message">Test generated successfully!</div>
               </div>
               <div class="component-set-children" id="children-${index}">
             `;
@@ -5191,32 +5506,21 @@
 
                 html += `
                 <div class="child-component">
-                  <table style="width: 100%;">
-                    <tbody>
-                      <tr>
-                        <td>
-                          <div class="component-meta">
-                            <span class="component-name">${
-                              childParsed.name
-                            }</span>
-                            ${
-                              childParsed.variants.length > 0
-                                ? childParsed.variants.map(variant => 
-                                    `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
-                                  ).join('')
-                                : '<span class="badge badge-component">Component</span>'
-                            }
-                          </div>
-                          <div class="component-styles" onclick="toggleStyles(this)">
-                            ${formatStyles(child.styles, child.textElements, child.name)}
-                            <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
-                          </div>
-                          <!-- No action-buttons for child variants of a component set -->
-                          <div class="test-success-message">Test generated successfully!</div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div class="child-header">
+                    <button class="nav-icon" data-component-id="${child.id}" title="Navigate to variant in Figma">
+                      📍
+                    </button>
+                    <div class="component-meta">
+                      <span class="component-name">${childParsed.name}</span>
+                      ${
+                        childParsed.variants.length > 0
+                          ? childParsed.variants.map(variant => 
+                              `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                            ).join('')
+                          : '<span class="badge badge-component">Variant</span>'
+                      }
+                    </div>
+                  </div>
                 </div>
                 `;
               });
@@ -5224,6 +5528,7 @@
 
             html += `
               </div>
+              <div class="test-success-message">Test generated successfully!</div>
             </div>
             `;
           } else {
@@ -5231,29 +5536,24 @@
 
             html += `
             <div class="component-regular">
-              <div class="component-meta">
-                <span class="component-name">${parsedName.name}</span>
-                ${
-                  parsedName.variants.length > 0
-                    ? parsedName.variants.map(variant => 
-                        `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
-                      ).join('')
-                    : '<span class="badge badge-component">Component</span>'
-                }
-              </div>
-              <div class="component-styles" onclick="toggleStyles(this)">
-                ${formatStyles(component.styles, component.textElements, component.name)}
-                <button class="close-button" onclick="event.stopPropagation(); toggleStyles(this.parentElement)">Close</button>
-              </div>
-              <div class="action-buttons">
-                <button class="generate-all-variants-button" onclick="generateTest('${
-                  component.id
-                }', '${component.name}', this, true)">Generate Test</button>
-                <button class="commit-all-variants-button" onclick="generateTest('${
-                  component.id
-                }', '${
-              component.name
-            }', this, true, true)">Commit Test</button>
+              <div class="component-header-content">
+                <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component in Figma">
+                  📍
+                </button>
+                <div class="component-meta">
+                  <span class="component-name">${parsedName.name}</span>
+                  ${
+                    parsedName.variants.length > 0
+                      ? parsedName.variants.map(variant => 
+                          `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                        ).join('')
+                      : '<span class="badge badge-component">Component</span>'
+                  }
+                </div>
+                <div class="component-actions">
+                  <button class="generate-all-variants-button" onclick="generateTest('${component.id}', '${component.name}', this, true)">Generate Test</button>
+                  <button class="commit-all-variants-button" onclick="generateTest('${component.id}', '${component.name}', this, true, true)">Commit Test</button>
+                </div>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
             </div>
@@ -5263,6 +5563,18 @@
 
         html += `</div>`;
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
+
+        // Add event listeners for navigation buttons
+        container.addEventListener('click', function(event) {
+          if (event.target.closest('.nav-icon')) {
+            const button = event.target.closest('.nav-icon');
+            const componentId = button.getAttribute('data-component-id');
+            if (componentId) {
+              console.log('Clicked nav icon for component:', componentId);
+              window.selectComponent(componentId);
+            }
+          }
+        });
 
         window.toggleComponentSet = function (index) {
           const headerEl = document.querySelector(
@@ -5282,6 +5594,7 @@
         };
 
         window.toggleStyles = function (element) {
+          const isExpanding = !element.classList.contains("expanded");
           element.classList.toggle("expanded");
 
           const wrapper = element.querySelector('.style-content-wrapper');
@@ -5295,6 +5608,35 @@
             } else {
               if (collapsed) collapsed.style.display = 'block';
               if (expanded) expanded.style.display = 'none';
+            }
+          }
+
+          // If expanding and we have a component ID, load the styles lazily
+          if (isExpanding && element.dataset.componentId) {
+            const componentId = element.dataset.componentId;
+            const hasEmptyStyles = element.innerHTML.includes('{}') || element.innerHTML.includes('{ }');
+            
+            // Only load if we detect empty styles
+            if (hasEmptyStyles) {
+              // Show loading state
+              const loadingDiv = document.createElement('div');
+              loadingDiv.className = 'style-loading';
+              loadingDiv.innerHTML = '<span class="loading-spinner">⏳</span> Loading component styles...';
+              
+              // Replace content temporarily
+              const originalContent = element.innerHTML;
+              element.innerHTML = loadingDiv.outerHTML;
+              
+              // Request component styles from plugin
+              parent.postMessage({
+                pluginMessage: {
+                  type: "load-component-styles",
+                  componentId: componentId
+                }
+              }, "*");
+              
+              // Store the element for later update
+              element.dataset.originalContent = originalContent;
             }
           }
 
@@ -5326,12 +5668,7 @@
       if (exportCssButton) {
         exportCssButton.addEventListener("click", () => {
           try {
-            // Validate settings
-            if (!window.gitlabSettings) {
-              showError('Export Failed', 'GitLab settings not configured. Please configure your settings first.');
-              return;
-            }
-
+            // Default to CSS format if no settings configured
             const exportFormat = window.gitlabSettings?.exportFormat || "css";
             
             // Validate export format
@@ -5340,9 +5677,9 @@
               return;
             }
 
-            // Disable button during export
-            exportCssButton.disabled = true;
-            exportCssButton.textContent = 'Exporting...';
+            // Enhanced loading state for export
+            showButtonLoading(exportCssButton, `Generating ${exportFormat.toUpperCase()}...`);
+            showContentLoading('variables-container', 'Processing variables and generating stylesheet...');
 
             parent.postMessage(
               {
@@ -5403,10 +5740,9 @@
             throw new Error('Invalid component name provided');
           }
 
-          button.classList.add("loading");
-          const originalText = button.textContent;
-          button.textContent = forCommit ? "Committing..." : "Generating...";
-          button.disabled = true;
+          // Enhanced loading state for test generation
+          const loadingText = forCommit ? "Committing test..." : "Generating test...";
+          showButtonLoading(button, loadingText);
           
           // Store original data for recovery
           button.dataset.originalText = originalText;
@@ -5708,15 +6044,6 @@
         document.getElementById("user-guide-modal").style.display = "none";
       }
 
-      // Function to open feedback modal
-      function openFeedback() {
-        document.getElementById("feedback-modal").style.display = "block";
-      }
-
-      // Function to close feedback modal
-      function closeFeedbackModal() {
-        document.getElementById("feedback-modal").style.display = "none";
-      }
 
       // Function to open GitHub with specific feedback type
       function openGitHubFeedback(type) {
@@ -5779,8 +6106,7 @@ ${checkboxes}
         const encodedTitle = encodeURIComponent(issueTitle);
         const githubUrl = `https://github.com/laurinscheuber/Bridgy-Plugin/issues/new?title=${encodedTitle}&body=${issueBody}&labels=${labels}`;
         
-        // Close the modal first
-        closeFeedbackModal();
+        // Modal no longer exists, no need to close it
         
         // Open GitHub in a new tab
         window.open(githubUrl, '_blank');
@@ -6724,6 +7050,34 @@ ${checkboxes}
           console.log('Collapsed all groups');
         } catch (error) {
           console.error('Error collapsing all groups:', error);
+        }
+      }
+
+      // Toggle variables list for components
+      function toggleVariablesList(groupIndex) {
+        try {
+          const variablesList = document.getElementById(`variables-list-${groupIndex}`);
+          const toggleButton = document.querySelector(`[onclick="toggleVariablesList('${groupIndex}')"]`);
+          
+          if (!variablesList) {
+            console.warn(`Variables list with ID variables-list-${groupIndex} not found`);
+            return;
+          }
+
+          // Toggle visibility
+          if (variablesList.style.display === 'none' || !variablesList.style.display) {
+            variablesList.style.display = 'block';
+            if (toggleButton) {
+              toggleButton.innerHTML = '🔼 Hide Variables';
+            }
+          } else {
+            variablesList.style.display = 'none';
+            if (toggleButton) {
+              toggleButton.innerHTML = '🔽 Show Variables';
+            }
+          }
+        } catch (error) {
+          console.error(`Error toggling variables list ${groupIndex}:`, error);
         }
       }
 
