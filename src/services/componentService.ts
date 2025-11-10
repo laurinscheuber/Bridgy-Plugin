@@ -118,35 +118,17 @@ export class ComponentService {
 
               if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
                 try {
-                  // Use cached CSS or fetch if not cached
-                  const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-                  let componentStyles: any;
-                  const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
-                  
-                  if (cachedCSS) {
-                    componentStyles = JSON.parse(cachedCSS);
-                  } else {
-                    componentStyles = await node.getCSSAsync();
-                    cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
-                    
-                    const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-                    const duration = endTime - startTime;
-                    perfCache.cacheDuration('getCSSAsync', duration);
-                  }
-                  
-                  const textElements = await ComponentService.extractTextElements(node);
-                  const resolvedStyles = ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
-                  
+                  // Create lightweight component data without expensive CSS/text operations
                   const componentData: Component = {
                     id: node.id,
                     name: node.name,
                     type: node.type,
-                    styles: resolvedStyles,
+                    styles: {}, // Will be loaded lazily when needed
                     pageName: page.name,
                     parentId: node.parent && node.parent.id,
                     children: [],
-                    textElements: textElements,
-                    hasTextContent: textElements.length > 0
+                    textElements: [], // Will be loaded lazily when needed
+                    hasTextContent: false
                   };
 
                   ComponentService.componentMap.set(node.id, componentData);
@@ -1129,6 +1111,99 @@ ${Object.keys(cssProperties).map((property: string) => {
       component: 'ComponentService',
       severity: 'medium'
     });
+  }
+
+  /**
+   * Lazily load component styles for a specific component
+   */
+  static async loadComponentStyles(componentId: string): Promise<Record<string, unknown> | null> {
+    return await ErrorHandler.withErrorHandling(async () => {
+      const component = this.componentMap.get(componentId);
+      if (!component) {
+        throw new Error(`Component with ID ${componentId} not found`);
+      }
+
+      // Check if styles are already loaded
+      if (component.styles && Object.keys(component.styles).length > 0) {
+        return component.styles;
+      }
+
+      // Find the actual Figma node to load styles
+      const node = await figma.getNodeByIdAsync(componentId);
+      if (!node || (node.type !== 'COMPONENT' && node.type !== 'COMPONENT_SET')) {
+        throw new Error(`Node with ID ${componentId} is not a valid component`);
+      }
+
+      // Load CSS asynchronously
+      const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const nodeStyles = await (node as ComponentNode).getCSSAsync();
+      const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      
+      // Cache performance metrics
+      perfCache.cacheDuration('getCSSAsync-lazy', endTime - startTime);
+      
+      // Update component with loaded styles
+      component.styles = nodeStyles;
+      this.componentMap.set(componentId, component);
+
+      return nodeStyles;
+    }, {
+      operation: 'load_component_styles_lazy',
+      component: 'ComponentService',
+      severity: 'medium'
+    });
+  }
+
+  /**
+   * Lazily load text elements for a specific component
+   */
+  static async loadComponentTextElements(componentId: string): Promise<TextElement[]> {
+    return await ErrorHandler.withErrorHandling(async () => {
+      const component = this.componentMap.get(componentId);
+      if (!component) {
+        throw new Error(`Component with ID ${componentId} not found`);
+      }
+
+      // Check if text elements are already loaded
+      if (component.textElements && component.textElements.length > 0) {
+        return component.textElements;
+      }
+
+      // Find the actual Figma node to extract text elements
+      const node = await figma.getNodeByIdAsync(componentId);
+      if (!node || (node.type !== 'COMPONENT' && node.type !== 'COMPONENT_SET')) {
+        throw new Error(`Node with ID ${componentId} is not a valid component`);
+      }
+
+      // Extract text elements
+      const textElements = await this.extractTextElements(node as ComponentNode | ComponentSetNode);
+      
+      // Update component with loaded text elements
+      component.textElements = textElements;
+      component.hasTextContent = textElements.length > 0;
+      this.componentMap.set(componentId, component);
+
+      return textElements;
+    }, {
+      operation: 'load_component_text_elements_lazy',
+      component: 'ComponentService',
+      severity: 'medium'
+    });
+  }
+
+  /**
+   * Load both styles and text elements for a component (convenience method)
+   */
+  static async loadComponentDetails(componentId: string): Promise<{
+    styles: Record<string, unknown> | null;
+    textElements: TextElement[];
+  }> {
+    const [styles, textElements] = await Promise.all([
+      this.loadComponentStyles(componentId),
+      this.loadComponentTextElements(componentId)
+    ]);
+
+    return { styles, textElements };
   }
 
   /**
