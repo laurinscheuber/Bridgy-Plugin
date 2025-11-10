@@ -4040,30 +4040,18 @@ ${styleCheckCode}
                         }
                         if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
                           try {
-                            const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
-                            let componentStyles;
-                            const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
-                            if (cachedCSS) {
-                              componentStyles = JSON.parse(cachedCSS);
-                            } else {
-                              componentStyles = yield node.getCSSAsync();
-                              cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(componentStyles));
-                              const endTime = typeof performance !== "undefined" ? performance.now() : Date.now();
-                              const duration = endTime - startTime;
-                              perfCache.cacheDuration("getCSSAsync", duration);
-                            }
-                            const textElements = yield _ComponentService.extractTextElements(node);
-                            const resolvedStyles = _ComponentService.resolveStyleVariables(componentStyles, textElements, node.name);
                             const componentData = {
                               id: node.id,
                               name: node.name,
                               type: node.type,
-                              styles: resolvedStyles,
+                              styles: {},
+                              // Will be loaded lazily when needed
                               pageName: page.name,
                               parentId: node.parent && node.parent.id,
                               children: [],
-                              textElements,
-                              hasTextContent: textElements.length > 0
+                              textElements: [],
+                              // Will be loaded lazily when needed
+                              hasTextContent: false
                             };
                             _ComponentService.componentMap.set(node.id, componentData);
                             if (node.type === "COMPONENT_SET") {
@@ -4844,6 +4832,78 @@ ${Object.keys(cssProperties).map((property) => {
           });
         }
         /**
+         * Lazily load component styles for a specific component
+         */
+        static loadComponentStyles(componentId) {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const component = this.componentMap.get(componentId);
+              if (!component) {
+                throw new Error(`Component with ID ${componentId} not found`);
+              }
+              if (component.styles && Object.keys(component.styles).length > 0) {
+                return component.styles;
+              }
+              const node = yield figma.getNodeByIdAsync(componentId);
+              if (!node || node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+                throw new Error(`Node with ID ${componentId} is not a valid component`);
+              }
+              const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+              const nodeStyles = yield node.getCSSAsync();
+              const endTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+              perfCache.cacheDuration("getCSSAsync-lazy", endTime - startTime);
+              component.styles = nodeStyles;
+              this.componentMap.set(componentId, component);
+              return nodeStyles;
+            }), {
+              operation: "load_component_styles_lazy",
+              component: "ComponentService",
+              severity: "medium"
+            });
+          });
+        }
+        /**
+         * Lazily load text elements for a specific component
+         */
+        static loadComponentTextElements(componentId) {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const component = this.componentMap.get(componentId);
+              if (!component) {
+                throw new Error(`Component with ID ${componentId} not found`);
+              }
+              if (component.textElements && component.textElements.length > 0) {
+                return component.textElements;
+              }
+              const node = yield figma.getNodeByIdAsync(componentId);
+              if (!node || node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+                throw new Error(`Node with ID ${componentId} is not a valid component`);
+              }
+              const textElements = yield this.extractTextElements(node);
+              component.textElements = textElements;
+              component.hasTextContent = textElements.length > 0;
+              this.componentMap.set(componentId, component);
+              return textElements;
+            }), {
+              operation: "load_component_text_elements_lazy",
+              component: "ComponentService",
+              severity: "medium"
+            });
+          });
+        }
+        /**
+         * Load both styles and text elements for a component (convenience method)
+         */
+        static loadComponentDetails(componentId) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const [styles, textElements] = yield Promise.all([
+              this.loadComponentStyles(componentId),
+              this.loadComponentTextElements(componentId)
+            ]);
+            return { styles, textElements };
+          });
+        }
+        /**
          * Get cache performance statistics
          */
         static getCacheStats() {
@@ -5018,6 +5078,7 @@ ${Object.keys(cssProperties).map((property) => {
         }
       });
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
+        var _a;
         try {
           switch (msg.type) {
             case "export-css":
@@ -5038,6 +5099,7 @@ ${Object.keys(cssProperties).map((property) => {
               if (!component) {
                 throw new Error(`Component with ID ${msg.componentId} not found`);
               }
+              yield componentService_1.ComponentService.loadComponentDetails(msg.componentId);
               const testContent = componentService_1.ComponentService.generateTest(
                 component,
                 msg.includeStateTests !== false
@@ -5050,6 +5112,58 @@ ${Object.keys(cssProperties).map((property) => {
                 isComponentSet: component.type === "COMPONENT_SET",
                 forCommit: msg.forCommit
               });
+              break;
+            case "load-component-styles":
+              if (!msg.componentId) {
+                throw new Error(`Missing required component ID for loading styles`);
+              }
+              const targetComponent = componentService_1.ComponentService.getComponentById(msg.componentId);
+              if (!targetComponent) {
+                throw new Error(`Component with ID ${msg.componentId} not found`);
+              }
+              const { styles, textElements } = yield componentService_1.ComponentService.loadComponentDetails(msg.componentId);
+              figma.ui.postMessage({
+                type: "component-styles-loaded",
+                componentId: msg.componentId,
+                styles: styles || {},
+                textElements: textElements || []
+              });
+              break;
+            case "select-component":
+              try {
+                console.log("Backend: Received select-component for ID:", msg.componentId);
+                if (!msg.componentId) {
+                  throw new Error(`Missing required component ID for selection`);
+                }
+                const nodeToSelect = yield figma.getNodeByIdAsync(msg.componentId);
+                console.log("Backend: Found node:", nodeToSelect === null || nodeToSelect === void 0 ? void 0 : nodeToSelect.name, nodeToSelect === null || nodeToSelect === void 0 ? void 0 : nodeToSelect.type, (_a = nodeToSelect === null || nodeToSelect === void 0 ? void 0 : nodeToSelect.parent) === null || _a === void 0 ? void 0 : _a.type);
+                if (!nodeToSelect) {
+                  throw new Error(`Component with ID ${msg.componentId} not found`);
+                }
+                const isSceneNode = nodeToSelect.type !== "DOCUMENT" && nodeToSelect.type !== "PAGE";
+                console.log("Backend: Is scene node:", isSceneNode);
+                if (!isSceneNode) {
+                  throw new Error(`Node ${msg.componentId} is not a selectable scene node (type: ${nodeToSelect.type})`);
+                }
+                if (nodeToSelect.parent && nodeToSelect.parent.type === "PAGE" && nodeToSelect.parent !== figma.currentPage) {
+                  console.log("Backend: Switching to page:", nodeToSelect.parent.name);
+                  figma.currentPage = nodeToSelect.parent;
+                }
+                figma.currentPage.selection = [nodeToSelect];
+                figma.viewport.scrollAndZoomIntoView([nodeToSelect]);
+                console.log("Backend: Successfully selected and navigated to component");
+                figma.ui.postMessage({
+                  type: "component-selected",
+                  componentId: msg.componentId,
+                  componentName: nodeToSelect.name
+                });
+              } catch (error) {
+                console.error("Backend: Error selecting component:", error);
+                figma.ui.postMessage({
+                  type: "error",
+                  message: `Failed to select component: ${error.message}`
+                });
+              }
               break;
             case "save-gitlab-settings":
               yield gitlabService_1.GitLabService.saveSettings({
