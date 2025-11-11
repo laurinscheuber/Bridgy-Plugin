@@ -1304,8 +1304,21 @@
       });
 
       // ===== COMPONENT NAVIGATION =====
+      let lastNavigationTime = 0;
+      let lastNavigatedComponentId = null;
+      
       window.selectComponent = function(componentId) {
         console.log('Selecting component:', componentId);
+        
+        // Prevent duplicate navigation requests within 1 second
+        const now = Date.now();
+        if (componentId === lastNavigatedComponentId && (now - lastNavigationTime) < 1000) {
+          console.log('Ignoring duplicate navigation request');
+          return;
+        }
+        
+        lastNavigationTime = now;
+        lastNavigatedComponentId = componentId;
         
         parent.postMessage({
           pluginMessage: {
@@ -2061,8 +2074,23 @@
           renderVariables(variablesData);
           renderComponents(componentsData);
         } else if (message.type === "component-selected") {
-          // Show success notification when component is selected
-          showNotification('success', 'Navigation', `Navigated to component: ${message.componentName}`, 3000);
+          // Only show notification if page was switched or if user explicitly requested
+          if (message.switchedPage) {
+            showNotification('success', 'Navigation', `Navigated to "${message.componentName}" on page "${message.pageName}"`, 3000);
+          } else {
+            // Silent navigation on same page - user can see it happen
+            console.log('Navigated to component:', message.componentName);
+          }
+        } else if (message.type === "component-selection-error") {
+          // Show error with option to navigate to the page
+          const errorMessage = message.message || 'Failed to select component';
+          const pageName = message.pageName || 'unknown page';
+          
+          showError(
+            'Navigation Failed', 
+            `Could not navigate to component on "${pageName}". ${errorMessage}`,
+            8000
+          );
         } else if (message.type === "commit-success") {
           if (message.mergeRequestUrl) {
             // Show in-modal notification with merge request link

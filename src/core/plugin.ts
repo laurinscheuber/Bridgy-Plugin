@@ -225,8 +225,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           
           console.log('Backend: Found containing page:', containingPage?.name);
           
+          // Check if we need to switch pages
+          const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
+          
           // Navigate to the correct page first if needed
-          if (containingPage && containingPage !== figma.currentPage) {
+          if (needsPageSwitch) {
             console.log('Backend: Switching to page:', containingPage.name);
             figma.currentPage = containingPage;
           }
@@ -241,12 +244,35 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             type: "component-selected",
             componentId: msg.componentId,
             componentName: nodeToSelect.name,
+            pageName: containingPage?.name || 'Unknown',
+            switchedPage: needsPageSwitch || false,
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Backend: Error selecting component:', error);
+          
+          // Try to extract page information even on error
+          let errorPageName = 'unknown page';
+          try {
+            const errorNode = await figma.getNodeByIdAsync(msg.componentId);
+            if (errorNode) {
+              let checkNode: BaseNode = errorNode;
+              while (checkNode.parent) {
+                if (checkNode.parent.type === 'PAGE') {
+                  errorPageName = checkNode.parent.name;
+                  break;
+                }
+                checkNode = checkNode.parent;
+              }
+            }
+          } catch (pageError) {
+            // Ignore - we tried
+          }
+          
           figma.ui.postMessage({
-            type: "error",
-            message: `Failed to select component: ${error.message}`,
+            type: "component-selection-error",
+            componentId: msg.componentId,
+            message: error.message || 'Failed to select component',
+            pageName: errorPageName,
           });
         }
         break;
