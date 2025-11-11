@@ -1625,6 +1625,169 @@
     }
   });
 
+  // dist/services/proxyService.js
+  var require_proxyService = __commonJS({
+    "dist/services/proxyService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.ProxyService = void 0;
+      var errorHandler_1 = require_errorHandler();
+      var ProxyService = class {
+        /**
+         * Check if a domain is likely to be in the manifest
+         * This is a heuristic check - actual validation happens at runtime
+         */
+        static isDomainLikelyAllowed(domain) {
+          const commonPatterns = [
+            "gitlab.com",
+            "gitlab.io",
+            "gitlab.fhnw.ch",
+            "gitlab.de",
+            "gitlab.ch",
+            "gitlab.fr",
+            "gitlab.org",
+            "gitlab.net",
+            "gitlab.edu",
+            "gitlab.gov",
+            "gitlab.uk",
+            "gitlab.eu"
+          ];
+          return commonPatterns.some((pattern) => domain === pattern || domain.endsWith(`.${pattern}`));
+        }
+        /**
+         * Validate that a URL is a valid GitLab URL
+         */
+        static isValidGitLabUrl(url) {
+          try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== "https:") {
+              return false;
+            }
+            if (!parsed.hostname || parsed.hostname.length < 3) {
+              return false;
+            }
+            const hostname = parsed.hostname.toLowerCase();
+            const gitlabPatterns = [
+              /gitlab/i,
+              /\.git\./i,
+              /\.code\./i,
+              /\.scm\./i,
+              /\.repo\./i,
+              /\.vcs\./i
+            ];
+            return gitlabPatterns.some((pattern) => pattern.test(hostname)) || this.USE_PROXY;
+          } catch (_a) {
+            return false;
+          }
+        }
+        /**
+         * Proxy a GitLab API request through the proxy server
+         */
+        static proxyGitLabRequest(targetUrl, options) {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              if (!this.isValidGitLabUrl(targetUrl)) {
+                throw new Error("Invalid GitLab URL");
+              }
+              const proxyRequest = {
+                targetUrl,
+                method: options.method || "GET",
+                headers: this.extractHeaders(options.headers),
+                body: options.body ? typeof options.body === "string" ? options.body : JSON.stringify(options.body) : void 0
+              };
+              const response = yield fetch(this.PROXY_BASE_URL, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify(proxyRequest)
+              });
+              if (!response.ok) {
+                throw new Error(`Proxy error: ${response.status} ${response.statusText}`);
+              }
+              const proxyResponse = yield response.json();
+              return new Response(proxyResponse.body, {
+                status: proxyResponse.status,
+                statusText: proxyResponse.statusText,
+                headers: new Headers(proxyResponse.headers)
+              });
+            }), {
+              operation: "proxy_gitlab_request",
+              component: "ProxyService",
+              severity: "high"
+            });
+          });
+        }
+        /**
+         * Extract headers from RequestInit
+         */
+        static extractHeaders(headers) {
+          const result = {};
+          if (!headers) {
+            return result;
+          }
+          if (headers instanceof Headers) {
+            headers.forEach((value, key) => {
+              result[key] = value;
+            });
+          } else if (Array.isArray(headers)) {
+            headers.forEach(([key, value]) => {
+              result[key] = value;
+            });
+          } else {
+            Object.assign(result, headers);
+          }
+          return result;
+        }
+        /**
+         * Check if proxy should be used for a given URL
+         */
+        static shouldUseProxy(url) {
+          if (!this.USE_PROXY) {
+            return false;
+          }
+          try {
+            const parsed = new URL(url);
+            const domain = parsed.hostname;
+            return !this.isDomainLikelyAllowed(domain);
+          } catch (_a) {
+            return false;
+          }
+        }
+      };
+      exports.ProxyService = ProxyService;
+      ProxyService.PROXY_BASE_URL = "https://api.bridgy-plugin.com/proxy";
+      ProxyService.USE_PROXY = false;
+    }
+  });
+
   // dist/services/gitlabService.js
   var require_gitlabService = __commonJS({
     "dist/services/gitlabService.js"(exports) {
@@ -1662,6 +1825,7 @@
       var securityUtils_1 = require_securityUtils();
       var errorHandler_1 = require_errorHandler();
       var cryptoService_1 = require_cryptoService();
+      var proxyService_1 = require_proxyService();
       var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
       var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
       var GitLabAPIError = class extends Error {
@@ -2193,6 +2357,7 @@
         }
         /**
          * Make API request with proper error handling
+         * Uses proxy if domain is not in manifest, otherwise direct connection
          */
         static makeAPIRequest(url, options) {
           return __awaiter(this, void 0, void 0, function* () {
@@ -2203,8 +2368,9 @@
               }, timeoutMs);
             });
             try {
+              const useProxy = proxyService_1.ProxyService.shouldUseProxy(url);
               const response = yield Promise.race([
-                fetch(url, options),
+                useProxy ? proxyService_1.ProxyService.proxyGitLabRequest(url, options) : fetch(url, options),
                 timeoutPromise
               ]);
               if (!response.ok) {
