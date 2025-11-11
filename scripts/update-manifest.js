@@ -45,6 +45,27 @@ const DEFAULT_ENVIRONMENTS = {
       'gitlab.no', '*.gitlab.no',
       'gitlab.dk', '*.gitlab.dk',
       'gitlab.fi', '*.gitlab.fi',
+      // Additional common TLDs for self-hosted instances
+      'gitlab.pl', '*.gitlab.pl',
+      'gitlab.cz', '*.gitlab.cz',
+      'gitlab.hu', '*.gitlab.hu',
+      'gitlab.ro', '*.gitlab.ro',
+      'gitlab.gr', '*.gitlab.gr',
+      'gitlab.pt', '*.gitlab.pt',
+      'gitlab.ie', '*.gitlab.ie',
+      'gitlab.co', '*.gitlab.co',
+      'gitlab.ca', '*.gitlab.ca',
+      'gitlab.au', '*.gitlab.au',
+      'gitlab.jp', '*.gitlab.jp',
+      'gitlab.cn', '*.gitlab.cn',
+      'gitlab.in', '*.gitlab.in',
+      'gitlab.br', '*.gitlab.br',
+      'gitlab.mx', '*.gitlab.mx',
+      'gitlab.ae', '*.gitlab.ae',
+      'gitlab.sg', '*.gitlab.sg',
+      'gitlab.hk', '*.gitlab.hk',
+      'gitlab.nz', '*.gitlab.nz',
+      'gitlab.za', '*.gitlab.za',
       // Alternative common git hosting patterns
       '*.git.com',
       '*.git.org', 
@@ -61,7 +82,12 @@ const DEFAULT_ENVIRONMENTS = {
       '*.scm.org',
       '*.repo.com',
       '*.repo.org',
-      '*.vcs.com'
+      '*.vcs.com',
+      // Common self-hosted patterns
+      '*.local',
+      '*.internal',
+      '*.dev',
+      '*.test'
     ],
     name: 'Enterprise GitLab Instances', 
     description: 'Support for enterprise and self-hosted GitLab instances with common hosting patterns'

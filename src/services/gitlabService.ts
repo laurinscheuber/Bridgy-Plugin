@@ -3,6 +3,7 @@ import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService, buildGitLabApiU
 import { SecurityUtils } from "../utils/securityUtils";
 import { ErrorHandler } from "../utils/errorHandler";
 import { CryptoService } from "./cryptoService";
+import { ProxyService } from "./proxyService";
 
 // Types for improved type safety
 interface GitLabProject {
@@ -837,6 +838,7 @@ export class GitLabService {
 
   /**
    * Make API request with proper error handling
+   * Uses proxy if domain is not in manifest, otherwise direct connection
    */
   private static async makeAPIRequest(url: string, options: RequestInit): Promise<Response> {
     // Create a timeout promise that rejects after 30 seconds
@@ -848,9 +850,14 @@ export class GitLabService {
     });
 
     try {
+      // Check if we should use proxy (for custom/self-hosted GitLab instances)
+      const useProxy = ProxyService.shouldUseProxy(url);
+      
       // Race between the fetch and timeout
       const response = await Promise.race([
-        fetch(url, options),
+        useProxy 
+          ? ProxyService.proxyGitLabRequest(url, options)
+          : fetch(url, options),
         timeoutPromise
       ]);
       
