@@ -1134,13 +1134,25 @@ ${Object.keys(cssProperties).map((property: string) => {
         throw new Error(`Node with ID ${componentId} is not a valid component`);
       }
 
-      // Load CSS asynchronously
+      // Check CSS cache first
       const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      const nodeStyles = await (node as ComponentNode).getCSSAsync();
-      const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      let nodeStyles: Record<string, unknown>;
       
-      // Cache performance metrics
-      perfCache.cacheDuration('getCSSAsync-lazy', endTime - startTime);
+      const cachedCSS = cssCache.getNodeCSS(node.id, node.type);
+      if (cachedCSS) {
+        // Use cached CSS
+        nodeStyles = JSON.parse(cachedCSS);
+      } else {
+        // Load CSS asynchronously and cache it
+        nodeStyles = await (node as ComponentNode).getCSSAsync();
+        cssCache.cacheNodeCSS(node.id, node.type, JSON.stringify(nodeStyles));
+        
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const duration = endTime - startTime;
+        
+        // Cache performance metrics
+        perfCache.cacheDuration('getCSSAsync-lazy', duration);
+      }
       
       // Update component with loaded styles
       component.styles = nodeStyles;

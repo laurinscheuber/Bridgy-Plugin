@@ -12,6 +12,7 @@ interface CSSVariable {
   name: string;
   value: string;
   originalName: string;
+  modes?: { [modeName: string]: string } | null; // Support for multiple modes (themes)
 }
 
 interface GroupedVariables {
@@ -165,16 +166,28 @@ export class CSSExportService {
     const variable = await figma.variables.getVariableByIdAsync(variableId);
     if (!variable) return null;
 
-    const defaultModeId = collection.modes[0].modeId;
-    const value = variable.valuesByMode[defaultModeId];
     const formattedName = this.formatVariableName(variable.name);
-
-    const cssValue = this.resolveCSSValue(variable, value, collection);
-    if (cssValue === null) return null;
+    
+    // Process all modes, not just the first one
+    const modes: { [modeName: string]: string } = {};
+    const hasMultipleModes = collection.modes.length > 1;
+    
+    for (const mode of collection.modes) {
+      const value = variable.valuesByMode[mode.modeId];
+      const cssValue = this.resolveCSSValue(variable, value, collection);
+      if (cssValue !== null) {
+        modes[mode.name] = cssValue;
+      }
+    }
+    
+    if (Object.keys(modes).length === 0) {
+      return null;
+    }
 
     return {
       name: formattedName,
-      value: cssValue,
+      value: modes[collection.modes[0].name], // Default value (for :root)
+      modes: hasMultipleModes ? modes : null, // All mode values
       originalName: variable.name
     };
   }
@@ -218,16 +231,37 @@ export class CSSExportService {
   private static buildExportContent(collections: FormattedCollection[], format: CSSFormat): string {
     const contentParts: string[] = [];
     
-    if (format === 'css') {
-      contentParts.push(':root {');
-    }
-
-    collections.forEach(collection => {
-      contentParts.push(this.buildCollectionContent(collection, format));
-    });
+    // Check if any variables have multiple modes
+    const hasMultiModeVariables = collections.some(collection => 
+      collection.variables.some(variable => variable.modes !== null) ||
+      Object.keys(collection.groups).some(groupKey => 
+        collection.groups[groupKey].some(variable => variable.modes !== null)
+      )
+    );
     
     if (format === 'css') {
+      contentParts.push(':root {');
+      collections.forEach(collection => {
+        contentParts.push(this.buildCollectionContent(collection, format, false));
+      });
       contentParts.push('}');
+      
+      // If there are multi-mode variables, generate data-theme selectors
+      if (hasMultiModeVariables) {
+        const allModeNames = this.getAllModeNames(collections);
+        allModeNames.slice(1).forEach((modeName) => {
+          contentParts.push(`\n[data-theme="${modeName}"] {`);
+          collections.forEach(collection => {
+            contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
+          });
+          contentParts.push('}');
+        });
+      }
+    } else {
+      // SCSS format - keep original behavior for now
+      collections.forEach(collection => {
+        contentParts.push(this.buildCollectionContent(collection, format, false));
+      });
     }
     
     return contentParts.join('\n');
@@ -236,41 +270,61 @@ export class CSSExportService {
   /**
    * Build content for a single collection
    */
-  private static buildCollectionContent(collection: FormattedCollection, format: CSSFormat): string {
+  private static buildCollectionContent(collection: FormattedCollection, format: CSSFormat, isThemeSpecific: boolean = false, themeName: string | null = null): string {
     const parts: string[] = [];
     const commentPrefix = format === 'scss' ? '//' : '  /*';
     const commentSuffix = format === 'scss' ? '' : ' */';
     
     // Collection header
-    parts.push(`\n${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
+    if (!isThemeSpecific) {
+      parts.push(`\n${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
+    }
 
     // Standalone variables
     collection.variables.forEach(variable => {
-      parts.push(this.formatVariableDeclaration(variable, format));
+      const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+      if (declaration && declaration.trim()) {
+        parts.push(declaration);
+      }
     });
-    
+
     // Grouped variables
     const sortedGroupNames = Object.keys(collection.groups).sort();
     sortedGroupNames.forEach(groupName => {
       const displayName = this.formatGroupDisplayName(groupName);
-      parts.push(`\n${commentPrefix} ${displayName}${commentSuffix}`);
-
+      if (!isThemeSpecific) {
+        parts.push(`\n${commentPrefix} ${displayName}${commentSuffix}`);
+      }
+      
       collection.groups[groupName].forEach(variable => {
-        parts.push(this.formatVariableDeclaration(variable, format));
+        const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+        if (declaration && declaration.trim()) {
+          parts.push(declaration);
+        }
       });
     });
-    
+
     return parts.join('\n');
   }
 
   /**
    * Format a variable declaration for the given format
    */
-  private static formatVariableDeclaration(variable: CSSVariable, format: CSSFormat): string {
-    if (format === 'scss') {
-      return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${variable.value};`;
+  private static formatVariableDeclaration(variable: CSSVariable, format: CSSFormat, isThemeSpecific: boolean = false, themeName: string | null = null): string {
+    let value = variable.value;
+    
+    // For theme-specific declarations, use the value for that specific theme
+    if (isThemeSpecific && variable.modes && themeName && variable.modes[themeName]) {
+      value = variable.modes[themeName];
+    } else if (isThemeSpecific && (!variable.modes || !variable.modes[themeName])) {
+      // Skip variables that don't have this theme mode
+      return '';
     }
-    return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${variable.value};`;
+    
+    if (format === 'scss') {
+      return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
+    }
+    return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
   }
 
   /**
@@ -278,6 +332,31 @@ export class CSSExportService {
    */
   private static formatGroupDisplayName(groupName: string): string {
     return groupName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  /**
+   * Get all unique mode names from collections
+   */
+  private static getAllModeNames(collections: FormattedCollection[]): string[] {
+    const modeNames = new Set<string>();
+    
+    collections.forEach(collection => {
+      collection.variables.forEach(variable => {
+        if (variable.modes) {
+          Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+        }
+      });
+      
+      Object.keys(collection.groups).forEach(groupKey => {
+        collection.groups[groupKey].forEach(variable => {
+          if (variable.modes) {
+            Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+          }
+        });
+      });
+    });
+    
+    return Array.from(modeNames).sort();
   }
 
   /**
