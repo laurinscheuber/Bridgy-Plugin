@@ -7,7 +7,7 @@
     "build": "npm run update-manifest && npm run build:ui && tsc -p tsconfig.json && npm run bundle && node build.js",
     "build:ui": "node scripts/build-ui.js",
     "build:ui:dev": "NODE_ENV=development node scripts/build-ui.js",
-    "bundle": "esbuild dist/index.js --bundle --platform=browser --format=iife --outfile=code.js --minify",
+    "bundle": "esbuild src/index.ts --bundle --platform=neutral --format=iife --global-name=BridgyPlugin --outfile=code.js --minify",
     "watch": "tsc -p tsconfig.json --watch",
     "watch:ui": "nodemon --watch src/ui -e css,js,html --exec \"npm run build:ui:dev\"",
     "dev": "npm run watch",
