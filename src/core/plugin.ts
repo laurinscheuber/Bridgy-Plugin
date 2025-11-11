@@ -211,10 +211,24 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             throw new Error(`Node ${msg.componentId} is not a selectable scene node (type: ${nodeToSelect.type})`);
           }
 
+          // Find the page that contains this node by traversing up
+          let currentNode: BaseNode = nodeToSelect;
+          let containingPage: PageNode | null = null;
+          
+          while (currentNode.parent) {
+            if (currentNode.parent.type === 'PAGE') {
+              containingPage = currentNode.parent as PageNode;
+              break;
+            }
+            currentNode = currentNode.parent;
+          }
+          
+          console.log('Backend: Found containing page:', containingPage?.name);
+          
           // Navigate to the correct page first if needed
-          if (nodeToSelect.parent && nodeToSelect.parent.type === 'PAGE' && nodeToSelect.parent !== figma.currentPage) {
-            console.log('Backend: Switching to page:', nodeToSelect.parent.name);
-            figma.currentPage = nodeToSelect.parent as PageNode;
+          if (containingPage && containingPage !== figma.currentPage) {
+            console.log('Backend: Switching to page:', containingPage.name);
+            figma.currentPage = containingPage;
           }
 
           // Select and navigate to the component
