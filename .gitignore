@@ -29,6 +29,10 @@ lerna-debug.log*
 # TypeScript cache
 *.tsbuildinfo
 
+# Test coverage
+coverage/
+*.lcov
+
 # Figma plugin specific
 .figma
 code.js.tmp
