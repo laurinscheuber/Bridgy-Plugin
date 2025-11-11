@@ -24,6 +24,7 @@
   "license": "MIT",
   "devDependencies": {
     "@figma/plugin-typings": "^1.82.0",
+    "@vitest/coverage-v8": "^4.0.8",
     "@vitest/ui": "^4.0.7",
     "esbuild": "^0.25.5",
     "jsdom": "^27.1.0",
