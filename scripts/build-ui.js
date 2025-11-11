@@ -42,23 +42,13 @@ function minifyCSS(css) {
 
 // Simple JS minifier (removes comments and unnecessary whitespace)
 function minifyJS(js) {
-  if (isDev) return js;
-  
-  return js
-    // Remove single-line comments (but preserve URLs)
-    .replace(/([^:])\/\/.*$/gm, '$1')
-    // Remove multi-line comments
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    // Remove console.log statements in production
-    .replace(/console\.(log|debug|info)\([^)]*\);?/g, '')
-    // Remove excessive whitespace (but preserve necessary spaces)
-    .replace(/\s+/g, ' ')
-    // Remove whitespace around operators (with care)
-    .replace(/\s*([{}():;,=<>!&|+\-*/%])\s*/g, '$1')
-    // But add back necessary spaces after keywords
-    .replace(/\b(if|else|for|while|function|return|var|let|const|new|typeof|instanceof)\(/g, '$1 (')
-    .replace(/\b(if|else|for|while|function|return|var|let|const)\{/g, '$1 {')
-    .trim();
+  // DISABLED: Minification was breaking the JavaScript code
+  // The aggressive regex replacements were corrupting message handlers
+  // and other critical code, causing the plugin to fail
+  // 
+  // For now, we keep JS unminified even in production
+  // Future: Use a proper minifier like Terser or esbuild if needed
+  return js;
 }
 
 async function buildUI() {
