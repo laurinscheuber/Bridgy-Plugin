@@ -12,12 +12,7 @@ if (!fs.existsSync('dist')) {
 fs.copyFileSync('manifest.json', 'dist/manifest.json');
 console.log('✓ Copied manifest.json');
 
-// Copy compiled code from dist/index.js to code.js
-if (fs.existsSync('dist/index.js')) {
-  fs.copyFileSync('dist/index.js', 'code.js');
-  console.log('✓ Copied compiled code to code.js');
-} else {
-  console.warn('⚠️  dist/index.js not found. Run TypeScript compiler first.');
-}
+// Bundle step already created code.js - don't overwrite it with TypeScript output
+console.log('✓ Using bundled code.js (esbuild output)');
 
 console.log('\n✅ Build completed successfully!'); 
