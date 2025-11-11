@@ -26,7 +26,8 @@ const DEFAULT_ENVIRONMENTS = {
       '*.gitlab.io',
       // Common GitLab TLD patterns - wildcards AND base domains
       'gitlab.de', '*.gitlab.de',
-      'gitlab.ch', '*.gitlab.ch', 
+      'gitlab.ch', '*.gitlab.ch',
+      'gitlab.fhnw.ch', '*.gitlab.fhnw.ch',
       'gitlab.fr', '*.gitlab.fr',
       'gitlab.org', '*.gitlab.org',
       'gitlab.net', '*.gitlab.net',
