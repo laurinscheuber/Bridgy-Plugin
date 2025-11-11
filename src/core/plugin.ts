@@ -228,10 +228,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // Check if we need to switch pages
           const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
           
-          // Navigate to the correct page first if needed
-          if (needsPageSwitch) {
+          // Navigate to the correct page first if needed (use async method for dynamic-page access)
+          if (needsPageSwitch && containingPage) {
             console.log('Backend: Switching to page:', containingPage.name);
-            figma.currentPage = containingPage;
+            await figma.setCurrentPageAsync(containingPage);
           }
 
           // Select and navigate to the component

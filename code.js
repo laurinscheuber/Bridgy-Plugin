@@ -5225,9 +5225,9 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 console.log("Backend: Found containing page:", containingPage === null || containingPage === void 0 ? void 0 : containingPage.name);
                 const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
-                if (needsPageSwitch) {
+                if (needsPageSwitch && containingPage) {
                   console.log("Backend: Switching to page:", containingPage.name);
-                  figma.currentPage = containingPage;
+                  yield figma.setCurrentPageAsync(containingPage);
                 }
                 figma.currentPage.selection = [nodeToSelect];
                 figma.viewport.scrollAndZoomIntoView([nodeToSelect]);
