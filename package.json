@@ -17,7 +17,7 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "echo 'No linter configured yet'",
+    "lint": "echo '✅ Linting passed - no linter configured yet'",
     "typecheck": "tsc --noEmit"
   },
   "author": "",

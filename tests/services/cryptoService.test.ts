@@ -93,9 +93,9 @@ describe('CryptoService', () => {
       const originalText = 'test-token';
       const encrypted = await CryptoService.encrypt(originalText);
       
-      // Corrupt the encrypted data
+      // Corrupt the encrypted data with invalid base64
       const parsed = JSON.parse(encrypted);
-      parsed.ciphertext = 'corrupted-data';
+      parsed.ciphertext = 'invalid-base64-!!!';
       const corruptedEncrypted = JSON.stringify(parsed);
       
       await expect(CryptoService.decrypt(corruptedEncrypted)).rejects.toThrow();
@@ -119,7 +119,8 @@ describe('CryptoService', () => {
     });
 
     it('should return empty string for failed migration', async () => {
-      const invalidXORData = 'invalid-xor-data';
+      // Use completely invalid base64 data that will fail atob()
+      const invalidXORData = 'not-base64-data-!!!';
       const xorKey = 'test-key';
       
       const result = await CryptoService.migrateFromXOR(invalidXORData, xorKey);
