@@ -2770,6 +2770,221 @@
     }
   });
 
+  // dist/services/tailwindV4Service.js
+  var require_tailwindV4Service = __commonJS({
+    "dist/services/tailwindV4Service.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.TailwindV4Service = exports.TAILWIND_V4_NAMESPACES = void 0;
+      var errorHandler_1 = require_errorHandler();
+      exports.TAILWIND_V4_NAMESPACES = [
+        "color",
+        "spacing",
+        "radius",
+        "font-size",
+        "font-weight",
+        "font-family",
+        "line-height",
+        "letter-spacing",
+        "width",
+        "height",
+        "max-width",
+        "max-height",
+        "min-width",
+        "min-height",
+        "shadow",
+        "blur",
+        "brightness",
+        "contrast",
+        "grayscale",
+        "hue-rotate",
+        "invert",
+        "saturate",
+        "sepia",
+        "backdrop-blur",
+        "backdrop-brightness",
+        "backdrop-contrast",
+        "backdrop-grayscale",
+        "backdrop-hue-rotate",
+        "backdrop-invert",
+        "backdrop-opacity",
+        "backdrop-saturate",
+        "backdrop-sepia",
+        "opacity",
+        "transition",
+        "duration",
+        "delay",
+        "ease",
+        "z-index",
+        "breakpoint"
+      ];
+      var TailwindV4Service = class {
+        /**
+         * Check if a group name is a valid Tailwind v4 namespace
+         */
+        static isValidNamespace(groupName) {
+          const normalized = groupName.toLowerCase().trim();
+          return exports.TAILWIND_V4_NAMESPACES.indexOf(normalized) !== -1;
+        }
+        /**
+         * Validate all variable groups for Tailwind v4 compatibility
+         */
+        static validateVariableGroups() {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              if (!collections || collections.length === 0) {
+                return {
+                  isValid: true,
+                  // Empty is technically valid
+                  groups: [],
+                  invalidGroups: []
+                };
+              }
+              const allGroups = [];
+              const invalidGroups = [];
+              for (const collection of collections) {
+                const groupMap = /* @__PURE__ */ new Map();
+                for (const variableId of collection.variableIds) {
+                  const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                  if (!variable)
+                    continue;
+                  const pathMatch = variable.name.match(/^([^\/]+)\//);
+                  if (pathMatch) {
+                    const groupName = pathMatch[1];
+                    groupMap.set(groupName, (groupMap.get(groupName) || 0) + 1);
+                  }
+                }
+                for (const [groupName, count] of groupMap.entries()) {
+                  const isValid = this.isValidNamespace(groupName);
+                  const groupInfo = {
+                    name: groupName,
+                    isValid,
+                    namespace: isValid ? groupName.toLowerCase() : void 0,
+                    variableCount: count
+                  };
+                  allGroups.push(groupInfo);
+                  if (!isValid) {
+                    invalidGroups.push(groupName);
+                  }
+                }
+              }
+              return {
+                isValid: invalidGroups.length === 0,
+                groups: allGroups,
+                invalidGroups
+              };
+            }), {
+              operation: "validate_tailwind_v4_groups",
+              component: "TailwindV4Service",
+              severity: "medium"
+            });
+          });
+        }
+        /**
+         * Format variable name for Tailwind v4
+         * Removes the group prefix and formats the rest
+         */
+        static formatTailwindVariableName(name) {
+          const withoutPrefix = name.replace(/^[^\/]+\//, "");
+          return withoutPrefix.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+        }
+        /**
+         * Build Tailwind v4 compatible CSS output
+         */
+        static buildTailwindV4CSS(collections) {
+          const lines = [];
+          lines.push("@theme {");
+          for (const collection of collections) {
+            lines.push(`  /* Collection: ${collection.name} */`);
+            const sortedGroupNames = Object.keys(collection.groups).sort();
+            for (const groupName of sortedGroupNames) {
+              const namespace = groupName.toLowerCase();
+              const variables = collection.groups[groupName];
+              if (variables.length === 0)
+                continue;
+              lines.push(`
+  /* ${groupName} */`);
+              for (const variable of variables) {
+                const varName = this.formatTailwindVariableName(variable.originalName);
+                lines.push(`  --${namespace}-${varName}: ${variable.value};`);
+              }
+            }
+            if (collection.variables.length > 0) {
+              lines.push(`
+  /* WARNING: Variables without namespace - not standard Tailwind v4 */`);
+              for (const variable of collection.variables) {
+                lines.push(`  --${variable.name}: ${variable.value};`);
+              }
+            }
+          }
+          lines.push("}");
+          return lines.join("\n");
+        }
+        /**
+         * Get a user-friendly list of valid namespaces
+         */
+        static getValidNamespacesList() {
+          return [...exports.TAILWIND_V4_NAMESPACES].sort();
+        }
+        /**
+         * Get suggestions for invalid group names
+         */
+        static getSuggestion(groupName) {
+          const normalized = groupName.toLowerCase().trim();
+          const suggestions = {
+            "colors": "color",
+            "colour": "color",
+            "space": "spacing",
+            "padding": "spacing",
+            "margin": "spacing",
+            "gap": "spacing",
+            "border-radius": "radius",
+            "rounded": "radius",
+            "font": "font-family",
+            "fonts": "font-family",
+            "text-size": "font-size",
+            "size": "font-size",
+            "weight": "font-weight",
+            "line": "line-height",
+            "tracking": "letter-spacing",
+            "shadows": "shadow",
+            "z": "z-index"
+          };
+          return suggestions[normalized] || null;
+        }
+      };
+      exports.TailwindV4Service = TailwindV4Service;
+    }
+  });
+
   // dist/services/cssExportService.js
   var require_cssExportService = __commonJS({
     "dist/services/cssExportService.js"(exports) {
@@ -2805,19 +3020,26 @@
       exports.CSSExportService = void 0;
       var unitsService_1 = require_unitsService();
       var errorHandler_1 = require_errorHandler();
+      var tailwindV4Service_1 = require_tailwindV4Service();
       var CSS_VARIABLE_PREFIX = "--";
       var SCSS_VARIABLE_PREFIX = "$";
       var DEFAULT_FORMAT = "css";
       var CSSExportService = class {
         /**
-         * Export variables in the specified format (CSS or SCSS)
+         * Export variables in the specified format (CSS, SCSS, or Tailwind v4)
          */
         static exportVariables() {
           return __awaiter(this, arguments, void 0, function* (format = DEFAULT_FORMAT) {
             return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
-              const validFormats = ["css", "scss"];
+              const validFormats = ["css", "scss", "tailwind-v4"];
               if (validFormats.indexOf(format.toLowerCase()) === -1) {
-                throw new Error(`Invalid export format: ${format}. Must be 'css' or 'scss'.`);
+                throw new Error(`Invalid export format: ${format}. Must be 'css', 'scss', or 'tailwind-v4'.`);
+              }
+              if (format === "tailwind-v4") {
+                const validation = yield tailwindV4Service_1.TailwindV4Service.validateVariableGroups();
+                if (!validation.isValid) {
+                  throw new Error(`Cannot export to Tailwind v4 format. Invalid variable group namespaces: ${validation.invalidGroups.join(", ")}. All variable groups must use valid Tailwind v4 namespaces (e.g., color, spacing, radius).`);
+                }
               }
               yield this.initialize();
               const collections = yield this.getProcessedCollections();
@@ -2988,6 +3210,9 @@
          * Build the final export content from processed collections
          */
         static buildExportContent(collections, format) {
+          if (format === "tailwind-v4") {
+            return tailwindV4Service_1.TailwindV4Service.buildTailwindV4CSS(collections);
+          }
           const contentParts = [];
           const hasMultiModeVariables = collections.some((collection) => collection.variables.some((variable) => variable.modes !== null) || Object.keys(collection.groups).some((groupKey) => collection.groups[groupKey].some((variable) => variable.modes !== null)));
           if (format === "css") {
@@ -3286,6 +3511,12 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         static saveUnitSettings() {
           return __awaiter(this, void 0, void 0, function* () {
             yield unitsService_1.UnitsService.saveUnitSettings();
+          });
+        }
+        // Get Tailwind v4 validation status
+        static getTailwindV4ValidationStatus() {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield tailwindV4Service_1.TailwindV4Service.validateVariableGroups();
           });
         }
       };
@@ -5608,6 +5839,13 @@ ${Object.keys(cssProperties).map((property) => {
               figma.ui.postMessage({
                 type: "unit-settings-updated",
                 success: true
+              });
+              break;
+            case "validate-tailwind-v4":
+              const twValidation = yield cssExportService_1.CSSExportService.getTailwindV4ValidationStatus();
+              figma.ui.postMessage({
+                type: "tailwind-v4-validation",
+                validation: twValidation
               });
               break;
             case "resize-plugin":
