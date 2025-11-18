@@ -1,8 +1,8 @@
 ---
 name: Feedback
 about: Share your feedback about Bridgy - what you like or what we can improve
-title: '[FEEDBACK] '
-labels: 'feedback, enhancement'
+title: "[FEEDBACK] "
+labels: enhancement
 assignees: ''
 
 ---
