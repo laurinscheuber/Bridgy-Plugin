@@ -83,11 +83,6 @@ const DEFAULT_ENVIRONMENTS = {
       '*.repo.com',
       '*.repo.org',
       '*.vcs.com',
-      // Common self-hosted patterns
-      '*.local',
-      '*.internal',
-      '*.dev',
-      '*.test'
     ],
     name: 'Enterprise GitLab Instances', 
     description: 'Support for enterprise and self-hosted GitLab instances with common hosting patterns'
