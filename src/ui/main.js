@@ -1283,6 +1283,9 @@
               saveButton.style.backgroundColor = "";
             }, 2000);
           }
+        } else if (message.type === "tailwind-v4-validation") {
+          // Handle Tailwind v4 validation result
+          updateTailwindV4ValidationUI(message.validation);
         } else if (message.type === "component-styles-loaded") {
           // Handle loaded component styles
           const componentId = message.componentId;
@@ -2137,8 +2140,16 @@
       }
 
       function downloadCSS(cssString, format = "css") {
-        const mimeType = format === "scss" ? "text/scss" : "text/css";
-        const fileExtension = format === "scss" ? "scss" : "css";
+        let mimeType = "text/css";
+        let fileExtension = "css";
+        
+        if (format === "scss") {
+          mimeType = "text/scss";
+          fileExtension = "scss";
+        } else if (format === "tailwind-v4") {
+          mimeType = "text/css";
+          fileExtension = "css";
+        }
 
         const blob = new Blob([cssString], { type: mimeType });
         const url = URL.createObjectURL(blob);
@@ -2159,13 +2170,14 @@
             const exportFormat = window.gitlabSettings?.exportFormat || "css";
             
             // Validate export format
-            if (!['css', 'scss'].includes(exportFormat.toLowerCase())) {
-              showError('Export Failed', 'Invalid export format. Please select CSS or SCSS.');
+            if (!['css', 'scss', 'tailwind-v4'].includes(exportFormat.toLowerCase())) {
+              showError('Export Failed', 'Invalid export format. Please select CSS, SCSS, or Tailwind v4.');
               return;
             }
 
             // Enhanced loading state for export
-            showButtonLoading(exportCssButton, `Generating ${exportFormat.toUpperCase()}...`);
+            const formatLabel = exportFormat === 'tailwind-v4' ? 'Tailwind v4' : exportFormat.toUpperCase();
+            showButtonLoading(exportCssButton, `Generating ${formatLabel}...`);
             showContentLoading('variables-container', 'Processing variables and generating stylesheet...');
 
             parent.postMessage(
@@ -2201,7 +2213,7 @@
       function updateExportButtonText() {
         const exportButton = document.getElementById("export-css-button");
         const format = window.gitlabSettings?.exportFormat || "css";
-        const formatText = format.toUpperCase();
+        const formatText = format === 'tailwind-v4' ? 'Tailwind v4' : format.toUpperCase();
         exportButton.textContent = `Export Variables as ${formatText}`;
       }
 
@@ -2518,6 +2530,12 @@
       function openSettingsModal() {
         document.getElementById("settings-modal").style.display = "block";
         loadConfigurationTab(); // Load saved settings into the form
+        
+        // Check if Tailwind v4 is selected and validate
+        const exportFormat = window.gitlabSettings?.exportFormat || "css";
+        if (exportFormat === 'tailwind-v4') {
+          validateTailwindV4();
+        }
       }
 
       // Function to close settings modal
@@ -3478,7 +3496,68 @@ ${checkboxes}
             window.gitlabSettings.exportFormat = this.value;
           }
           updateExportButtonText();
+          
+          // Check if Tailwind v4 is selected and validate
+          if (this.value === 'tailwind-v4') {
+            validateTailwindV4();
+          } else {
+            // Hide the hint for other formats
+            const hintElement = document.getElementById('tailwind-v4-hint');
+            if (hintElement) {
+              hintElement.style.display = 'none';
+            }
+          }
         });
+      }
+
+      // Validate Tailwind v4 namespaces
+      function validateTailwindV4() {
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "validate-tailwind-v4",
+            },
+          },
+          "*"
+        );
+      }
+
+      // Update Tailwind v4 validation UI
+      function updateTailwindV4ValidationUI(validation) {
+        const hintElement = document.getElementById('tailwind-v4-hint');
+        if (!hintElement) return;
+
+        hintElement.style.display = 'block';
+        
+        if (validation.isValid) {
+          hintElement.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+          hintElement.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+          hintElement.style.color = '#86efac';
+          hintElement.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">✓</span>
+              <span><strong>Tailwind v4 Compatible</strong> - All variable groups use valid namespaces.</span>
+            </div>
+          `;
+        } else {
+          hintElement.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+          hintElement.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          hintElement.style.color = '#fca5a5';
+          
+          const invalidList = validation.invalidGroups.map(g => `<strong>${g}</strong>`).join(', ');
+          hintElement.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">⚠</span>
+                <span><strong>Invalid Namespaces</strong> - Cannot export to Tailwind v4</span>
+              </div>
+              <div style="font-size: 11px; opacity: 0.9;">
+                Invalid groups: ${invalidList}<br>
+                <span style="opacity: 0.8;">Valid namespaces: color, spacing, radius, font-size, font-weight, shadow, etc.</span>
+              </div>
+            </div>
+          `;
+        }
       }
 
       // Toggle collapsible subgroups

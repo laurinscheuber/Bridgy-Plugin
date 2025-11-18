@@ -1,6 +1,7 @@
 import { VariableCollection } from '../types';
 import { UnitsService } from './unitsService';
 import { ErrorHandler } from '../utils/errorHandler';
+import { TailwindV4Service } from './tailwindV4Service';
 
 // Constants for better maintainability
 const CSS_VARIABLE_PREFIX = '--';
@@ -25,21 +26,32 @@ interface FormattedCollection {
   groups: GroupedVariables;
 }
 
-export type CSSFormat = 'css' | 'scss';
+export type CSSFormat = 'css' | 'scss' | 'tailwind-v4';
 
 export class CSSExportService {
   private static readonly variableCache = new Map<string, any>();
   private static readonly collectionCache = new Map<string, FormattedCollection>();
 
   /**
-   * Export variables in the specified format (CSS or SCSS)
+   * Export variables in the specified format (CSS, SCSS, or Tailwind v4)
    */
   static async exportVariables(format: CSSFormat = DEFAULT_FORMAT): Promise<string> {
     return await ErrorHandler.withErrorHandling(async () => {
       // Validate format
-      const validFormats = ['css', 'scss'];
+      const validFormats = ['css', 'scss', 'tailwind-v4'];
       if (validFormats.indexOf(format.toLowerCase()) === -1) {
-        throw new Error(`Invalid export format: ${format}. Must be 'css' or 'scss'.`);
+        throw new Error(`Invalid export format: ${format}. Must be 'css', 'scss', or 'tailwind-v4'.`);
+      }
+
+      // For Tailwind v4, validate namespaces first
+      if (format === 'tailwind-v4') {
+        const validation = await TailwindV4Service.validateVariableGroups();
+        if (!validation.isValid) {
+          throw new Error(
+            `Cannot export to Tailwind v4 format. Invalid variable group namespaces: ${validation.invalidGroups.join(', ')}. ` +
+            `All variable groups must use valid Tailwind v4 namespaces (e.g., color, spacing, radius).`
+          );
+        }
       }
 
       await this.initialize();
@@ -229,6 +241,11 @@ export class CSSExportService {
    * Build the final export content from processed collections
    */
   private static buildExportContent(collections: FormattedCollection[], format: CSSFormat): string {
+    // Handle Tailwind v4 format separately
+    if (format === 'tailwind-v4') {
+      return TailwindV4Service.buildTailwindV4CSS(collections);
+    }
+    
     const contentParts: string[] = [];
     
     // Check if any variables have multiple modes
@@ -587,5 +604,14 @@ export class CSSExportService {
   // Save unit settings
   static async saveUnitSettings(): Promise<void> {
     await UnitsService.saveUnitSettings();
+  }
+
+  // Get Tailwind v4 validation status
+  static async getTailwindV4ValidationStatus(): Promise<{
+    isValid: boolean;
+    groups: Array<{name: string; isValid: boolean; namespace?: string; variableCount: number}>;
+    invalidGroups: string[];
+  }> {
+    return await TailwindV4Service.validateVariableGroups();
   }
 }
