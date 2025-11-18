@@ -288,4 +288,167 @@ describe('Variable Export E2E', () => {
       expect(cssOutput.split('\n').length).toBeGreaterThan(1000);
     });
   });
+
+  describe('Tailwind v4 Export', () => {
+    it('should export variables in Tailwind v4 format with @theme directive', async () => {
+      // Create variables with valid Tailwind v4 namespaces
+      const tailwindCollection = {
+        id: 'tailwind-collection',
+        name: 'Tailwind Tokens',
+        modes: [{ modeId: 'default', name: 'Default' }],
+        variableIds: []
+      };
+
+      // Add color variables
+      const colorVars = [
+        { id: 'color-primary', name: 'color/primary', value: { r: 0.388, g: 0.4, b: 0.945 } },
+        { id: 'color-secondary', name: 'color/secondary', value: { r: 0.925, g: 0.282, b: 0.6 } }
+      ];
+
+      // Add spacing variables
+      const spacingVars = [
+        { id: 'spacing-sm', name: 'spacing/sm', value: 8 },
+        { id: 'spacing-md', name: 'spacing/md', value: 16 },
+        { id: 'spacing-lg', name: 'spacing/lg', value: 24 }
+      ];
+
+      // Add radius variables
+      const radiusVars = [
+        { id: 'radius-sm', name: 'radius/sm', value: 4 },
+        { id: 'radius-md', name: 'radius/md', value: 8 }
+      ];
+
+      [...colorVars, ...spacingVars, ...radiusVars].forEach(varData => {
+        tailwindCollection.variableIds.push(varData.id);
+        mockEnvironment.mockFile.variables.set(varData.id, {
+          id: varData.id,
+          name: varData.name,
+          resolvedType: typeof varData.value === 'number' ? 'FLOAT' : 'COLOR',
+          valuesByMode: { 'default': varData.value }
+        });
+      });
+
+      mockEnvironment.mockFile.collections = [tailwindCollection];
+
+      const twOutput = await CSSExportService.exportVariables('tailwind-v4');
+
+      // Check for @theme directive
+      expect(twOutput).toContain('@theme {');
+      expect(twOutput).not.toContain(':root {');
+
+      // Check for properly formatted variables
+      expect(twOutput).toContain('--color-primary:');
+      expect(twOutput).toContain('--color-secondary:');
+      expect(twOutput).toContain('--spacing-sm:');
+      expect(twOutput).toContain('--spacing-md:');
+      expect(twOutput).toContain('--spacing-lg:');
+      expect(twOutput).toContain('--radius-sm:');
+      expect(twOutput).toContain('--radius-md:');
+
+      // Check color formatting
+      expect(twOutput).toMatch(/--color-primary:\s*rgb\(\d+,\s*\d+,\s*\d+\)/);
+
+      // Check collection comment
+      expect(twOutput).toContain('/* Collection: Tailwind Tokens */');
+      expect(twOutput).toContain('/* color */');
+      expect(twOutput).toContain('/* spacing */');
+      expect(twOutput).toContain('/* radius */');
+    });
+
+    it('should reject export when variables have invalid namespaces', async () => {
+      // Create variables with invalid namespaces
+      const invalidCollection = {
+        id: 'invalid-collection',
+        name: 'Invalid Tokens',
+        modes: [{ modeId: 'default', name: 'Default' }],
+        variableIds: ['invalid-var']
+      };
+
+      mockEnvironment.mockFile.variables.set('invalid-var', {
+        id: 'invalid-var',
+        name: 'custom/variable',
+        resolvedType: 'FLOAT',
+        valuesByMode: { 'default': 100 }
+      });
+
+      mockEnvironment.mockFile.collections = [invalidCollection];
+
+      // Should throw error about invalid namespaces
+      await expect(CSSExportService.exportVariables('tailwind-v4')).rejects.toThrow(/Invalid variable group namespaces/);
+    });
+
+    it('should handle mixed valid and invalid namespaces', async () => {
+      const mixedCollection = {
+        id: 'mixed-collection',
+        name: 'Mixed Tokens',
+        modes: [{ modeId: 'default', name: 'Default' }],
+        variableIds: ['valid-var', 'invalid-var']
+      };
+
+      // Valid namespace
+      mockEnvironment.mockFile.variables.set('valid-var', {
+        id: 'valid-var',
+        name: 'color/primary',
+        resolvedType: 'COLOR',
+        valuesByMode: { 'default': { r: 0.5, g: 0.5, b: 0.5 } }
+      });
+
+      // Invalid namespace
+      mockEnvironment.mockFile.variables.set('invalid-var', {
+        id: 'invalid-var',
+        name: 'mycustom/variable',
+        resolvedType: 'FLOAT',
+        valuesByMode: { 'default': 100 }
+      });
+
+      mockEnvironment.mockFile.collections = [mixedCollection];
+
+      // Should fail validation
+      await expect(CSSExportService.exportVariables('tailwind-v4')).rejects.toThrow(/mycustom/);
+    });
+
+    it('should get Tailwind v4 validation status', async () => {
+      // Setup valid Tailwind namespaces
+      const validCollection = {
+        id: 'valid-tw',
+        name: 'Valid TW',
+        modes: [{ modeId: 'default', name: 'Default' }],
+        variableIds: ['color-var', 'spacing-var']
+      };
+
+      mockEnvironment.mockFile.variables.set('color-var', {
+        id: 'color-var',
+        name: 'color/primary',
+        resolvedType: 'COLOR',
+        valuesByMode: { 'default': { r: 0, g: 0, b: 0 } }
+      });
+
+      mockEnvironment.mockFile.variables.set('spacing-var', {
+        id: 'spacing-var',
+        name: 'spacing/md',
+        resolvedType: 'FLOAT',
+        valuesByMode: { 'default': 16 }
+      });
+
+      mockEnvironment.mockFile.collections = [validCollection];
+
+      const validation = await CSSExportService.getTailwindV4ValidationStatus();
+
+      expect(validation.isValid).toBe(true);
+      expect(validation.groups).toHaveLength(2);
+      expect(validation.groups[0]).toMatchObject({
+        name: 'color',
+        isValid: true,
+        namespace: 'color',
+        variableCount: 1
+      });
+      expect(validation.groups[1]).toMatchObject({
+        name: 'spacing',
+        isValid: true,
+        namespace: 'spacing',
+        variableCount: 1
+      });
+      expect(validation.invalidGroups).toHaveLength(0);
+    });
+  });
 });
