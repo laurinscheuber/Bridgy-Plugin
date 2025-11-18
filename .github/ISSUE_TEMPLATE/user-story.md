@@ -1,36 +1,39 @@
 ---
 name: User Story
 about: IP6 User Story
-title: ''
-labels: ''
-assignees: ''
-
+title: ""
+labels: ""
+assignees: ""
 ---
 
 ## 0) User Story
+
 _As a **[role]**, I want **[feature]**, so that **[benefit]**._
 
 ---
 
 ## 1) Beschreibung
+
 _Kurz: Was soll umgesetzt werden?_
 
 ---
 
 ## 2) Wissenschaftlicher Ansatz
-- Aktueller Zustand beschrieben
 
-- Theoretische Grundlage referenziert
+**Aktueller Zustand beschreiben**
 
-- Hypothese formuliert („Wenn X, dann Y, weil Z“)
+**Theoretische Grundlage referenzieren**
 
-- Relevante Testergebnisse / Messungen / Literatur
+**Hypothese formulieren („Wenn X, dann Y, weil Z“)**
 
-- Pain Points dokumentiert
+**Relevante Testergebnisse / Messungen / Literatur**
+
+**Pain Points dokumentieren**
 
 ---
 
 ## 3) Acceptance Criteria (ACs)
+
 _Given / When / Then_
 
 - [ ] AC1
@@ -39,7 +42,8 @@ _Given / When / Then_
 
 ---
 
-## 4) DoD 
+## 4) DoD
+
 - [ ] ACs erfüllt
 - [ ] Tests grün / Build läuft
 - [ ] Codequalität erfüllt
