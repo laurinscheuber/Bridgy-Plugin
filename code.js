@@ -2805,7 +2805,6 @@
       exports.TailwindV4Service = exports.TAILWIND_V4_NAMESPACES = void 0;
       var errorHandler_1 = require_errorHandler();
       exports.TAILWIND_V4_NAMESPACES = [
-        // Colors
         "color",
         "font",
         "text",
@@ -2926,7 +2925,62 @@
             }
           }
           lines.push("}");
+          const allModeNames = this.getAllModeNames(collections);
+          if (allModeNames.length > 1) {
+            allModeNames.slice(1).forEach((modeName) => {
+              lines.push(`
+[data-theme="${modeName}"] {`);
+              for (const collection of collections) {
+                const sortedGroupNames = Object.keys(collection.groups).sort();
+                for (const groupName of sortedGroupNames) {
+                  const namespace = groupName.toLowerCase();
+                  const variables = collection.groups[groupName];
+                  if (variables.length === 0)
+                    continue;
+                  const modeSpecificVars = variables.filter((v) => v.modes && v.modes[modeName]);
+                  if (modeSpecificVars.length === 0)
+                    continue;
+                  lines.push("");
+                  for (const variable of modeSpecificVars) {
+                    const varName = this.formatTailwindVariableName(variable.originalName);
+                    const modeValue = variable.modes[modeName];
+                    lines.push(`  --${namespace}-${varName}: ${modeValue};`);
+                  }
+                }
+                const modeSpecificStandaloneVars = collection.variables.filter((v) => v.modes && v.modes[modeName]);
+                if (modeSpecificStandaloneVars.length > 0) {
+                  lines.push("");
+                  for (const variable of modeSpecificStandaloneVars) {
+                    const modeValue = variable.modes[modeName];
+                    lines.push(`  --${variable.name}: ${modeValue};`);
+                  }
+                }
+              }
+              lines.push("}");
+            });
+          }
           return lines.join("\n");
+        }
+        /**
+         * Get all unique mode names from collections
+         */
+        static getAllModeNames(collections) {
+          const modeNames = /* @__PURE__ */ new Set();
+          collections.forEach((collection) => {
+            collection.variables.forEach((variable) => {
+              if (variable.modes) {
+                Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
+              }
+            });
+            Object.keys(collection.groups).forEach((groupKey) => {
+              collection.groups[groupKey].forEach((variable) => {
+                if (variable.modes) {
+                  Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
+                }
+              });
+            });
+          });
+          return Array.from(modeNames).sort();
         }
         /**
          * Get a user-friendly list of valid namespaces

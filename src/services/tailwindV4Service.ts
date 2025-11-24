@@ -151,10 +151,10 @@ export class TailwindV4Service {
   ): string {
     const lines: string[] = [];
     
-    // Start with @theme directive
+    // Start with @theme directive for the default mode
     lines.push('@theme {');
     
-    // Process each collection
+    // Process each collection for default mode
     for (const collection of collections) {
       lines.push(`  /* Collection: ${collection.name} */`);
       
@@ -186,7 +186,84 @@ export class TailwindV4Service {
     
     lines.push('}');
     
+    // Check if any variables have multiple modes
+    const allModeNames = this.getAllModeNames(collections);
+    
+    // Generate [data-theme="..."] selectors for additional modes
+    if (allModeNames.length > 1) {
+      allModeNames.slice(1).forEach((modeName) => {
+        lines.push(`\n[data-theme="${modeName}"] {`);
+        
+        // Process each collection for this specific mode
+        for (const collection of collections) {
+          // Process grouped variables
+          const sortedGroupNames = Object.keys(collection.groups).sort();
+          for (const groupName of sortedGroupNames) {
+            const namespace = groupName.toLowerCase();
+            const variables = collection.groups[groupName];
+            
+            if (variables.length === 0) continue;
+            
+            // Only add variables that have values for this mode
+            const modeSpecificVars = variables.filter(v => v.modes && v.modes[modeName]);
+            if (modeSpecificVars.length === 0) continue;
+            
+            lines.push('');
+            for (const variable of modeSpecificVars) {
+              const varName = this.formatTailwindVariableName(variable.originalName);
+              const modeValue = variable.modes![modeName];
+              lines.push(`  --${namespace}-${varName}: ${modeValue};`);
+            }
+          }
+          
+          // Standalone variables for this mode
+          const modeSpecificStandaloneVars = collection.variables.filter(v => v.modes && v.modes[modeName]);
+          if (modeSpecificStandaloneVars.length > 0) {
+            lines.push('');
+            for (const variable of modeSpecificStandaloneVars) {
+              const modeValue = variable.modes![modeName];
+              lines.push(`  --${variable.name}: ${modeValue};`);
+            }
+          }
+        }
+        
+        lines.push('}');
+      });
+    }
+    
     return lines.join('\n');
+  }
+
+  /**
+   * Get all unique mode names from collections
+   */
+  private static getAllModeNames(
+    collections: Array<{
+      variables: Array<{ modes?: { [modeName: string]: string } | null }>;
+      groups: {
+        [groupName: string]: Array<{ modes?: { [modeName: string]: string } | null }>;
+      };
+    }>
+  ): string[] {
+    const modeNames = new Set<string>();
+    
+    collections.forEach(collection => {
+      collection.variables.forEach(variable => {
+        if (variable.modes) {
+          Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+        }
+      });
+      
+      Object.keys(collection.groups).forEach(groupKey => {
+        collection.groups[groupKey].forEach(variable => {
+          if (variable.modes) {
+            Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+          }
+        });
+      });
+    });
+    
+    return Array.from(modeNames).sort();
   }
 
   /**
