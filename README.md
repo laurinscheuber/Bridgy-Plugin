@@ -4,7 +4,8 @@ A high-performance Figma plugin for synchronizing design tokens and components w
 
 ## Features
 
-- **Export Figma Variables** - Export design tokens as CSS/SCSS variables
+- **Export Figma Variables** - Export design tokens as CSS/SCSS variables or Tailwind v4 format
+- **Tailwind v4 Support** - Export variables with @theme directive and automatic namespace validation
 - **Generate Component Tests** - Auto-generate Angular component tests from Figma designs
 - **GitHub OAuth** - One-click authentication with GitHub (no manual token creation needed)
 - **GitLab Integration** - Commit changes directly to GitLab with merge request support
@@ -58,6 +59,78 @@ dist/                 # Compiled output
    ```bash
    npm test
    ```
+
+## Tailwind v4 Export
+
+Bridgy supports exporting Figma variables in Tailwind v4 compatible format with the `@theme` directive.
+
+### Requirements
+
+For Tailwind v4 export, all variable groups must use valid Tailwind v4 namespaces:
+
+**Supported Namespaces:**
+- `color` - Color tokens
+- `spacing` - Spacing/padding/margin values
+- `radius` - Border radius values
+- `font-size`, `font-weight`, `font-family` - Typography
+- `line-height`, `letter-spacing` - Text properties
+- `width`, `height`, `max-width`, `min-width` - Sizing
+- `shadow`, `opacity` - Visual effects
+- And 30+ more standard Tailwind namespaces
+
+### Usage
+
+1. **Organize Variables with Namespaces:**
+   ```
+   color/primary-500
+   color/secondary-600
+   spacing/sm
+   spacing/md
+   radius/sm
+   ```
+
+2. **Select Tailwind v4 Format:**
+   - Open Settings (⚙️ icon)
+   - Under "Export Format", select "Tailwind v4 (@theme)"
+   - The plugin will validate your variable groups
+
+3. **Validation Indicators:**
+   - ✓ Green: All groups use valid namespaces
+   - ⚠ Red: Invalid namespaces detected (lists which groups need fixing)
+
+4. **Export:**
+   - Click "Export Variables as Tailwind v4"
+   - Output will use `@theme { }` directive
+   - Variables formatted as `--namespace-name: value;`
+
+### Example Output
+
+```css
+@theme {
+  /* Collection: Design Tokens */
+
+  /* color */
+  --color-primary-500: rgb(99, 102, 241);
+  --color-secondary-600: rgb(236, 72, 153);
+
+  /* spacing */
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+}
+```
+
+### Common Namespace Suggestions
+
+The plugin provides helpful suggestions for common variations:
+- `colors` → `color`
+- `space`, `padding`, `margin` → `spacing`
+- `border-radius`, `rounded` → `radius`
+- `fonts` → `font-family`
 
 ## Performance Optimizations
 

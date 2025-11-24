@@ -225,19 +225,37 @@
         
         const isConfigured = isGitLabConfigured();
         
+        // Check if Tailwind v4 format is selected and if there are validation issues
+        const isTailwindV4Selected = window.gitlabSettings?.exportFormat === 'tailwind-v4';
+        const hasTailwindIssues = isTailwindV4Selected && 
+          tailwindV4Validation && 
+          !tailwindV4Validation.isValid;
+        
         // Variables tab commit button
         const commitButton = document.getElementById("commit-repo-button");
         if (commitButton) {
-          const shouldEnable = hasVariables && isConfigured;
+          const shouldEnable = hasVariables && isConfigured && !hasTailwindIssues;
           commitButton.disabled = !shouldEnable;
           
           if (!isConfigured) {
             commitButton.title = "Configure GitLab settings in the Settings tab to enable commits";
           } else if (!hasVariables) {
             commitButton.title = "No variables available to commit";
+          } else if (hasTailwindIssues) {
+            commitButton.title = "Cannot commit: Fix Tailwind v4 namespace issues first";
           } else {
             commitButton.title = "Commit variables to GitLab repository";
           }
+        }
+        
+        // Export button
+        const exportButton = document.getElementById("export-css-button");
+        if (exportButton && hasTailwindIssues) {
+          exportButton.disabled = true;
+          exportButton.title = "Cannot export: Fix Tailwind v4 namespace issues first";
+        } else if (exportButton && hasVariables) {
+          exportButton.disabled = false;
+          exportButton.title = "Export variables to CSS file";
         }
         
         // Components tab commit buttons
@@ -847,6 +865,7 @@
       let currentCSSData = null;
       window.gitlabSettings = null;
       let unitsData = null;
+      let tailwindV4Validation = null;
 
       const AVAILABLE_UNITS = [
         "",
@@ -1003,6 +1022,16 @@
           updatePluginLoadingProgress(loadingSteps[3], 75);
           variablesData = message.variablesData;
           componentsData = message.componentsData;
+          
+          // Request Tailwind v4 validation
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "validate-tailwind-v4",
+              },
+            },
+            "*"
+          );
           
           renderVariables(variablesData);
           renderComponents(componentsData);
@@ -1397,6 +1426,15 @@
               saveButton.style.backgroundColor = "";
             }, 2000);
           }
+        } else if (message.type === "tailwind-v4-validation") {
+          // Store Tailwind v4 validation result
+          tailwindV4Validation = message.validation;
+          // Re-render variables to show validation issues
+          if (variablesData && variablesData.length > 0) {
+            renderVariables(variablesData);
+          }
+          // Update button states based on validation
+          updateCommitButtonStates();
         } else if (message.type === "component-styles-loaded") {
           // Handle loaded component styles
           const componentId = message.componentId;
@@ -1521,6 +1559,77 @@
           }
         });
 
+        // Add Tailwind v4 validation issues if present
+        if (tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.length > 0) {
+          const tailwindIssues = [];
+          
+          // Build list of invalid groups with their sanitized IDs
+          data.forEach((collection) => {
+            const groupedVars = new Map();
+            
+            collection.variables.forEach((variable) => {
+              const pathMatch = variable.name.match(/^([^\/]+)\//);
+              if (pathMatch) {
+                const prefix = pathMatch[1];
+                if (!groupedVars.has(prefix)) {
+                  groupedVars.set(prefix, []);
+                }
+                groupedVars.get(prefix).push(variable);
+              }
+            });
+            
+            groupedVars.forEach((variables, prefix) => {
+              // Check if this group is invalid for Tailwind v4
+              if (tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1) {
+                const sanitizedId = `group-${collection.name.replace(
+                  /[^a-zA-Z0-9]/g,
+                  "-"
+                )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+                tailwindIssues.push({
+                  collection: collection.name,
+                  group: prefix,
+                  displayName: prefix
+                    .replace(/-/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()),
+                  sanitizedId: sanitizedId,
+                });
+              }
+            });
+          });
+          
+          if (tailwindIssues.length > 0) {
+            html += `
+              <div class="validation-issues" style="background-color: rgba(255, 152, 0, 0.05); border: 1px solid rgba(255, 152, 0, 0.2);">
+                <h3 style="color: #ff9800; margin-bottom: 12px;">
+                  <span style="margin-right: 8px;">⚠️</span>
+                  Tailwind v4 Compatibility Issues
+                </h3>
+                <div class="validation-issues-list">
+                  ${tailwindIssues
+                    .map(
+                      (issue) => `
+                    <div class="validation-issue-item">
+                      <strong>${issue.displayName}</strong>
+                      <span class="issue-description">Invalid Tailwind v4 namespace</span>
+                      <button type="button" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                          <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                        Go to section
+                      </button>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>
+                <div class="validation-help">
+                  <small>Tailwind v4 requires valid namespaces like: color, spacing, radius, font-size, shadow, etc.</small>
+                </div>
+              </div>
+            `;
+          }
+        }
+
         if (validationIssues.length > 0) {
           html += `
             <div class="validation-issues">
@@ -1611,6 +1720,16 @@
               });
 
               const hasMixedValues = hasDirectValues && hasLinks;
+              
+              // Check if this group is invalid for Tailwind v4
+              const isTailwindInvalid = tailwindV4Validation && 
+                !tailwindV4Validation.isValid && 
+                tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
+              
+              // Check if this group is valid for Tailwind v4
+              const isTailwindValid = tailwindV4Validation && 
+                tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
+              
               const groupId = `group-${collection.name.replace(
                 /[^a-zA-Z0-9]/g,
                 "-"
@@ -1618,15 +1737,25 @@
 
               html += `
                 <div class="variable-subgroup ${
-                  hasMixedValues ? "has-validation-issues" : ""
+                  hasMixedValues || isTailwindInvalid ? "has-validation-issues" : ""
                 }" id="${groupId}">
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <div class="subgroup-title">
                       ${displayName}
                       <span class="subgroup-stats">${variables.length} variable${variables.length !== 1 ? 's' : ''}</span>
                       ${
+                        isTailwindValid
+                          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-left: 4px; vertical-align: middle;" title="Valid Tailwind v4 namespace"><path d="M12.001 4.8c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624C13.666 10.618 15.027 12 18.001 12c3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C16.337 6.182 14.976 4.8 12.001 4.8zm-6 7.2c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624 1.177 1.194 2.538 2.576 5.512 2.576 3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C10.337 13.382 8.976 12 6.001 12z" fill="#38bdf8"/></svg>'
+                          : ""
+                      }
+                      ${
                         hasMixedValues
                           ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
+                          : ""
+                      }
+                      ${
+                        isTailwindInvalid
+                          ? '<span class="validation-warning" title="Invalid Tailwind v4 namespace" style="color: #ff9800;">⚠️</span>'
                           : ""
                       }
                     </div>
@@ -2291,8 +2420,16 @@
       }
 
       function downloadCSS(cssString, format = "css") {
-        const mimeType = format === "scss" ? "text/scss" : "text/css";
-        const fileExtension = format === "scss" ? "scss" : "css";
+        let mimeType = "text/css";
+        let fileExtension = "css";
+        
+        if (format === "scss") {
+          mimeType = "text/scss";
+          fileExtension = "scss";
+        } else if (format === "tailwind-v4") {
+          mimeType = "text/css";
+          fileExtension = "css";
+        }
 
         const blob = new Blob([cssString], { type: mimeType });
         const url = URL.createObjectURL(blob);
@@ -2313,13 +2450,14 @@
             const exportFormat = window.gitlabSettings?.exportFormat || "css";
             
             // Validate export format
-            if (!['css', 'scss'].includes(exportFormat.toLowerCase())) {
-              showError('Export Failed', 'Invalid export format. Please select CSS or SCSS.');
+            if (!['css', 'scss', 'tailwind-v4'].includes(exportFormat.toLowerCase())) {
+              showError('Export Failed', 'Invalid export format. Please select CSS, SCSS, or Tailwind v4.');
               return;
             }
 
             // Enhanced loading state for export
-            showButtonLoading(exportCssButton, `Generating ${exportFormat.toUpperCase()}...`);
+            const formatLabel = exportFormat === 'tailwind-v4' ? 'Tailwind v4' : exportFormat.toUpperCase();
+            showButtonLoading(exportCssButton, `Generating ${formatLabel}...`);
             showContentLoading('variables-container', 'Processing variables and generating stylesheet...');
 
             parent.postMessage(
@@ -2355,7 +2493,7 @@
       function updateExportButtonText() {
         const exportButton = document.getElementById("export-css-button");
         const format = window.gitlabSettings?.exportFormat || "css";
-        const formatText = format.toUpperCase();
+        const formatText = format === 'tailwind-v4' ? 'Tailwind v4' : format.toUpperCase();
         exportButton.textContent = `Export Variables as ${formatText}`;
       }
 
@@ -2693,7 +2831,6 @@
       function closeUserGuide() {
         document.getElementById("user-guide-modal").style.display = "none";
       }
-
 
       // Function to open GitHub with specific feedback type
       function openGitHubFeedback(type) {
@@ -4352,6 +4489,8 @@ ${checkboxes}
             window.gitlabSettings.exportFormat = this.value;
           }
           updateExportButtonText();
+          // Update button states when format changes
+          updateCommitButtonStates();
         });
       }
 
