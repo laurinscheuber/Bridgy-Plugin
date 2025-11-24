@@ -504,6 +504,52 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         });
         break;
 
+      case "rename-variable-group":
+        try {
+          const { collectionName, oldPrefix, newPrefix } = msg;
+          
+          if (!collectionName || !oldPrefix || !newPrefix) {
+            throw new Error("Missing required parameters for rename");
+          }
+          
+          // Get all variable collections
+          const collections = await figma.variables.getLocalVariableCollectionsAsync();
+          const targetCollection = collections.find(c => c.name === collectionName);
+          
+          if (!targetCollection) {
+            throw new Error(`Collection "${collectionName}" not found`);
+          }
+          
+          // Get all variables in the collection that match the old prefix
+          let renamedCount = 0;
+          for (const variableId of targetCollection.variableIds) {
+            const variable = await figma.variables.getVariableByIdAsync(variableId);
+            if (!variable) continue;
+            
+            // Check if this variable belongs to the group we're renaming
+            const pathMatch = variable.name.match(/^([^\/]+)\/(.*)/);
+            if (pathMatch && pathMatch[1] === oldPrefix) {
+              const suffix = pathMatch[2];
+              const newName = `${newPrefix}/${suffix}`;
+              variable.name = newName;
+              renamedCount++;
+            }
+          }
+          
+          figma.ui.postMessage({
+            type: "rename-variable-group-success",
+            renamedCount: renamedCount,
+            oldPrefix: oldPrefix,
+            newPrefix: newPrefix,
+          });
+        } catch (error: any) {
+          figma.ui.postMessage({
+            type: "rename-variable-group-error",
+            error: error.message || "Failed to rename variable group",
+          });
+        }
+        break;
+
       case "resize-plugin":
         // Disabled dynamic resizing - keep consistent size
         // figma.ui.resize() calls removed to maintain fixed plugin size

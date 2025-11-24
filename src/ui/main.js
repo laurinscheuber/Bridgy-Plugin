@@ -1321,6 +1321,48 @@
           }
           // Update button states based on validation
           updateCommitButtonStates();
+        } else if (message.type === "rename-variable-group-success") {
+          // Handle successful group rename
+          const applyButton = document.getElementById("apply-group-rename-btn");
+          if (applyButton) {
+            applyButton.textContent = '✓ Applied!';
+            applyButton.style.backgroundColor = "#28a745";
+          }
+          
+          // Close modal after a short delay
+          setTimeout(() => {
+            closeEditGroupNameModal();
+            // Reset button
+            if (applyButton) {
+              applyButton.textContent = 'Apply Changes';
+              applyButton.style.backgroundColor = '';
+              applyButton.disabled = true;
+            }
+          }, 1000);
+          
+          // Reload document data to show updated names
+          parent.postMessage(
+            { pluginMessage: { type: "load-document-data" } },
+            "*"
+          );
+        } else if (message.type === "rename-variable-group-error") {
+          // Handle rename error
+          const applyButton = document.getElementById("apply-group-rename-btn");
+          if (applyButton) {
+            applyButton.textContent = 'Error - Try Again';
+            applyButton.style.backgroundColor = "#dc3545";
+            applyButton.disabled = false;
+          }
+          
+          showError('Rename Failed', message.error || 'Could not rename variable group. Please try again.');
+          
+          // Reset button after delay
+          setTimeout(() => {
+            if (applyButton) {
+              applyButton.textContent = 'Apply Changes';
+              applyButton.style.backgroundColor = '';
+            }
+          }, 3000);
         } else if (message.type === "component-styles-loaded") {
           // Handle loaded component styles
           const componentId = message.componentId;
@@ -2708,6 +2750,7 @@
         const validationResult = document.getElementById("group-name-validation-result");
         const renameFromPattern = document.getElementById("rename-from-pattern");
         const renameToPattern = document.getElementById("rename-to-pattern");
+        const applyButton = document.getElementById("apply-group-rename-btn");
         
         if (modal && currentNameInput && newNameInput) {
           currentNameInput.value = groupPrefix;
@@ -2715,6 +2758,13 @@
           validationResult.style.display = 'none';
           renameFromPattern.textContent = groupPrefix + '/variable-name';
           renameToPattern.textContent = 'new-name/variable-name';
+          
+          // Reset apply button
+          if (applyButton) {
+            applyButton.disabled = true;
+            applyButton.textContent = 'Apply Changes';
+            applyButton.style.backgroundColor = '';
+          }
           
           modal.style.display = "block";
           
@@ -2734,6 +2784,7 @@
         const newNameInput = document.getElementById("new-group-name");
         const validationResult = document.getElementById("group-name-validation-result");
         const renameToPattern = document.getElementById("rename-to-pattern");
+        const applyButton = document.getElementById("apply-group-rename-btn");
         
         if (!newNameInput || !validationResult) return;
         
@@ -2741,13 +2792,18 @@
         
         if (!newName) {
           validationResult.style.display = 'none';
+          if (applyButton) applyButton.disabled = true;
           return;
         }
+        
+        // Enable the apply button since we have a value
+        if (applyButton) applyButton.disabled = false;
         
         // Update the rename pattern
         renameToPattern.textContent = newName + '/variable-name';
         
         // Check if the new name is a valid Tailwind v4 namespace
+        // Support both simple names (color) and names with slashes (color/gray, color/*)
         const validNamespaces = [
           'color', 'spacing', 'radius', 'font-size', 'font-weight', 'font-family',
           'line-height', 'letter-spacing', 'width', 'height', 'max-width', 'max-height',
@@ -2759,8 +2815,9 @@
           'duration', 'delay', 'ease', 'z-index', 'breakpoint'
         ];
         
-        const normalizedName = newName.toLowerCase();
-        const isValid = validNamespaces.indexOf(normalizedName) !== -1;
+        // Extract the base namespace (before any slash)
+        const baseNamespace = newName.split('/')[0].toLowerCase().trim();
+        const isValid = validNamespaces.indexOf(baseNamespace) !== -1;
         
         validationResult.style.display = 'block';
         
@@ -2800,7 +2857,7 @@
             'z': 'z-index'
           };
           
-          const suggestion = suggestions[normalizedName];
+          const suggestion = suggestions[baseNamespace];
           const suggestionText = suggestion 
             ? `<br><small>Did you mean <strong>${suggestion}</strong>?</small>` 
             : '';
@@ -2812,11 +2869,40 @@
                 <span><strong>Invalid Tailwind v4 namespace</strong></span>
               </div>
               <div style="font-size: 11px; opacity: 0.9;">
-                "${newName}" is not a standard Tailwind v4 namespace.${suggestionText}
+                "${baseNamespace}" is not a standard Tailwind v4 namespace.${suggestionText}
               </div>
             </div>
           `;
         }
+      }
+
+      function applyGroupRename() {
+        const newNameInput = document.getElementById("new-group-name");
+        const applyButton = document.getElementById("apply-group-rename-btn");
+        
+        if (!newNameInput || !currentEditingGroup.prefix) return;
+        
+        const newName = newNameInput.value.trim();
+        if (!newName) return;
+        
+        // Disable button and show loading state
+        if (applyButton) {
+          applyButton.disabled = true;
+          applyButton.textContent = 'Applying...';
+        }
+        
+        // Send message to plugin to rename the group
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "rename-variable-group",
+              collectionName: currentEditingGroup.collection,
+              oldPrefix: currentEditingGroup.prefix,
+              newPrefix: newName,
+            },
+          },
+          "*"
+        );
       }
 
 
