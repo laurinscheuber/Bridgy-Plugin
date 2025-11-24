@@ -12,14 +12,14 @@
             .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('console.log(') || match.includes('alert(')) {
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(')) {
                 return match;
               }
               return '';
             })
             .replace(/on\w+\s*=\s*[^>\s]+/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('console.log(') || match.includes('alert(')) {
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(')) {
                 return match;
               }
               return '';
@@ -354,6 +354,35 @@
             componentId: componentId
           }
         }, "*");
+      }
+
+      // ===== REFRESH FUNCTIONALITY =====
+      window.refreshData = function() {
+        console.log('Refreshing variables and components data...');
+        
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+          refreshBtn.disabled = true;
+          refreshBtn.style.opacity = '0.6';
+        }
+        
+        // Send message to backend to collect fresh data
+        parent.postMessage({
+          pluginMessage: {
+            type: "refresh-data"
+          }
+        }, "*");
+        
+        // Show notification
+        showNotification('info', 'Refreshing...', 'Updating variables and components data');
+        
+        // Re-enable button after a delay
+        setTimeout(() => {
+          if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.style.opacity = '1';
+          }
+        }, 2000);
       }
 
       // ===== NOTIFICATION SYSTEM =====
@@ -751,12 +780,24 @@
       };
 
       window.resetUnitsSettings = function () {
-        if (
-          confirm(
-            "Are you sure you want to reset all unit settings to smart defaults?"
-          )
-        ) {
-          const dropdowns = document.querySelectorAll(".unit-dropdown");
+        // Get current smart defaults to show in confirmation
+        const defaultsInfo = [];
+        const dropdowns = document.querySelectorAll(".unit-dropdown");
+        
+        dropdowns.forEach((dropdown) => {
+          const type = dropdown.dataset.type;
+          const parentRow = dropdown.closest('.unit-setting-row');
+          const label = parentRow?.querySelector('.unit-setting-label')?.textContent;
+          const defaultLabel = parentRow?.querySelector('.default-unit-label strong')?.textContent;
+          
+          if (label && defaultLabel) {
+            defaultsInfo.push(`• ${label}: ${defaultLabel}`);
+          }
+        });
+
+        const message = `Are you sure you want to reset all unit settings to smart defaults?\n\nThis will apply these defaults:\n${defaultsInfo.slice(0, 5).join('\n')}${defaultsInfo.length > 5 ? `\n... and ${defaultsInfo.length - 5} more` : ''}`;
+
+        if (confirm(message)) {
           dropdowns.forEach((dropdown) => {
             dropdown.value = "";
           });
@@ -765,6 +806,7 @@
         }
       };
 
+      // Main tab switching logic
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => {
           document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
@@ -773,15 +815,30 @@
           tab.classList.add("active");
           const tabContent = document.getElementById(tab.dataset.tab + "-content");
           tabContent.classList.add("active");
-
-          if (tab.dataset.tab === "units") {
-            loadUnitsSettings();
-          }
           
           // Auto-resize disabled to maintain consistent plugin size
           // setTimeout(() => {
           //   resizeForCurrentContent();
           // }, 100);
+        });
+      });
+
+      // Sub-tab switching logic for Variables
+      document.querySelectorAll(".sub-tab").forEach((subTab) => {
+        subTab.addEventListener("click", () => {
+          document.querySelectorAll(".sub-tab").forEach((st) => st.classList.remove("active"));
+          document.querySelectorAll(".sub-tab-content").forEach((sc) => sc.classList.remove("active"));
+
+          subTab.classList.add("active");
+          const subTabContent = document.getElementById(subTab.dataset.subTab + "-content");
+          subTabContent.classList.add("active");
+
+          // Handle special initialization for certain sub-tabs
+          if (subTab.dataset.subTab === "units") {
+            loadUnitsSettings();
+          } else if (subTab.dataset.subTab === "import") {
+            initializeVariableImportTab();
+          }
         });
       });
 
@@ -904,7 +961,44 @@
           updateRepositoryLink();
           updateCommitButtonStates();
           checkAndShowUserGuide();
-        } else if (message.type === "gitlab-settings-saved") {
+        } else if (message.type === "git-settings-loaded") {
+          updatePluginLoadingProgress(loadingSteps[1], 25);
+          window.gitSettings = message.settings;
+          window.gitlabSettings = message.settings; // Backward compatibility
+          window.gitlabSettingsLoaded = true;
+          loadConfigurationTab();
+          updateRepositoryLink();
+          updateCommitButtonStates();
+          checkAndShowUserGuide();
+        } else if (message.type === "gitlab-settings-saved" || message.type === "git-settings-saved") {
+        } else if (message.type === "repositories-loaded") {
+          displayRepositories(message.repositories);
+        } else if (message.type === "repositories-error") {
+          const container = document.getElementById("repo-list-container");
+          container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #ef4444;">
+              <div style="font-weight: 500; margin-bottom: 8px;">Error loading repositories</div>
+              <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">${message.error}</div>
+            </div>
+          `;
+        } else if (message.type === "branches-loaded") {
+          displayBranches(message.branches);
+        } else if (message.type === "branches-error") {
+          const container = document.getElementById("branch-list-container");
+          container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #ef4444;">
+              <div style="font-weight: 500; margin-bottom: 8px;">Error loading branches</div>
+              <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">${message.error}</div>
+            </div>
+          `;
+        } else if (message.type === "oauth-status") {
+          displayOAuthStatus(message.status);
+        } else if (message.type === "oauth-url") {
+          // Open OAuth URL in new window
+          window.open(message.url, '_blank', 'width=600,height=700,scrollbars=yes,resizable=yes');
+          showNotification("info", "OAuth", "Complete authentication in the popup window", 5000);
+        } else if (message.type === "oauth-callback") {
+          handleOAuthCallback(message.data);
         } else if (message.type === "document-data") {
           updatePluginLoadingProgress(loadingSteps[3], 75);
           variablesData = message.variablesData;
@@ -973,6 +1067,26 @@
           setTimeout(() => {
             checkAndShowUserGuide();
           }, 1000);
+        } else if (message.type === "variable-deleted") {
+          // Handle successful variable deletion
+          console.log(`Variable deleted successfully: ${message.variableName}`);
+          showNotification(`Variable "${message.variableName}" deleted successfully`, 'success');
+        } else if (message.type === "delete-error") {
+          // Handle variable deletion error
+          console.error("Error deleting variable:", message.error);
+          showNotification(`Failed to delete variable: ${message.error}`, 'error');
+          
+          // Re-enable the delete button and restore its original state
+          const buttons = document.querySelectorAll('.delete-variable-btn[disabled]');
+          buttons.forEach(button => {
+            button.disabled = false;
+            button.style.cursor = 'pointer';
+            button.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5zM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 5.883 16h4.234a2 2 0 0 0 1.992-1.84l.853-10.66h.538a.5.5 0 0 0 0-1H11zm1.958 1H3.042l.846 10.58a1 1 0 0 0 .996.92h4.234a1 1 0 0 0 .996-.92L11.958 3.5zM6.5 5.5a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6zm2 0a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6z"/>
+              </svg>
+            `;
+          });
         } else if (message.type === "css-export") {
           // Store the CSS data for later use
           currentCSSData = message.cssData;
@@ -1307,6 +1421,14 @@
             // Clean up the loading data
             delete componentElement.dataset.originalContent;
           }
+        } else if (message.type === "refresh-complete") {
+          // Handle successful refresh
+          showNotification('success', 'Refreshed!', 'Variables and components data updated successfully');
+          console.log('Data refresh completed successfully');
+        } else if (message.type === "refresh-error") {
+          // Handle refresh error
+          showNotification('error', 'Refresh Failed', message.error || 'Failed to refresh data');
+          console.error('Data refresh failed:', message.error);
         }
         } catch (error) {
           console.error('Error handling plugin message:', error);
@@ -1539,6 +1661,7 @@
                   <th>Name</th>
                   <th>Type</th>
                   <th>Values</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1604,6 +1727,17 @@
           });
 
           html += `
+              </td>
+              <td>
+                <button 
+                  class="delete-variable-btn" 
+                  onclick="deleteVariable('${variable.id}', '${variable.name.replace(/'/g, "\\'")}')"
+                  title="Delete ${variable.name}"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5zM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 5.883 16h4.234a2 2 0 0 0 1.992-1.84l.853-10.66h.538a.5.5 0 0 0 0-1H11zm1.958 1H3.042l.846 10.58a1 1 0 0 0 .996.92h4.234a1 1 0 0 0 .996-.92L11.958 3.5zM6.5 5.5a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6zm2 0a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6z"/>
+                  </svg>
+                </button>
               </td>
             </tr>
           `;
@@ -1820,6 +1954,26 @@
           }
         }
         return null;
+      }
+
+      function deleteVariable(variableId, variableName) {
+        if (confirm(`Are you sure you want to delete the variable "${variableName}"?`)) {
+          // Send message to plugin to delete the variable from Figma
+          parent.postMessage({
+            pluginMessage: {
+              type: 'delete-variable',
+              variableId: variableId
+            }
+          }, '*');
+          
+          // Show loading feedback
+          const button = document.querySelector(`[onclick*="${variableId}"]`);
+          if (button) {
+            button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+            button.disabled = true;
+            button.style.cursor = 'not-allowed';
+          }
+        }
       }
 
       function renderComponentVariables(group) {
@@ -2518,6 +2672,11 @@
       function openSettingsModal() {
         document.getElementById("settings-modal").style.display = "block";
         loadConfigurationTab(); // Load saved settings into the form
+        
+        // Ensure provider UI is initialized correctly
+        setTimeout(() => {
+          onProviderChange();
+        }, 200);
       }
 
       // Function to close settings modal
@@ -2680,10 +2839,612 @@ ${checkboxes}
         }
       }
 
+      // Provider change handler
+      function onProviderChange() {
+        const provider = document.getElementById("config-provider").value;
+        const gitlabUrlGroup = document.getElementById("gitlab-url-group");
+        const githubUrlGroup = document.getElementById("github-url-group");
+        const projectIdLabel = document.getElementById("project-id-label");
+        const projectIdHelp = document.getElementById("project-id-help");
+        const browseButton = document.getElementById("browse-repos-button");
+        const projectIdInput = document.getElementById("config-project-id");
+        
+        const browseBranchesButton = document.getElementById("browse-branches-button");
+        const oauthLoginButton = document.getElementById("oauth-login-button");
+        const oauthStatus = document.getElementById("oauth-status");
+        const tokenLabel = document.getElementById("token-label");
+        const tokenHelp = document.getElementById("token-help");
+        const tokenInput = document.getElementById("config-token");
+        
+        if (provider === 'gitlab') {
+          gitlabUrlGroup.style.display = 'block';
+          githubUrlGroup.style.display = 'none';
+          projectIdLabel.textContent = 'Project ID';
+          projectIdHelp.textContent = 'For GitLab: Use numeric ID or namespace/project format';
+          projectIdInput.placeholder = 'e.g. 24267 or namespace/project';
+          browseButton.style.display = 'none';
+          if (browseBranchesButton) browseBranchesButton.style.display = 'none';
+          if (oauthLoginButton) oauthLoginButton.style.display = 'none';
+          if (oauthStatus) oauthStatus.style.display = 'none';
+          if (tokenLabel) tokenLabel.textContent = 'Project Access Token';
+          if (tokenHelp) tokenHelp.textContent = 'For GitLab: Use project access token';
+          if (tokenInput) tokenInput.placeholder = 'Enter your GitLab private token';
+        } else {
+          gitlabUrlGroup.style.display = 'none';
+          githubUrlGroup.style.display = 'block';
+          projectIdLabel.textContent = 'Repository';
+          projectIdHelp.textContent = 'For GitHub: Use owner/repository format (e.g., microsoft/vscode)';
+          projectIdInput.placeholder = 'e.g. owner/repository';
+          browseButton.style.display = 'block';
+          if (browseBranchesButton) browseBranchesButton.style.display = 'block';
+          if (tokenLabel) tokenLabel.textContent = 'GitHub Access Token';
+          if (tokenHelp) tokenHelp.textContent = 'For GitHub: Use personal access token or OAuth';
+          if (tokenInput) tokenInput.placeholder = 'Enter your GitHub token';
+          
+          // Check OAuth availability
+          checkOAuthAvailability();
+        }
+      }
+
+      // Repository browser functions
+      let cachedRepositories = [];
+      
+      function browseRepositories() {
+        const token = document.getElementById("config-token").value.trim();
+        const provider = document.getElementById("config-provider").value;
+        
+        if (!token) {
+          showError("Validation Error", "Please enter your access token first");
+          return;
+        }
+        
+        // Show modal
+        document.getElementById("repository-browser-modal").style.display = "block";
+        
+        // Load repositories
+        loadRepositories(provider, token);
+      }
+      
+      function closeRepositoryBrowser() {
+        document.getElementById("repository-browser-modal").style.display = "none";
+      }
+      
+      async function loadRepositories(provider, token) {
+        const container = document.getElementById("repo-list-container");
+        container.innerHTML = `
+          <div class="content-loading">
+            <div class="content-loading-spinner"></div>
+            <div class="content-loading-text">Loading repositories...</div>
+          </div>
+        `;
+        
+        // Send message to backend to fetch repositories
+        parent.postMessage({
+          pluginMessage: {
+            type: "list-repositories",
+            provider: provider,
+            token: token
+          }
+        }, "*");
+      }
+      
+      function displayRepositories(repositories) {
+        cachedRepositories = repositories;
+        const container = document.getElementById("repo-list-container");
+        
+        if (!repositories || repositories.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: rgba(255, 255, 255, 0.6);">
+              No repositories found
+            </div>
+          `;
+          return;
+        }
+        
+        let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        
+        repositories.forEach(repo => {
+          const lastUpdate = repo.updatedAt ? new Date(repo.updatedAt).toLocaleDateString() : '';
+          const stars = repo.stargazers_count || 0;
+          const language = repo.language || '';
+          
+          html += `
+            <div 
+              class="repository-item" 
+              onclick="selectRepository('${repo.fullName || repo.name}')"
+              style="
+                padding: 12px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+              "
+              onmouseover="this.style.background='rgba(139, 92, 246, 0.2)'; this.style.borderColor='rgba(139, 92, 246, 0.3)';"
+              onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.borderColor='rgba(255, 255, 255, 0.1)';"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                  <div style="font-weight: 500; color: #c4b5fd; margin-bottom: 4px;">
+                    ${repo.fullName || repo.name}
+                  </div>
+                  ${repo.description ? `
+                    <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin-bottom: 6px; line-height: 1.3;">
+                      ${SecurityUtils.escapeHTML(repo.description.substring(0, 100))}${repo.description.length > 100 ? '...' : ''}
+                    </div>
+                  ` : ''}
+                  <div style="display: flex; gap: 12px; align-items: center; font-size: 11px; color: rgba(255, 255, 255, 0.5);">
+                    <span>${repo.private ? '🔒 Private' : '🌐 Public'}</span>
+                    ${language ? `<span>📝 ${language}</span>` : ''}
+                    ${stars > 0 ? `<span>⭐ ${stars}</span>` : ''}
+                    ${lastUpdate ? `<span>📅 ${lastUpdate}</span>` : ''}
+                  </div>
+                </div>
+                <div style="margin-left: 8px;">
+                  <button 
+                    onclick="event.stopPropagation(); showRepositoryDetails('${repo.fullName || repo.name}')"
+                    style="padding: 4px 8px; font-size: 10px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer; border-radius: 4px;"
+                    title="View repository details"
+                  >
+                    Details
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+      }
+      
+      function filterRepositories() {
+        const searchTerm = document.getElementById("repo-search").value.toLowerCase();
+        const filtered = cachedRepositories.filter(repo => {
+          const name = (repo.fullName || repo.name).toLowerCase();
+          const description = (repo.description || '').toLowerCase();
+          return name.includes(searchTerm) || description.includes(searchTerm);
+        });
+        displayRepositories(filtered);
+      }
+      
+      function selectRepository(repoName) {
+        document.getElementById("config-project-id").value = repoName;
+        closeRepositoryBrowser();
+      }
+      
+      function showRepositoryDetails(repoName) {
+        const repo = cachedRepositories.find(r => (r.fullName || r.name) === repoName);
+        if (!repo) return;
+        
+        const topics = repo.topics && repo.topics.length > 0 
+          ? repo.topics.map(t => `<span style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; padding: 2px 6px; border-radius: 3px; font-size: 10px;">${t}</span>`).join(' ')
+          : 'None';
+        
+        const createdDate = repo.createdAt ? new Date(repo.createdAt).toLocaleDateString() : 'Unknown';
+        const updatedDate = repo.updatedAt ? new Date(repo.updatedAt).toLocaleDateString() : 'Unknown';
+        
+        const detailsHtml = `
+          <div style="font-family: monospace;">
+            <h4 style="margin: 0 0 16px 0; color: #c4b5fd;">${repo.fullName || repo.name}</h4>
+            
+            <div style="margin-bottom: 12px;">
+              <strong>Description:</strong><br>
+              <span style="color: rgba(255, 255, 255, 0.8);">${repo.description || 'No description available'}</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div>
+                <strong>Language:</strong><br>
+                <span style="color: rgba(255, 255, 255, 0.8);">${repo.language || 'Not specified'}</span>
+              </div>
+              <div>
+                <strong>Visibility:</strong><br>
+                <span style="color: rgba(255, 255, 255, 0.8);">${repo.private ? '🔒 Private' : '🌐 Public'}</span>
+              </div>
+              <div>
+                <strong>Stars:</strong><br>
+                <span style="color: rgba(255, 255, 255, 0.8);">⭐ ${repo.stargazers_count || 0}</span>
+              </div>
+              <div>
+                <strong>Forks:</strong><br>
+                <span style="color: rgba(255, 255, 255, 0.8);">🍴 ${repo.forks_count || 0}</span>
+              </div>
+              <div>
+                <strong>Created:</strong><br>
+                <span style="color: rgba(255, 255, 255, 0.8);">${createdDate}</span>
+              </div>
+              <div>
+                <strong>Last Update:</strong><br>
+                <span style="color: rgba(255, 255, 255, 0.8);">${updatedDate}</span>
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+              <strong>Topics:</strong><br>
+              <div style="margin-top: 4px;">${topics}</div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <strong>Default Branch:</strong><br>
+              <span style="color: rgba(255, 255, 255, 0.8); font-family: monospace; background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 3px;">${repo.defaultBranch}</span>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+              <button onclick="window.open('${repo.webUrl}', '_blank')" 
+                      style="padding: 8px 12px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; cursor: pointer; border-radius: 6px;">
+                Open on GitHub
+              </button>
+              <button onclick="selectRepository('${repo.fullName || repo.name}'); closeModal();" 
+                      style="padding: 8px 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer; border-radius: 6px;">
+                Select Repository
+              </button>
+            </div>
+          </div>
+        `;
+        
+        // Create modal
+        showModal("Repository Details", detailsHtml);
+      }
+      
+      function showModal(title, content) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('temp-modal');
+        if (existingModal) {
+          existingModal.remove();
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'temp-modal';
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+          <div class="modal-content" style="max-width: 600px;">
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+            <div class="modal-header">
+              <h3>${title}</h3>
+            </div>
+            <div class="modal-body">
+              ${content}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+      }
+      
+      function closeModal() {
+        const modal = document.getElementById('temp-modal');
+        if (modal) {
+          modal.remove();
+        }
+      }
+
+      // Branch browser functions
+      let cachedBranches = [];
+      
+      function browseBranches() {
+        const provider = document.getElementById("config-provider").value;
+        const token = document.getElementById("config-token").value.trim();
+        const projectId = document.getElementById("config-project-id").value.trim();
+        
+        if (!token) {
+          showError("Validation Error", "Please enter your access token first");
+          return;
+        }
+        
+        if (!projectId) {
+          showError("Validation Error", "Please select a repository first");
+          return;
+        }
+        
+        // Show modal
+        document.getElementById("branch-browser-modal").style.display = "block";
+        
+        // Load branches
+        loadBranches(provider, token, projectId);
+      }
+      
+      function closeBranchBrowser() {
+        document.getElementById("branch-browser-modal").style.display = "none";
+      }
+      
+      async function loadBranches(provider, token, projectId) {
+        const container = document.getElementById("branch-list-container");
+        container.innerHTML = `
+          <div class="content-loading">
+            <div class="content-loading-spinner"></div>
+            <div class="content-loading-text">Loading branches...</div>
+          </div>
+        `;
+        
+        // Send message to backend to fetch branches
+        parent.postMessage({
+          pluginMessage: {
+            type: "list-branches",
+            provider: provider,
+            token: token,
+            projectId: projectId
+          }
+        }, "*");
+      }
+      
+      function displayBranches(branches) {
+        cachedBranches = branches;
+        const container = document.getElementById("branch-list-container");
+        
+        if (!branches || branches.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: rgba(255, 255, 255, 0.6);">
+              No branches found
+            </div>
+          `;
+          return;
+        }
+        
+        let html = '<div style="display: flex; flex-direction: column; gap: 6px;">';
+        
+        // Sort branches: default first, then alphabetically
+        const sortedBranches = [...branches].sort((a, b) => {
+          if (a.isDefault && !b.isDefault) return -1;
+          if (!a.isDefault && b.isDefault) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        
+        sortedBranches.forEach(branch => {
+          const isDefault = branch.isDefault;
+          html += `
+            <div 
+              class="branch-item" 
+              onclick="selectBranch('${branch.name}')"
+              style="
+                padding: 10px 12px;
+                background: ${isDefault ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.05)'};
+                border: 1px solid ${isDefault ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+              onmouseover="this.style.background='rgba(139, 92, 246, 0.2)'; this.style.borderColor='rgba(139, 92, 246, 0.3)';"
+              onmouseout="this.style.background='${isDefault ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.05)'}'; this.style.borderColor='${isDefault ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.1)'}';"
+            >
+              <span style="font-weight: ${isDefault ? '500' : 'normal'}; color: ${isDefault ? '#22c55e' : '#c4b5fd'};">
+                ${branch.name}
+              </span>
+              ${isDefault ? '<span style="font-size: 10px; background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 2px 6px; border-radius: 3px;">DEFAULT</span>' : ''}
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+      }
+      
+      function filterBranches() {
+        const searchTerm = document.getElementById("branch-search").value.toLowerCase();
+        const filtered = cachedBranches.filter(branch => {
+          return branch.name.toLowerCase().includes(searchTerm);
+        });
+        displayBranches(filtered);
+      }
+      
+      function selectBranch(branchName) {
+        document.getElementById("config-branch").value = branchName;
+        closeBranchBrowser();
+      }
+
+      // OAuth functions
+      function checkOAuthAvailability() {
+        // Send message to backend to check OAuth status
+        parent.postMessage({
+          pluginMessage: {
+            type: "check-oauth-status"
+          }
+        }, "*");
+      }
+      
+      function displayOAuthStatus(status) {
+        const oauthLoginButton = document.getElementById("oauth-login-button");
+        const oauthStatus = document.getElementById("oauth-status");
+        const tokenHelp = document.getElementById("token-help");
+        
+        if (!oauthLoginButton || !oauthStatus || !tokenHelp) return;
+        
+        if (status.configured && status.available) {
+          oauthLoginButton.style.display = 'block';
+          oauthStatus.style.display = 'block';
+          oauthStatus.innerHTML = `
+            <small style="color: rgba(34, 197, 94, 0.8); font-size: 12px;">
+              ✓ OAuth login available for better security
+            </small>
+          `;
+          tokenHelp.innerHTML = 'Use Personal Access Token or click OAuth button for secure login';
+        } else {
+          oauthLoginButton.style.display = 'none';
+          oauthStatus.style.display = 'block';
+          oauthStatus.innerHTML = `
+            <small style="color: rgba(255, 255, 255, 0.6); font-size: 12px;">
+              💡 OAuth not configured - using Personal Access Token method
+            </small>
+          `;
+          tokenHelp.innerHTML = 'Create a Personal Access Token at: github.com → Settings → Developer settings → Personal access tokens';
+        }
+      }
+      
+      async function startOAuthFlow() {
+        try {
+          const button = document.getElementById("oauth-login-button");
+          if (button) {
+            button.disabled = true;
+            button.textContent = "Connecting...";
+          }
+          
+          // Start OAuth flow directly using popup
+          const result = await startGitHubOAuthFlow();
+          
+          if (result.success) {
+            handleOAuthCallback({
+              success: true,
+              accessToken: result.token,
+              user: result.user
+            });
+          } else {
+            showError("OAuth Error", result.error || "OAuth authentication failed");
+          }
+          
+        } catch (error) {
+          console.error("OAuth flow error:", error);
+          showError("OAuth Error", error.message || "Failed to start OAuth flow");
+        } finally {
+          const button = document.getElementById("oauth-login-button");
+          if (button) {
+            button.disabled = false;
+            button.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+              <path d="M12 0.5C5.373 0.5 0 5.873 0 12.5c0 5.301 3.438 9.8 8.207 11.387.6.111.82-.26.82-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.757-1.333-1.757-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.419-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 6.844c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 22.092 24 17.592 24 12.5 24 5.873 18.627 0.5 12 0.5z"/>
+            </svg>Login with GitHub`;
+          }
+        }
+      }
+      
+      // GitHub OAuth Flow Implementation
+      async function startGitHubOAuthFlow() {
+        // GitHub OAuth configuration
+        const GITHUB_CLIENT_ID = 'Ov23liKXGtyeKaklFf0Q';
+        const REDIRECT_URI = 'https://bridgy-oauth.netlify.app/github/callback';
+        const SCOPES = ['repo', 'read:user', 'user:email'];
+        
+        // Generate secure state parameter
+        const state = generateSecureState();
+        
+        // Build OAuth URL
+        const authUrl = new URL('https://github.com/login/oauth/authorize');
+        authUrl.searchParams.set('client_id', GITHUB_CLIENT_ID);
+        authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+        authUrl.searchParams.set('scope', SCOPES.join(' '));
+        authUrl.searchParams.set('state', state);
+        authUrl.searchParams.set('response_type', 'code');
+        
+        return new Promise((resolve) => {
+          try {
+            // Open popup window
+            const popup = window.open(
+              authUrl.toString(),
+              'github-oauth',
+              'width=600,height=700,scrollbars=yes,resizable=yes'
+            );
+
+            if (!popup) {
+              resolve({
+                success: false,
+                error: 'Failed to open OAuth popup. Please allow popups for this site.'
+              });
+              return;
+            }
+
+            // Listen for messages from popup
+            const messageHandler = (event) => {
+              if (event.origin !== 'https://bridgy-oauth.netlify.app') {
+                return;
+              }
+
+              if (event.data.type === 'oauth-success') {
+                window.removeEventListener('message', messageHandler);
+                popup.close();
+                resolve({
+                  success: true,
+                  token: event.data.token,
+                  user: event.data.user
+                });
+              } else if (event.data.type === 'oauth-error') {
+                window.removeEventListener('message', messageHandler);
+                popup.close();
+                resolve({
+                  success: false,
+                  error: event.data.error
+                });
+              }
+            };
+
+            window.addEventListener('message', messageHandler);
+
+            // Check if popup was closed manually
+            const checkClosed = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(checkClosed);
+                window.removeEventListener('message', messageHandler);
+                resolve({
+                  success: false,
+                  error: 'OAuth flow was cancelled by user'
+                });
+              }
+            }, 1000);
+
+            // Timeout after 5 minutes
+            setTimeout(() => {
+              if (!popup.closed) {
+                popup.close();
+              }
+              clearInterval(checkClosed);
+              window.removeEventListener('message', messageHandler);
+              resolve({
+                success: false,
+                error: 'OAuth flow timed out'
+              });
+            }, 300000);
+
+          } catch (error) {
+            resolve({
+              success: false,
+              error: error.message || 'Failed to start OAuth flow'
+            });
+          }
+        });
+      }
+      
+      // Generate secure state parameter for OAuth
+      function generateSecureState() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return Array.from(array, byte => {
+          const hex = byte.toString(16);
+          return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+      }
+      
+      function handleOAuthCallback(authData) {
+        if (authData.success && authData.accessToken) {
+          // Fill token field with OAuth token
+          const tokenInput = document.getElementById("config-token");
+          if (tokenInput) {
+            tokenInput.value = authData.accessToken;
+          }
+          
+          // Show success message
+          showNotification("success", "OAuth Success", "Successfully authenticated with GitHub!", 4000);
+          
+          // Optional: Auto-load repositories
+          if (authData.accessToken) {
+            setTimeout(() => {
+              browseRepositories();
+            }, 1000);
+          }
+        } else {
+          showError("OAuth Error", authData.error || "OAuth authentication failed");
+        }
+      }
+
       function saveConfiguration() {
         try {
+          // Get provider first
+          const provider = document.getElementById("config-provider").value;
+          
           // Validate DOM elements exist
-          const urlElement = document.getElementById("config-gitlab-url");
+          const urlElement = provider === 'gitlab' 
+            ? document.getElementById("config-gitlab-url")
+            : document.getElementById("config-github-url");
           const projectIdElement = document.getElementById("config-project-id");
           const filePathElement = document.getElementById("config-file-path");
           const formatElement = document.getElementById("config-export-format");
@@ -2695,13 +3456,13 @@ ${checkboxes}
             throw new Error("Configuration form elements not found");
           }
 
-          let gitlabUrl = urlElement.value.trim();
+          let baseUrl = urlElement.value.trim();
           
           // Auto-prepend https:// if URL doesn't have protocol
-          if (gitlabUrl && !gitlabUrl.startsWith('http://') && !gitlabUrl.startsWith('https://')) {
-            gitlabUrl = 'https://' + gitlabUrl;
+          if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+            baseUrl = 'https://' + baseUrl;
             // Update the input field with the corrected URL
-            urlElement.value = gitlabUrl;
+            urlElement.value = baseUrl;
           }
           
           const projectId = projectIdElement.value.trim();
@@ -2764,19 +3525,29 @@ ${checkboxes}
             return;
           }
 
-          // Validate GitLab URL only if provided (empty is allowed - defaults to gitlab.com)
-          if (gitlabUrl && !SecurityUtils.isValidGitLabURL(gitlabUrl)) {
-            showError("Validation Error", "Invalid GitLab URL. Must be HTTPS and contain 'gitlab' in the domain");
-            return;
+          // Validate URL based on provider
+          if (provider === 'gitlab') {
+            if (baseUrl && !SecurityUtils.isValidGitLabURL(baseUrl)) {
+              showError("Validation Error", "Invalid GitLab URL. Must be HTTPS and contain 'gitlab' in the domain");
+              return;
+            }
+          } else {
+            // GitHub URL validation
+            if (baseUrl && !baseUrl.includes('github')) {
+              showError("Validation Error", "Invalid GitHub URL. Must contain 'github' in the domain");
+              return;
+            }
           }
 
-          window.gitlabSettings = {
-            gitlabUrl: gitlabUrl || "", // Keep empty string to show in UI
+          // Store settings with provider info
+          window.gitSettings = {
+            provider: provider,
+            baseUrl: baseUrl || "", // Keep empty string to show in UI
             projectId: projectId,
             filePath: filePath,
             exportFormat: exportFormat,
             testFilePath: testFilePath,
-            gitlabToken: token,
+            token: token,
             strategy: strategy,
             branchName: branch,
             testBranchName: testBranch,
@@ -2785,17 +3556,37 @@ ${checkboxes}
             savedAt: new Date().toISOString(),
             savedBy: "Current user",
           };
+          
+          // Keep backward compatibility
+          if (provider === 'gitlab') {
+            window.gitlabSettings = {
+              gitlabUrl: baseUrl,
+              projectId: projectId,
+              filePath: filePath,
+              exportFormat: exportFormat,
+              testFilePath: testFilePath,
+              gitlabToken: token,
+              strategy: strategy,
+              branchName: branch,
+              testBranchName: testBranch,
+              saveToken: saveToken,
+              isPersonal: !shareTeam,
+              savedAt: new Date().toISOString(),
+              savedBy: "Current user",
+            };
+          }
 
           parent.postMessage(
             {
               pluginMessage: {
-                type: "save-gitlab-settings",
-                gitlabUrl: gitlabUrl,
+                type: "save-git-settings",
+                provider: provider,
+                baseUrl: baseUrl,
                 projectId: projectId,
                 filePath: filePath,
                 exportFormat: exportFormat,
                 testFilePath: testFilePath,
-                gitlabToken: token,
+                token: token,
                 strategy: strategy,
                 branchName: branch,
                 testBranchName: testBranch,
@@ -2820,19 +3611,48 @@ ${checkboxes}
 
       function loadConfigurationTab() {
         try {
-          if (window.gitlabSettings) {
+          const settings = window.gitSettings || window.gitlabSettings;
+          
+          // Always call onProviderChange to set initial state
+          setTimeout(() => {
+            onProviderChange();
+          }, 100);
+          
+          if (settings) {
+            // Determine provider
+            const provider = settings.provider || 'gitlab';
+            const providerElement = document.getElementById("config-provider");
+            if (providerElement) {
+              providerElement.value = provider;
+              setTimeout(() => {
+                onProviderChange(); // Update UI based on provider
+              }, 150);
+            }
+            
             // Validate all elements exist before setting values
             const elements = {
-              'config-gitlab-url': window.gitlabSettings.gitlabUrl || "",
-              'config-project-id': window.gitlabSettings.projectId || "",
-              'config-file-path': window.gitlabSettings.filePath || "src/variables.css",
-              'config-export-format': window.gitlabSettings.exportFormat || "css",
-              'config-test-file-path': window.gitlabSettings.testFilePath || "components/{componentName}/{componentName}.spec.ts",
-              'config-token': window.gitlabSettings.gitlabToken || "",
-              'config-strategy': window.gitlabSettings.strategy || "merge-request",
-              'config-branch': window.gitlabSettings.branchName || "feature/variables",
-              'config-test-branch': window.gitlabSettings.testBranchName || "feature/component-tests"
+              'config-project-id': settings.projectId || "",
+              'config-file-path': settings.filePath || "src/variables.css",
+              'config-export-format': settings.exportFormat || "css",
+              'config-test-file-path': settings.testFilePath || "components/{componentName}/{componentName}.spec.ts",
+              'config-token': settings.token || settings.gitlabToken || "",
+              'config-strategy': settings.strategy || "merge-request",
+              'config-branch': settings.branchName || "feature/variables",
+              'config-test-branch': settings.testBranchName || "feature/component-tests"
             };
+            
+            // Set URL based on provider
+            if (provider === 'gitlab') {
+              const gitlabUrlElement = document.getElementById('config-gitlab-url');
+              if (gitlabUrlElement) {
+                gitlabUrlElement.value = settings.baseUrl || settings.gitlabUrl || "";
+              }
+            } else {
+              const githubUrlElement = document.getElementById('config-github-url');
+              if (githubUrlElement) {
+                githubUrlElement.value = settings.baseUrl || "";
+              }
+            }
 
             for (const [id, value] of Object.entries(elements)) {
               const element = document.getElementById(id);
@@ -3272,13 +4092,21 @@ ${checkboxes}
           return;
         }
 
-        let html = "";
+        let html = `
+          <div class="units-section" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); margin-bottom: 24px;">
+            <h4 style="color: #22c55e; margin-bottom: 12px;">⚡ Settings Hierarchy</h4>
+            <div style="color: rgba(255, 255, 255, 0.85); font-size: 13px; line-height: 1.5;">
+              <strong>1. Group Settings</strong> (highest priority) → <strong>2. Collection Settings</strong> → <strong>3. Smart Defaults</strong> (fallback)
+              <br><span style="color: rgba(255, 255, 255, 0.6);">More specific settings always override general ones</span>
+            </div>
+          </div>
+        `;
 
         if (data.collections.length > 0) {
           html += `
             <div class="units-section">
               <h4>Collections</h4>
-              <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px; margin-bottom: 16px;">Set default units for entire collections. These override global defaults.</p>
+              <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px; margin-bottom: 16px;">Set default units for entire collections. These override global smart defaults for all variables in the collection.</p>
           `;
 
           data.collections.forEach((collection) => {
@@ -3286,9 +4114,9 @@ ${checkboxes}
               <div class="unit-setting-row">
                 <div class="unit-setting-label">${collection.name}</div>
                 <div class="unit-setting-control">
-                  <span class="default-unit-label">Default: ${
-                    collection.defaultUnit
-                  }</span>
+                  <span class="default-unit-label" title="This unit will be used when 'Smart defaults' is selected">
+                    Smart default: <strong>${collection.defaultUnit}</strong>
+                  </span>
                   <select class="unit-dropdown" data-type="collection" data-name="${
                     collection.name
                   }">
@@ -3296,7 +4124,7 @@ ${checkboxes}
                       (unit) =>
                         `<option value="${unit}" ${
                           unit === collection.currentUnit ? "selected" : ""
-                        }>${unit === "" ? "Smart defaults" : unit}</option>`
+                        }>${unit === "" ? `Smart defaults (${collection.defaultUnit})` : unit}</option>`
                     ).join("")}
                   </select>
                 </div>
@@ -3311,7 +4139,7 @@ ${checkboxes}
           html += `
             <div class="units-section">
               <h4>Groups</h4>
-              <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px; margin-bottom: 16px;">Set specific units for variable groups. These override collection settings.</p>
+              <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px; margin-bottom: 16px;">Set specific units for variable groups. These have the highest priority and override both collection settings and smart defaults.</p>
           `;
 
           const groupsByCollection = {};
@@ -3335,9 +4163,9 @@ ${checkboxes}
                 <div class="unit-setting-row">
                   <div class="unit-setting-label">${group.groupName}</div>
                   <div class="unit-setting-control">
-                    <span class="default-unit-label">Default: ${
-                      group.defaultUnit
-                    }</span>
+                    <span class="default-unit-label" title="This unit will be used when 'Smart defaults' is selected">
+                      Smart default: <strong>${group.defaultUnit}</strong>
+                    </span>
                     <select class="unit-dropdown" data-type="group" data-collection="${
                       group.collectionName
                     }" data-group="${group.groupName}">
@@ -3345,7 +4173,7 @@ ${checkboxes}
                         (unit) =>
                           `<option value="${unit}" ${
                             unit === group.currentUnit ? "selected" : ""
-                          }>${unit === "" ? "Smart defaults" : unit}</option>`
+                          }>${unit === "" ? `Smart defaults (${group.defaultUnit})` : unit}</option>`
                       ).join("")}
                     </select>
                   </div>
@@ -3363,37 +4191,83 @@ ${checkboxes}
           <div class="units-section" style="background: rgba(139, 92, 246, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(139, 92, 246, 0.3);">
             <h4 style="color: white; margin-bottom: 16px;">📋 Smart Default Rules</h4>
             <p style="color: rgba(255, 255, 255, 0.85); font-size: 14px; margin-bottom: 16px;">
-              When no custom unit is set, these rules determine the unit automatically based on variable names:
+              When "Smart defaults" is selected, these rules determine the unit automatically based on variable names:
             </p>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
               <div>
-                <h5 style="margin-bottom: 8px; color: #c4b5fd;">Unitless Values</h5>
+                <h5 style="margin-bottom: 8px; color: #c4b5fd;">Typography</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code style="color: #fbbf24;">font-size</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div><code style="color: #fbbf24;">text-*</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div><code style="color: #fbbf24;">letter-spacing</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">Scalable with root font</div>
+                </div>
+              </div>
+              
+              <div>
+                <h5 style="margin-bottom: 8px; color: #c4b5fd;">Spacing</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code style="color: #fbbf24;">margin</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div><code style="color: #fbbf24;">padding</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div><code style="color: #fbbf24;">gap</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div><code style="color: #fbbf24;">space</code> → <span style="color: #06d6a0;">rem</span></div>
+                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">Consistent with typography</div>
+                </div>
+              </div>
+
+              <div>
+                <h5 style="margin-bottom: 8px; color: #c4b5fd;">Unitless</h5>
                 <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
                   <div><code style="color: #fbbf24;">opacity</code> → <span style="color: #22c55e;">none</span></div>
                   <div><code style="color: #fbbf24;">z-index</code> → <span style="color: #22c55e;">none</span></div>
                   <div><code style="color: #fbbf24;">line-height</code> → <span style="color: #22c55e;">none</span></div>
                   <div><code style="color: #fbbf24;">font-weight</code> → <span style="color: #22c55e;">none</span></div>
-                  <div><code style="color: #fbbf24;">flex</code> → <span style="color: #22c55e;">none</span></div>
-                  <div><code style="color: #fbbf24;">order</code> → <span style="color: #22c55e;">none</span></div>
+                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">No units needed</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <div>
+                <h5 style="margin-bottom: 8px; color: #c4b5fd;">Viewport</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code style="color: #fbbf24;">*-width</code> → <span style="color: #f59e0b;">vw</span></div>
+                  <div><code style="color: #fbbf24;">*-height</code> → <span style="color: #f59e0b;">vh</span></div>
+                  <div><code style="color: #fbbf24;">viewport</code> → <span style="color: #f59e0b;">vw/vh</span></div>
+                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">Responsive to viewport</div>
                 </div>
               </div>
               
               <div>
+                <h5 style="margin-bottom: 8px; color: #c4b5fd;">Relative</h5>
+                <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code style="color: #fbbf24;">container-*</code> → <span style="color: #ef4444;">%</span></div>
+                  <div><code style="color: #fbbf24;">sidebar-*</code> → <span style="color: #ef4444;">%</span></div>
+                  <div><code style="color: #fbbf24;">radius-pill</code> → <span style="color: #ef4444;">%</span></div>
+                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">Relative to parent</div>
+                </div>
+              </div>
+
+              <div>
                 <h5 style="margin-bottom: 8px; color: #c4b5fd;">Default</h5>
                 <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
+                  <div><code style="color: #fbbf24;">border</code> → <span style="color: #a78bfa;">px</span></div>
+                  <div><code style="color: #fbbf24;">shadow</code> → <span style="color: #a78bfa;">px</span></div>
                   <div><code style="color: #fbbf24;">everything else</code> → <span style="color: #a78bfa;">px</span></div>
-                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">width, height, border, padding, margin, radius, gap, etc.</div>
+                  <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">Precise control</div>
                 </div>
               </div>
             </div>
             
-            <div style="margin-top: 16px; padding: 12px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(5px); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; color: rgba(255, 255, 255, 0.85);">
-              <strong style="color: #c4b5fd;">Examples:</strong> 
-              <code style="color: #fbbf24;">button-opacity</code> → <span style="color: #22c55e;">none</span>, 
-              <code style="color: #fbbf24;">min-width-s</code> → <span style="color: #a78bfa;">px</span>, 
-              <code style="color: #fbbf24;">border-radius</code> → <span style="color: #a78bfa;">px</span>, 
-              <code style="color: #fbbf24;">gap-large</code> → <span style="color: #a78bfa;">px</span>
+            <div style="margin-top: 16px; padding: 12px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(5px); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; color: rgba(255, 255, 255, 0.85); line-height: 1.6;">
+              <strong style="color: #c4b5fd;">Real Examples:</strong><br>
+              <code style="color: #fbbf24;">heading-font-size</code> → <span style="color: #06d6a0;">rem</span> (typography),
+              <code style="color: #fbbf24;">section-padding</code> → <span style="color: #06d6a0;">rem</span> (spacing),<br>
+              <code style="color: #fbbf24;">button-opacity</code> → <span style="color: #22c55e;">none</span> (unitless),
+              <code style="color: #fbbf24;">hero-full-width</code> → <span style="color: #f59e0b;">vw</span> (viewport),<br>
+              <code style="color: #fbbf24;">sidebar-width</code> → <span style="color: #ef4444;">%</span> (relative),
+              <code style="color: #fbbf24;">border-width</code> → <span style="color: #a78bfa;">px</span> (default)
             </div>
           </div>
         `;
@@ -3571,3 +4445,1600 @@ ${checkboxes}
           console.error(`Error toggling variables list ${groupIndex}:`, error);
         }
       }
+
+      // OAuth Functions
+      async function startOAuthFlow() {
+        try {
+          const provider = document.getElementById("config-provider").value;
+          
+          if (provider !== 'github') {
+            showError("OAuth Error", "OAuth authentication is only available for GitHub. Please use Personal Access Token for GitLab.");
+            return;
+          }
+
+          console.log('🚀 Starting GitHub OAuth flow...');
+
+          // Get UI elements
+          const oauthButton = document.getElementById("oauth-login-button");
+          const statusEl = document.getElementById("oauth-status");
+          
+          // Save original button state
+          let originalButtonHTML = '';
+          if (oauthButton) {
+            originalButtonHTML = oauthButton.innerHTML;
+            oauthButton.disabled = true;
+            oauthButton.innerHTML = `
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                <path d="M12 2 A10 10 0 0 1 22 12" stroke-opacity="1"/>
+              </svg>
+              Connecting...
+            `;
+            oauthButton.style.cssText += 'opacity: 0.7; cursor: wait;';
+          }
+
+          // Show loading state
+          if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.innerHTML = `
+              <div style="
+                color: #fbbf24;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                animation: pulse 2s ease-in-out infinite;
+              ">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                  <path d="M12 2 A10 10 0 0 1 22 12" stroke-opacity="1" style="animation: spin 1s linear infinite;"/>
+                </svg>
+                Opening secure authentication window...
+              </div>
+            `;
+          }
+
+          const result = await startGitHubOAuthFlow();
+          
+          if (result.success && result.token && result.user) {
+            console.log('✅ OAuth flow completed successfully');
+            
+            // Update UI with token
+            const tokenInput = document.getElementById("config-token");
+            if (tokenInput) {
+              tokenInput.value = result.token;
+              // Add visual feedback to token field
+              tokenInput.style.borderColor = '#22c55e';
+              setTimeout(() => {
+                tokenInput.style.borderColor = '';
+              }, 2000);
+            }
+            
+            // Show success message with user info
+            if (statusEl) {
+              statusEl.innerHTML = `
+                <div style="
+                  color: #22c55e;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 12px;
+                  animation: slideIn 0.3s ease-out;
+                ">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                  Connected as <strong>${result.user.login}</strong>
+                </div>
+              `;
+            }
+
+            // Reset button to success state
+            if (oauthButton) {
+              oauthButton.disabled = false;
+              oauthButton.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                  <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" fill="none"/>
+                </svg>
+                Connected
+              `;
+              oauthButton.style.cssText += 'background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); opacity: 1;';
+              
+              // Reset after 3 seconds
+              setTimeout(() => {
+                oauthButton.innerHTML = originalButtonHTML;
+                oauthButton.style.cssText = '';
+              }, 3000);
+            }
+            
+            showSuccess("OAuth Success", `Successfully connected as ${result.user.login}! Your GitHub token has been added to the settings.`);
+            
+          } else {
+            console.error('❌ OAuth flow failed:', result.error);
+            
+            // Show error with help option for popup blocker
+            if (statusEl) {
+              const helpButton = result.errorType === 'POPUP_BLOCKED' || result.errorType === 'POPUP_FAILED'
+                ? `<button 
+                    onclick="window.showPopupBlockerHelp()" 
+                    style="
+                      margin-left: 8px;
+                      padding: 4px 8px;
+                      background: rgba(139, 92, 246, 0.2);
+                      border: 1px solid rgba(139, 92, 246, 0.3);
+                      color: #c4b5fd;
+                      border-radius: 4px;
+                      font-size: 11px;
+                      cursor: pointer;
+                    "
+                  >
+                    Show Help
+                  </button>`
+                : '';
+                
+              statusEl.innerHTML = `
+                <div style="
+                  color: #ef4444;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 12px;
+                ">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  ${result.error}
+                  ${helpButton}
+                </div>
+              `;
+            }
+            
+            // Reset button
+            if (oauthButton) {
+              oauthButton.disabled = false;
+              oauthButton.innerHTML = originalButtonHTML;
+              oauthButton.style.cssText = '';
+            }
+            
+            // Show error notification (only if help modal wasn't shown)
+            if (!result.showHelp) {
+              showError("OAuth Error", result.error || "Failed to authenticate with GitHub");
+            }
+          }
+          
+        } catch (error) {
+          console.error('❌ OAuth flow error:', error);
+          
+          const statusEl = document.getElementById("oauth-status");
+          const oauthButton = document.getElementById("oauth-login-button");
+          
+          if (statusEl) {
+            statusEl.innerHTML = `
+              <div style="color: #ef4444; font-size: 12px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; margin-right: 4px;">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                ${error.message}
+              </div>
+            `;
+          }
+          
+          // Reset button
+          if (oauthButton) {
+            oauthButton.disabled = false;
+            oauthButton.innerHTML = `
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/>
+              </svg>
+              OAuth
+            `;
+            oauthButton.style.cssText = '';
+          }
+          
+          showError("OAuth Error", error.message || "Failed to start OAuth flow");
+        }
+      }
+
+      // ========================================
+      // OAuth Helper Functions
+      // ========================================
+
+      /**
+       * Detect current browser
+       * @returns {string} Browser name (chrome, firefox, safari, edge, other)
+       */
+      function detectBrowser() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (userAgent.indexOf('edg') > -1) return 'edge';
+        if (userAgent.indexOf('chrome') > -1) return 'chrome';
+        if (userAgent.indexOf('safari') > -1) return 'safari';
+        if (userAgent.indexOf('firefox') > -1) return 'firefox';
+        return 'other';
+      }
+
+      /**
+       * Test if popup blocker is active
+       * @returns {Promise<{blocked: boolean, reason?: string}>}
+       */
+      async function detectPopupBlocker() {
+        return new Promise((resolve) => {
+          try {
+            // Try a simpler popup test that's less likely to be blocked
+            const testPopup = window.open('about:blank', 'test', 'width=1,height=1');
+            
+            if (!testPopup || testPopup.closed || typeof testPopup.closed === 'undefined') {
+              resolve({ blocked: true, reason: 'popup_blocked_by_browser' });
+              return;
+            }
+
+            // Close the test popup and report success
+            setTimeout(() => {
+              try {
+                testPopup.close();
+                resolve({ blocked: false });
+              } catch (e) {
+                resolve({ blocked: false }); // Assume it worked if we can't check
+              }
+            }, 50);
+          } catch (error) {
+            resolve({ blocked: false }); // Don't block OAuth for detection errors
+          }
+        });
+      }
+
+      /**
+       * Get browser-specific instructions for enabling popups
+       * @param {string} browser Browser name
+       * @returns {string} HTML instructions
+       */
+      function getPopupInstructions(browser) {
+        const instructions = {
+          chrome: `
+            <strong>🌐 Chrome:</strong>
+            <ol style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+              <li>Look for the popup blocked icon <strong>🚫</strong> in the address bar</li>
+              <li>Click on it and select "Always allow popups from figma.com"</li>
+              <li>Click "Done" and try the OAuth button again</li>
+            </ol>
+          `,
+          firefox: `
+            <strong>🦊 Firefox:</strong>
+            <ol style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+              <li>Look for the preferences icon in the address bar</li>
+              <li>Click "Show Blocked Pop-ups"</li>
+              <li>Select "Allow pop-ups for figma.com"</li>
+              <li>Try the OAuth button again</li>
+            </ol>
+          `,
+          safari: `
+            <strong>🧭 Safari:</strong>
+            <ol style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+              <li>Go to Safari → Preferences → Websites</li>
+              <li>Select "Pop-up Windows" in the left sidebar</li>
+              <li>Find figma.com and set it to "Allow"</li>
+              <li>Try the OAuth button again</li>
+            </ol>
+          `,
+          edge: `
+            <strong>🌊 Edge:</strong>
+            <ol style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+              <li>Look for the popup blocked icon in the address bar</li>
+              <li>Click on it and select "Always allow"</li>
+              <li>Try the OAuth button again</li>
+            </ol>
+          `,
+          other: `
+            <strong>General Instructions:</strong>
+            <ol style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+              <li>Look for a popup blocked notification in your browser</li>
+              <li>Add figma.com to your allowed sites</li>
+              <li>Try the OAuth button again</li>
+            </ol>
+          `
+        };
+        return instructions[browser] || instructions.other;
+      }
+
+      /**
+       * Show popup blocker help modal
+       */
+      function showPopupBlockerHelp() {
+        const browser = detectBrowser();
+        const instructions = getPopupInstructions(browser);
+        
+        showCustomModal(
+          '🔓 Enable Popups for OAuth',
+          `
+            <div style="text-align: left; color: rgba(255, 255, 255, 0.9);">
+              <p style="margin-bottom: 16px;">
+                To use GitHub OAuth login, you need to allow popups for this site.
+              </p>
+              
+              ${instructions}
+              
+              <div style="
+                background: rgba(139, 92, 246, 0.1);
+                border: 1px solid rgba(139, 92, 246, 0.3);
+                border-radius: 8px;
+                padding: 12px;
+                margin-top: 16px;
+              ">
+                <strong style="color: #c4b5fd;">💡 Why popups?</strong><br>
+                <span style="font-size: 13px; color: rgba(255, 255, 255, 0.8);">
+                  OAuth requires a secure popup window for authentication. 
+                  This is a one-time setup and improves security.
+                </span>
+              </div>
+
+              <div style="
+                background: rgba(34, 197, 94, 0.1);
+                border: 1px solid rgba(34, 197, 94, 0.3);
+                border-radius: 8px;
+                padding: 12px;
+                margin-top: 12px;
+              ">
+                <strong style="color: #22c55e;">✨ Alternative Options:</strong><br>
+                <span style="font-size: 13px; color: rgba(255, 255, 255, 0.8); display: block; margin-bottom: 8px;">
+                  1. Use a Personal Access Token instead of OAuth - just enter your GitHub token in the field above.
+                </span>
+                <span style="font-size: 13px; color: rgba(255, 255, 255, 0.8);">
+                  2. Or open GitHub OAuth in a new tab manually.
+                </span>
+              </div>
+            </div>
+          `,
+          [
+            {
+              text: 'Try Again',
+              primary: true,
+              action: () => startOAuthFlow()
+            },
+            {
+              text: 'Open in Browser',
+              action: () => startOAuthFlow()
+            },
+            {
+              text: 'Close',
+              action: () => {} // Just close
+            }
+          ]
+        );
+      }
+
+      // openOAuthInNewTab removed - now using figma.openExternal via parent.postMessage
+
+      /**
+       * Show a custom modal dialog
+       * @param {string} title Modal title
+       * @param {string} content HTML content
+       * @param {Array<{text: string, primary?: boolean, action: function}>} buttons Button configuration
+       */
+      function showCustomModal(title, content, buttons = []) {
+        // Create modal overlay
+        const modalId = 'custom-modal-' + Date.now();
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        
+        modal.innerHTML = `
+          <div class="modal-content" style="max-width: 550px;">
+            <button class="close-modal" onclick="document.getElementById('${modalId}').remove()">×</button>
+            <div class="modal-header">
+              <h3>${title}</h3>
+            </div>
+            <div class="modal-body">
+              ${content}
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
+              ${buttons.map((btn, idx) => `
+                <button 
+                  id="${modalId}-btn-${idx}"
+                  class="${btn.primary ? 'btn-primary' : ''}"
+                  style="${btn.primary ? 'background: #667eea;' : ''}"
+                >
+                  ${btn.text}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Attach button handlers
+        buttons.forEach((btn, idx) => {
+          const btnEl = document.getElementById(`${modalId}-btn-${idx}`);
+          if (btnEl) {
+            btnEl.onclick = () => {
+              btn.action && btn.action();
+              modal.remove();
+            };
+          }
+        });
+      }
+
+      // ========================================
+      // Enhanced OAuth Flow
+      // ========================================
+
+      async function startGitHubOAuthFlow() {
+        const GITHUB_CLIENT_ID = 'Ov23liKXGtyeKaklFf0Q';
+        const REDIRECT_URI = 'https://bridgy-oauth.netlify.app/github/callback';
+        const SCOPES = ['repo', 'read:user', 'user:email'];
+
+        return new Promise(async (resolve) => {
+          try {
+            console.log('🚀 Starting GitHub OAuth flow...');
+
+            // Generate secure state for CSRF protection
+            const state = generateSecureState();
+            
+            // Build OAuth URL
+            const params = new URLSearchParams({
+              client_id: GITHUB_CLIENT_ID,
+              redirect_uri: REDIRECT_URI,
+              scope: SCOPES.join(' '),
+              state: state,
+              response_type: 'code'
+            });
+
+            const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`;
+            
+            console.log('🔗 Opening OAuth in external browser:', authUrl);
+
+            // Use Figma's proper external URL opening
+            // This opens the URL in the user's default browser outside of Figma
+            parent.postMessage({ pluginMessage: { type: 'open-external', url: authUrl } }, '*');
+            
+            // Show user-friendly instructions
+            showNotification(
+              '🌐 GitHub OAuth opened in your browser. After authorization, copy the token from the callback page and paste it above.',
+              'info',
+              12000
+            );
+
+            // Since we can't get the callback in Figma plugins, resolve immediately with instructions
+            resolve({
+              success: true,
+              requiresManualCopy: true,
+              message: 'OAuth opened in external browser. Please copy the token manually.',
+              authUrl: authUrl
+            });
+
+          } catch (error) {
+            console.error('💥 OAuth flow error:', error);
+            resolve({
+              success: false,
+              error: error.message || 'An unexpected error occurred',
+              errorType: 'UNKNOWN_ERROR'
+            });
+          }
+        });
+      }
+
+
+      function generateSecureState() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return Array.from(array, byte => {
+          const hex = byte.toString(16);
+          return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+      }
+
+      // Initialize Variable Import Tab
+      function initializeVariableImportTab() {
+        const container = document.getElementById('variable-import-container');
+        if (!container) return;
+
+        // Check if already initialized
+        if (container.classList.contains('initialized')) return;
+        container.classList.add('initialized');
+
+        // Create Variable Import UI
+        container.innerHTML = `
+          <div class="variable-import-tab">
+            <div class="variable-import-header">
+              <h2>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Variable Import
+              </h2>
+              <p>Import design tokens from CSS or JSON files and sync them with Figma Variables.</p>
+            </div>
+
+            <div class="import-section">
+              <h3>Input Design Tokens</h3>
+              <div class="input-tabs">
+                <button class="input-tab active" data-input="manual">Manual Input</button>
+                <button class="input-tab" data-input="file">File Upload</button>
+              </div>
+              
+              <div class="input-content active" id="manual-input">
+                <div class="input-format-selector">
+                  <label>
+                    <input type="radio" name="format" value="css" checked>
+                    CSS Variables
+                  </label>
+                  <label>
+                    <input type="radio" name="format" value="json">
+                    JSON Tokens
+                  </label>
+                </div>
+                <textarea 
+                  id="token-input" 
+                  placeholder=":root {\\n  --primary-500: #8b5cf6;\\n  --space-4: 1rem;\\n  --text-lg: 1.125rem;\\n}"
+                ></textarea>
+                <div class="input-actions">
+                  <button class="btn btn-primary" onclick="console.log('Button clicked!'); parseTokenInput();">Parse Tokens</button>
+                  <button class="btn btn-secondary" onclick="loadSampleData()">Load Sample</button>
+                  <button class="btn btn-secondary" onclick="clearInput()">Clear</button>
+                </div>
+                <div id="parse-status" class="parse-status" style="display: none;"></div>
+              </div>
+              
+              <div class="input-content" id="file-input">
+                <div class="file-upload-area" onclick="document.getElementById('file-picker').click()">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                  </svg>
+                  <p>Click to select or drag & drop your token file</p>
+                  <small>Supports .css, .json files</small>
+                </div>
+                <input type="file" id="file-picker" accept=".css,.json" style="display: none;" onchange="handleFileUpload(event)">
+              </div>
+            </div>
+
+            <div id="preview-section" class="import-section" style="display: none;">
+              <h3>Preview & Configure</h3>
+              <div id="preview-content">
+                <!-- Dynamic content will be inserted here -->
+              </div>
+            </div>
+
+            <div id="import-section" class="import-section" style="display: none;">
+              <h3>Import to Figma</h3>
+              <div id="import-content">
+                <!-- Dynamic content will be inserted here -->
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Initialize input tab switching
+        container.querySelectorAll('.input-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            container.querySelectorAll('.input-tab').forEach(t => t.classList.remove('active'));
+            container.querySelectorAll('.input-content').forEach(c => c.classList.remove('active'));
+            
+            tab.classList.add('active');
+            const target = tab.dataset.input + '-input';
+            container.querySelector('#' + target).classList.add('active');
+          });
+        });
+      }
+
+      // Test function to verify JavaScript is working
+      window.testFunction = function() {
+        console.log('Test function called successfully!');
+        alert('Test function works!');
+      };
+      
+      // Variable Import helper functions
+      window.parseTokenInput = function() {
+        console.log('[DEBUG] parseTokenInput function called');
+        
+        const textarea = document.getElementById('token-input');
+        const format = document.querySelector('input[name="format"]:checked');
+        const statusDiv = document.getElementById('parse-status');
+        
+        console.log('[DEBUG] Elements:', {
+          textarea: textarea,
+          hasTextarea: !!textarea,
+          textareaValue: textarea ? textarea.value : 'null',
+          textareaLength: textarea ? textarea.value.length : 'null',
+          format: format,
+          formatValue: format ? format.value : 'null',
+          statusDiv: statusDiv
+        });
+        
+        if (!textarea || !textarea.value.trim()) {
+          console.log('[DEBUG] No textarea or empty value');
+          showStatus('Please enter some tokens to parse', 'warning');
+          return;
+        }
+
+        console.log('[DEBUG] Starting parse process...');
+        showStatus('Parsing tokens...', 'info');
+        
+        // Simple token parsing simulation
+        setTimeout(() => {
+          try {
+            console.log('[DEBUG] In setTimeout, format value:', format ? format.value : 'null');
+            console.log('[DEBUG] CSS content to parse:', textarea.value.substring(0, 200) + '...');
+            
+            let tokens = [];
+            if (format && format.value === 'css') {
+              console.log('[DEBUG] Calling parseCSSTokens...');
+              tokens = parseCSSTokens(textarea.value);
+              console.log('[DEBUG] parseCSSTokens returned:', tokens.length, 'tokens');
+            } else {
+              console.log('[DEBUG] Calling parseJSONTokens...');
+              tokens = parseJSONTokens(textarea.value);
+              console.log('[DEBUG] parseJSONTokens returned:', tokens.length, 'tokens');
+            }
+            console.log('[DEBUG] Final tokens array:', tokens);
+            
+            // Resolve dependencies for variable references
+            const sortedTokens = resolveTokenDependencies(tokens);
+            console.log('[DEBUG] Dependency-resolved tokens:', sortedTokens.length);
+            
+            // Store tokens globally for import
+            window.parsedTokens = sortedTokens;
+            console.log('[DEBUG] Stored parsedTokens:', window.parsedTokens);
+            
+            showStatus(`Successfully parsed ${tokens.length} tokens (${sortedTokens.filter(t => t.isAlias).length} with references)`, 'success');
+            showPreview(sortedTokens);
+          } catch (error) {
+            console.error('[DEBUG] Parse error:', error);
+            showStatus(`Parse error: ${error.message}`, 'error');
+          }
+        }, 500);
+      };
+
+      window.loadSampleData = function() {
+        const sampleCSS = `:root {
+  /* Primary Colors */
+  --primary-50: #f0f9ff;
+  --primary-100: #e0e7ff;
+  --primary-500: #8b5cf6;
+  --primary-600: #7c3aed;
+  
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --space-8: 2rem;
+  
+  /* Typography */
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+}`;
+        document.getElementById('token-input').value = sampleCSS;
+      };
+
+      window.clearInput = function() {
+        document.getElementById('token-input').value = '';
+        document.getElementById('parse-status').style.display = 'none';
+        document.getElementById('preview-section').style.display = 'none';
+        document.getElementById('import-section').style.display = 'none';
+      };
+
+      window.handleFileUpload = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('token-input').value = e.target.result;
+          // Switch to manual input tab to show the content
+          document.querySelector('.input-tab[data-input="manual"]').click();
+        };
+        reader.readAsText(file);
+      };
+
+      function showStatus(message, type) {
+        const statusDiv = document.getElementById('parse-status');
+        statusDiv.className = `parse-status ${type}`;
+        statusDiv.textContent = message;
+        statusDiv.style.display = 'block';
+      }
+
+      function extractVariableReferences(value) {
+        const references = [];
+        // Match var(--variable-name) patterns
+        const varPattern = /var\(\s*--([^,)]+)(?:\s*,\s*([^)]*))?\s*\)/g;
+        let match;
+        
+        while ((match = varPattern.exec(value)) !== null) {
+          references.push(match[1].trim()); // Extract variable name without --
+        }
+        
+        return references;
+      }
+
+      function resolveTokenDependencies(tokens) {
+        // Create a map of token names to tokens
+        const tokenMap = new Map();
+        tokens.forEach(token => tokenMap.set(token.name, token));
+        
+        // Sort tokens by dependency order (dependencies first)
+        const visited = new Set();
+        const visiting = new Set();
+        const sorted = [];
+        
+        function visit(tokenName) {
+          if (visited.has(tokenName)) return;
+          if (visiting.has(tokenName)) {
+            console.warn('Circular dependency detected for token:', tokenName);
+            return;
+          }
+          
+          visiting.add(tokenName);
+          const token = tokenMap.get(tokenName);
+          
+          if (token && token.references) {
+            for (const ref of token.references) {
+              if (tokenMap.has(ref)) {
+                visit(ref);
+              }
+            }
+          }
+          
+          visiting.delete(tokenName);
+          visited.add(tokenName);
+          if (token) sorted.push(token);
+        }
+        
+        // Visit all tokens
+        tokens.forEach(token => visit(token.name));
+        
+        return sorted;
+      }
+
+      function parseCSSTokens(css) {
+        console.log('[DEBUG] parseCSSTokens called with CSS length:', css.length);
+        console.log('[DEBUG] First 200 chars of input:', css.substring(0, 200));
+        
+        const tokens = [];
+        
+        // Clean up CSS first - remove comments but preserve structure
+        const cleanedCSS = css
+          .replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
+          .replace(/^\s*\/\/.*$/gm, ''); // Remove // comments
+        
+        console.log('[DEBUG] After cleaning, CSS length:', cleanedCSS.length);
+        console.log('[DEBUG] First 200 chars of cleaned CSS:', cleanedCSS.substring(0, 200));
+        
+        // Manual parsing approach for better handling of edge cases
+        let i = 0;
+        while (i < cleanedCSS.length) {
+          // Find the start of a CSS variable
+          const varStart = cleanedCSS.indexOf('--', i);
+          if (varStart === -1) {
+            console.log('[DEBUG] No more CSS variables found from position', i);
+            break;
+          }
+          console.log('[DEBUG] Found CSS variable at position', varStart);
+          
+          // Find the colon
+          const colonIndex = cleanedCSS.indexOf(':', varStart);
+          if (colonIndex === -1) {
+            i = varStart + 2;
+            continue;
+          }
+          
+          // Extract variable name
+          const varName = cleanedCSS.substring(varStart + 2, colonIndex).trim();
+          if (!varName) {
+            i = colonIndex + 1;
+            continue;
+          }
+          
+          // Find the value end by tracking quotes and parentheses
+          let valueStart = colonIndex + 1;
+          let valueEnd = valueStart;
+          let inDoubleQuote = false;
+          let inSingleQuote = false;
+          let parenDepth = 0;
+          
+          while (valueEnd < cleanedCSS.length) {
+            const char = cleanedCSS[valueEnd];
+            const prevChar = valueEnd > 0 ? cleanedCSS[valueEnd - 1] : '';
+            
+            // Handle quotes (check for escaping)
+            if (char === '"' && prevChar !== '\\') {
+              inDoubleQuote = !inDoubleQuote;
+            } else if (char === "'" && prevChar !== '\\') {
+              inSingleQuote = !inSingleQuote;
+            }
+            
+            // Handle parentheses when not in quotes
+            if (!inDoubleQuote && !inSingleQuote) {
+              if (char === '(') parenDepth++;
+              else if (char === ')') parenDepth--;
+              
+              // End of value found
+              if (char === ';' && parenDepth === 0) {
+                break;
+              }
+              
+              // Also end at closing brace if not in a value
+              if (char === '}' && parenDepth === 0) {
+                break;
+              }
+            }
+            
+            valueEnd++;
+          }
+          
+          // Extract and clean the value
+          const value = cleanedCSS.substring(valueStart, valueEnd).trim();
+          console.log('[DEBUG] Parsed variable:', varName, '=', value);
+          if (value) {
+            const token = {
+              name: varName,
+              value: value,
+              type: detectTokenType(value, varName),
+              // Detect if this token references other variables
+              references: extractVariableReferences(value),
+              isAlias: value.trim().startsWith('var(') && value.trim().match(/^var\([^)]+\)$/)
+            };
+            tokens.push(token);
+            console.log('[DEBUG] Added token:', token);
+          }
+          
+          i = valueEnd + 1;
+        }
+        
+        console.log('[DEBUG] Final parsed CSS tokens:', tokens.length, tokens);
+        
+        if (tokens.length === 0) {
+          console.log('[DEBUG] No tokens found, throwing error');
+          throw new Error('No valid CSS custom properties found');
+        }
+        
+        return tokens;
+      }
+
+      function parseJSONTokens(json) {
+        const tokens = [];
+        const data = JSON.parse(json);
+        
+        function traverse(obj, path = []) {
+          for (const [key, value] of Object.entries(obj)) {
+            if (typeof value === 'object' && value !== null) {
+              traverse(value, [...path, key]);
+            } else {
+              const tokenName = [...path, key].join('-');
+              tokens.push({
+                name: tokenName,
+                value: value.toString(),
+                type: detectTokenType(value.toString(), tokenName)
+              });
+            }
+          }
+        }
+        
+        traverse(data);
+        return tokens;
+      }
+
+      function detectTokenType(value, name = '') {
+        // Normalize value and name for analysis
+        const cleanValue = value.trim();
+        const lowerName = name.toLowerCase();
+        
+        // Number detection - check value first to prioritize actual content
+        const numberPatterns = [
+          /^\d+(\.\d+)?$/,                   // Plain numbers: 16, 1.5
+          /^\d+(\.\d+)?(px|rem|em|ch|ex|vh|vw|vmin|vmax|%|pt|pc|in|cm|mm)$/i,  // CSS units
+          /^-?\d+(\.\d+)?$/,                 // Negative numbers
+          /^\d+(\.\d+)?e[+-]?\d+$/,         // Scientific notation
+        ];
+        
+        const isNumberValue = numberPatterns.some(pattern => pattern.test(cleanValue));
+        
+        if (isNumberValue) {
+          return 'NUMBER';
+        }
+        
+        // Color detection - more comprehensive patterns
+        const colorPatterns = [
+          /^#[0-9a-fA-F]{3}$/,              // #fff
+          /^#[0-9a-fA-F]{6}$/,              // #ffffff
+          /^#[0-9a-fA-F]{8}$/,              // #ffffffff (with alpha)
+          /^rgb\s*\(/,                       // rgb(255, 255, 255)
+          /^rgba\s*\(/,                      // rgba(255, 255, 255, 0.5)
+          /^hsl\s*\(/,                       // hsl(180, 50%, 50%)
+          /^hsla\s*\(/,                      // hsla(180, 50%, 50%, 0.5)
+          /^var\(--[\w-]+\)$/,               // CSS variables referring to colors
+        ];
+        
+        // Check if value matches color patterns
+        const isColorValue = colorPatterns.some(pattern => pattern.test(cleanValue));
+        
+        if (isColorValue) {
+          return 'COLOR';
+        }
+        
+        // Check for explicit color keywords in name (only after value-based detection)
+        const colorKeywords = ['color', 'bg', 'background', 'border', 'primary', 'secondary', 'accent', 'success', 'warning', 'error', 'danger', 'info'];
+        const hasColorKeyword = colorKeywords.some(keyword => lowerName.includes(keyword));
+        
+        if (hasColorKeyword) {
+          return 'COLOR';
+        }
+        
+        // Detect specific style types for complex values
+        if (cleanValue.includes('linear-gradient') || cleanValue.includes('radial-gradient') || cleanValue.includes('conic-gradient')) {
+          return 'GRADIENT';
+        }
+        
+        if (cleanValue.includes('rgba(') || cleanValue.includes('hsla(') || 
+            (cleanValue.includes('rgb(') && cleanValue.includes(',') && cleanValue.includes('/'))) {
+          return 'RGBA_COLOR';
+        }
+        
+        // Shadow detection - box-shadow patterns
+        if (cleanValue.match(/^\d+px\s+\d+px\s+\d+px/) || 
+            cleanValue.includes('inset') || 
+            cleanValue.match(/\d+px.*rgb/)) {
+          return 'SHADOW';
+        }
+        
+        // Blur effects
+        if (cleanValue.includes('blur(')) {
+          return 'BLUR';
+        }
+        
+        // Transition/animation
+        if (cleanValue.includes('ease') || cleanValue.includes('cubic-bezier') || 
+            cleanValue.includes('linear') && cleanValue.includes('s')) {
+          return 'TRANSITION';
+        }
+        
+        // Everything else is a string
+        return 'STRING';
+      }
+
+      function categorizeToken(token) {
+        const name = token.name.toLowerCase();
+        const value = token.value.toLowerCase();
+        
+        // Color category
+        if (token.type === 'COLOR' || token.type === 'RGBA_COLOR') {
+          return 'color';
+        }
+        
+        // Numeric category - for NUMBER type tokens
+        if (token.type === 'NUMBER') {
+          return 'numeric';
+        }
+        
+        // Style categories for Figma styles
+        if (token.type === 'GRADIENT') {
+          return 'gradient';
+        }
+        
+        if (token.type === 'SHADOW') {
+          return 'shadow';
+        }
+        
+        if (token.type === 'BLUR') {
+          return 'effect';
+        }
+        
+        if (token.type === 'TRANSITION') {
+          return 'transition';
+        }
+        
+        // Default to 'other' category for truly unsupported types
+        return 'other';
+      }
+
+      function showPreview(tokens) {
+        const previewSection = document.getElementById('preview-section');
+        const previewContent = document.getElementById('preview-content');
+        
+        // Function to extract group name from token name (matching backend logic)
+        function extractGroupFromTokenName(tokenName) {
+          const cleanName = tokenName.startsWith('--') ? tokenName.slice(2) : tokenName;
+          const parts = cleanName.split('-');
+          return parts.length > 1 ? parts[0] : 'misc';
+        }
+
+        // Group tokens by their extracted group names
+        const tokensByGroup = {};
+        const supportedTokens = tokens.filter(token => {
+          const category = categorizeToken(token);
+          return ['color', 'numeric', 'gradient', 'shadow', 'effect', 'transition'].includes(category);
+        });
+        
+        // Separate tokens by import type
+        const variableTokens = supportedTokens.filter(token => {
+          const category = categorizeToken(token);
+          return category === 'color' || category === 'numeric';
+        });
+        
+        const styleTokens = supportedTokens.filter(token => {
+          const category = categorizeToken(token);
+          return ['gradient', 'shadow', 'effect', 'transition'].includes(category);
+        });
+
+        supportedTokens.forEach(token => {
+          const groupName = extractGroupFromTokenName(token.name);
+          if (!tokensByGroup[groupName]) {
+            tokensByGroup[groupName] = [];
+          }
+          tokensByGroup[groupName].push(token);
+        });
+
+        const groupNames = Object.keys(tokensByGroup);
+        const totalSupportedTokens = supportedTokens.length;
+        const aliasCount = variableTokens.filter(t => t.isAlias).length;
+        const directVariableCount = variableTokens.length - aliasCount;
+
+        previewContent.innerHTML = `
+          <div class="diff-summary">
+            <h4>Token Preview (${totalSupportedTokens} supported tokens found)</h4>
+            <div class="diff-stats">
+              <div class="stat-item new">
+                <span class="stat-number">${variableTokens.length}</span>
+                <span class="stat-label">Variables</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-number">${styleTokens.length}</span>
+                <span class="stat-label">Styles</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-number">${aliasCount}</span>
+                <span class="stat-label">References</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="import-structure-preview">
+            <h4>📁 Variables Preview</h4>
+            <div class="import-controls">
+              <button class="btn btn-small" onclick="expandAllImportGroups()">Expand All</button>
+              <button class="btn btn-small" onclick="collapseAllImportGroups()">Collapse All</button>
+              <button class="btn btn-small" onclick="selectAllVariables(true)">Select All</button>
+              <button class="btn btn-small" onclick="selectAllVariables(false)">Deselect All</button>
+            </div>
+            <div class="variables-preview">
+              <div class="collection-preview">
+                <span class="icon">📁</span>
+                <span class="name collection-name-preview">Design Tokens</span>
+                <span class="type">(Collection)</span>
+                ${groupNames.map(groupName => {
+                  const groupTokens = tokensByGroup[groupName].filter(t => categorizeToken(t) === 'color' || categorizeToken(t) === 'numeric');
+                  if (groupTokens.length === 0) return '';
+                  const groupId = `import-group-${groupName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                  const colorCount = groupTokens.filter(t => categorizeToken(t) === 'color').length;
+                  const numericCount = groupTokens.filter(t => categorizeToken(t) === 'numeric').length;
+                  const aliasCount = groupTokens.filter(t => t.isAlias).length;
+                  return `
+                    <div class="import-group-container" id="${groupId}">
+                      <div class="import-group-header collapsed" onclick="toggleImportGroup('${groupId}')">
+                        <span class="expand-icon">▶</span>
+                        <span class="icon">📂</span>
+                        <span class="name">${groupName}/</span>
+                        <span class="count">(${groupTokens.length} variables • ${colorCount} colors • ${numericCount} numeric)</span>
+                        <div class="group-status">
+                          <span class="status-badge new">${groupTokens.length - aliasCount} new</span>
+                          ${aliasCount > 0 ? `<span class="status-badge alias">${aliasCount} refs</span>` : ''}
+                        </div>
+                      </div>
+                      <div class="import-group-content collapsed" id="${groupId}-content">
+                        <div class="variables-table">
+                          ${groupTokens.map(token => {
+                            const tokenId = `token-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                            const category = categorizeToken(token);
+                            const valueDisplay = category === 'color' ? 
+                              `<span class="color-preview" style="background-color: ${token.value}"></span>${token.value}` :
+                              token.value;
+                            return `
+                              <div class="variable-row">
+                                <label class="checkbox-label">
+                                  <input type="checkbox" id="${tokenId}" checked class="variable-checkbox" data-token-name="${token.name}">
+                                  <span class="variable-name">${token.name}</span>
+                                </label>
+                                <span class="variable-type">${category}</span>
+                                <span class="variable-value">${valueDisplay}</span>
+                                ${token.isAlias ? '<span class="alias-badge">ref</span>' : ''}
+                              </div>
+                            `;
+                          }).join('')}
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                }).filter(Boolean).join('')}
+              </div>
+            </div>
+            <div class="summary-stats">
+              <span class="summary-item">📁 1 collection</span>
+              <span class="summary-item">📂 ${groupNames.length} groups</span>
+              <span class="summary-item">🎯 ${variableTokens.length} variables</span>
+            </div>
+          </div>
+          
+          ${styleTokens.length > 0 ? `
+          <div class="import-structure-preview">
+            <h4>🎨 Figma Styles Preview</h4>
+            <div class="import-controls">
+              <button class="btn btn-small" onclick="expandAllStyleGroups()">Expand All</button>
+              <button class="btn btn-small" onclick="collapseAllStyleGroups()">Collapse All</button>
+              <button class="btn btn-small" onclick="selectAllStyles(true)">Select All</button>
+              <button class="btn btn-small" onclick="selectAllStyles(false)">Deselect All</button>
+            </div>
+            <div class="styles-preview">
+              ${['gradient', 'shadow', 'effect', 'transition'].map(category => {
+                const categoryTokens = styleTokens.filter(t => categorizeToken(t) === category);
+                if (categoryTokens.length === 0) return '';
+                const categoryIcons = { gradient: '🌈', shadow: '🌫️', effect: '✨', transition: '⚡' };
+                const categoryNames = { gradient: 'Paint Styles', shadow: 'Effect Styles', effect: 'Effect Styles', transition: 'Transitions' };
+                const categoryId = `style-group-${category}`;
+                return `
+                  <div class="import-group-container" id="${categoryId}">
+                    <div class="import-group-header collapsed" onclick="toggleImportGroup('${categoryId}')">
+                      <span class="expand-icon">▶</span>
+                      <span class="icon">${categoryIcons[category]}</span>
+                      <span class="name">${categoryNames[category]}</span>
+                      <span class="count">(${categoryTokens.length} styles)</span>
+                      <div class="group-status">
+                        <span class="status-badge new">${categoryTokens.length} new</span>
+                      </div>
+                    </div>
+                    <div class="import-group-content collapsed" id="${categoryId}-content">
+                      <div class="styles-table">
+                        ${categoryTokens.map(token => {
+                          const tokenId = `style-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                          return `
+                            <div class="variable-row">
+                              <label class="checkbox-label">
+                                <input type="checkbox" id="${tokenId}" checked class="style-checkbox" data-token-name="${token.name}">
+                                <span class="variable-name">${token.name}</span>
+                              </label>
+                              <span class="variable-type">${category}</span>
+                              <span class="variable-value">${token.value}</span>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).filter(Boolean).join('')}
+            </div>
+            <div style-summary">
+              <span class="summary-item">🎨 ${styleTokens.length} Figma styles</span>
+              <span class="summary-item">📝 Organized by type</span>
+            </div>
+          </div>
+          ` : ''}
+          
+          <div class="options-grid">
+            <div class="option-group">
+              <h4>Import Options</h4>
+              <label class="checkbox-label">
+                <input type="checkbox" id="create-new-collection" checked onchange="toggleCollectionOptions()">
+                Create new collection
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="organize-by-categories" checked>
+                Organize by categories
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="overwrite-existing">
+                Overwrite existing
+              </label>
+              <div class="input-group" id="collection-name-group">
+                <label>Collection Name</label>
+                <input type="text" id="collection-name" value="Design Tokens" placeholder="Enter collection name">
+              </div>
+              <div class="input-group" id="existing-collection-group" style="display: none;">
+                <label>Select Existing Collection</label>
+                <select id="existing-collection-select">
+                  <option value="">Loading collections...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="import-actions">
+            <button class="btn btn-primary btn-large" onclick="simulateImport()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7,10 12,15 17,10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Import to Figma
+            </button>
+            <button class="btn btn-secondary" onclick="clearInput()">Cancel</button>
+          </div>
+        `;
+
+        previewSection.style.display = 'block';
+        
+        // Load existing collections when preview is shown
+        loadExistingCollections();
+        
+        // Add event listener to update collection name preview
+        const collectionNameInput = document.getElementById('collection-name');
+        if (collectionNameInput) {
+          collectionNameInput.addEventListener('input', updateCollectionNamePreview);
+        }
+      }
+
+      function updateCollectionNamePreview() {
+        const collectionNameInput = document.getElementById('collection-name');
+        const collectionNamePreview = document.querySelector('.collection-name-preview');
+        
+        if (collectionNameInput && collectionNamePreview) {
+          const newName = collectionNameInput.value.trim() || 'Design Tokens';
+          collectionNamePreview.textContent = newName;
+        }
+      }
+
+      function toggleImportGroup(groupId) {
+        const content = document.getElementById(groupId + '-content');
+        const header = document.querySelector(`#${groupId} .import-group-header`);
+        const expandIcon = header?.querySelector('.expand-icon');
+        
+        if (!content || !header) return;
+        
+        const isCollapsed = content.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+          // Expand
+          content.classList.remove('collapsed');
+          header.classList.remove('collapsed');
+          if (expandIcon) expandIcon.textContent = '▼';
+        } else {
+          // Collapse
+          content.classList.add('collapsed');
+          header.classList.add('collapsed');
+          if (expandIcon) expandIcon.textContent = '▶';
+        }
+      }
+
+      function expandAllImportGroups() {
+        document.querySelectorAll('.import-group-content').forEach(content => {
+          content.classList.remove('collapsed');
+        });
+        document.querySelectorAll('.import-group-header').forEach(header => {
+          header.classList.remove('collapsed');
+        });
+        document.querySelectorAll('.expand-icon').forEach(icon => {
+          icon.textContent = '▼';
+        });
+      }
+
+      function collapseAllImportGroups() {
+        document.querySelectorAll('.import-group-content').forEach(content => {
+          content.classList.add('collapsed');
+        });
+        document.querySelectorAll('.import-group-header').forEach(header => {
+          header.classList.add('collapsed');
+        });
+        document.querySelectorAll('.expand-icon').forEach(icon => {
+          icon.textContent = '▶';
+        });
+      }
+
+      function expandAllStyleGroups() {
+        document.querySelectorAll('[id^="style-group-"] .import-group-content').forEach(content => {
+          content.classList.remove('collapsed');
+        });
+        document.querySelectorAll('[id^="style-group-"] .import-group-header').forEach(header => {
+          header.classList.remove('collapsed');
+        });
+        document.querySelectorAll('[id^="style-group-"] .expand-icon').forEach(icon => {
+          icon.textContent = '▼';
+        });
+      }
+
+      function collapseAllStyleGroups() {
+        document.querySelectorAll('[id^="style-group-"] .import-group-content').forEach(content => {
+          content.classList.add('collapsed');
+        });
+        document.querySelectorAll('[id^="style-group-"] .import-group-header').forEach(header => {
+          header.classList.add('collapsed');
+        });
+        document.querySelectorAll('[id^="style-group-"] .expand-icon').forEach(icon => {
+          icon.textContent = '▶';
+        });
+      }
+
+      function selectAllVariables(checked) {
+        document.querySelectorAll('.variable-checkbox').forEach(checkbox => {
+          checkbox.checked = checked;
+        });
+      }
+
+      function selectAllStyles(checked) {
+        document.querySelectorAll('.style-checkbox').forEach(checkbox => {
+          checkbox.checked = checked;
+        });
+      }
+
+      window.toggleCollectionOptions = function() {
+        const createNewCheckbox = document.getElementById('create-new-collection');
+        const collectionNameGroup = document.getElementById('collection-name-group');
+        const existingCollectionGroup = document.getElementById('existing-collection-group');
+        
+        if (createNewCheckbox && createNewCheckbox.checked) {
+          // Show collection name input, hide existing collections dropdown
+          collectionNameGroup.style.display = 'block';
+          existingCollectionGroup.style.display = 'none';
+        } else {
+          // Hide collection name input, show existing collections dropdown
+          collectionNameGroup.style.display = 'none';
+          existingCollectionGroup.style.display = 'block';
+          // Refresh existing collections list
+          loadExistingCollections();
+        }
+      };
+
+      function loadExistingCollections() {
+        const existingCollectionSelect = document.getElementById('existing-collection-select');
+        if (!existingCollectionSelect) return;
+        
+        // Send message to backend to get existing collections
+        parent.postMessage({
+          pluginMessage: {
+            type: 'get-existing-collections'
+          }
+        }, '*');
+        
+        // The response will be handled by the message listener
+      }
+
+      window.simulateImport = function() {
+        const importSection = document.getElementById('import-section');
+        const importContent = document.getElementById('import-content');
+        
+        // Show progress UI
+        importContent.innerHTML = `
+          <div class="apply-summary">
+            <h4>Importing to Figma...</h4>
+            <div class="import-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+              <div class="progress-text" id="progress-text">Starting import...</div>
+            </div>
+          </div>
+        `;
+
+        importSection.style.display = 'block';
+        
+        // Get import configuration
+        const createNew = document.getElementById('create-new-collection').checked;
+        const organizeByCategories = document.getElementById('organize-by-categories').checked;
+        const overwriteExisting = document.getElementById('overwrite-existing').checked;
+        
+        let collectionName = 'Design Tokens';
+        let existingCollectionId = null;
+        
+        if (createNew) {
+          collectionName = document.getElementById('collection-name').value || 'Design Tokens';
+        } else {
+          const existingCollectionSelect = document.getElementById('existing-collection-select');
+          if (existingCollectionSelect && existingCollectionSelect.value) {
+            existingCollectionId = existingCollectionSelect.value;
+            // Get the collection name from the selected option
+            collectionName = existingCollectionSelect.options[existingCollectionSelect.selectedIndex].text;
+          } else {
+            alert('Please select an existing collection or enable "Create new collection"');
+            return;
+          }
+        }
+        
+        // Get selected tokens (only checked ones)
+        const selectedVariables = [];
+        const selectedStyles = [];
+        
+        // Get checked variable tokens
+        document.querySelectorAll('.variable-checkbox:checked').forEach(checkbox => {
+          const tokenName = checkbox.dataset.tokenName;
+          const token = (window.parsedTokens || []).find(t => t.name === tokenName);
+          if (token) {
+            selectedVariables.push(token);
+          }
+        });
+        
+        // Get checked style tokens
+        document.querySelectorAll('.style-checkbox:checked').forEach(checkbox => {
+          const tokenName = checkbox.dataset.tokenName;
+          const token = (window.parsedTokens || []).find(t => t.name === tokenName);
+          if (token) {
+            selectedStyles.push(token);
+          }
+        });
+        
+        const selectedTokens = [...selectedVariables, ...selectedStyles];
+        
+        if (selectedTokens.length === 0) {
+          alert('Please select at least one variable or style to import.');
+          return;
+        }
+
+        // Send real import message to plugin backend
+        const messageData = {
+          pluginMessage: {
+            type: 'import-tokens',
+            tokens: selectedTokens,
+            options: {
+              collectionName,
+              createNew,
+              existingCollectionId,
+              organizeByCategories,
+              overwriteExisting
+            }
+          }
+        };
+        
+        console.log('DEBUG: Sending import-tokens message', messageData);
+        parent.postMessage(messageData, '*');
+        
+        // Start progress animation while waiting for response
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        let progress = 0;
+        let progressInterval;
+
+        const startProgress = () => {
+          progressInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress > 90) progress = 90; // Stop at 90% until we get response
+            progressFill.style.width = progress + '%';
+            progressText.textContent = `Importing tokens... ${Math.round(progress)}%`;
+          }, 300);
+        };
+
+        // Store progress control for response handler
+        window.importProgressControl = {
+          fill: progressFill,
+          text: progressText,
+          interval: progressInterval,
+          complete: function(result) {
+            clearInterval(this.interval);
+            this.fill.style.width = '100%';
+            this.text.textContent = 'Import completed!';
+            setTimeout(() => showImportComplete(result), 500);
+          },
+          error: function(error) {
+            clearInterval(this.interval);
+            this.fill.style.width = '100%';
+            this.fill.style.backgroundColor = '#f87171';
+            this.text.textContent = 'Import failed';
+            setTimeout(() => showImportError(error), 500);
+          }
+        };
+
+        startProgress();
+      };
+
+      function showImportComplete(result = {}) {
+        const importContent = document.getElementById('import-content');
+        
+        // Use the correct property names from the backend result
+        const variablesCreated = result.importedCount || 0;
+        const stylesCreated = result.importedStyleCount || 0;
+        const collectionsCreated = result.collectionName ? 1 : 0; // 1 if collection was created/used
+        const groupsCreated = result.groupsCreated || 0; // Now using actual group count from backend
+        
+        importContent.innerHTML = `
+          <div class="import-result">
+            <div class="result-summary success">
+              <h4>✅ Import Completed Successfully!</h4>
+              <div class="result-stats">
+                <span class="stat">${variablesCreated} variables created</span>
+                ${stylesCreated > 0 ? `<span class="stat">${stylesCreated} styles created</span>` : ''}
+                <span class="stat">${collectionsCreated} collection${collectionsCreated !== 1 ? 's' : ''} ${collectionsCreated > 0 ? 'used' : 'created'}</span>
+                <span class="stat">${groupsCreated} groups organized</span>
+              </div>
+              <p>Your design tokens have been successfully imported to Figma ${variablesCreated > 0 ? 'Variables' : ''}${variablesCreated > 0 && stylesCreated > 0 ? ' and ' : ''}${stylesCreated > 0 ? 'Styles' : ''}. You can now use them in your designs!</p>
+            </div>
+            <div class="apply-actions">
+              <button class="btn btn-secondary" onclick="clearInput()">Import More Tokens</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function showImportError(error) {
+        const importContent = document.getElementById('import-content');
+        importContent.innerHTML = `
+          <div class="import-result">
+            <div class="result-summary error">
+              <h4>❌ Import Failed</h4>
+              <p class="error-message">${error.message || 'An unknown error occurred during import.'}</p>
+              <div class="error-details">
+                <p>Please check your tokens and try again.</p>
+              </div>
+            </div>
+            <div class="apply-actions">
+              <button class="btn btn-secondary" onclick="clearInput()">Try Again</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // Listen for messages from the plugin backend
+      window.addEventListener('message', function(event) {
+        if (event.data.pluginMessage) {
+          const message = event.data.pluginMessage;
+          
+          if (message.type === 'import-complete' && window.importProgressControl) {
+            window.importProgressControl.complete(message.result);
+            delete window.importProgressControl;
+          } else if (message.type === 'import-error' && window.importProgressControl) {
+            window.importProgressControl.error(message.error);
+            delete window.importProgressControl;
+          } else if (message.type === 'existing-collections') {
+            updateExistingCollectionsDropdown(message.collections);
+          }
+        }
+      });
+
+      function updateExistingCollectionsDropdown(collections) {
+        const existingCollectionSelect = document.getElementById('existing-collection-select');
+        if (!existingCollectionSelect) return;
+        
+        // Clear existing options
+        existingCollectionSelect.innerHTML = '';
+        
+        if (!collections || collections.length === 0) {
+          existingCollectionSelect.innerHTML = '<option value="">No existing collections found</option>';
+          return;
+        }
+        
+        // Add default option
+        existingCollectionSelect.innerHTML = '<option value="">Select a collection...</option>';
+        
+        // Add existing collections
+        collections.forEach(collection => {
+          const option = document.createElement('option');
+          option.value = collection.id;
+          option.textContent = collection.name;
+          existingCollectionSelect.appendChild(option);
+        });
+      }
+      
+      // Make functions globally available for HTML onclick handlers
+      window.openSettingsModal = openSettingsModal;
+      window.closeSettingsModal = closeSettingsModal;
+      window.onProviderChange = onProviderChange;
+      window.openUserGuide = openUserGuide;
+      window.closeUserGuide = closeUserGuide;
+      window.toggleSubgroup = toggleSubgroup;
+      window.toggleComponentSet = toggleComponentSet;
+      window.toggleStyles = toggleStyles;
+      window.scrollToGroupById = scrollToGroupById;
+      window.generateTest = generateTest;
+      window.toggleVariablesList = toggleVariablesList;
+      window.expandAllGroups = expandAllGroups;
+      window.collapseAllGroups = collapseAllGroups;
+      window.deleteVariable = deleteVariable;
+      window.scrollToVariable = scrollToVariable;
+      window.toggleImportGroup = toggleImportGroup;
+      window.expandAllImportGroups = expandAllImportGroups;
+      window.collapseAllImportGroups = collapseAllImportGroups;
+      window.expandAllStyleGroups = expandAllStyleGroups;
+      window.collapseAllStyleGroups = collapseAllStyleGroups;
+      window.selectAllVariables = selectAllVariables;
+      window.selectAllStyles = selectAllStyles;
+      window.browseRepositories = browseRepositories;
+      window.browseBranches = browseBranches;
+      window.closeRepositoryBrowser = closeRepositoryBrowser;
+      window.closeBranchBrowser = closeBranchBrowser;
+      window.startOAuthFlow = startOAuthFlow;
+      
+      // OAuth helper functions
+      window.showPopupBlockerHelp = showPopupBlockerHelp;
+      window.detectBrowser = detectBrowser;
