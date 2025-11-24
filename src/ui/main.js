@@ -1584,6 +1584,10 @@
                 !tailwindV4Validation.isValid && 
                 tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
               
+              // Check if this group is valid for Tailwind v4
+              const isTailwindValid = tailwindV4Validation && 
+                tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
+              
               const groupId = `group-${collection.name.replace(
                 /[^a-zA-Z0-9]/g,
                 "-"
@@ -1597,6 +1601,11 @@
                     <div class="subgroup-title">
                       ${displayName}
                       <span class="subgroup-stats">${variables.length} variable${variables.length !== 1 ? 's' : ''}</span>
+                      ${
+                        isTailwindValid
+                          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-left: 4px; vertical-align: middle;" title="Valid Tailwind v4 namespace"><path d="M12.001 4.8c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624C13.666 10.618 15.027 12 18.001 12c3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C16.337 6.182 14.976 4.8 12.001 4.8zm-6 7.2c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624 1.177 1.194 2.538 2.576 5.512 2.576 3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C10.337 13.382 8.976 12 6.001 12z" fill="#38bdf8"/></svg>'
+                          : ""
+                      }
                       ${
                         hasMixedValues
                           ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
