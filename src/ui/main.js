@@ -1623,7 +1623,8 @@
                       <button 
                         type="button" 
                         class="edit-group-name-btn" 
-                        onclick="event.stopPropagation(); showEditGroupNameModal('${SecurityUtils.escapeHTML(collection.name)}', '${SecurityUtils.escapeHTML(prefix)}')" 
+                        data-collection-name="${collection.name}" 
+                        data-group-prefix="${prefix}"
                         title="Rename group (requires updating variables in Figma)"
                         style="background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 2px 6px; margin-left: 6px; font-size: 12px; border-radius: 4px;"
                         onmouseover="this.style.color='rgba(255,255,255,0.8)'; this.style.background='rgba(255,255,255,0.1)'"
@@ -1668,6 +1669,17 @@
         });
 
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
+        
+        // Attach event listeners to edit group name buttons
+        const editButtons = container.querySelectorAll('.edit-group-name-btn');
+        editButtons.forEach(button => {
+          button.addEventListener('click', function(event) {
+            event.stopPropagation();
+            const collectionName = this.getAttribute('data-collection-name');
+            const groupPrefix = this.getAttribute('data-group-prefix');
+            showEditGroupNameModal(collectionName, groupPrefix);
+          });
+        });
       }
 
       // Render a group of variables with a title
