@@ -790,6 +790,7 @@
       let currentCSSData = null;
       window.gitlabSettings = null;
       let unitsData = null;
+      let tailwindV4Validation = null;
 
       const AVAILABLE_UNITS = [
         "",
@@ -909,6 +910,16 @@
           updatePluginLoadingProgress(loadingSteps[3], 75);
           variablesData = message.variablesData;
           componentsData = message.componentsData;
+          
+          // Request Tailwind v4 validation
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "validate-tailwind-v4",
+              },
+            },
+            "*"
+          );
           
           renderVariables(variablesData);
           renderComponents(componentsData);
@@ -1284,8 +1295,12 @@
             }, 2000);
           }
         } else if (message.type === "tailwind-v4-validation") {
-          // Handle Tailwind v4 validation result
-          updateTailwindV4ValidationUI(message.validation);
+          // Store Tailwind v4 validation result
+          tailwindV4Validation = message.validation;
+          // Re-render variables to show validation issues
+          if (variablesData && variablesData.length > 0) {
+            renderVariables(variablesData);
+          }
         } else if (message.type === "component-styles-loaded") {
           // Handle loaded component styles
           const componentId = message.componentId;
@@ -1402,6 +1417,77 @@
           }
         });
 
+        // Add Tailwind v4 validation issues if present
+        if (tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.length > 0) {
+          const tailwindIssues = [];
+          
+          // Build list of invalid groups with their sanitized IDs
+          data.forEach((collection) => {
+            const groupedVars = new Map();
+            
+            collection.variables.forEach((variable) => {
+              const pathMatch = variable.name.match(/^([^\/]+)\//);
+              if (pathMatch) {
+                const prefix = pathMatch[1];
+                if (!groupedVars.has(prefix)) {
+                  groupedVars.set(prefix, []);
+                }
+                groupedVars.get(prefix).push(variable);
+              }
+            });
+            
+            groupedVars.forEach((variables, prefix) => {
+              // Check if this group is invalid for Tailwind v4
+              if (tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1) {
+                const sanitizedId = `group-${collection.name.replace(
+                  /[^a-zA-Z0-9]/g,
+                  "-"
+                )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+                tailwindIssues.push({
+                  collection: collection.name,
+                  group: prefix,
+                  displayName: prefix
+                    .replace(/-/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()),
+                  sanitizedId: sanitizedId,
+                });
+              }
+            });
+          });
+          
+          if (tailwindIssues.length > 0) {
+            html += `
+              <div class="validation-issues" style="background-color: rgba(255, 152, 0, 0.05); border: 1px solid rgba(255, 152, 0, 0.2);">
+                <h3 style="color: #ff9800; margin-bottom: 12px;">
+                  <span style="margin-right: 8px;">⚠️</span>
+                  Tailwind v4 Compatibility Issues
+                </h3>
+                <div class="validation-issues-list">
+                  ${tailwindIssues
+                    .map(
+                      (issue) => `
+                    <div class="validation-issue-item">
+                      <strong>${issue.displayName}</strong>
+                      <span class="issue-description">Invalid Tailwind v4 namespace</span>
+                      <button type="button" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                          <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                        Go to section
+                      </button>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>
+                <div class="validation-help">
+                  <small>Tailwind v4 requires valid namespaces like: color, spacing, radius, font-size, shadow, etc.</small>
+                </div>
+              </div>
+            `;
+          }
+        }
+
         if (validationIssues.length > 0) {
           html += `
             <div class="validation-issues">
@@ -1492,6 +1578,12 @@
               });
 
               const hasMixedValues = hasDirectValues && hasLinks;
+              
+              // Check if this group is invalid for Tailwind v4
+              const isTailwindInvalid = tailwindV4Validation && 
+                !tailwindV4Validation.isValid && 
+                tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
+              
               const groupId = `group-${collection.name.replace(
                 /[^a-zA-Z0-9]/g,
                 "-"
@@ -1499,7 +1591,7 @@
 
               html += `
                 <div class="variable-subgroup ${
-                  hasMixedValues ? "has-validation-issues" : ""
+                  hasMixedValues || isTailwindInvalid ? "has-validation-issues" : ""
                 }" id="${groupId}">
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <div class="subgroup-title">
@@ -1508,6 +1600,11 @@
                       ${
                         hasMixedValues
                           ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
+                          : ""
+                      }
+                      ${
+                        isTailwindInvalid
+                          ? '<span class="validation-warning" title="Invalid Tailwind v4 namespace" style="color: #ff9800;">⚠️</span>'
                           : ""
                       }
                     </div>
@@ -2530,12 +2627,6 @@
       function openSettingsModal() {
         document.getElementById("settings-modal").style.display = "block";
         loadConfigurationTab(); // Load saved settings into the form
-        
-        // Check if Tailwind v4 is selected and validate
-        const exportFormat = window.gitlabSettings?.exportFormat || "css";
-        if (exportFormat === 'tailwind-v4') {
-          validateTailwindV4();
-        }
       }
 
       // Function to close settings modal
@@ -3496,68 +3587,7 @@ ${checkboxes}
             window.gitlabSettings.exportFormat = this.value;
           }
           updateExportButtonText();
-          
-          // Check if Tailwind v4 is selected and validate
-          if (this.value === 'tailwind-v4') {
-            validateTailwindV4();
-          } else {
-            // Hide the hint for other formats
-            const hintElement = document.getElementById('tailwind-v4-hint');
-            if (hintElement) {
-              hintElement.style.display = 'none';
-            }
-          }
         });
-      }
-
-      // Validate Tailwind v4 namespaces
-      function validateTailwindV4() {
-        parent.postMessage(
-          {
-            pluginMessage: {
-              type: "validate-tailwind-v4",
-            },
-          },
-          "*"
-        );
-      }
-
-      // Update Tailwind v4 validation UI
-      function updateTailwindV4ValidationUI(validation) {
-        const hintElement = document.getElementById('tailwind-v4-hint');
-        if (!hintElement) return;
-
-        hintElement.style.display = 'block';
-        
-        if (validation.isValid) {
-          hintElement.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
-          hintElement.style.border = '1px solid rgba(34, 197, 94, 0.3)';
-          hintElement.style.color = '#86efac';
-          hintElement.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">✓</span>
-              <span><strong>Tailwind v4 Compatible</strong> - All variable groups use valid namespaces.</span>
-            </div>
-          `;
-        } else {
-          hintElement.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-          hintElement.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-          hintElement.style.color = '#fca5a5';
-          
-          const invalidList = validation.invalidGroups.map(g => `<strong>${g}</strong>`).join(', ');
-          hintElement.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">⚠</span>
-                <span><strong>Invalid Namespaces</strong> - Cannot export to Tailwind v4</span>
-              </div>
-              <div style="font-size: 11px; opacity: 0.9;">
-                Invalid groups: ${invalidList}<br>
-                <span style="opacity: 0.8;">Valid namespaces: color, spacing, radius, font-size, font-weight, shadow, etc.</span>
-              </div>
-            </div>
-          `;
-        }
       }
 
       // Toggle collapsible subgroups
