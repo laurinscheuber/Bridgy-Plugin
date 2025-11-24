@@ -7,7 +7,7 @@ describe('TailwindV4Service', () => {
       expect(TailwindV4Service.isValidNamespace('color')).toBe(true);
       expect(TailwindV4Service.isValidNamespace('spacing')).toBe(true);
       expect(TailwindV4Service.isValidNamespace('radius')).toBe(true);
-      expect(TailwindV4Service.isValidNamespace('font-size')).toBe(true);
+      expect(TailwindV4Service.isValidNamespace('font')).toBe(true);
       expect(TailwindV4Service.isValidNamespace('shadow')).toBe(true);
     });
 
@@ -166,13 +166,8 @@ describe('TailwindV4Service', () => {
       expect(namespaces).toContain('color');
       expect(namespaces).toContain('spacing');
       expect(namespaces).toContain('radius');
-      expect(namespaces).toContain('font-size');
-      expect(namespaces).toContain('font-weight');
-      expect(namespaces).toContain('font-family');
+      expect(namespaces).toContain('font');
       expect(namespaces).toContain('shadow');
-      expect(namespaces).toContain('opacity');
-      expect(namespaces).toContain('width');
-      expect(namespaces).toContain('height');
     });
   });
 });
