@@ -151,7 +151,15 @@ export class GitHubService implements BaseGitService {
         // Encrypt and save token separately if requested
         if (settings.saveToken && settings.token) {
           try {
-            if (CryptoService.isAvailable()) {
+            let cryptoAvailable = false;
+            try {
+              cryptoAvailable = CryptoService.isAvailable();
+            } catch (cryptoError) {
+              console.warn('CryptoService.isAvailable() failed:', cryptoError);
+              cryptoAvailable = false;
+            }
+            
+            if (cryptoAvailable) {
               const encryptedToken = await CryptoService.encrypt(settings.token);
               await figma.clientStorage.setAsync(
                 `${settingsKey}-token`,
@@ -222,7 +230,15 @@ export class GitHubService implements BaseGitService {
             
             if (encryptedToken) {
               try {
-                if (cryptoVersion === 'v2' && CryptoService.isAvailable()) {
+                let cryptoAvailable = false;
+                try {
+                  cryptoAvailable = CryptoService.isAvailable();
+                } catch (cryptoError) {
+                  console.warn('CryptoService.isAvailable() failed during decrypt:', cryptoError);
+                  cryptoAvailable = false;
+                }
+                
+                if (cryptoVersion === 'v2' && cryptoAvailable) {
                   settings.token = await CryptoService.decrypt(encryptedToken);
                 } else if (await figma.clientStorage.getAsync(`${settingsKey}-key`)) {
                   const encryptionKey = await figma.clientStorage.getAsync(`${settingsKey}-key`);

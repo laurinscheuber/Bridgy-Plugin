@@ -46,6 +46,17 @@
             <div class="beta-badge">BETA</div>
           </div>
           <div class="header-actions">
+            <a
+              id="repo-link-button"
+              class="repo-link-button"
+              href="#"
+              target="_blank"
+              title="Open Repository"
+              style="display: none;"
+            >
+              <span class="repo-link-icon">🔗</span>
+              <span>Repository</span>
+            </a>
             <button
               id="refresh-btn"
               onclick="refreshData()"
@@ -75,17 +86,6 @@
                 />
               </svg>
             </button>
-            <a
-              id="repo-link-button"
-              class="repo-link-button"
-              href="#"
-              target="_blank"
-              title="Open GitLab Repository"
-              style="display: none;"
-            >
-              <span class="repo-link-icon">🔗</span>
-              <span>Repository</span>
-            </a>
           <button
             id="help-icon-btn"
             onclick="openUserGuide()"
@@ -1156,14 +1156,20 @@
             .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('console.log(') || match.includes('alert(')) {
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
+                  match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
+                  match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(')) {
                 return match;
               }
               return '';
             })
             .replace(/on\w+\s*=\s*[^>\s]+/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('console.log(') || match.includes('alert(')) {
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
+                  match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
+                  match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(')) {
                 return match;
               }
               return '';
@@ -1177,7 +1183,8 @@
             'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'span', 'div',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
             'code', 'pre', 'blockquote', 'button', 'svg', 'path', 'circle',
-            'select', 'option', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'a'
+            'select', 'option', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'a',
+            'input', 'label', 'textarea'
           ];
 
           // Remove any tags not in allowlist, but preserve safe attributes for allowed tags
@@ -1754,7 +1761,20 @@
       // Repository link management
       function updateRepositoryLink() {
         const repoButton = document.getElementById('repo-link-button');
-        if (!repoButton || !window.gitlabSettings || !window.gitlabSettings.projectId) {
+        
+        // Try unified settings first, then fall back to legacy GitLab settings
+        let settings = window.gitSettings;
+        if (!settings && window.gitlabSettings) {
+          // Legacy fallback - treat as GitLab
+          settings = {
+            provider: 'gitlab',
+            projectId: window.gitlabSettings.projectId,
+            baseUrl: window.gitlabSettings.gitlabUrl,
+            token: window.gitlabSettings.gitlabToken
+          };
+        }
+        
+        if (!repoButton || !settings || !settings.projectId) {
           if (repoButton) {
             repoButton.style.display = 'none';
           }
@@ -1763,11 +1783,14 @@
         
         // Show button with fallback URL immediately, don't wait for network validation
         repoButton.style.display = 'inline-flex';
-        setFallbackRepositoryLink(window.gitlabSettings.projectId, repoButton);
+        setFallbackRepositoryLink(settings, repoButton);
         
         // Optionally fetch project information in background (only if user has token)
-        if (window.gitlabSettings.gitlabToken && window.gitlabSettings.gitlabToken.trim()) {
-          fetchProjectInfo(window.gitlabSettings.projectId, window.gitlabSettings.gitlabToken, true);
+        if (settings.token && settings.token.trim()) {
+          if (settings.provider === 'gitlab') {
+            fetchProjectInfo(settings.projectId, settings.token, true);
+          }
+          // Note: GitHub project info fetching could be added here if needed
         }
       }
       
@@ -1845,35 +1868,56 @@
           }
           
           // Always set fallback link so user can still access the project
-          setFallbackRepositoryLink(projectId, repoButton);
+          const fallbackSettings = {
+            provider: 'gitlab',
+            projectId: projectId,
+            baseUrl: window.gitlabSettings?.gitlabUrl
+          };
+          setFallbackRepositoryLink(fallbackSettings, repoButton);
         }
       }
 
-      function setFallbackRepositoryLink(projectId, repoButton) {
+      function setFallbackRepositoryLink(settings, repoButton) {
         try {
-          // Fallback to project URL - handle both numeric ID and namespace/project format
-          const webUrl = buildGitLabWebUrl(window.gitlabSettings?.gitlabUrl);
-          if (webUrl && projectId) {
-            let fallbackUrl;
-            
-            // If projectId looks like a namespace/project (contains slash), use it directly
-            if (projectId.includes('/')) {
-              fallbackUrl = `${webUrl}/${encodeURIComponent(projectId)}/-/merge_requests`;
-            } else {
-              // For numeric project IDs, we can't generate a proper URL without API
-              // So link to the project overview instead of merge requests
-              fallbackUrl = `${webUrl}/projects/${encodeURIComponent(projectId)}`;
+          if (!settings || !settings.projectId) {
+            // Final fallback - disable button if we can't build URL
+            repoButton.style.opacity = '0.5';
+            repoButton.style.pointerEvents = 'none';
+            repoButton.title = 'Unable to determine project URL';
+            return;
+          }
+
+          const provider = settings.provider || 'gitlab'; // Default to GitLab for backward compatibility
+          let fallbackUrl;
+          let title;
+
+          if (provider === 'github') {
+            // GitHub repository URL
+            const baseUrl = settings.baseUrl || 'https://github.com';
+            fallbackUrl = `${baseUrl}/${settings.projectId}`;
+            title = `Open GitHub Repository: ${settings.projectId}`;
+          } else {
+            // GitLab repository URL  
+            const webUrl = buildGitLabWebUrl(settings.baseUrl);
+            if (webUrl && settings.projectId) {
+              // If projectId looks like a namespace/project (contains slash), use it directly
+              if (settings.projectId.includes('/')) {
+                fallbackUrl = `${webUrl}/${encodeURIComponent(settings.projectId)}/-/merge_requests`;
+                title = `Open GitLab Merge Requests for ${settings.projectId}`;
+              } else {
+                // For numeric project IDs, we can't generate a proper URL without API
+                // So link to the project overview instead of merge requests
+                fallbackUrl = `${webUrl}/projects/${encodeURIComponent(settings.projectId)}`;
+                title = `Open GitLab Project ${settings.projectId} (configure namespace/project format for direct merge request access)`;
+              }
             }
-            
+          }
+
+          if (fallbackUrl) {
             repoButton.href = fallbackUrl;
             repoButton.style.opacity = '1';
             repoButton.style.pointerEvents = 'auto';
-            
-            if (projectId.includes('/')) {
-              repoButton.title = `Open Merge Requests for ${projectId}`;
-            } else {
-              repoButton.title = `Open Project ${projectId} (configure namespace/project format for direct merge request access)`;
-            }
+            repoButton.title = title;
           } else {
             // Final fallback - disable button if we can't build URL
             repoButton.style.opacity = '0.5';
@@ -2115,6 +2159,8 @@
           updateCommitButtonStates();
           checkAndShowUserGuide();
         } else if (message.type === "gitlab-settings-saved" || message.type === "git-settings-saved") {
+          // Update repository link when settings are successfully saved
+          updateRepositoryLink();
         } else if (message.type === "repositories-loaded") {
           displayRepositories(message.repositories);
         } else if (message.type === "repositories-error") {
@@ -2214,11 +2260,11 @@
         } else if (message.type === "variable-deleted") {
           // Handle successful variable deletion
           console.log(`Variable deleted successfully: ${message.variableName}`);
-          showNotification(`Variable "${message.variableName}" deleted successfully`, 'success');
+          showNotification('success', 'Variable Deleted', `Variable "${message.variableName}" deleted successfully`);
         } else if (message.type === "delete-error") {
           // Handle variable deletion error
           console.error("Error deleting variable:", message.error);
-          showNotification(`Failed to delete variable: ${message.error}`, 'error');
+          showNotification('error', 'Delete Failed', `Failed to delete variable: ${message.error}`);
           
           // Re-enable the delete button and restore its original state
           const buttons = document.querySelectorAll('.delete-variable-btn[disabled]');
@@ -6624,7 +6670,7 @@ ${checkboxes}
         const aliasCount = variableTokens.filter(t => t.isAlias).length;
         const directVariableCount = variableTokens.length - aliasCount;
 
-        previewContent.innerHTML = `
+        const previewHTML = `
           <div class="diff-summary">
             <h4>Token Preview (${totalSupportedTokens} supported tokens found)</h4>
             <div class="diff-stats">
@@ -6805,6 +6851,7 @@ ${checkboxes}
           </div>
         `;
 
+        previewContent.innerHTML = SecurityUtils.sanitizeHTML(previewHTML);
         previewSection.style.display = 'block';
         
         // Load existing collections when preview is shown
@@ -6945,31 +6992,33 @@ ${checkboxes}
         const importSection = document.getElementById('import-section');
         const importContent = document.getElementById('import-content');
         
-        // Show progress UI
-        importContent.innerHTML = `
-          <div class="apply-summary">
-            <h4>Importing to Figma...</h4>
-            <div class="import-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill"></div>
-              </div>
-              <div class="progress-text" id="progress-text">Starting import...</div>
-            </div>
-          </div>
-        `;
-
-        importSection.style.display = 'block';
+        // Check if import section exists
+        if (!importSection || !importContent) {
+          alert('Please navigate to the Import tab and parse tokens first');
+          return;
+        }
         
-        // Get import configuration
-        const createNew = document.getElementById('create-new-collection').checked;
-        const organizeByCategories = document.getElementById('organize-by-categories').checked;
-        const overwriteExisting = document.getElementById('overwrite-existing').checked;
+        // Get import configuration BEFORE replacing content
+        const createNewElement = document.getElementById('create-new-collection');
+        const organizeByCategoriesElement = document.getElementById('organize-by-categories');
+        const overwriteExistingElement = document.getElementById('overwrite-existing');
+        
+        // Check if elements exist before accessing properties
+        if (!createNewElement || !organizeByCategoriesElement || !overwriteExistingElement) {
+          alert('Please parse tokens first to see import options');
+          return;
+        }
+        
+        const createNew = createNewElement.checked;
+        const organizeByCategories = organizeByCategoriesElement.checked;
+        const overwriteExisting = overwriteExistingElement.checked;
         
         let collectionName = 'Design Tokens';
         let existingCollectionId = null;
         
         if (createNew) {
-          collectionName = document.getElementById('collection-name').value || 'Design Tokens';
+          const collectionNameElement = document.getElementById('collection-name');
+          collectionName = collectionNameElement ? collectionNameElement.value || 'Design Tokens' : 'Design Tokens';
         } else {
           const existingCollectionSelect = document.getElementById('existing-collection-select');
           if (existingCollectionSelect && existingCollectionSelect.value) {
@@ -7010,6 +7059,21 @@ ${checkboxes}
           alert('Please select at least one variable or style to import.');
           return;
         }
+
+        // Now show progress UI after collecting all data
+        importContent.innerHTML = `
+          <div class="apply-summary">
+            <h4>Importing to Figma...</h4>
+            <div class="import-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+              <div class="progress-text" id="progress-text">Starting import...</div>
+            </div>
+          </div>
+        `;
+
+        importSection.style.display = 'block';
 
         // Send real import message to plugin backend
         const messageData = {

@@ -18,6 +18,20 @@ export function objectEntries<T>(obj: Record<string, T>): Array<[string, T]> {
 }
 
 /**
+ * ES2015-compatible Object.values replacement
+ */
+export function objectValues<T>(obj: Record<string, T>): T[] {
+  const keys = Object.keys(obj);
+  const result: T[] = [];
+  
+  for (let i = 0; i < keys.length; i++) {
+    result.push(obj[keys[i]]);
+  }
+  
+  return result;
+}
+
+/**
  * ES2015-compatible Object.fromEntries replacement
  */
 export function objectFromEntries<T>(entries: Array<[string, T]>): Record<string, T> {

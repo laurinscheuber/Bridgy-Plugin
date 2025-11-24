@@ -22,6 +22,17 @@
             <div class="beta-badge">BETA</div>
           </div>
           <div class="header-actions">
+            <a
+              id="repo-link-button"
+              class="repo-link-button"
+              href="#"
+              target="_blank"
+              title="Open Repository"
+              style="display: none;"
+            >
+              <span class="repo-link-icon">🔗</span>
+              <span>Repository</span>
+            </a>
             <button
               id="refresh-btn"
               onclick="refreshData()"
@@ -51,17 +62,6 @@
                 />
               </svg>
             </button>
-            <a
-              id="repo-link-button"
-              class="repo-link-button"
-              href="#"
-              target="_blank"
-              title="Open GitLab Repository"
-              style="display: none;"
-            >
-              <span class="repo-link-icon">🔗</span>
-              <span>Repository</span>
-            </a>
           <button
             id="help-icon-btn"
             onclick="openUserGuide()"
