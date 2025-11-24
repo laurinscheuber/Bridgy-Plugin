@@ -1,0 +1,26 @@
+{
+  "name": "bridgy-oauth-netlify",
+  "version": "1.0.0",
+  "description": "Netlify OAuth callback service for Bridgy Figma Plugin",
+  "main": "functions/github-token.js",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build needed'",
+    "deploy": "netlify deploy --prod --dir=public --functions=functions"
+  },
+  "keywords": [
+    "oauth",
+    "github",
+    "figma",
+    "plugin",
+    "netlify"
+  ],
+  "author": "Bridgy Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
