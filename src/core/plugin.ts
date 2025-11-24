@@ -1,5 +1,7 @@
 import { PluginMessage, GitLabSettings } from "../types";
+import { GitSettings } from "../types/git";
 import { GitLabService } from "../services/gitlabService";
+import { GitServiceFactory } from "../services/gitServiceFactory";
 import { CSSExportService } from "../services/cssExportService";
 import { ComponentService } from "../services/componentService";
 import {SUCCESS_MESSAGES} from "../config";
@@ -56,6 +58,52 @@ async function collectDocumentData() {
     });
   }
 
+    // Collect styles (text, paint/fill, effect)
+    const stylesData = {
+      textStyles: [],
+      paintStyles: [],
+      effectStyles: []
+    };
+
+    // Collect text styles
+    const textStyles = await figma.getLocalTextStylesAsync();
+    for (const textStyle of textStyles) {
+      stylesData.textStyles.push({
+        id: textStyle.id,
+        name: textStyle.name,
+        description: textStyle.description,
+        fontSize: textStyle.fontSize,
+        fontName: textStyle.fontName,
+        // fontWeight: textStyle.fontWeight, // Property doesn't exist on TextStyle
+        lineHeight: textStyle.lineHeight,
+        letterSpacing: textStyle.letterSpacing,
+        textCase: textStyle.textCase,
+        textDecoration: textStyle.textDecoration,
+      });
+    }
+
+    // Collect paint/fill styles  
+    const paintStyles = await figma.getLocalPaintStylesAsync();
+    for (const paintStyle of paintStyles) {
+      stylesData.paintStyles.push({
+        id: paintStyle.id,
+        name: paintStyle.name,
+        description: paintStyle.description,
+        paints: paintStyle.paints,
+      });
+    }
+
+    // Collect effect styles
+    const effectStyles = await figma.getLocalEffectStylesAsync();
+    for (const effectStyle of effectStyles) {
+      stylesData.effectStyles.push({
+        id: effectStyle.id,
+        name: effectStyle.name,
+        description: effectStyle.description,
+        effects: effectStyle.effects,
+      });
+    }
+
     // Collect components
     const componentsData = await ComponentService.collectComponents();
     
@@ -67,8 +115,15 @@ async function collectDocumentData() {
     figma.ui.postMessage({
       type: "document-data",
       variablesData,
+      stylesData,
       componentsData: componentsData || [],
     });
+
+    // Return the data for internal use
+    return {
+      variables: variablesData,
+      components: componentsData || []
+    };
   } catch (error) {
     console.error('Error collecting document data:', error);
     
@@ -79,21 +134,41 @@ async function collectDocumentData() {
       variablesData: [], // Send empty arrays as fallback
       componentsData: [],
     });
+
+    // Return empty data on error
+    return {
+      variables: [],
+      components: []
+    };
   }
 }
 
-// Load saved GitLab settings if available
-async function loadSavedGitLabSettings() {
+// Load saved Git settings if available
+async function loadSavedGitSettings() {
   try {
-    const settings = await GitLabService.loadSettings();
-    if (settings) {
+    // Try new format first
+    const gitService = await GitServiceFactory.getServiceFromSettings();
+    if (gitService) {
+      const settings = await gitService.loadSettings();
+      if (settings) {
+        figma.ui.postMessage({
+          type: "git-settings-loaded",
+          settings: settings,
+        });
+        return;
+      }
+    }
+    
+    // Fallback to old GitLab settings for backward compatibility
+    const gitlabSettings = await GitLabService.loadSettings();
+    if (gitlabSettings) {
       figma.ui.postMessage({
         type: "gitlab-settings-loaded",
-        settings: settings,
+        settings: gitlabSettings,
       });
     }
   } catch (error) {
-    console.error("Error loading GitLab settings:", error);
+    console.error("Error loading Git settings:", error);
     // Silently fail - we'll just prompt the user for settings
   }
 }
@@ -101,8 +176,8 @@ async function loadSavedGitLabSettings() {
 // Run the collection when the plugin starts
 collectDocumentData();
 
-// Load saved GitLab settings
-loadSavedGitLabSettings();
+// Load saved Git settings
+loadSavedGitSettings();
 
 // Keep the codegen functionality for generating code in the Code tab
 figma.codegen.on("generate", (_event) => {
@@ -128,6 +203,7 @@ figma.codegen.on("generate", (_event) => {
 
 // Handle messages from the UI
 figma.ui.onmessage = async (msg: PluginMessage) => {
+  console.log("DEBUG: Received ANY message:", msg.type, msg);
   try {
     switch (msg.type) {
       case "export-css":
@@ -277,7 +353,35 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      case "save-git-settings":
+        const gitService = GitServiceFactory.getService(msg.provider || 'gitlab');
+        const gitSettings: GitSettings = {
+          provider: msg.provider || 'gitlab',
+          baseUrl: msg.baseUrl,
+          projectId: msg.projectId || "",
+          token: msg.token,
+          filePath: msg.filePath || "src/variables.css",
+          testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
+          strategy: msg.strategy || "merge-request",
+          branchName: msg.branchName || "feature/variables",
+          testBranchName: msg.testBranchName || "feature/component-tests",
+          exportFormat: msg.exportFormat || "css",
+          saveToken: msg.saveToken || false,
+          savedAt: new Date().toISOString(),
+          savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
+        };
+        
+        await gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
+        
+        figma.ui.postMessage({
+          type: "git-settings-saved",
+          success: true,
+          sharedWithTeam: msg.shareWithTeam,
+        });
+        break;
+
       case "save-gitlab-settings":
+        // Keep for backward compatibility
         await GitLabService.saveSettings(
           {
             gitlabUrl: msg.gitlabUrl,
@@ -303,6 +407,137 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           success: true,
           sharedWithTeam: msg.shareWithTeam,
         });
+        break;
+        
+      case "list-repositories":
+        try {
+          const listService = GitServiceFactory.getService(msg.provider || 'gitlab');
+          const tempSettings: GitSettings = {
+            provider: msg.provider || 'gitlab',
+            baseUrl: '',
+            projectId: '',
+            token: msg.token,
+            filePath: '',
+            saveToken: false,
+            savedAt: '',
+            savedBy: ''
+          };
+          
+          const repositories = await listService.listRepositories(tempSettings);
+          
+          figma.ui.postMessage({
+            type: "repositories-loaded",
+            repositories: repositories
+          });
+        } catch (error: any) {
+          figma.ui.postMessage({
+            type: "repositories-error",
+            error: error.message || "Failed to load repositories"
+          });
+        }
+        break;
+        
+      case "list-branches":
+        try {
+          if (msg.provider !== 'github') {
+            throw new Error("Branch listing is currently only supported for GitHub repositories");
+          }
+          
+          const { GitHubService } = await import("../services/githubService");
+          const githubService = new GitHubService();
+          const branchSettings: GitSettings = {
+            provider: 'github',
+            baseUrl: '',
+            projectId: msg.projectId || '',
+            token: msg.token,
+            filePath: '',
+            saveToken: false,
+            savedAt: '',
+            savedBy: ''
+          };
+          
+          const branches = await githubService.listBranches(branchSettings);
+          
+          figma.ui.postMessage({
+            type: "branches-loaded",
+            branches: branches
+          });
+        } catch (error: any) {
+          figma.ui.postMessage({
+            type: "branches-error",
+            error: error.message || "Failed to load branches"
+          });
+        }
+        break;
+        
+      case "check-oauth-status":
+        try {
+          const { OAuthService } = await import("../services/oauthService");
+          const status = OAuthService.getOAuthStatus();
+          
+          figma.ui.postMessage({
+            type: "oauth-status",
+            status: status
+          });
+        } catch (error: any) {
+          console.error("Error checking OAuth status:", error);
+          figma.ui.postMessage({
+            type: "oauth-status",
+            status: {
+              available: false,
+              configured: false,
+              message: "OAuth service unavailable"
+            }
+          });
+        }
+        break;
+        
+      case "start-oauth-flow":
+        try {
+          const { OAuthService } = await import("../services/oauthService");
+          
+          if (!OAuthService.isOAuthConfigured()) {
+            throw new Error("OAuth is not configured. Please use Personal Access Token method.");
+          }
+          
+          const oauthUrl = OAuthService.generateGitHubOAuthUrl();
+          
+          figma.ui.postMessage({
+            type: "oauth-url",
+            url: oauthUrl
+          });
+        } catch (error: any) {
+          figma.ui.postMessage({
+            type: "oauth-callback",
+            data: {
+              success: false,
+              error: error.message || "Failed to start OAuth flow"
+            }
+          });
+        }
+        break;
+
+      case "open-external":
+        try {
+          if (!msg.url) {
+            throw new Error("URL is required for external opening");
+          }
+          
+          // Use Figma's openExternal API to open URL in user's browser
+          figma.openExternal(msg.url);
+          
+          figma.ui.postMessage({
+            type: "external-url-opened",
+            success: true
+          });
+        } catch (error: any) {
+          console.error("Error opening external URL:", error);
+          figma.ui.postMessage({
+            type: "external-url-opened", 
+            success: false,
+            error: error.message || "Failed to open external URL"
+          });
+        }
         break;
 
       case "commit-to-gitlab":
@@ -499,6 +734,351 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case "resize-plugin":
         // Disabled dynamic resizing - keep consistent size
         // figma.ui.resize() calls removed to maintain fixed plugin size
+        break;
+
+      case "get-existing-collections":
+        try {
+          const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
+          const collectionsData = [];
+          
+          for (const collection of existingCollections) {
+            const variablesPromises = collection.variableIds.map(async (id) => {
+              const variable = await figma.variables.getVariableByIdAsync(id);
+              return variable ? { id: variable.id, name: variable.name, resolvedType: variable.resolvedType } : null;
+            });
+            
+            const variables = await Promise.all(variablesPromises);
+            const validVariables = variables.filter(v => v !== null);
+            
+            collectionsData.push({
+              id: collection.id,
+              name: collection.name,
+              variables: validVariables
+            });
+          }
+          
+          figma.ui.postMessage({
+            type: "existing-collections",
+            collections: collectionsData
+          });
+        } catch (error: any) {
+          console.error("Error getting existing collections:", error);
+          figma.ui.postMessage({
+            type: "existing-collections-error",
+            error: error.message || "Failed to load existing collections"
+          });
+        }
+        break;
+
+      case "import-tokens":
+        console.log("DEBUG: Received import-tokens message", { tokensCount: msg.tokens?.length, options: msg.options });
+        try {
+          if (!msg.tokens || !Array.isArray(msg.tokens)) {
+            console.error("DEBUG: Invalid tokens data", msg.tokens);
+            throw new Error("Invalid tokens data");
+          }
+
+          const tokens = msg.tokens;
+          const options = msg.options || {};
+          
+          // Create or get collection
+          let collection;
+          if (options.createNew || !options.existingCollectionId) {
+            collection = figma.variables.createVariableCollection(options.collectionName || "Imported Tokens");
+          } else {
+            const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
+            collection = existingCollections.find(c => c.id === options.existingCollectionId);
+            if (!collection) {
+              throw new Error("Selected collection not found");
+            }
+          }
+
+          const modeId = collection.modes[0].modeId;
+          let importedCount = 0;
+          let importedStyleCount = 0;
+          const createdGroups = new Set<string>();
+          const createdStyles = {
+            paint: 0,
+            effect: 0,
+            text: 0
+          };
+
+          // Function to extract group name from token name
+          function extractGroupFromTokenName(tokenName: string): string {
+            // Remove leading '--' if present
+            const cleanName = tokenName.startsWith('--') ? tokenName.slice(2) : tokenName;
+            
+            // Split by '-' and take the first part as group name
+            const parts = cleanName.split('-');
+            return parts.length > 1 ? parts[0] : 'misc';
+          }
+
+          // Separate tokens by type
+          const variableTokens = tokens.filter(token => 
+            token.type === 'COLOR' || token.type === 'NUMBER' || token.type === 'RGBA_COLOR'
+          );
+          const styleTokens = tokens.filter(token => 
+            ['GRADIENT', 'SHADOW', 'BLUR', 'TRANSITION'].indexOf(token.type) !== -1
+          );
+
+          console.log("DEBUG: Starting import with tokens:", {
+            total: tokens.length,
+            variables: variableTokens.length, 
+            styles: styleTokens.length
+          });
+
+          // Import variable tokens
+          for (const token of variableTokens) {
+            console.log("DEBUG: Processing variable token:", token);
+
+            try {
+              // Check if variable already exists  
+              const existingVariables = await Promise.all(
+                collection.variableIds.map(id => figma.variables.getVariableByIdAsync(id))
+              );
+              const existingVariable = existingVariables.find(v => v && v.name === token.name);
+
+              if (existingVariable && !options.overwriteExisting) {
+                console.log("DEBUG: Skipping existing variable:", token.name);
+                continue; // Skip existing variables if not overwriting
+              }
+
+              let variable;
+              if (existingVariable && options.overwriteExisting) {
+                console.log("DEBUG: Overwriting existing variable:", token.name);
+                variable = existingVariable;
+              } else {
+                const variableType = token.type === 'COLOR' ? 'COLOR' : 'FLOAT';
+                console.log("DEBUG: Creating new variable:", token.name, "type:", variableType);
+                variable = figma.variables.createVariable(token.name, collection, variableType);
+              }
+
+              // Set variable value
+              let value = token.value;
+              console.log("DEBUG: Original value:", value, "isAlias:", token.isAlias);
+              
+              // Handle variable aliases (references to other variables)
+              if (token.isAlias && token.references && token.references.length > 0) {
+                const referencedVarName = token.references[0]; // Use first reference
+                console.log("DEBUG: Looking for referenced variable:", referencedVarName);
+                
+                // Find the referenced variable in the collection
+                const existingVariables = await Promise.all(
+                  collection.variableIds.map(id => figma.variables.getVariableByIdAsync(id))
+                );
+                const referencedVariable = existingVariables.find(v => v && v.name.endsWith(`/${referencedVarName}`));
+                
+                if (referencedVariable) {
+                  console.log("DEBUG: Found referenced variable, creating alias:", referencedVariable.name);
+                  value = { type: "VARIABLE_ALIAS", id: referencedVariable.id };
+                } else {
+                  console.warn("DEBUG: Referenced variable not found:", referencedVarName, "using fallback value");
+                  // Fallback: parse the raw value if reference not found
+                  value = token.value;
+                }
+              } else {
+                // Handle direct values
+                if (token.type === 'COLOR') {
+                  // Parse color value
+                  if (typeof value === 'string' && value.startsWith('#')) {
+                    const hex = value.slice(1);
+                    const r = parseInt(hex.substring(0, 2), 16) / 255;
+                    const g = parseInt(hex.substring(2, 4), 16) / 255;
+                    const b = parseInt(hex.substring(4, 6), 16) / 255;
+                    value = { r, g, b };
+                    console.log("DEBUG: Parsed color value:", value);
+                  }
+                } else if (token.type === 'NUMBER') {
+                  // Parse numeric value (remove units like rem, px)
+                  if (typeof value === 'string') {
+                    value = parseFloat(value.replace(/[a-zA-Z%]/g, ''));
+                    console.log("DEBUG: Parsed numeric value:", value);
+                  }
+                }
+              }
+
+              console.log("DEBUG: Setting value for mode:", modeId, "value:", value);
+              variable.setValueForMode(modeId, value);
+              
+              // Add variable to appropriate group based on name
+              const groupName = extractGroupFromTokenName(token.name);
+              if (!createdGroups.has(groupName)) {
+                // Create group structure by setting variable name prefix
+                variable.name = `${groupName}/${token.name}`;
+                createdGroups.add(groupName);
+                console.log("DEBUG: Created group:", groupName, "for variable:", variable.name);
+              } else {
+                variable.name = `${groupName}/${token.name}`;
+                console.log("DEBUG: Added to existing group:", groupName, "variable:", variable.name);
+              }
+              
+              importedCount++;
+              console.log("DEBUG: Successfully created variable:", token.name, "importedCount:", importedCount);
+
+            } catch (tokenError: any) {
+              console.error(`DEBUG: Failed to import token ${token.name}:`, tokenError);
+            }
+          }
+
+          // Import style tokens as Figma styles
+          for (const token of styleTokens) {
+            console.log("DEBUG: Processing style token:", token);
+
+            try {
+              const styleName = token.name;
+
+              if (token.type === 'GRADIENT') {
+                // Create paint style for gradients
+                const paintStyle = figma.createPaintStyle();
+                paintStyle.name = styleName;
+                paintStyle.description = `Imported gradient: ${token.value}`;
+                
+                // For now, create a simple solid color as a placeholder
+                // Real gradient parsing would need complex CSS parsing
+                paintStyle.paints = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.9 } }];
+                createdStyles.paint++;
+                console.log("DEBUG: Created paint style for gradient:", styleName);
+
+              } else if (token.type === 'SHADOW') {
+                // Create effect style for shadows
+                const effectStyle = figma.createEffectStyle();
+                effectStyle.name = styleName;
+                effectStyle.description = `Imported shadow: ${token.value}`;
+                
+                // Parse basic shadow values (simplified)
+                const shadowMatch = token.value.match(/(\d+)px\s+(\d+)px\s+(\d+)px/);
+                if (shadowMatch) {
+                  const [, x, y, blur] = shadowMatch;
+                  effectStyle.effects = [{
+                    type: 'DROP_SHADOW',
+                    color: { r: 0, g: 0, b: 0, a: 0.25 },
+                    offset: { x: parseInt(x), y: parseInt(y) },
+                    radius: parseInt(blur),
+                    visible: true,
+                    blendMode: 'NORMAL'
+                  }];
+                }
+                createdStyles.effect++;
+                console.log("DEBUG: Created effect style for shadow:", styleName);
+
+              } else if (token.type === 'BLUR') {
+                // Create effect style for blur
+                const effectStyle = figma.createEffectStyle();
+                effectStyle.name = styleName;
+                effectStyle.description = `Imported blur: ${token.value}`;
+                
+                const blurMatch = token.value.match(/blur\((\d+)px\)/);
+                if (blurMatch) {
+                  const radius = parseInt(blurMatch[1]);
+                  effectStyle.effects = [{
+                    type: 'LAYER_BLUR',
+                    radius: radius,
+                    visible: true
+                  }];
+                }
+                createdStyles.effect++;
+                console.log("DEBUG: Created effect style for blur:", styleName);
+              }
+
+              importedStyleCount++;
+
+            } catch (styleError: any) {
+              console.error(`DEBUG: Failed to import style ${token.name}:`, styleError);
+            }
+          }
+
+          const totalStylesCreated = createdStyles.paint + createdStyles.effect + createdStyles.text;
+          console.log("DEBUG: Import completed successfully", { 
+            importedCount, 
+            importedStyleCount, 
+            totalTokens: tokens.length, 
+            groupsCreated: createdGroups.size,
+            stylesCreated: totalStylesCreated
+          });
+          figma.ui.postMessage({
+            type: "import-complete",
+            result: {
+              success: true,
+              importedCount,
+              importedStyleCount: totalStylesCreated,
+              totalTokens: tokens.length,
+              collectionName: collection.name,
+              collectionId: collection.id,
+              groupsCreated: createdGroups.size,
+              groups: Array.from(createdGroups),
+              stylesCreated: createdStyles
+            }
+          });
+
+        } catch (importError: any) {
+          console.error("DEBUG: Import failed", importError);
+          figma.ui.postMessage({
+            type: "import-error",
+            error: importError.message || "Failed to import tokens"
+          });
+        }
+        break;
+
+      case "refresh-data":
+        try {
+          console.log("Refreshing document data...");
+          
+          // Re-run the data collection
+          await collectDocumentData();
+          
+          figma.ui.postMessage({
+            type: "refresh-complete",
+            message: "Data refreshed successfully"
+          });
+          
+        } catch (refreshError: any) {
+          console.error("Error refreshing data:", refreshError);
+          figma.ui.postMessage({
+            type: "refresh-error",
+            error: refreshError.message || "Failed to refresh data"
+          });
+        }
+        break;
+
+      case "delete-variable":
+        try {
+          if (!msg.variableId) {
+            throw new Error("Variable ID is required for deletion");
+          }
+
+          // Get the variable to check if it exists
+          const variableToDelete = await figma.variables.getVariableByIdAsync(msg.variableId);
+          if (!variableToDelete) {
+            throw new Error("Variable not found");
+          }
+
+          // Delete the variable from Figma
+          variableToDelete.remove();
+          
+          console.log(`Successfully deleted variable: ${variableToDelete.name} (${msg.variableId})`);
+          
+          // Send success confirmation back to UI
+          figma.ui.postMessage({
+            type: "variable-deleted",
+            variableId: msg.variableId,
+            variableName: variableToDelete.name
+          });
+          
+          // Refresh the variables data
+          const refreshedData = await collectDocumentData();
+          figma.ui.postMessage({
+            type: "data-refreshed",
+            variables: refreshedData.variables,
+            components: refreshedData.components
+          });
+          
+        } catch (deleteError: any) {
+          console.error("Error deleting variable:", deleteError);
+          figma.ui.postMessage({
+            type: "delete-error",
+            error: deleteError.message || "Failed to delete variable"
+          });
+        }
         break;
 
       default:

@@ -78,6 +78,7 @@ export interface PluginMessage {
   language?: string;
   componentId?: string;
   componentName?: string;
+  variableId?: string;
   gitlabUrl?: string;
   projectId?: string;
   gitlabToken?: string;
@@ -101,4 +102,19 @@ export interface PluginMessage {
   groups?: {[key: string]: string};
   width?: number;
   height?: number;
+  // Git provider fields
+  provider?: 'gitlab' | 'github';
+  baseUrl?: string;
+  token?: string;
+  // External URL opening
+  url?: string;
+  // Token import  
+  tokens?: Array<{name: string, value: any, type: string, references?: string[], isAlias?: boolean}>;
+  options?: {
+    collectionName?: string;
+    createNew?: boolean;
+    existingCollectionId?: string;
+    organizeByCategories?: boolean;
+    overwriteExisting?: boolean;
+  };
 } 
