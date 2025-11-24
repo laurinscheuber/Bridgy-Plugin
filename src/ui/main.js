@@ -1321,48 +1321,6 @@
           }
           // Update button states based on validation
           updateCommitButtonStates();
-        } else if (message.type === "rename-variable-group-success") {
-          // Handle successful group rename
-          const applyButton = document.getElementById("apply-group-rename-btn");
-          if (applyButton) {
-            applyButton.textContent = '✓ Applied!';
-            applyButton.style.backgroundColor = "#28a745";
-          }
-          
-          // Close modal after a short delay
-          setTimeout(() => {
-            closeEditGroupNameModal();
-            // Reset button
-            if (applyButton) {
-              applyButton.textContent = 'Apply Changes';
-              applyButton.style.backgroundColor = '';
-              applyButton.disabled = true;
-            }
-          }, 1000);
-          
-          // Reload document data to show updated names
-          parent.postMessage(
-            { pluginMessage: { type: "load-document-data" } },
-            "*"
-          );
-        } else if (message.type === "rename-variable-group-error") {
-          // Handle rename error
-          const applyButton = document.getElementById("apply-group-rename-btn");
-          if (applyButton) {
-            applyButton.textContent = 'Error - Try Again';
-            applyButton.style.backgroundColor = "#dc3545";
-            applyButton.disabled = false;
-          }
-          
-          showError('Rename Failed', message.error || 'Could not rename variable group. Please try again.');
-          
-          // Reset button after delay
-          setTimeout(() => {
-            if (applyButton) {
-              applyButton.textContent = 'Apply Changes';
-              applyButton.style.backgroundColor = '';
-            }
-          }, 3000);
         } else if (message.type === "component-styles-loaded") {
           // Handle loaded component styles
           const componentId = message.componentId;
@@ -1662,18 +1620,6 @@
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <div class="subgroup-title">
                       ${displayName}
-                      <button 
-                        type="button" 
-                        class="edit-group-name-btn" 
-                        data-collection-name="${collection.name}" 
-                        data-group-prefix="${prefix}"
-                        title="Rename group (requires updating variables in Figma)"
-                        style="background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 2px 6px; margin-left: 6px; font-size: 12px; border-radius: 4px;"
-                        onmouseover="this.style.color='rgba(255,255,255,0.8)'; this.style.background='rgba(255,255,255,0.1)'"
-                        onmouseout="this.style.color='rgba(255,255,255,0.5)'; this.style.background='none'"
-                      >
-                        ✎
-                      </button>
                       <span class="subgroup-stats">${variables.length} variable${variables.length !== 1 ? 's' : ''}</span>
                       ${
                         isTailwindValid
@@ -1711,17 +1657,6 @@
         });
 
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
-        
-        // Attach event listeners to edit group name buttons
-        const editButtons = container.querySelectorAll('.edit-group-name-btn');
-        editButtons.forEach(button => {
-          button.addEventListener('click', function(event) {
-            event.stopPropagation();
-            const collectionName = this.getAttribute('data-collection-name');
-            const groupPrefix = this.getAttribute('data-group-prefix');
-            showEditGroupNameModal(collectionName, groupPrefix);
-          });
-        });
       }
 
       // Render a group of variables with a title
@@ -2737,174 +2672,6 @@
       function closeUserGuide() {
         document.getElementById("user-guide-modal").style.display = "none";
       }
-
-      // Edit Group Name Modal Functions
-      let currentEditingGroup = { collection: '', prefix: '' };
-
-      function showEditGroupNameModal(collectionName, groupPrefix) {
-        currentEditingGroup = { collection: collectionName, prefix: groupPrefix };
-        
-        const modal = document.getElementById("edit-group-name-modal");
-        const currentNameInput = document.getElementById("current-group-name");
-        const newNameInput = document.getElementById("new-group-name");
-        const validationResult = document.getElementById("group-name-validation-result");
-        const renameFromPattern = document.getElementById("rename-from-pattern");
-        const renameToPattern = document.getElementById("rename-to-pattern");
-        const applyButton = document.getElementById("apply-group-rename-btn");
-        
-        if (modal && currentNameInput && newNameInput) {
-          currentNameInput.value = groupPrefix;
-          newNameInput.value = '';
-          validationResult.style.display = 'none';
-          renameFromPattern.textContent = groupPrefix + '/variable-name';
-          renameToPattern.textContent = 'new-name/variable-name';
-          
-          // Reset apply button
-          if (applyButton) {
-            applyButton.disabled = true;
-            applyButton.textContent = 'Apply Changes';
-            applyButton.style.backgroundColor = '';
-          }
-          
-          modal.style.display = "block";
-          
-          // Focus on new name input after a short delay
-          setTimeout(() => newNameInput.focus(), 100);
-        }
-      }
-
-      function closeEditGroupNameModal() {
-        const modal = document.getElementById("edit-group-name-modal");
-        if (modal) {
-          modal.style.display = "none";
-        }
-      }
-
-      function validateNewGroupName() {
-        const newNameInput = document.getElementById("new-group-name");
-        const validationResult = document.getElementById("group-name-validation-result");
-        const renameToPattern = document.getElementById("rename-to-pattern");
-        const applyButton = document.getElementById("apply-group-rename-btn");
-        
-        if (!newNameInput || !validationResult) return;
-        
-        const newName = newNameInput.value.trim();
-        
-        if (!newName) {
-          validationResult.style.display = 'none';
-          if (applyButton) applyButton.disabled = true;
-          return;
-        }
-        
-        // Enable the apply button since we have a value
-        if (applyButton) applyButton.disabled = false;
-        
-        // Update the rename pattern
-        renameToPattern.textContent = newName + '/variable-name';
-        
-        // Check if the new name is a valid Tailwind v4 namespace
-        // Support both simple names (color) and names with slashes (color/gray, color/*)
-        const validNamespaces = [
-          'color', 'spacing', 'radius', 'font-size', 'font-weight', 'font-family',
-          'line-height', 'letter-spacing', 'width', 'height', 'max-width', 'max-height',
-          'min-width', 'min-height', 'shadow', 'blur', 'brightness', 'contrast',
-          'grayscale', 'hue-rotate', 'invert', 'saturate', 'sepia', 'backdrop-blur',
-          'backdrop-brightness', 'backdrop-contrast', 'backdrop-grayscale',
-          'backdrop-hue-rotate', 'backdrop-invert', 'backdrop-opacity',
-          'backdrop-saturate', 'backdrop-sepia', 'opacity', 'transition',
-          'duration', 'delay', 'ease', 'z-index', 'breakpoint'
-        ];
-        
-        // Extract the base namespace (before any slash)
-        const baseNamespace = newName.split('/')[0].toLowerCase().trim();
-        const isValid = validNamespaces.indexOf(baseNamespace) !== -1;
-        
-        validationResult.style.display = 'block';
-        
-        if (isValid) {
-          validationResult.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
-          validationResult.style.border = '1px solid rgba(34, 197, 94, 0.3)';
-          validationResult.style.color = '#86efac';
-          validationResult.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">✓</span>
-              <span><strong>Valid Tailwind v4 namespace!</strong> This name will be compatible.</span>
-            </div>
-          `;
-        } else {
-          validationResult.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-          validationResult.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-          validationResult.style.color = '#fca5a5';
-          
-          // Try to suggest an alternative
-          const suggestions = {
-            'colors': 'color',
-            'colour': 'color',
-            'space': 'spacing',
-            'padding': 'spacing',
-            'margin': 'spacing',
-            'gap': 'spacing',
-            'border-radius': 'radius',
-            'rounded': 'radius',
-            'font': 'font-family',
-            'fonts': 'font-family',
-            'text-size': 'font-size',
-            'size': 'font-size',
-            'weight': 'font-weight',
-            'line': 'line-height',
-            'tracking': 'letter-spacing',
-            'shadows': 'shadow',
-            'z': 'z-index'
-          };
-          
-          const suggestion = suggestions[baseNamespace];
-          const suggestionText = suggestion 
-            ? `<br><small>Did you mean <strong>${suggestion}</strong>?</small>` 
-            : '';
-          
-          validationResult.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">⚠</span>
-                <span><strong>Invalid Tailwind v4 namespace</strong></span>
-              </div>
-              <div style="font-size: 11px; opacity: 0.9;">
-                "${baseNamespace}" is not a standard Tailwind v4 namespace.${suggestionText}
-              </div>
-            </div>
-          `;
-        }
-      }
-
-      function applyGroupRename() {
-        const newNameInput = document.getElementById("new-group-name");
-        const applyButton = document.getElementById("apply-group-rename-btn");
-        
-        if (!newNameInput || !currentEditingGroup.prefix) return;
-        
-        const newName = newNameInput.value.trim();
-        if (!newName) return;
-        
-        // Disable button and show loading state
-        if (applyButton) {
-          applyButton.disabled = true;
-          applyButton.textContent = 'Applying...';
-        }
-        
-        // Send message to plugin to rename the group
-        parent.postMessage(
-          {
-            pluginMessage: {
-              type: "rename-variable-group",
-              collectionName: currentEditingGroup.collection,
-              oldPrefix: currentEditingGroup.prefix,
-              newPrefix: newName,
-            },
-          },
-          "*"
-        );
-      }
-
 
       // Function to open GitHub with specific feedback type
       function openGitHubFeedback(type) {
