@@ -225,19 +225,37 @@
         
         const isConfigured = isGitLabConfigured();
         
+        // Check if Tailwind v4 format is selected and if there are validation issues
+        const isTailwindV4Selected = window.gitlabSettings?.exportFormat === 'tailwind-v4';
+        const hasTailwindIssues = isTailwindV4Selected && 
+          tailwindV4Validation && 
+          !tailwindV4Validation.isValid;
+        
         // Variables tab commit button
         const commitButton = document.getElementById("commit-repo-button");
         if (commitButton) {
-          const shouldEnable = hasVariables && isConfigured;
+          const shouldEnable = hasVariables && isConfigured && !hasTailwindIssues;
           commitButton.disabled = !shouldEnable;
           
           if (!isConfigured) {
             commitButton.title = "Configure GitLab settings in the Settings tab to enable commits";
           } else if (!hasVariables) {
             commitButton.title = "No variables available to commit";
+          } else if (hasTailwindIssues) {
+            commitButton.title = "Cannot commit: Fix Tailwind v4 namespace issues first";
           } else {
             commitButton.title = "Commit variables to GitLab repository";
           }
+        }
+        
+        // Export button
+        const exportButton = document.getElementById("export-css-button");
+        if (exportButton && hasTailwindIssues) {
+          exportButton.disabled = true;
+          exportButton.title = "Cannot export: Fix Tailwind v4 namespace issues first";
+        } else if (exportButton && hasVariables) {
+          exportButton.disabled = false;
+          exportButton.title = "Export variables to CSS file";
         }
         
         // Components tab commit buttons
@@ -1301,6 +1319,8 @@
           if (variablesData && variablesData.length > 0) {
             renderVariables(variablesData);
           }
+          // Update button states based on validation
+          updateCommitButtonStates();
         } else if (message.type === "component-styles-loaded") {
           // Handle loaded component styles
           const componentId = message.componentId;
@@ -1600,6 +1620,17 @@
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <div class="subgroup-title">
                       ${displayName}
+                      <button 
+                        type="button" 
+                        class="edit-group-name-btn" 
+                        onclick="event.stopPropagation(); showEditGroupNameModal('${SecurityUtils.escapeHTML(collection.name)}', '${SecurityUtils.escapeHTML(prefix)}')" 
+                        title="Rename group (requires updating variables in Figma)"
+                        style="background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 2px 6px; margin-left: 6px; font-size: 12px; border-radius: 4px;"
+                        onmouseover="this.style.color='rgba(255,255,255,0.8)'; this.style.background='rgba(255,255,255,0.1)'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.5)'; this.style.background='none'"
+                      >
+                        ✎
+                      </button>
                       <span class="subgroup-stats">${variables.length} variable${variables.length !== 1 ? 's' : ''}</span>
                       ${
                         isTailwindValid
@@ -2653,6 +2684,129 @@
         document.getElementById("user-guide-modal").style.display = "none";
       }
 
+      // Edit Group Name Modal Functions
+      let currentEditingGroup = { collection: '', prefix: '' };
+
+      function showEditGroupNameModal(collectionName, groupPrefix) {
+        currentEditingGroup = { collection: collectionName, prefix: groupPrefix };
+        
+        const modal = document.getElementById("edit-group-name-modal");
+        const currentNameInput = document.getElementById("current-group-name");
+        const newNameInput = document.getElementById("new-group-name");
+        const validationResult = document.getElementById("group-name-validation-result");
+        const renameFromPattern = document.getElementById("rename-from-pattern");
+        const renameToPattern = document.getElementById("rename-to-pattern");
+        
+        if (modal && currentNameInput && newNameInput) {
+          currentNameInput.value = groupPrefix;
+          newNameInput.value = '';
+          validationResult.style.display = 'none';
+          renameFromPattern.textContent = groupPrefix + '/variable-name';
+          renameToPattern.textContent = 'new-name/variable-name';
+          
+          modal.style.display = "block";
+          
+          // Focus on new name input after a short delay
+          setTimeout(() => newNameInput.focus(), 100);
+        }
+      }
+
+      function closeEditGroupNameModal() {
+        const modal = document.getElementById("edit-group-name-modal");
+        if (modal) {
+          modal.style.display = "none";
+        }
+      }
+
+      function validateNewGroupName() {
+        const newNameInput = document.getElementById("new-group-name");
+        const validationResult = document.getElementById("group-name-validation-result");
+        const renameToPattern = document.getElementById("rename-to-pattern");
+        
+        if (!newNameInput || !validationResult) return;
+        
+        const newName = newNameInput.value.trim();
+        
+        if (!newName) {
+          validationResult.style.display = 'none';
+          return;
+        }
+        
+        // Update the rename pattern
+        renameToPattern.textContent = newName + '/variable-name';
+        
+        // Check if the new name is a valid Tailwind v4 namespace
+        const validNamespaces = [
+          'color', 'spacing', 'radius', 'font-size', 'font-weight', 'font-family',
+          'line-height', 'letter-spacing', 'width', 'height', 'max-width', 'max-height',
+          'min-width', 'min-height', 'shadow', 'blur', 'brightness', 'contrast',
+          'grayscale', 'hue-rotate', 'invert', 'saturate', 'sepia', 'backdrop-blur',
+          'backdrop-brightness', 'backdrop-contrast', 'backdrop-grayscale',
+          'backdrop-hue-rotate', 'backdrop-invert', 'backdrop-opacity',
+          'backdrop-saturate', 'backdrop-sepia', 'opacity', 'transition',
+          'duration', 'delay', 'ease', 'z-index', 'breakpoint'
+        ];
+        
+        const normalizedName = newName.toLowerCase();
+        const isValid = validNamespaces.indexOf(normalizedName) !== -1;
+        
+        validationResult.style.display = 'block';
+        
+        if (isValid) {
+          validationResult.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+          validationResult.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+          validationResult.style.color = '#86efac';
+          validationResult.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">✓</span>
+              <span><strong>Valid Tailwind v4 namespace!</strong> This name will be compatible.</span>
+            </div>
+          `;
+        } else {
+          validationResult.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+          validationResult.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          validationResult.style.color = '#fca5a5';
+          
+          // Try to suggest an alternative
+          const suggestions = {
+            'colors': 'color',
+            'colour': 'color',
+            'space': 'spacing',
+            'padding': 'spacing',
+            'margin': 'spacing',
+            'gap': 'spacing',
+            'border-radius': 'radius',
+            'rounded': 'radius',
+            'font': 'font-family',
+            'fonts': 'font-family',
+            'text-size': 'font-size',
+            'size': 'font-size',
+            'weight': 'font-weight',
+            'line': 'line-height',
+            'tracking': 'letter-spacing',
+            'shadows': 'shadow',
+            'z': 'z-index'
+          };
+          
+          const suggestion = suggestions[normalizedName];
+          const suggestionText = suggestion 
+            ? `<br><small>Did you mean <strong>${suggestion}</strong>?</small>` 
+            : '';
+          
+          validationResult.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">⚠</span>
+                <span><strong>Invalid Tailwind v4 namespace</strong></span>
+              </div>
+              <div style="font-size: 11px; opacity: 0.9;">
+                "${newName}" is not a standard Tailwind v4 namespace.${suggestionText}
+              </div>
+            </div>
+          `;
+        }
+      }
+
 
       // Function to open GitHub with specific feedback type
       function openGitHubFeedback(type) {
@@ -3596,6 +3750,8 @@ ${checkboxes}
             window.gitlabSettings.exportFormat = this.value;
           }
           updateExportButtonText();
+          // Update button states when format changes
+          updateCommitButtonStates();
         });
       }
 
