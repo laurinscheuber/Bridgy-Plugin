@@ -46,3 +46,6 @@ CLAUDE.md
 
 # Claude folder
 .claude/
+
+# Local Netlify folder
+.netlify

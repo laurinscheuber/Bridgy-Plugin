@@ -6,6 +6,7 @@ A high-performance Figma plugin for synchronizing design tokens and components w
 
 - **Export Figma Variables** - Export design tokens as CSS/SCSS variables
 - **Generate Component Tests** - Auto-generate Angular component tests from Figma designs
+- **GitHub OAuth** - One-click authentication with GitHub (no manual token creation needed)
 - **GitLab Integration** - Commit changes directly to GitLab with merge request support
 - **Component Visualization** - Browse component hierarchy with search and filtering
 - **Unit Configuration** - Smart unit detection and configuration for variables
@@ -176,6 +177,21 @@ Key features:
 - Caching is used to minimize API calls
 
 See [BUILD_OPTIMIZATIONS.md](BUILD_OPTIMIZATIONS.md) for more details.
+
+### OAuth / GitHub Authentication
+
+**Problem: "Popup Blocker Detected"**
+
+Modern browsers block popups by default. To use GitHub OAuth:
+
+1. **Chrome**: Click the popup blocked icon (🚫) in the address bar → "Always allow popups from figma.com"
+2. **Firefox**: Click preferences icon → "Show Blocked Pop-ups" → "Allow pop-ups for figma.com"
+3. **Safari**: Go to Safari → Preferences → Websites → "Pop-up Windows" → Set figma.com to "Allow"
+4. **Edge**: Click popup blocked icon → "Always allow"
+
+**Alternative**: Use a [Personal Access Token](https://github.com/settings/tokens) instead of OAuth.
+
+For detailed OAuth setup and troubleshooting, see [docs/OAUTH_GUIDE.md](docs/OAUTH_GUIDE.md).
 
 ## Contributing
 

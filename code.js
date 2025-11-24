@@ -951,6 +951,7 @@
       LoggingService.CATEGORIES = {
         COMPONENT: "Component",
         GITLAB: "GitLab",
+        GITHUB: "GitHub",
         CSS_EXPORT: "CSS Export",
         UNITS: "Units",
         UI: "UI",
@@ -2492,6 +2493,1280 @@
       };
       exports.GitLabService = GitLabService;
       GitLabService.DEFAULT_HEADERS = config_1.API_CONFIG.DEFAULT_HEADERS;
+    }
+  });
+
+  // dist/services/gitLabServiceAdapter.js
+  var require_gitLabServiceAdapter = __commonJS({
+    "dist/services/gitLabServiceAdapter.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.GitLabServiceAdapter = void 0;
+      var gitlabService_1 = require_gitlabService();
+      var GitLabServiceAdapter = class {
+        /**
+         * Convert GitSettings to GitLabSettings
+         */
+        toGitLabSettings(settings) {
+          return {
+            gitlabUrl: settings.baseUrl,
+            projectId: settings.projectId,
+            gitlabToken: settings.token,
+            filePath: settings.filePath,
+            testFilePath: settings.testFilePath,
+            strategy: settings.strategy,
+            branchName: settings.branchName,
+            testBranchName: settings.testBranchName,
+            exportFormat: settings.exportFormat,
+            saveToken: settings.saveToken,
+            savedAt: settings.savedAt,
+            savedBy: settings.savedBy,
+            isPersonal: settings.isPersonal,
+            _needsCryptoMigration: settings._needsCryptoMigration
+          };
+        }
+        /**
+         * Convert GitLabSettings to GitSettings
+         */
+        fromGitLabSettings(settings) {
+          if (!settings)
+            return null;
+          return {
+            provider: "gitlab",
+            baseUrl: settings.gitlabUrl,
+            projectId: settings.projectId,
+            token: settings.gitlabToken,
+            filePath: settings.filePath,
+            testFilePath: settings.testFilePath,
+            strategy: settings.strategy,
+            branchName: settings.branchName,
+            testBranchName: settings.testBranchName,
+            exportFormat: settings.exportFormat,
+            saveToken: settings.saveToken,
+            savedAt: settings.savedAt,
+            savedBy: settings.savedBy,
+            isPersonal: settings.isPersonal,
+            _needsCryptoMigration: settings._needsCryptoMigration
+          };
+        }
+        saveSettings(settings, shareWithTeam) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            yield gitlabService_1.GitLabService.saveSettings(gitlabSettings, shareWithTeam);
+          });
+        }
+        loadSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = yield gitlabService_1.GitLabService.loadSettings();
+            return this.fromGitLabSettings(gitlabSettings);
+          });
+        }
+        resetSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            yield gitlabService_1.GitLabService.resetSettings();
+          });
+        }
+        validateCredentials(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              yield this.getProject(settings);
+              return true;
+            } catch (error) {
+              return false;
+            }
+          });
+        }
+        getProject(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const projectData = yield gitlabService_1.GitLabService.fetchProjectInfo(settings.projectId, settings.token, gitlabSettings);
+            return {
+              id: projectData.id,
+              name: projectData.name,
+              defaultBranch: projectData.default_branch,
+              webUrl: projectData.web_url
+            };
+          });
+        }
+        listRepositories(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            throw new Error("List repositories not yet implemented for GitLab");
+          });
+        }
+        createBranch(settings, branchName, baseBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            yield gitlabService_1.GitLabService.createFeatureBranch(settings.projectId, settings.token, branchName, baseBranch, gitlabSettings);
+          });
+        }
+        getFile(settings, filePath, branch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const result = yield gitlabService_1.GitLabService.prepareFileCommit(settings.projectId, settings.token, filePath, branch, gitlabSettings);
+            if (!result.fileData)
+              return null;
+            return {
+              fileName: result.fileData.file_name,
+              filePath: result.fileData.file_path,
+              size: result.fileData.size,
+              encoding: result.fileData.encoding,
+              content: result.fileData.content,
+              lastCommitId: result.fileData.last_commit_id
+            };
+          });
+        }
+        commitFile(settings, commitMessage, filePath, content, branch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const { fileData, action } = yield gitlabService_1.GitLabService.prepareFileCommit(settings.projectId, settings.token, filePath, branch, gitlabSettings);
+            const commit = yield gitlabService_1.GitLabService.createCommit(settings.projectId, settings.token, branch, commitMessage, filePath, content, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id, gitlabSettings);
+            return {
+              id: commit.id,
+              title: commit.title,
+              message: commit.message,
+              webUrl: commit.web_url
+            };
+          });
+        }
+        createPullRequest(settings_1, sourceBranch_1, targetBranch_1, title_1, description_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, sourceBranch, targetBranch, title, description, isDraft = false) {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const mr = yield gitlabService_1.GitLabService.createMergeRequest(settings.projectId, settings.token, sourceBranch, targetBranch, title, description, isDraft, gitlabSettings);
+            return {
+              id: mr.id,
+              title: mr.title,
+              description: mr.description,
+              state: mr.state === "opened" ? "open" : mr.state,
+              webUrl: mr.web_url,
+              sourceBranch: mr.source_branch,
+              targetBranch: mr.target_branch,
+              draft: isDraft
+            };
+          });
+        }
+        findExistingPullRequest(settings, sourceBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const mr = yield gitlabService_1.GitLabService.findExistingMergeRequest(settings.projectId, settings.token, sourceBranch, gitlabSettings);
+            if (!mr)
+              return null;
+            return {
+              id: mr.id,
+              title: mr.title,
+              description: mr.description,
+              state: mr.state === "opened" ? "open" : mr.state,
+              webUrl: mr.web_url,
+              sourceBranch: mr.source_branch,
+              targetBranch: mr.target_branch
+            };
+          });
+        }
+        commitWorkflow(settings, commitMessage, filePath, cssData, branchName) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const result = yield gitlabService_1.GitLabService.commitToGitLab(gitlabSettings, commitMessage, filePath, cssData, branchName);
+            return {
+              pullRequestUrl: result.mergeRequestUrl
+            };
+          });
+        }
+        commitComponentTest(settings, commitMessage, componentName, testContent, testFilePath, branchName) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const result = yield gitlabService_1.GitLabService.commitComponentTest(gitlabSettings, commitMessage, componentName, testContent, testFilePath, branchName);
+            return {
+              pullRequestUrl: result.mergeRequestUrl
+            };
+          });
+        }
+        clearAllTokens() {
+          return __awaiter(this, void 0, void 0, function* () {
+            yield gitlabService_1.GitLabService.clearAllTokens();
+          });
+        }
+        getTokenInfo() {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield gitlabService_1.GitLabService.getTokenInfo();
+          });
+        }
+      };
+      exports.GitLabServiceAdapter = GitLabServiceAdapter;
+    }
+  });
+
+  // dist/services/baseGitService.js
+  var require_baseGitService = __commonJS({
+    "dist/services/baseGitService.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.GitNetworkError = exports.GitAuthError = exports.GitServiceError = void 0;
+      var GitServiceError = class extends Error {
+        constructor(message, statusCode, response) {
+          super(message);
+          this.statusCode = statusCode;
+          this.response = response;
+          this.name = "GitServiceError";
+        }
+      };
+      exports.GitServiceError = GitServiceError;
+      var GitAuthError = class extends GitServiceError {
+        constructor(message = "Authentication failed") {
+          super(message, 401);
+          this.name = "GitAuthError";
+        }
+      };
+      exports.GitAuthError = GitAuthError;
+      var GitNetworkError = class extends GitServiceError {
+        constructor(message = "Network error") {
+          super(message);
+          this.name = "GitNetworkError";
+        }
+      };
+      exports.GitNetworkError = GitNetworkError;
+    }
+  });
+
+  // dist/services/repositoryCacheService.js
+  var require_repositoryCacheService = __commonJS({
+    "dist/services/repositoryCacheService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.RepositoryCacheService = void 0;
+      var config_1 = require_config();
+      var RepositoryCacheService = class {
+        /**
+         * Generate cache key from provider and token
+         */
+        static generateCacheKey(provider, token) {
+          const tokenHash = this.simpleHash(token);
+          return `${provider}:${tokenHash}`;
+        }
+        /**
+         * Simple hash function for security
+         */
+        static simpleHash(str) {
+          let hash = 0;
+          if (str.length === 0)
+            return hash.toString();
+          for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = (hash << 5) - hash + char;
+            hash = hash & hash;
+          }
+          return Math.abs(hash).toString(36);
+        }
+        /**
+         * Get repositories from cache if available and fresh
+         */
+        static getCachedRepositories(provider, token) {
+          this.performPeriodicCleanup();
+          const cacheKey = this.generateCacheKey(provider, token);
+          const entry = this.cache.get(cacheKey);
+          if (!entry) {
+            this.metadata.missCount++;
+            config_1.LoggingService.debug(`Cache miss for ${provider}`, { cacheKey }, config_1.LoggingService.CATEGORIES.GITHUB);
+            return null;
+          }
+          const age = Date.now() - entry.timestamp;
+          if (age > this.CACHE_DURATION) {
+            this.cache.delete(cacheKey);
+            this.metadata.missCount++;
+            config_1.LoggingService.debug(`Cache expired for ${provider}`, { age, maxAge: this.CACHE_DURATION }, config_1.LoggingService.CATEGORIES.GITHUB);
+            return null;
+          }
+          this.metadata.hitCount++;
+          config_1.LoggingService.debug(`Cache hit for ${provider}`, {
+            repositoryCount: entry.repositories.length,
+            age
+          }, config_1.LoggingService.CATEGORIES.GITHUB);
+          return [...entry.repositories];
+        }
+        /**
+         * Store repositories in cache
+         */
+        static cacheRepositories(provider, token, repositories) {
+          this.performPeriodicCleanup();
+          const cacheKey = this.generateCacheKey(provider, token);
+          const tokenHash = this.simpleHash(token);
+          const entry = {
+            repositories: [...repositories],
+            // Store copy to prevent mutation
+            timestamp: Date.now(),
+            provider,
+            tokenHash
+          };
+          this.cache.set(cacheKey, entry);
+          if (this.cache.size > this.MAX_CACHE_SIZE) {
+            this.evictOldestEntry();
+          }
+          config_1.LoggingService.debug(`Cached repositories for ${provider}`, {
+            repositoryCount: repositories.length,
+            cacheSize: this.cache.size
+          }, config_1.LoggingService.CATEGORIES.GITHUB);
+        }
+        /**
+         * Invalidate cache for specific provider/token combination
+         */
+        static invalidateCache(provider, token) {
+          const cacheKey = this.generateCacheKey(provider, token);
+          const deleted = this.cache.delete(cacheKey);
+          if (deleted) {
+            config_1.LoggingService.debug(`Invalidated cache for ${provider}`, { cacheKey }, config_1.LoggingService.CATEGORIES.GITHUB);
+          }
+        }
+        /**
+         * Clear all cache entries
+         */
+        static clearCache() {
+          const size = this.cache.size;
+          this.cache.clear();
+          this.metadata.hitCount = 0;
+          this.metadata.missCount = 0;
+          config_1.LoggingService.info(`Cleared repository cache`, { previousSize: size }, config_1.LoggingService.CATEGORIES.GITHUB);
+        }
+        /**
+         * Get cache statistics
+         */
+        static getCacheStats() {
+          const totalRequests = this.metadata.hitCount + this.metadata.missCount;
+          const hitRate = totalRequests > 0 ? this.metadata.hitCount / totalRequests : 0;
+          const entries = Array.from(this.cache.entries()).map(([key, entry]) => ({
+            provider: entry.provider,
+            repositoryCount: entry.repositories.length,
+            age: Date.now() - entry.timestamp,
+            fresh: Date.now() - entry.timestamp < this.CACHE_DURATION
+          }));
+          return {
+            size: this.cache.size,
+            hitRate: Math.round(hitRate * 100) / 100,
+            entries
+          };
+        }
+        /**
+         * Perform periodic cleanup of expired entries
+         */
+        static performPeriodicCleanup() {
+          const now = Date.now();
+          const timeSinceLastCleanup = now - this.metadata.lastCleanup;
+          if (timeSinceLastCleanup < this.CLEANUP_INTERVAL) {
+            return;
+          }
+          const sizeBefore = this.cache.size;
+          let removedCount = 0;
+          for (const [key, entry] of this.cache.entries()) {
+            const age = now - entry.timestamp;
+            if (age > this.CACHE_DURATION) {
+              this.cache.delete(key);
+              removedCount++;
+            }
+          }
+          this.metadata.lastCleanup = now;
+          if (removedCount > 0) {
+            config_1.LoggingService.debug(`Cleaned up expired cache entries`, {
+              removed: removedCount,
+              before: sizeBefore,
+              after: this.cache.size
+            }, config_1.LoggingService.CATEGORIES.GITHUB);
+          }
+        }
+        /**
+         * Evict oldest cache entry when cache is full
+         */
+        static evictOldestEntry() {
+          let oldestKey = null;
+          let oldestTime = Date.now();
+          for (const [key, entry] of this.cache.entries()) {
+            if (entry.timestamp < oldestTime) {
+              oldestTime = entry.timestamp;
+              oldestKey = key;
+            }
+          }
+          if (oldestKey) {
+            this.cache.delete(oldestKey);
+            config_1.LoggingService.debug(`Evicted oldest cache entry`, {
+              key: oldestKey,
+              age: Date.now() - oldestTime
+            }, config_1.LoggingService.CATEGORIES.GITHUB);
+          }
+        }
+        /**
+         * Preload repositories in background (for proactive caching)
+         */
+        static preloadRepositories(provider, token, fetchFunction) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const cached = this.getCachedRepositories(provider, token);
+            if (cached) {
+              const cacheKey = this.generateCacheKey(provider, token);
+              const entry = this.cache.get(cacheKey);
+              const age = Date.now() - ((entry === null || entry === void 0 ? void 0 : entry.timestamp) || 0);
+              if (age > 2 * 60 * 1e3) {
+                fetchFunction().then((fresh) => {
+                  this.cacheRepositories(provider, token, fresh);
+                }).catch((error) => {
+                  config_1.LoggingService.warn(`Background repository refresh failed`, error, config_1.LoggingService.CATEGORIES.GITHUB);
+                });
+              }
+              return cached;
+            }
+            try {
+              const repositories = yield fetchFunction();
+              this.cacheRepositories(provider, token, repositories);
+              return repositories;
+            } catch (error) {
+              config_1.LoggingService.error(`Failed to preload repositories`, error, config_1.LoggingService.CATEGORIES.GITHUB);
+              throw error;
+            }
+          });
+        }
+      };
+      exports.RepositoryCacheService = RepositoryCacheService;
+      RepositoryCacheService.CACHE_DURATION = 5 * 60 * 1e3;
+      RepositoryCacheService.MAX_CACHE_SIZE = 10;
+      RepositoryCacheService.CLEANUP_INTERVAL = 30 * 60 * 1e3;
+      RepositoryCacheService.cache = /* @__PURE__ */ new Map();
+      RepositoryCacheService.metadata = {
+        lastCleanup: Date.now(),
+        hitCount: 0,
+        missCount: 0
+      };
+    }
+  });
+
+  // dist/services/githubService.js
+  var require_githubService = __commonJS({
+    "dist/services/githubService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.GitHubService = void 0;
+      var baseGitService_1 = require_baseGitService();
+      var config_1 = require_config();
+      var securityUtils_1 = require_securityUtils();
+      var errorHandler_1 = require_errorHandler();
+      var cryptoService_1 = require_cryptoService();
+      var proxyService_1 = require_proxyService();
+      var repositoryCacheService_1 = require_repositoryCacheService();
+      var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
+      var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
+      var GitHubService = class _GitHubService {
+        /**
+         * Get the GitHub API base URL
+         */
+        static getGitHubApiBase(settings) {
+          if (settings.baseUrl && settings.baseUrl !== "https://github.com") {
+            const url = new URL(settings.baseUrl);
+            return `${url.origin}/api/v3`;
+          }
+          return "https://api.github.com";
+        }
+        /**
+         * Parse owner and repo from projectId
+         */
+        static parseOwnerRepo(projectId) {
+          const parts = projectId.split("/");
+          if (parts.length !== 2) {
+            throw new Error("GitHub project ID must be in format: owner/repo");
+          }
+          return { owner: parts[0], repo: parts[1] };
+        }
+        /**
+         * Generate storage key for settings
+         */
+        static getSettingsKey() {
+          const figmaFileId = figma.root.id;
+          return `github-settings-${figmaFileId}`;
+        }
+        saveSettings(settings, shareWithTeam) {
+          return __awaiter(this, void 0, void 0, function* () {
+            if (!settings || typeof settings !== "object") {
+              throw new Error(config_1.ERROR_MESSAGES.INVALID_SETTINGS);
+            }
+            try {
+              const settingsKey = _GitHubService.getSettingsKey();
+              if (!shareWithTeam) {
+                yield figma.clientStorage.setAsync(settingsKey, settings);
+              } else {
+                const settingsToSave = Object.assign({}, settings);
+                if (!settings.saveToken) {
+                  delete settingsToSave.token;
+                }
+                figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
+                if (settings.saveToken && settings.token) {
+                  try {
+                    if (cryptoService_1.CryptoService.isAvailable()) {
+                      const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.token);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-crypto`, "v2");
+                    } else {
+                      const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
+                      const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.token, encryptionKey);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+                      yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
+                    }
+                  } catch (error) {
+                    errorHandler_1.ErrorHandler.handleError(error, {
+                      operation: "encrypt_token",
+                      component: "GitHubService",
+                      severity: "high"
+                    });
+                    delete settingsToSave.token;
+                  }
+                }
+              }
+              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
+                sharedWithTeam: shareWithTeam,
+                savedAt: settings.savedAt,
+                savedBy: settings.savedBy
+              }));
+            } catch (error) {
+              config_1.LoggingService.error("Error saving GitHub settings", error, config_1.LoggingService.CATEGORIES.GITHUB);
+              throw new baseGitService_1.GitServiceError(`Error saving GitHub settings: ${error.message || "Unknown error"}`, void 0, error);
+            }
+          });
+        }
+        loadSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const settingsKey = _GitHubService.getSettingsKey();
+              const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              if (documentSettings) {
+                try {
+                  const settings = JSON.parse(documentSettings);
+                  if (settings.saveToken && !settings.token) {
+                    const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
+                    const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+                    if (encryptedToken) {
+                      try {
+                        if (cryptoVersion === "v2" && cryptoService_1.CryptoService.isAvailable()) {
+                          settings.token = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
+                        } else if (yield figma.clientStorage.getAsync(`${settingsKey}-key`)) {
+                          const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
+                          settings.token = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                          settings._needsCryptoMigration = true;
+                        }
+                      } catch (error) {
+                        errorHandler_1.ErrorHandler.handleError(error, {
+                          operation: "decrypt_token",
+                          component: "GitHubService",
+                          severity: "medium"
+                        });
+                      }
+                    }
+                  }
+                  const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
+                  if (metaData) {
+                    try {
+                      const meta = JSON.parse(metaData);
+                      settings.isPersonal = !meta.sharedWithTeam;
+                    } catch (metaParseError) {
+                      console.warn("Error parsing settings metadata:", metaParseError);
+                    }
+                  }
+                  return settings;
+                } catch (parseError) {
+                  config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITHUB);
+                }
+              }
+              const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
+              if (personalSettings) {
+                return Object.assign({}, personalSettings, { isPersonal: true });
+              }
+              return null;
+            } catch (error) {
+              config_1.LoggingService.error("Error loading GitHub settings", error, config_1.LoggingService.CATEGORIES.GITHUB);
+              return null;
+            }
+          });
+        }
+        resetSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const settingsKey = _GitHubService.getSettingsKey();
+              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
+              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+              yield figma.clientStorage.deleteAsync(settingsKey);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
+            } catch (error) {
+              config_1.LoggingService.error("Error resetting GitHub settings", error, config_1.LoggingService.CATEGORIES.GITHUB);
+              throw new baseGitService_1.GitServiceError(`Error resetting GitHub settings: ${error.message || "Unknown error"}`, void 0, error);
+            }
+          });
+        }
+        validateCredentials(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              yield this.getProject(settings);
+              return true;
+            } catch (error) {
+              return false;
+            }
+          });
+        }
+        getProject(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            const url = `${apiBase}/repos/${owner}/${repo}`;
+            try {
+              const response = yield this.makeAPIRequest(url, {
+                method: "GET",
+                headers: this.getHeaders(settings.token)
+              }, settings);
+              const repoData = yield response.json();
+              return {
+                id: repoData.id,
+                name: repoData.name,
+                fullName: repoData.full_name,
+                defaultBranch: repoData.default_branch,
+                webUrl: repoData.html_url,
+                description: repoData.description,
+                private: repoData.private
+              };
+            } catch (error) {
+              throw this.handleGitHubError(error, "fetch repository information");
+            }
+          });
+        }
+        listRepositories(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const cached = repositoryCacheService_1.RepositoryCacheService.getCachedRepositories("github", settings.token);
+            if (cached) {
+              return cached;
+            }
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            try {
+              const allRepos = [];
+              let page = 1;
+              const perPage = 100;
+              while (page <= 5) {
+                const url = `${apiBase}/user/repos?per_page=${perPage}&sort=updated&page=${page}&type=all`;
+                const response = yield this.makeAPIRequest(url, {
+                  method: "GET",
+                  headers: this.getHeaders(settings.token)
+                }, settings);
+                const repos = yield response.json();
+                if (repos.length === 0) {
+                  break;
+                }
+                allRepos.push(...repos);
+                if (repos.length < perPage) {
+                  break;
+                }
+                page++;
+              }
+              const projects = allRepos.map((repo) => ({
+                id: repo.id,
+                name: repo.name,
+                fullName: repo.full_name,
+                defaultBranch: repo.default_branch,
+                webUrl: repo.html_url,
+                description: repo.description,
+                private: repo.private,
+                language: repo.language,
+                stargazers_count: repo.stargazers_count,
+                forks_count: repo.forks_count,
+                updatedAt: repo.updated_at,
+                createdAt: repo.created_at,
+                topics: repo.topics || [],
+                owner: {
+                  login: repo.owner.login,
+                  avatar_url: repo.owner.avatar_url
+                }
+              }));
+              repositoryCacheService_1.RepositoryCacheService.cacheRepositories("github", settings.token, projects);
+              return projects;
+            } catch (error) {
+              throw this.handleGitHubError(error, "list repositories");
+            }
+          });
+        }
+        /**
+         * List branches for a repository
+         */
+        listBranches(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            try {
+              const repoData = yield this.getProject(settings);
+              const defaultBranch = repoData.defaultBranch;
+              const url = `${apiBase}/repos/${owner}/${repo}/branches`;
+              const response = yield this.makeAPIRequest(url, {
+                method: "GET",
+                headers: this.getHeaders(settings.token)
+              }, settings);
+              const branches = yield response.json();
+              return branches.map((branch) => ({
+                name: branch.name,
+                isDefault: branch.name === defaultBranch
+              }));
+            } catch (error) {
+              throw this.handleGitHubError(error, "list branches");
+            }
+          });
+        }
+        createBranch(settings, branchName, baseBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            const baseBranchUrl = `${apiBase}/repos/${owner}/${repo}/git/refs/heads/${baseBranch}`;
+            try {
+              const baseResponse = yield this.makeAPIRequest(baseBranchUrl, {
+                method: "GET",
+                headers: this.getHeaders(settings.token)
+              }, settings);
+              const baseRef = yield baseResponse.json();
+              const baseSha = baseRef.object.sha;
+              const createBranchUrl = `${apiBase}/repos/${owner}/${repo}/git/refs`;
+              yield this.makeAPIRequest(createBranchUrl, {
+                method: "POST",
+                headers: this.getHeaders(settings.token),
+                body: JSON.stringify({
+                  ref: `refs/heads/${branchName}`,
+                  sha: baseSha
+                })
+              }, settings);
+            } catch (error) {
+              if (error instanceof baseGitService_1.GitServiceError && error.statusCode === 422) {
+                const message = error.message.toLowerCase();
+                if (message.includes("already exists") || message.includes("reference already exists")) {
+                  return;
+                }
+              }
+              throw this.handleGitHubError(error, `create branch '${branchName}'`);
+            }
+          });
+        }
+        getFile(settings, filePath, branch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            const url = `${apiBase}/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+            try {
+              const response = yield this.makeAPIRequest(url, {
+                method: "GET",
+                headers: this.getHeaders(settings.token)
+              }, settings);
+              const fileData = yield response.json();
+              if (fileData.type !== "file") {
+                throw new Error("Path is not a file");
+              }
+              return {
+                fileName: fileData.name,
+                filePath: fileData.path,
+                size: fileData.size,
+                encoding: fileData.encoding,
+                content: fileData.content,
+                lastCommitId: fileData.sha,
+                sha: fileData.sha
+              };
+            } catch (error) {
+              if (error instanceof baseGitService_1.GitServiceError && error.statusCode === 404) {
+                return null;
+              }
+              throw this.handleGitHubError(error, "fetch file content");
+            }
+          });
+        }
+        commitFile(settings, commitMessage, filePath, content, branch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            const url = `${apiBase}/repos/${owner}/${repo}/contents/${filePath}`;
+            const existingFile = yield this.getFile(settings, filePath, branch);
+            const requestBody = {
+              message: commitMessage,
+              content: btoa(unescape(encodeURIComponent(content))),
+              branch
+            };
+            if (existingFile) {
+              requestBody.sha = existingFile.sha;
+            }
+            try {
+              const response = yield this.makeAPIRequest(url, {
+                method: "PUT",
+                headers: this.getHeaders(settings.token),
+                body: JSON.stringify(requestBody)
+              }, settings);
+              const result = yield response.json();
+              return {
+                id: result.commit.sha,
+                sha: result.commit.sha,
+                title: commitMessage,
+                message: commitMessage,
+                webUrl: result.commit.html_url
+              };
+            } catch (error) {
+              throw this.handleGitHubError(error, "create commit");
+            }
+          });
+        }
+        createPullRequest(settings_1, sourceBranch_1, targetBranch_1, title_1, description_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, sourceBranch, targetBranch, title, description, isDraft = false) {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            const url = `${apiBase}/repos/${owner}/${repo}/pulls`;
+            try {
+              const response = yield this.makeAPIRequest(url, {
+                method: "POST",
+                headers: this.getHeaders(settings.token),
+                body: JSON.stringify({
+                  title,
+                  body: description,
+                  head: sourceBranch,
+                  base: targetBranch,
+                  draft: isDraft
+                })
+              }, settings);
+              const pr = yield response.json();
+              return {
+                id: pr.id,
+                number: pr.number,
+                title: pr.title,
+                description: pr.body,
+                state: pr.state,
+                webUrl: pr.html_url,
+                sourceBranch: pr.head.ref,
+                targetBranch: pr.base.ref,
+                draft: pr.draft
+              };
+            } catch (error) {
+              throw this.handleGitHubError(error, "create pull request");
+            }
+          });
+        }
+        findExistingPullRequest(settings, sourceBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+            const apiBase = _GitHubService.getGitHubApiBase(settings);
+            const url = `${apiBase}/repos/${owner}/${repo}/pulls?state=open&head=${owner}:${sourceBranch}`;
+            try {
+              const response = yield this.makeAPIRequest(url, {
+                method: "GET",
+                headers: this.getHeaders(settings.token)
+              }, settings);
+              const prs = yield response.json();
+              if (prs.length === 0) {
+                return null;
+              }
+              const pr = prs[0];
+              return {
+                id: pr.id,
+                number: pr.number,
+                title: pr.title,
+                description: pr.body,
+                state: pr.state,
+                webUrl: pr.html_url,
+                sourceBranch: pr.head.ref,
+                targetBranch: pr.base.ref,
+                draft: pr.draft
+              };
+            } catch (error) {
+              throw this.handleGitHubError(error, "find existing pull request");
+            }
+          });
+        }
+        commitWorkflow(settings_1, commitMessage_1, filePath_1, cssData_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, commitMessage, filePath, cssData, branchName = DEFAULT_BRANCH_NAME) {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              this.validateCommitParameters(settings, commitMessage, filePath, cssData);
+              const project = yield this.getProject(settings);
+              const defaultBranch = project.defaultBranch;
+              yield this.createBranch(settings, branchName, defaultBranch);
+              yield this.commitFile(settings, commitMessage, filePath, cssData, branchName);
+              const existingPR = yield this.findExistingPullRequest(settings, branchName);
+              if (!existingPR) {
+                const newPR = yield this.createPullRequest(settings, branchName, defaultBranch, commitMessage, "Automatically created pull request for CSS variables update", false);
+                return { pullRequestUrl: newPR.webUrl };
+              }
+              return { pullRequestUrl: existingPR.webUrl };
+            }), {
+              operation: "commit_to_github",
+              component: "GitHubService",
+              severity: "high"
+            });
+          });
+        }
+        commitComponentTest(settings_1, commitMessage_1, componentName_1, testContent_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.spec.ts", branchName = DEFAULT_TEST_BRANCH_NAME) {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              this.validateComponentTestParameters(settings, commitMessage, componentName, testContent);
+              const normalizedComponentName = this.normalizeComponentName(componentName);
+              const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
+              const featureBranch = `${branchName}-${normalizedComponentName}`;
+              const project = yield this.getProject(settings);
+              const defaultBranch = project.defaultBranch;
+              yield this.createBranch(settings, featureBranch, defaultBranch);
+              yield this.commitFile(settings, commitMessage, filePath, testContent, featureBranch);
+              const existingPR = yield this.findExistingPullRequest(settings, featureBranch);
+              if (!existingPR) {
+                const prDescription = `Automatically created pull request for component test: ${componentName}`;
+                const newPR = yield this.createPullRequest(
+                  settings,
+                  featureBranch,
+                  defaultBranch,
+                  commitMessage,
+                  prDescription,
+                  true
+                  // Mark as draft
+                );
+                return { pullRequestUrl: newPR.webUrl };
+              }
+              return { pullRequestUrl: existingPR.webUrl };
+            }), {
+              operation: "commit_component_test",
+              component: "GitHubService",
+              severity: "high"
+            });
+          });
+        }
+        clearAllTokens() {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              const settingsKey = _GitHubService.getSettingsKey();
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+              yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
+              yield figma.clientStorage.deleteAsync(settingsKey);
+              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              if (sharedSettings) {
+                try {
+                  const settings = JSON.parse(sharedSettings);
+                  settings.saveToken = false;
+                  delete settings.token;
+                  figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+                } catch (e) {
+                }
+              }
+              config_1.LoggingService.info("All GitHub tokens cleared", config_1.LoggingService.CATEGORIES.GITHUB);
+            } catch (error) {
+              errorHandler_1.ErrorHandler.handleError(error, {
+                operation: "clear_tokens",
+                component: "GitHubService",
+                severity: "low"
+              });
+            }
+          });
+        }
+        getTokenInfo() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const settingsKey = _GitHubService.getSettingsKey();
+            const token = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
+            const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+            return {
+              hasToken: !!token,
+              encrypted: !!token,
+              version: cryptoVersion || (token ? "v1" : "none")
+            };
+          });
+        }
+        /**
+         * Private helper methods
+         */
+        getHeaders(token) {
+          return Object.assign({
+            "Authorization": `Bearer ${token}`,
+            "Accept": _GitHubService.API_VERSION
+          }, _GitHubService.DEFAULT_HEADERS);
+        }
+        validateCommitParameters(settings, commitMessage, filePath, cssData) {
+          if (!settings.projectId || !settings.projectId.trim()) {
+            throw new Error("Project ID is required");
+          }
+          const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+          if (!settings.token || !settings.token.trim()) {
+            throw new baseGitService_1.GitAuthError("GitHub token is required");
+          }
+          if (!commitMessage || !commitMessage.trim()) {
+            throw new Error("Commit message is required");
+          }
+          if (!filePath || !filePath.trim()) {
+            throw new Error("File path is required");
+          }
+          if (!cssData || !cssData.trim()) {
+            throw new Error("CSS data is required");
+          }
+        }
+        validateComponentTestParameters(settings, commitMessage, componentName, testContent) {
+          if (!settings.projectId || !settings.projectId.trim()) {
+            throw new Error("Project ID is required");
+          }
+          if (!settings.token || !settings.token.trim()) {
+            throw new baseGitService_1.GitAuthError("GitHub token is required");
+          }
+          if (!commitMessage || !commitMessage.trim()) {
+            throw new Error("Commit message is required");
+          }
+          if (!componentName || !componentName.trim()) {
+            throw new Error("Component name is required");
+          }
+          if (!testContent || !testContent.trim()) {
+            throw new Error("Test content is required");
+          }
+        }
+        normalizeComponentName(componentName) {
+          return componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        }
+        makeAPIRequest(url, options, settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const timeoutMs = 3e4;
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => {
+                reject(new baseGitService_1.GitNetworkError("Request timed out - please check your connection to GitHub"));
+              }, timeoutMs);
+            });
+            try {
+              const useProxy = proxyService_1.ProxyService.shouldUseProxy(url);
+              const response = yield Promise.race([
+                useProxy ? proxyService_1.ProxyService.proxyGitLabRequest(url, options) : fetch(url, options),
+                timeoutPromise
+              ]);
+              if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                  const errorData = yield response.json();
+                  if (errorData.message) {
+                    errorMessage = errorData.message;
+                  } else if (errorData.error) {
+                    errorMessage = errorData.error;
+                  }
+                } catch (_a) {
+                }
+                const error = new baseGitService_1.GitServiceError(errorMessage, response.status);
+                throw error;
+              }
+              return response;
+            } catch (error) {
+              if (error instanceof baseGitService_1.GitServiceError || error instanceof baseGitService_1.GitNetworkError) {
+                throw error;
+              }
+              if (error.name === "TypeError" && error.message.indexOf("fetch") !== -1) {
+                throw new baseGitService_1.GitNetworkError("Network error - unable to connect to GitHub API");
+              }
+              throw error;
+            }
+          });
+        }
+        handleGitHubError(error, operation) {
+          var _a, _b;
+          if (error instanceof baseGitService_1.GitServiceError || error instanceof baseGitService_1.GitAuthError || error instanceof baseGitService_1.GitNetworkError) {
+            return error;
+          }
+          if (error.statusCode) {
+            switch (error.statusCode) {
+              case 401:
+              case 403:
+                return new baseGitService_1.GitAuthError(`Authentication failed while trying to ${operation}. Please check your GitHub token.`);
+              case 404:
+                return new baseGitService_1.GitServiceError(`Resource not found while trying to ${operation}. Please check your repository.`, 404);
+              case 422:
+                return new baseGitService_1.GitServiceError(`Invalid data provided while trying to ${operation}. Please check your inputs.`, 422);
+              case 429:
+                return new baseGitService_1.GitServiceError(`Rate limit exceeded while trying to ${operation}. Please try again later.`, 429);
+              default:
+                return new baseGitService_1.GitServiceError(`GitHub API error while trying to ${operation}: ${error.message || "Unknown error"}`, error.statusCode);
+            }
+          }
+          if (error.name === "TypeError" || ((_a = error.message) === null || _a === void 0 ? void 0 : _a.indexOf("fetch")) !== -1 || ((_b = error.message) === null || _b === void 0 ? void 0 : _b.indexOf("network")) !== -1) {
+            return new baseGitService_1.GitNetworkError(`Network error while trying to ${operation}`);
+          }
+          return new baseGitService_1.GitServiceError(`Failed to ${operation}: ${error.message || "Unknown error"}`);
+        }
+      };
+      exports.GitHubService = GitHubService;
+      GitHubService.DEFAULT_HEADERS = config_1.API_CONFIG.DEFAULT_HEADERS;
+      GitHubService.API_VERSION = "application/vnd.github.v3+json";
+    }
+  });
+
+  // dist/services/gitServiceFactory.js
+  var require_gitServiceFactory = __commonJS({
+    "dist/services/gitServiceFactory.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.GitServiceFactory = void 0;
+      var gitLabServiceAdapter_1 = require_gitLabServiceAdapter();
+      var githubService_1 = require_githubService();
+      var GitServiceFactory = class {
+        /**
+         * Get or create a Git service instance based on provider
+         */
+        static getService(provider) {
+          if (!this.instances.has(provider)) {
+            switch (provider) {
+              case "gitlab":
+                this.instances.set(provider, new gitLabServiceAdapter_1.GitLabServiceAdapter());
+                break;
+              case "github":
+                this.instances.set(provider, new githubService_1.GitHubService());
+                break;
+              default:
+                throw new Error(`Unsupported Git provider: ${provider}`);
+            }
+          }
+          return this.instances.get(provider);
+        }
+        /**
+         * Get service based on current settings
+         */
+        static getServiceFromSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabService = this.getService("gitlab");
+            const githubService = this.getService("github");
+            const gitlabSettings = yield gitlabService.loadSettings();
+            if (gitlabSettings) {
+              return gitlabService;
+            }
+            const githubSettings = yield githubService.loadSettings();
+            if (githubSettings) {
+              return githubService;
+            }
+            return null;
+          });
+        }
+        /**
+         * Clear all instances (useful for testing or cleanup)
+         */
+        static clearInstances() {
+          this.instances.clear();
+        }
+        /**
+         * Migrate settings from old format to new format
+         */
+        static migrateSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabService = this.getService("gitlab");
+            const settings = yield gitlabService.loadSettings();
+            if (settings && !settings.provider) {
+              settings.provider = "gitlab";
+              yield gitlabService.saveSettings(settings, !settings.isPersonal);
+            }
+          });
+        }
+        /**
+         * Get available providers
+         */
+        static getAvailableProviders() {
+          return ["gitlab", "github"];
+        }
+        /**
+         * Check if a provider is supported
+         */
+        static isProviderSupported(provider) {
+          return this.getAvailableProviders().indexOf(provider) !== -1;
+        }
+      };
+      exports.GitServiceFactory = GitServiceFactory;
+      GitServiceFactory.instances = /* @__PURE__ */ new Map();
     }
   });
 
@@ -5183,9 +6458,9 @@ ${Object.keys(cssProperties).map((property) => {
     }
   });
 
-  // dist/core/plugin.js
-  var require_plugin = __commonJS({
-    "dist/core/plugin.js"(exports) {
+  // dist/services/oauthService.js
+  var require_oauthService = __commonJS({
+    "dist/services/oauthService.js"(exports) {
       "use strict";
       var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
         function adopt(value) {
@@ -5215,7 +6490,324 @@ ${Object.keys(cssProperties).map((property) => {
         });
       };
       Object.defineProperty(exports, "__esModule", { value: true });
+      exports.OAuthService = void 0;
+      var config_1 = require_config();
+      var OAuthService = class {
+        /**
+         * Generate GitHub OAuth authorization URL
+         */
+        static generateGitHubOAuthUrl() {
+          const config = this.GITHUB_OAUTH_CONFIG;
+          const state = this.generateSecureState();
+          const params = new URLSearchParams({
+            client_id: config.clientId,
+            redirect_uri: config.redirectUri,
+            scope: config.scope.join(" "),
+            state,
+            response_type: "code"
+          });
+          this.storeOAuthState(state);
+          const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`;
+          config_1.LoggingService.debug("Generated GitHub OAuth URL", {
+            scopes: config.scope,
+            state: state.substring(0, 8) + "..."
+            // Log first 8 chars for debugging
+          }, config_1.LoggingService.CATEGORIES.GITHUB);
+          return authUrl;
+        }
+        /**
+         * Check if OAuth is configured and available
+         */
+        static isOAuthConfigured() {
+          const config = this.GITHUB_OAUTH_CONFIG;
+          return config.clientId !== "your-github-client-id" && config.clientId.length > 0 && config.redirectUri.startsWith("https://");
+        }
+        /**
+         * Start OAuth flow by opening popup window
+         */
+        static startOAuthFlow() {
+          return __awaiter(this, void 0, void 0, function* () {
+            if (!this.isOAuthConfigured()) {
+              return {
+                success: false,
+                error: "OAuth is not configured. Please use Personal Access Token method."
+              };
+            }
+            return new Promise((resolve) => {
+              try {
+                const authUrl = this.generateGitHubOAuthUrl();
+                const popup = window.open(authUrl, "github-oauth", "width=600,height=700,scrollbars=yes,resizable=yes");
+                if (!popup) {
+                  resolve({
+                    success: false,
+                    error: "Failed to open OAuth popup. Please allow popups for this site."
+                  });
+                  return;
+                }
+                const messageHandler = (event) => {
+                  if (event.origin !== "https://bridgy-oauth.netlify.app") {
+                    return;
+                  }
+                  if (event.data.type === "oauth-success") {
+                    window.removeEventListener("message", messageHandler);
+                    popup.close();
+                    resolve({
+                      success: true,
+                      token: event.data.token,
+                      user: event.data.user
+                    });
+                  } else if (event.data.type === "oauth-error") {
+                    window.removeEventListener("message", messageHandler);
+                    popup.close();
+                    resolve({
+                      success: false,
+                      error: event.data.error
+                    });
+                  }
+                };
+                window.addEventListener("message", messageHandler);
+                const checkClosed = setInterval(() => {
+                  if (popup.closed) {
+                    clearInterval(checkClosed);
+                    window.removeEventListener("message", messageHandler);
+                    resolve({
+                      success: false,
+                      error: "OAuth flow was cancelled by user"
+                    });
+                  }
+                }, 1e3);
+                setTimeout(() => {
+                  if (!popup.closed) {
+                    popup.close();
+                  }
+                  clearInterval(checkClosed);
+                  window.removeEventListener("message", messageHandler);
+                  resolve({
+                    success: false,
+                    error: "OAuth flow timed out"
+                  });
+                }, 3e5);
+              } catch (error) {
+                resolve({
+                  success: false,
+                  error: error.message || "Failed to start OAuth flow"
+                });
+              }
+            });
+          });
+        }
+        /**
+         * Get OAuth configuration status for UI display
+         */
+        static getOAuthStatus() {
+          const configured = this.isOAuthConfigured();
+          if (configured) {
+            return {
+              available: true,
+              configured: true,
+              message: "OAuth login is available"
+            };
+          } else {
+            return {
+              available: false,
+              configured: false,
+              message: "OAuth not configured. Using Personal Access Token method."
+            };
+          }
+        }
+        /**
+         * Generate secure random state for OAuth flow
+         */
+        static generateSecureState() {
+          const array = new Uint8Array(32);
+          crypto.getRandomValues(array);
+          return Array.from(array, (byte) => {
+            const hex = byte.toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+          }).join("");
+        }
+        static storeOAuthState(state) {
+          this.oauthStates.add(state);
+          setTimeout(() => {
+            this.oauthStates.delete(state);
+          }, 10 * 60 * 1e3);
+        }
+        /**
+         * Verify OAuth state
+         */
+        static verifyOAuthState(state) {
+          return this.oauthStates.has(state);
+        }
+        /**
+         * Exchange OAuth code for access token
+         * Note: This would typically be done by a backend server for security
+         */
+        static exchangeCodeForToken(code, state) {
+          return __awaiter(this, void 0, void 0, function* () {
+            if (!this.verifyOAuthState(state)) {
+              throw new Error("Invalid OAuth state - possible CSRF attack");
+            }
+            throw new Error("OAuth token exchange requires backend server implementation");
+          });
+        }
+        /**
+         * Instructions for OAuth setup
+         */
+        static getSetupInstructions() {
+          return [
+            "1. Go to GitHub Settings \u2192 Developer settings \u2192 OAuth Apps",
+            '2. Click "New OAuth App"',
+            "3. Fill in the application details:",
+            '   - Application name: "Bridgy Figma Plugin"',
+            '   - Homepage URL: "https://bridgy-plugin.com"',
+            '   - Authorization callback URL: "https://bridgy-plugin.com/oauth/github/callback"',
+            "4. Copy the Client ID and Client Secret",
+            "5. Set environment variables or update configuration",
+            "6. Deploy backend OAuth handler to handle token exchange",
+            "",
+            "For development, you can continue using Personal Access Tokens.",
+            "OAuth provides better security and user experience for production."
+          ];
+        }
+        /**
+         * Check if current token appears to be from OAuth or PAT
+         */
+        static isTokenFromOAuth(token) {
+          return token.startsWith("gho_");
+        }
+        /**
+         * Get recommended scopes for different use cases
+         */
+        static getRecommendedScopes() {
+          return {
+            minimal: ["public_repo"],
+            // Public repositories only
+            standard: ["repo", "read:user"],
+            // Private repos + user info
+            full: ["repo", "read:user", "user:email", "admin:repo_hook"]
+            // Full access
+          };
+        }
+        /**
+         * Validate token scopes
+         */
+        static validateTokenScopes(scopes) {
+          const required = ["repo"];
+          const recommended = ["read:user"];
+          const missing = required.filter((scope) => scopes.indexOf(scope) === -1);
+          const recommendations = recommended.filter((scope) => scopes.indexOf(scope) === -1);
+          return {
+            valid: missing.length === 0,
+            missing,
+            recommendations
+          };
+        }
+        /**
+         * Display OAuth setup UI hint
+         */
+        static getOAuthSetupHint() {
+          if (this.isOAuthConfigured()) {
+            return "";
+          }
+          return `
+      \u{1F4A1} Pro Tip: For better security and user experience, consider setting up GitHub OAuth.
+      This allows users to authenticate with their GitHub account instead of using Personal Access Tokens.
+      
+      Contact your development team to configure OAuth for this plugin.
+    `;
+        }
+      };
+      exports.OAuthService = OAuthService;
+      OAuthService.GITHUB_OAUTH_CONFIG = {
+        // GitHub OAuth App configuration
+        // You need to register an OAuth App at: https://github.com/settings/applications/new
+        clientId: "Ov23liKXGtyeKaklFf0Q",
+        // Bridgy Plugin OAuth App
+        redirectUri: "https://bridgy-oauth.netlify.app/github/callback",
+        scope: [
+          "repo",
+          // Access to repositories
+          "read:user",
+          // Read user profile
+          "user:email"
+          // Access to user email
+        ]
+      };
+      OAuthService.oauthStates = /* @__PURE__ */ new Set();
+    }
+  });
+
+  // dist/core/plugin.js
+  var require_plugin = __commonJS({
+    "dist/core/plugin.js"(exports) {
+      "use strict";
+      var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
+        if (k2 === void 0) k2 = k;
+        var desc = Object.getOwnPropertyDescriptor(m, k);
+        if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+          desc = { enumerable: true, get: function() {
+            return m[k];
+          } };
+        }
+        Object.defineProperty(o, k2, desc);
+      } : function(o, m, k, k2) {
+        if (k2 === void 0) k2 = k;
+        o[k2] = m[k];
+      });
+      var __setModuleDefault = exports && exports.__setModuleDefault || (Object.create ? function(o, v) {
+        Object.defineProperty(o, "default", { enumerable: true, value: v });
+      } : function(o, v) {
+        o["default"] = v;
+      });
+      var __importStar = exports && exports.__importStar || /* @__PURE__ */ function() {
+        var ownKeys = function(o) {
+          ownKeys = Object.getOwnPropertyNames || function(o2) {
+            var ar = [];
+            for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+            return ar;
+          };
+          return ownKeys(o);
+        };
+        return function(mod) {
+          if (mod && mod.__esModule) return mod;
+          var result = {};
+          if (mod != null) {
+            for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+          }
+          __setModuleDefault(result, mod);
+          return result;
+        };
+      }();
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
       var gitlabService_1 = require_gitlabService();
+      var gitServiceFactory_1 = require_gitServiceFactory();
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
       var config_1 = require_config();
@@ -5254,6 +6846,44 @@ ${Object.keys(cssProperties).map((property) => {
                 variables
               });
             }
+            const stylesData = {
+              textStyles: [],
+              paintStyles: [],
+              effectStyles: []
+            };
+            const textStyles = yield figma.getLocalTextStylesAsync();
+            for (const textStyle of textStyles) {
+              stylesData.textStyles.push({
+                id: textStyle.id,
+                name: textStyle.name,
+                description: textStyle.description,
+                fontSize: textStyle.fontSize,
+                fontName: textStyle.fontName,
+                // fontWeight: textStyle.fontWeight, // Property doesn't exist on TextStyle
+                lineHeight: textStyle.lineHeight,
+                letterSpacing: textStyle.letterSpacing,
+                textCase: textStyle.textCase,
+                textDecoration: textStyle.textDecoration
+              });
+            }
+            const paintStyles = yield figma.getLocalPaintStylesAsync();
+            for (const paintStyle of paintStyles) {
+              stylesData.paintStyles.push({
+                id: paintStyle.id,
+                name: paintStyle.name,
+                description: paintStyle.description,
+                paints: paintStyle.paints
+              });
+            }
+            const effectStyles = yield figma.getLocalEffectStylesAsync();
+            for (const effectStyle of effectStyles) {
+              stylesData.effectStyles.push({
+                id: effectStyle.id,
+                name: effectStyle.name,
+                description: effectStyle.description,
+                effects: effectStyle.effects
+              });
+            }
             const componentsData = yield componentService_1.ComponentService.collectComponents();
             if (!componentsData || componentsData.length === 0) {
               console.warn("No components found in document");
@@ -5261,8 +6891,13 @@ ${Object.keys(cssProperties).map((property) => {
             figma.ui.postMessage({
               type: "document-data",
               variablesData,
+              stylesData,
               componentsData: componentsData || []
             });
+            return {
+              variables: variablesData,
+              components: componentsData || []
+            };
           } catch (error) {
             console.error("Error collecting document data:", error);
             figma.ui.postMessage({
@@ -5272,26 +6907,41 @@ ${Object.keys(cssProperties).map((property) => {
               // Send empty arrays as fallback
               componentsData: []
             });
+            return {
+              variables: [],
+              components: []
+            };
           }
         });
       }
-      function loadSavedGitLabSettings() {
+      function loadSavedGitSettings() {
         return __awaiter(this, void 0, void 0, function* () {
           try {
-            const settings = yield gitlabService_1.GitLabService.loadSettings();
-            if (settings) {
+            const gitService = yield gitServiceFactory_1.GitServiceFactory.getServiceFromSettings();
+            if (gitService) {
+              const settings = yield gitService.loadSettings();
+              if (settings) {
+                figma.ui.postMessage({
+                  type: "git-settings-loaded",
+                  settings
+                });
+                return;
+              }
+            }
+            const gitlabSettings = yield gitlabService_1.GitLabService.loadSettings();
+            if (gitlabSettings) {
               figma.ui.postMessage({
                 type: "gitlab-settings-loaded",
-                settings
+                settings: gitlabSettings
               });
             }
           } catch (error) {
-            console.error("Error loading GitLab settings:", error);
+            console.error("Error loading Git settings:", error);
           }
         });
       }
       collectDocumentData();
-      loadSavedGitLabSettings();
+      loadSavedGitSettings();
       figma.codegen.on("generate", (_event) => {
         try {
           return [
@@ -5313,7 +6963,8 @@ ${Object.keys(cssProperties).map((property) => {
         }
       });
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a;
+        var _a, _b;
+        console.log("DEBUG: Received ANY message:", msg.type, msg);
         try {
           switch (msg.type) {
             case "export-css":
@@ -5430,6 +7081,30 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
+            case "save-git-settings":
+              const gitService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
+              const gitSettings = {
+                provider: msg.provider || "gitlab",
+                baseUrl: msg.baseUrl,
+                projectId: msg.projectId || "",
+                token: msg.token,
+                filePath: msg.filePath || "src/variables.css",
+                testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
+                strategy: msg.strategy || "merge-request",
+                branchName: msg.branchName || "feature/variables",
+                testBranchName: msg.testBranchName || "feature/component-tests",
+                exportFormat: msg.exportFormat || "css",
+                saveToken: msg.saveToken || false,
+                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+                savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+              };
+              yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
+              figma.ui.postMessage({
+                type: "git-settings-saved",
+                success: true,
+                sharedWithTeam: msg.shareWithTeam
+              });
+              break;
             case "save-gitlab-settings":
               yield gitlabService_1.GitLabService.saveSettings({
                 gitlabUrl: msg.gitlabUrl,
@@ -5450,6 +7125,120 @@ ${Object.keys(cssProperties).map((property) => {
                 success: true,
                 sharedWithTeam: msg.shareWithTeam
               });
+              break;
+            case "list-repositories":
+              try {
+                const listService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
+                const tempSettings = {
+                  provider: msg.provider || "gitlab",
+                  baseUrl: "",
+                  projectId: "",
+                  token: msg.token,
+                  filePath: "",
+                  saveToken: false,
+                  savedAt: "",
+                  savedBy: ""
+                };
+                const repositories = yield listService.listRepositories(tempSettings);
+                figma.ui.postMessage({
+                  type: "repositories-loaded",
+                  repositories
+                });
+              } catch (error) {
+                figma.ui.postMessage({
+                  type: "repositories-error",
+                  error: error.message || "Failed to load repositories"
+                });
+              }
+              break;
+            case "list-branches":
+              try {
+                if (msg.provider !== "github") {
+                  throw new Error("Branch listing is currently only supported for GitHub repositories");
+                }
+                const { GitHubService } = yield Promise.resolve().then(() => __importStar(require_githubService()));
+                const githubService = new GitHubService();
+                const branchSettings = {
+                  provider: "github",
+                  baseUrl: "",
+                  projectId: msg.projectId || "",
+                  token: msg.token,
+                  filePath: "",
+                  saveToken: false,
+                  savedAt: "",
+                  savedBy: ""
+                };
+                const branches = yield githubService.listBranches(branchSettings);
+                figma.ui.postMessage({
+                  type: "branches-loaded",
+                  branches
+                });
+              } catch (error) {
+                figma.ui.postMessage({
+                  type: "branches-error",
+                  error: error.message || "Failed to load branches"
+                });
+              }
+              break;
+            case "check-oauth-status":
+              try {
+                const { OAuthService } = yield Promise.resolve().then(() => __importStar(require_oauthService()));
+                const status = OAuthService.getOAuthStatus();
+                figma.ui.postMessage({
+                  type: "oauth-status",
+                  status
+                });
+              } catch (error) {
+                console.error("Error checking OAuth status:", error);
+                figma.ui.postMessage({
+                  type: "oauth-status",
+                  status: {
+                    available: false,
+                    configured: false,
+                    message: "OAuth service unavailable"
+                  }
+                });
+              }
+              break;
+            case "start-oauth-flow":
+              try {
+                const { OAuthService } = yield Promise.resolve().then(() => __importStar(require_oauthService()));
+                if (!OAuthService.isOAuthConfigured()) {
+                  throw new Error("OAuth is not configured. Please use Personal Access Token method.");
+                }
+                const oauthUrl = OAuthService.generateGitHubOAuthUrl();
+                figma.ui.postMessage({
+                  type: "oauth-url",
+                  url: oauthUrl
+                });
+              } catch (error) {
+                figma.ui.postMessage({
+                  type: "oauth-callback",
+                  data: {
+                    success: false,
+                    error: error.message || "Failed to start OAuth flow"
+                  }
+                });
+              }
+              break;
+            case "open-external":
+              try {
+                if (!msg.url) {
+                  throw new Error("URL is required for external opening");
+                }
+                figma.openExternal(msg.url);
+                figma.ui.postMessage({
+                  type: "external-url-opened",
+                  success: true
+                });
+              } catch (error) {
+                console.error("Error opening external URL:", error);
+                figma.ui.postMessage({
+                  type: "external-url-opened",
+                  success: false,
+                  error: error.message || "Failed to open external URL"
+                });
+              }
               break;
             case "commit-to-gitlab":
               if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
@@ -5611,6 +7400,267 @@ ${Object.keys(cssProperties).map((property) => {
               });
               break;
             case "resize-plugin":
+              break;
+            case "get-existing-collections":
+              try {
+                const existingCollections = yield figma.variables.getLocalVariableCollectionsAsync();
+                const collectionsData = [];
+                for (const collection of existingCollections) {
+                  const variablesPromises = collection.variableIds.map((id) => __awaiter(void 0, void 0, void 0, function* () {
+                    const variable = yield figma.variables.getVariableByIdAsync(id);
+                    return variable ? { id: variable.id, name: variable.name, resolvedType: variable.resolvedType } : null;
+                  }));
+                  const variables = yield Promise.all(variablesPromises);
+                  const validVariables = variables.filter((v) => v !== null);
+                  collectionsData.push({
+                    id: collection.id,
+                    name: collection.name,
+                    variables: validVariables
+                  });
+                }
+                figma.ui.postMessage({
+                  type: "existing-collections",
+                  collections: collectionsData
+                });
+              } catch (error) {
+                console.error("Error getting existing collections:", error);
+                figma.ui.postMessage({
+                  type: "existing-collections-error",
+                  error: error.message || "Failed to load existing collections"
+                });
+              }
+              break;
+            case "import-tokens":
+              console.log("DEBUG: Received import-tokens message", { tokensCount: (_b = msg.tokens) === null || _b === void 0 ? void 0 : _b.length, options: msg.options });
+              try {
+                let extractGroupFromTokenName = function(tokenName) {
+                  const cleanName = tokenName.startsWith("--") ? tokenName.slice(2) : tokenName;
+                  const parts = cleanName.split("-");
+                  return parts.length > 1 ? parts[0] : "misc";
+                };
+                if (!msg.tokens || !Array.isArray(msg.tokens)) {
+                  console.error("DEBUG: Invalid tokens data", msg.tokens);
+                  throw new Error("Invalid tokens data");
+                }
+                const tokens = msg.tokens;
+                const options = msg.options || {};
+                let collection;
+                if (options.createNew || !options.existingCollectionId) {
+                  collection = figma.variables.createVariableCollection(options.collectionName || "Imported Tokens");
+                } else {
+                  const existingCollections = yield figma.variables.getLocalVariableCollectionsAsync();
+                  collection = existingCollections.find((c) => c.id === options.existingCollectionId);
+                  if (!collection) {
+                    throw new Error("Selected collection not found");
+                  }
+                }
+                const modeId = collection.modes[0].modeId;
+                let importedCount = 0;
+                let importedStyleCount = 0;
+                const createdGroups = /* @__PURE__ */ new Set();
+                const createdStyles = {
+                  paint: 0,
+                  effect: 0,
+                  text: 0
+                };
+                const variableTokens = tokens.filter((token) => token.type === "COLOR" || token.type === "NUMBER" || token.type === "RGBA_COLOR");
+                const styleTokens = tokens.filter((token) => ["GRADIENT", "SHADOW", "BLUR", "TRANSITION"].indexOf(token.type) !== -1);
+                console.log("DEBUG: Starting import with tokens:", {
+                  total: tokens.length,
+                  variables: variableTokens.length,
+                  styles: styleTokens.length
+                });
+                for (const token of variableTokens) {
+                  console.log("DEBUG: Processing variable token:", token);
+                  try {
+                    const existingVariables = yield Promise.all(collection.variableIds.map((id) => figma.variables.getVariableByIdAsync(id)));
+                    const existingVariable = existingVariables.find((v) => v && v.name === token.name);
+                    if (existingVariable && !options.overwriteExisting) {
+                      console.log("DEBUG: Skipping existing variable:", token.name);
+                      continue;
+                    }
+                    let variable;
+                    if (existingVariable && options.overwriteExisting) {
+                      console.log("DEBUG: Overwriting existing variable:", token.name);
+                      variable = existingVariable;
+                    } else {
+                      const variableType = token.type === "COLOR" ? "COLOR" : "FLOAT";
+                      console.log("DEBUG: Creating new variable:", token.name, "type:", variableType);
+                      variable = figma.variables.createVariable(token.name, collection, variableType);
+                    }
+                    let value = token.value;
+                    console.log("DEBUG: Original value:", value, "isAlias:", token.isAlias);
+                    if (token.isAlias && token.references && token.references.length > 0) {
+                      const referencedVarName = token.references[0];
+                      console.log("DEBUG: Looking for referenced variable:", referencedVarName);
+                      const existingVariables2 = yield Promise.all(collection.variableIds.map((id) => figma.variables.getVariableByIdAsync(id)));
+                      const referencedVariable = existingVariables2.find((v) => v && v.name.endsWith(`/${referencedVarName}`));
+                      if (referencedVariable) {
+                        console.log("DEBUG: Found referenced variable, creating alias:", referencedVariable.name);
+                        value = { type: "VARIABLE_ALIAS", id: referencedVariable.id };
+                      } else {
+                        console.warn("DEBUG: Referenced variable not found:", referencedVarName, "using fallback value");
+                        value = token.value;
+                      }
+                    } else {
+                      if (token.type === "COLOR") {
+                        if (typeof value === "string" && value.startsWith("#")) {
+                          const hex = value.slice(1);
+                          const r = parseInt(hex.substring(0, 2), 16) / 255;
+                          const g = parseInt(hex.substring(2, 4), 16) / 255;
+                          const b = parseInt(hex.substring(4, 6), 16) / 255;
+                          value = { r, g, b };
+                          console.log("DEBUG: Parsed color value:", value);
+                        }
+                      } else if (token.type === "NUMBER") {
+                        if (typeof value === "string") {
+                          value = parseFloat(value.replace(/[a-zA-Z%]/g, ""));
+                          console.log("DEBUG: Parsed numeric value:", value);
+                        }
+                      }
+                    }
+                    console.log("DEBUG: Setting value for mode:", modeId, "value:", value);
+                    variable.setValueForMode(modeId, value);
+                    const groupName = extractGroupFromTokenName(token.name);
+                    if (!createdGroups.has(groupName)) {
+                      variable.name = `${groupName}/${token.name}`;
+                      createdGroups.add(groupName);
+                      console.log("DEBUG: Created group:", groupName, "for variable:", variable.name);
+                    } else {
+                      variable.name = `${groupName}/${token.name}`;
+                      console.log("DEBUG: Added to existing group:", groupName, "variable:", variable.name);
+                    }
+                    importedCount++;
+                    console.log("DEBUG: Successfully created variable:", token.name, "importedCount:", importedCount);
+                  } catch (tokenError) {
+                    console.error(`DEBUG: Failed to import token ${token.name}:`, tokenError);
+                  }
+                }
+                for (const token of styleTokens) {
+                  console.log("DEBUG: Processing style token:", token);
+                  try {
+                    const styleName = token.name;
+                    if (token.type === "GRADIENT") {
+                      const paintStyle = figma.createPaintStyle();
+                      paintStyle.name = styleName;
+                      paintStyle.description = `Imported gradient: ${token.value}`;
+                      paintStyle.paints = [{ type: "SOLID", color: { r: 0.5, g: 0.5, b: 0.9 } }];
+                      createdStyles.paint++;
+                      console.log("DEBUG: Created paint style for gradient:", styleName);
+                    } else if (token.type === "SHADOW") {
+                      const effectStyle = figma.createEffectStyle();
+                      effectStyle.name = styleName;
+                      effectStyle.description = `Imported shadow: ${token.value}`;
+                      const shadowMatch = token.value.match(/(\d+)px\s+(\d+)px\s+(\d+)px/);
+                      if (shadowMatch) {
+                        const [, x, y, blur] = shadowMatch;
+                        effectStyle.effects = [{
+                          type: "DROP_SHADOW",
+                          color: { r: 0, g: 0, b: 0, a: 0.25 },
+                          offset: { x: parseInt(x), y: parseInt(y) },
+                          radius: parseInt(blur),
+                          visible: true,
+                          blendMode: "NORMAL"
+                        }];
+                      }
+                      createdStyles.effect++;
+                      console.log("DEBUG: Created effect style for shadow:", styleName);
+                    } else if (token.type === "BLUR") {
+                      const effectStyle = figma.createEffectStyle();
+                      effectStyle.name = styleName;
+                      effectStyle.description = `Imported blur: ${token.value}`;
+                      const blurMatch = token.value.match(/blur\((\d+)px\)/);
+                      if (blurMatch) {
+                        const radius = parseInt(blurMatch[1]);
+                        effectStyle.effects = [{
+                          type: "LAYER_BLUR",
+                          radius,
+                          visible: true
+                        }];
+                      }
+                      createdStyles.effect++;
+                      console.log("DEBUG: Created effect style for blur:", styleName);
+                    }
+                    importedStyleCount++;
+                  } catch (styleError) {
+                    console.error(`DEBUG: Failed to import style ${token.name}:`, styleError);
+                  }
+                }
+                const totalStylesCreated = createdStyles.paint + createdStyles.effect + createdStyles.text;
+                console.log("DEBUG: Import completed successfully", {
+                  importedCount,
+                  importedStyleCount,
+                  totalTokens: tokens.length,
+                  groupsCreated: createdGroups.size,
+                  stylesCreated: totalStylesCreated
+                });
+                figma.ui.postMessage({
+                  type: "import-complete",
+                  result: {
+                    success: true,
+                    importedCount,
+                    importedStyleCount: totalStylesCreated,
+                    totalTokens: tokens.length,
+                    collectionName: collection.name,
+                    collectionId: collection.id,
+                    groupsCreated: createdGroups.size,
+                    groups: Array.from(createdGroups),
+                    stylesCreated: createdStyles
+                  }
+                });
+              } catch (importError) {
+                console.error("DEBUG: Import failed", importError);
+                figma.ui.postMessage({
+                  type: "import-error",
+                  error: importError.message || "Failed to import tokens"
+                });
+              }
+              break;
+            case "refresh-data":
+              try {
+                console.log("Refreshing document data...");
+                yield collectDocumentData();
+                figma.ui.postMessage({
+                  type: "refresh-complete",
+                  message: "Data refreshed successfully"
+                });
+              } catch (refreshError) {
+                console.error("Error refreshing data:", refreshError);
+                figma.ui.postMessage({
+                  type: "refresh-error",
+                  error: refreshError.message || "Failed to refresh data"
+                });
+              }
+              break;
+            case "delete-variable":
+              try {
+                if (!msg.variableId) {
+                  throw new Error("Variable ID is required for deletion");
+                }
+                const variableToDelete = yield figma.variables.getVariableByIdAsync(msg.variableId);
+                if (!variableToDelete) {
+                  throw new Error("Variable not found");
+                }
+                variableToDelete.remove();
+                console.log(`Successfully deleted variable: ${variableToDelete.name} (${msg.variableId})`);
+                figma.ui.postMessage({
+                  type: "variable-deleted",
+                  variableId: msg.variableId,
+                  variableName: variableToDelete.name
+                });
+                const refreshedData = yield collectDocumentData();
+                figma.ui.postMessage({
+                  type: "data-refreshed",
+                  variables: refreshedData.variables,
+                  components: refreshedData.components
+                });
+              } catch (deleteError) {
+                console.error("Error deleting variable:", deleteError);
+                figma.ui.postMessage({
+                  type: "delete-error",
+                  error: deleteError.message || "Failed to delete variable"
+                });
+              }
               break;
             default:
           }

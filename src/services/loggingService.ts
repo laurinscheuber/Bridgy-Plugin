@@ -24,6 +24,7 @@ export class LoggingService {
   static readonly CATEGORIES = {
     COMPONENT: 'Component',
     GITLAB: 'GitLab',
+    GITHUB: 'GitHub',
     CSS_EXPORT: 'CSS Export', 
     UNITS: 'Units',
     UI: 'UI',
