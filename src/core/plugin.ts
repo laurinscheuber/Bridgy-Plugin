@@ -732,6 +732,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         });
         break;
 
+      case "validate-tailwind-v4":
+        const twValidation = await CSSExportService.getTailwindV4ValidationStatus();
+        figma.ui.postMessage({
+          type: "tailwind-v4-validation",
+          validation: twValidation,
+        });
+        break;
+
       case "resize-plugin":
         // Disabled dynamic resizing - keep consistent size
         // figma.ui.resize() calls removed to maintain fixed plugin size
