@@ -810,15 +810,30 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // Parse CSS selector themes and traditional theme variants
           const parseThemeInfo = (tokens: any[]) => {
             const themeSelectors = new Set<string>();
+            
+            // Count actual theme variants (not var() references or single values)
+            let lightVariants = 0;
+            let darkVariants = 0;
+            
             const hasTraditionalThemes = tokens.some(token => {
               const name = token.name.toLowerCase();
-              return (name.endsWith('-light') || name.endsWith('-dark') ||
+              const isThemeVariant = (name.endsWith('-light') || name.endsWith('-dark') ||
                      name.endsWith('.light') || name.endsWith('.dark') ||
                      name.endsWith('_light') || name.endsWith('_dark') ||
                      name.includes('-light-') || name.includes('-dark-') ||
                      name.includes('_light_') || name.includes('_dark_')) &&
                      !name.match(/-\d+$/);
+              
+              if (isThemeVariant) {
+                if (name.includes('light')) lightVariants++;
+                if (name.includes('dark')) darkVariants++;
+              }
+              
+              return isThemeVariant;
             });
+            
+            // Only consider it a theme system if we have multiple actual variants
+            const actuallyHasThemes = hasTraditionalThemes && (lightVariants > 0 && darkVariants > 0);
             
             // Extract CSS selector themes from token metadata
             tokens.forEach(token => {
@@ -827,7 +842,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               }
             });
             
-            return { themeSelectors, hasTraditionalThemes };
+            return { themeSelectors, hasTraditionalThemes: actuallyHasThemes };
           };
           
           const { themeSelectors, hasTraditionalThemes } = parseThemeInfo(tokens);
@@ -907,7 +922,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             text: 0
           };
 
-          // Function to extract group name from token name
+          // Function to extract group name from token name and create Tailwind-compatible structure
           function extractGroupFromTokenName(tokenName: string): string {
             // Remove leading '--' if present
             const cleanName = tokenName.startsWith('--') ? tokenName.slice(2) : tokenName;
@@ -915,6 +930,67 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             // Split by '-' and take the first part as group name
             const parts = cleanName.split('-');
             return parts.length > 1 ? parts[0] : 'misc';
+          }
+
+          // Function to convert variable name to Tailwind-compatible format
+          function toTailwindFormat(tokenName: string): string {
+            // Remove leading '--' if present
+            let cleanName = tokenName.startsWith('--') ? tokenName.slice(2) : tokenName;
+            
+            // Handle common patterns for Tailwind v4 compatibility
+            const parts = cleanName.split('-');
+            
+            if (parts.length >= 2) {
+              const category = parts[0];
+              const rest = parts.slice(1).join('-');
+              
+              // Map common categories to Tailwind format
+              switch (category) {
+                case 'primary':
+                case 'neutral': 
+                case 'success':
+                case 'warning':
+                case 'error':
+                case 'orange':
+                case 'purple':
+                  return `color/${category}/${rest}`;
+                  
+                case 'space':
+                  return `spacing/${rest}`;
+                  
+                case 'text':
+                  return `font-size/${rest}`;
+                  
+                case 'font':
+                  return `font-weight/${rest}`;
+                  
+                case 'leading':
+                  return `line-height/${rest}`;
+                  
+                case 'radius':
+                  return `border-radius/${rest}`;
+                  
+                case 'shadow':
+                  return `box-shadow/${rest}`;
+                  
+                case 'icon':
+                  return `size/${rest}`;
+                  
+                case 'opacity':
+                  return `opacity/${rest}`;
+                  
+                case 'z':
+                  return `z-index/${rest}`;
+                  
+                case 'transition':
+                  return `transition/${rest}`;
+                  
+                default:
+                  return `${category}/${rest}`;
+              }
+            }
+            
+            return cleanName;
           }
 
           // Function to detect theme variant and get base name
@@ -1121,49 +1197,65 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // Function to parse CSS box-shadow into Figma effect
           function parseCSSBoxShadow(boxShadow: string): Effect | null {
             try {
+              console.log("DEBUG: Parsing box shadow:", boxShadow);
+              
               // Remove "inset" if present (Figma doesn't support inset shadows the same way)
               const isInset = boxShadow.includes('inset');
               const cleanShadow = boxShadow.replace('inset', '').trim();
               
               // Parse shadow values: offset-x | offset-y | blur-radius | spread-radius | color
-              // Examples: 
+              // Enhanced to handle various formats:
               // "5px 5px 10px rgba(0,0,0,0.3)"
-              // "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
+              // "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+              // "2px 2px 4px rgb(0 0 0 / 0.1)" (modern syntax)
+              // "0px 1px 2px 0px rgba(0, 0, 0, 0.05)"
               
-              // Split by commas to handle multiple shadows (take first one for simplicity)
+              // Split by commas to handle multiple shadows (take first one for now)
               const firstShadow = cleanShadow.split(',')[0].trim();
               
-              // Regex to match shadow parts
-              const shadowRegex = /(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)\s+(-?\d+(?:\.\d+)?px)(?:\s+(-?\d+(?:\.\d+)?px))?\s*(.*)/;
+              // Enhanced regex to match various shadow formats, including unitless values
+              const shadowRegex = /(-?\d+(?:\.\d+)?(?:px)?)\s+(-?\d+(?:\.\d+)?(?:px)?)\s+(-?\d+(?:\.\d+)?(?:px)?)(?:\s+(-?\d+(?:\.\d+)?(?:px)?))?\s*(.*)/;
               const match = firstShadow.match(shadowRegex);
+              
+              console.log("DEBUG: Shadow regex match:", match);
               
               if (match) {
                 const [, xStr, yStr, blurStr, spreadStr, colorPart] = match;
                 
-                const x = parseFloat(xStr);
-                const y = parseFloat(yStr);
-                const blur = parseFloat(blurStr);
+                // Parse numeric values and apply rounding
+                const x = roundNumber(parseFloat(xStr.replace('px', '')));
+                const y = roundNumber(parseFloat(yStr.replace('px', '')));
+                const blur = roundNumber(parseFloat(blurStr.replace('px', '')));
                 // Note: Figma doesn't support spread radius directly, so we ignore it
                 
-                // Parse color
+                console.log("DEBUG: Parsed shadow values:", { x, y, blur, colorPart });
+                
+                // Parse color with enhanced support
                 let color: RGBA = { r: 0, g: 0, b: 0, a: 0.25 }; // Default shadow color
                 if (colorPart && colorPart.trim()) {
                   const parsedColor = parseColor(colorPart.trim());
                   if (parsedColor) {
                     color = parsedColor;
+                    console.log("DEBUG: Parsed shadow color:", color);
+                  } else {
+                    console.warn("DEBUG: Failed to parse shadow color:", colorPart.trim());
                   }
                 }
                 
-                return {
+                const shadowEffect = {
                   type: isInset ? 'INNER_SHADOW' : 'DROP_SHADOW',
                   color: color,
                   offset: { x, y },
-                  radius: blur,
+                  radius: Math.max(0, blur), // Ensure non-negative radius
                   visible: true,
                   blendMode: 'NORMAL'
-                };
+                } as const;
+                
+                console.log("DEBUG: Created shadow effect:", shadowEffect);
+                return shadowEffect;
               }
               
+              console.warn("DEBUG: Shadow regex did not match:", firstShadow);
               return null;
             } catch (error) {
               console.warn('Failed to parse box shadow:', boxShadow, error);
@@ -1191,7 +1283,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               const numValue = parseFloat(tokenValue);
               return {
                 figmaType: 'FLOAT',
-                parsedValue: isNaN(numValue) ? 0 : numValue,
+                parsedValue: isNaN(numValue) ? 0 : roundNumber(numValue),
                 isBindable: true
               };
             }
@@ -1267,7 +1359,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               
               return {
                 figmaType: 'FLOAT',
-                parsedValue: isNaN(numValue) ? 24 : numValue,
+                parsedValue: isNaN(numValue) ? 24 : roundNumber(numValue),
                 isBindable: true
               };
             }
@@ -1285,7 +1377,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               
               return {
                 figmaType: 'FLOAT',
-                parsedValue: isNaN(numValue) ? 0 : numValue,
+                parsedValue: isNaN(numValue) ? 0 : roundNumber(numValue),
                 isBindable: true
               };
             }
@@ -1307,7 +1399,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               
               return {
                 figmaType: 'FLOAT',
-                parsedValue: isNaN(numValue) ? 0 : numValue,
+                parsedValue: isNaN(numValue) ? 0 : roundNumber(numValue),
                 isBindable: true
               };
             }
@@ -1323,7 +1415,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               
               return {
                 figmaType: 'FLOAT',
-                parsedValue: isNaN(numValue) ? 16 : numValue,
+                parsedValue: isNaN(numValue) ? 16 : roundNumber(numValue),
                 isBindable: true
               };
             }
@@ -1612,11 +1704,23 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             try {
               const createdVars: Variable[] = [];
               
-              // Parse linear-gradient
-              const linearMatch = cssGradient.match(/linear-gradient\(([^)]+)\)/);
-              if (linearMatch) {
-                const gradientContent = linearMatch[1];
-                
+              // Enhanced regex to capture ALL gradient functions (linear, radial, conic)
+              const gradientRegex = /(linear-gradient|radial-gradient|conic-gradient)\(([^)]+)\)/g;
+              let match;
+              const matches = [];
+              while ((match = gradientRegex.exec(cssGradient)) !== null) {
+                matches.push(match);
+              }
+              
+              if (matches.length === 0) {
+                return { paint: null, createdVars };
+              }
+              
+              // Process the first gradient found (could be any type)
+              const [, gradientType, gradientContent] = matches[0];
+              console.log(`DEBUG: Processing ${gradientType} with content:`, gradientContent);
+              
+              if (gradientType === 'linear-gradient') {
                 // Parse direction (default to 180deg if not specified)
                 let angle = 180;
                 let colorStops: string[] = [];
@@ -1648,8 +1752,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 for (let i = 0; i < colorStops.length; i++) {
                   const stop = colorStops[i].trim();
                   
-                  // Extract color and position
-                  const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
+                  // Enhanced color matching to support more formats
+                  const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
                   if (colorMatch) {
                     const colorStr = colorMatch[1];
                     const position = colorMatch[3] ? parseFloat(colorMatch[3]) / 100 : i / (colorStops.length - 1);
@@ -1674,7 +1778,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                       
                       gradientStops.push({
                         color: fallbackColor || { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-                        position: Math.max(0, Math.min(1, position)),
+                        position: Math.max(0, Math.min(1, roundNumber(position))),
                         boundVariables: {
                           color: {
                             type: 'VARIABLE_ALIAS',
@@ -1688,6 +1792,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 
                 // Ensure we have at least 2 stops
                 if (gradientStops.length < 2) {
+                  console.warn("DEBUG: Not enough gradient stops found, expected at least 2, got:", gradientStops.length);
                   return { paint: null, createdVars };
                 }
                 
@@ -1703,10 +1808,138 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                   gradientStops: gradientStops
                 };
                 
+                console.log("DEBUG: Successfully created linear gradient with", gradientStops.length, "stops");
                 return { paint: gradientPaint, createdVars };
+              } 
+              
+              else if (gradientType === 'radial-gradient') {
+                // Parse radial gradient color stops (ignore shape/size for simplicity)
+                const parts = gradientContent.split(',').map(s => s.trim());
+                const gradientStops: ColorStop[] = [];
+                let colorIndex = 0;
+                
+                for (let i = 0; i < parts.length; i++) {
+                  const stop = parts[i].trim();
+                  
+                  // Skip shape/size definitions
+                  if (stop.includes('circle') || stop.includes('ellipse') || stop.includes('at ') || 
+                      stop.includes('closest-side') || stop.includes('farthest-corner')) {
+                    continue;
+                  }
+                  
+                  // Enhanced color matching
+                  const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
+                  if (colorMatch) {
+                    const colorStr = colorMatch[1];
+                    const position = colorMatch[3] ? parseFloat(colorMatch[3]) / 100 : colorIndex / Math.max(1, parts.length - 1);
+                    
+                    const colorVarName = `${gradientName}-radial-stop-${colorIndex + 1}`;
+                    
+                    const colorVar = await createOrFindColorVariable(
+                      colorStr, 
+                      colorVarName, 
+                      collection, 
+                      modeId, 
+                      existingVariables
+                    );
+                    
+                    if (colorVar) {
+                      createdVars.push(colorVar);
+                      const fallbackColor = parseColor(colorStr);
+                      
+                      gradientStops.push({
+                        color: fallbackColor || { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+                        position: Math.max(0, Math.min(1, roundNumber(position))),
+                        boundVariables: {
+                          color: {
+                            type: 'VARIABLE_ALIAS',
+                            id: colorVar.id
+                          }
+                        }
+                      });
+                      colorIndex++;
+                    }
+                  }
+                }
+                
+                if (gradientStops.length >= 2) {
+                  const gradientPaint: GradientPaint = {
+                    type: 'GRADIENT_RADIAL',
+                    gradientTransform: [[1, 0, 0], [0, 1, 0]],
+                    gradientStops: gradientStops
+                  };
+                  
+                  console.log("DEBUG: Successfully created radial gradient with", gradientStops.length, "stops");
+                  return { paint: gradientPaint, createdVars };
+                }
               }
               
+              else if (gradientType === 'conic-gradient') {
+                // Parse conic gradient color stops (simplified - treat as radial)
+                const parts = gradientContent.split(',').map(s => s.trim());
+                const gradientStops: ColorStop[] = [];
+                let colorIndex = 0;
+                
+                for (let i = 0; i < parts.length; i++) {
+                  const stop = parts[i].trim();
+                  
+                  // Skip angle and position definitions for simplicity
+                  if (stop.includes('from ') || stop.includes('at ')) {
+                    continue;
+                  }
+                  
+                  const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-zA-Z]+)(\s+(\d+)(deg|%))?/);
+                  if (colorMatch) {
+                    const colorStr = colorMatch[1];
+                    const position = colorMatch[3] && colorMatch[4] === '%' ? 
+                      parseFloat(colorMatch[3]) / 100 : 
+                      colorIndex / Math.max(1, parts.length - 1);
+                    
+                    const colorVarName = `${gradientName}-conic-stop-${colorIndex + 1}`;
+                    
+                    const colorVar = await createOrFindColorVariable(
+                      colorStr, 
+                      colorVarName, 
+                      collection, 
+                      modeId, 
+                      existingVariables
+                    );
+                    
+                    if (colorVar) {
+                      createdVars.push(colorVar);
+                      const fallbackColor = parseColor(colorStr);
+                      
+                      gradientStops.push({
+                        color: fallbackColor || { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+                        position: Math.max(0, Math.min(1, roundNumber(position))),
+                        boundVariables: {
+                          color: {
+                            type: 'VARIABLE_ALIAS',
+                            id: colorVar.id
+                          }
+                        }
+                      });
+                      colorIndex++;
+                    }
+                  }
+                }
+                
+                if (gradientStops.length >= 2) {
+                  // Treat conic as radial in Figma (closest equivalent)
+                  const gradientPaint: GradientPaint = {
+                    type: 'GRADIENT_RADIAL',
+                    gradientTransform: [[1, 0, 0], [0, 1, 0]],
+                    gradientStops: gradientStops
+                  };
+                  
+                  console.log("DEBUG: Successfully created conic gradient (as radial) with", gradientStops.length, "stops");
+                  return { paint: gradientPaint, createdVars };
+                }
+              }
+              
+              console.warn("DEBUG: No valid gradient found or unsupported gradient type:", gradientType);
               return { paint: null, createdVars };
+              
             } catch (error) {
               console.warn('Failed to create gradient with bound colors:', cssGradient, error);
               return { paint: null, createdVars: [] };
@@ -1714,6 +1947,22 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
 
           // Function to parse color string to Figma RGBA color
+          // Helper function to round numbers to avoid float precision issues
+          function roundNumber(value: number, decimals: number = 4): number {
+            // Round to the specified decimal places and clean up
+            if (typeof value !== 'number' || isNaN(value)) return 0;
+            
+            const factor = Math.pow(10, decimals);
+            const rounded = Math.round(value * factor) / factor;
+            
+            // Clean up very small values that should be exact
+            if (Math.abs(rounded - Math.round(rounded)) < 0.0001) {
+              return Math.round(rounded);
+            }
+            
+            return rounded;
+          }
+
           function parseColor(colorStr: string): RGBA | null {
             try {
               colorStr = colorStr.trim();
@@ -1738,15 +1987,30 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 return { r, g, b, a: 1 };
               }
               
-              // Handle rgb/rgba colors
+              // Handle rgb/rgba colors (both comma and space separated with slash for alpha)
               const rgbMatch = colorStr.match(/rgba?\(([^)]+)\)/);
               if (rgbMatch) {
-                const values = rgbMatch[1].split(',').map(v => v.trim());
+                const content = rgbMatch[1].trim();
+                let values: string[];
+                let alpha = 1;
+                
+                // Check for modern syntax: rgb(0 0 0 / 0.1) 
+                if (content.includes('/')) {
+                  const [rgbPart, alphaPart] = content.split('/').map(p => p.trim());
+                  values = rgbPart.split(/\s+/).map(v => v.trim());
+                  alpha = parseFloat(alphaPart);
+                } else {
+                  // Traditional syntax: rgb(0, 0, 0) or rgba(0, 0, 0, 0.1)
+                  values = content.split(',').map(v => v.trim());
+                  alpha = values[3] ? parseFloat(values[3]) : 1;
+                }
+                
                 const r = parseInt(values[0]) / 255;
                 const g = parseInt(values[1]) / 255;
                 const b = parseInt(values[2]) / 255;
-                const a = values[3] ? parseFloat(values[3]) : 1;
-                return { r, g, b, a };
+                const a = roundNumber(alpha);
+                
+                return { r: roundNumber(r), g: roundNumber(g), b: roundNumber(b), a };
               }
               
               // Handle named colors (basic set)
@@ -1805,20 +2069,22 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                                  objectValues(variants)[0];
               if (!primaryToken) continue;
 
-              const existingVariable = validExistingVariables.find(v => v.name === baseName);
+              // Use Tailwind-compatible naming
+              const variableName = toTailwindFormat(baseName);
+              const existingVariable = validExistingVariables.find(v => v.name === variableName);
 
               if (existingVariable && !options.overwriteExisting) {
-                console.log("DEBUG: Skipping existing variable:", baseName);
+                console.log("DEBUG: Skipping existing variable:", variableName);
                 continue;
               }
 
               let variable: Variable;
               if (existingVariable && options.overwriteExisting) {
-                console.log("DEBUG: Overwriting existing variable:", baseName);
+                console.log("DEBUG: Overwriting existing variable:", variableName);
                 variable = existingVariable;
               } else {
-                console.log("DEBUG: Creating new variable:", baseName, "type:", primaryToken.detection.figmaType);
-                variable = figma.variables.createVariable(baseName, collection, primaryToken.detection.figmaType);
+                console.log("DEBUG: Creating new variable:", variableName, "type:", primaryToken.detection.figmaType);
+                variable = figma.variables.createVariable(variableName, collection, primaryToken.detection.figmaType);
               }
 
               // Process variant values for all modes
@@ -1842,6 +2108,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                   value = variant.detection.parsedValue;
                 }
 
+                // Apply rounding to numeric values before setting
+                if (typeof value === 'number') {
+                  value = roundNumber(value);
+                }
+
                 console.log("DEBUG: Setting value for mode:", targetModeId, "value:", value);
                 variable.setValueForMode(targetModeId, value);
               };
@@ -1856,20 +2127,26 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
               // Handle legacy light/dark mode logic (for backward compatibility)
               if (!objectValues(variants).some(v => v?.isSelector)) {
-                // Traditional theme variants
-                if (variants.light) {
-                  await processVariant(variants.light, lightModeId);
-                } else if (variants.neutral) {
+                // Only create multiple modes if we actually have different theme variants
+                const hasLightVariant = variants.light !== undefined;
+                const hasDarkVariant = variants.dark !== undefined;
+                const hasNeutralOnly = variants.neutral !== undefined && !hasLightVariant && !hasDarkVariant;
+                
+                if (hasNeutralOnly) {
+                  // Only neutral variant (from :root) - create single mode variable
                   await processVariant(variants.neutral, lightModeId);
-                }
-
-                if (darkModeId) {
-                  if (variants.dark) {
-                    await processVariant(variants.dark, darkModeId);
-                  } else if (variants.light) {
-                    await processVariant(variants.light, darkModeId);
+                  console.log("DEBUG: Created single-mode variable for neutral variant:", baseName);
+                } else {
+                  // Multiple theme variants - create multi-mode variable
+                  if (variants.light) {
+                    await processVariant(variants.light, lightModeId);
                   } else if (variants.neutral) {
-                    await processVariant(variants.neutral, darkModeId);
+                    await processVariant(variants.neutral, lightModeId);
+                  }
+
+                  if (darkModeId && hasDarkVariant) {
+                    // Only create dark mode if we actually have a dark variant
+                    await processVariant(variants.dark, darkModeId);
                   }
                 }
               }
@@ -1904,8 +2181,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               const tokenValue = token.value || token.detection.parsedValue;
               const tokenName = token.name.toLowerCase();
               
-              if (tokenName.includes('gradient') || tokenValue.includes('linear-gradient') || 
-                  tokenValue.includes('radial-gradient')) {
+              if (tokenName.includes('gradient') || 
+                  tokenValue.includes('linear-gradient') || 
+                  tokenValue.includes('radial-gradient') || 
+                  tokenValue.includes('conic-gradient')) {
                 // Create gradient with bound color variables
                 const gradientResult = await createGradientWithBoundColors(
                   tokenValue,
@@ -1945,19 +2224,25 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 }
 
               } else if (tokenName.includes('shadow') || tokenValue.includes('drop-shadow') || 
-                         tokenValue.match(/\d+px\s+\d+px\s+\d+px/)) {
-                // Create effect style for shadows
-                const effectStyle = figma.createEffectStyle();
-                effectStyle.name = styleName;
-                effectStyle.description = `Imported shadow: ${tokenValue}`;
-                
+                         tokenValue.match(/\d+px\s+\d+px\s+\d+px/) || 
+                         tokenValue.includes('box-shadow')) {
                 // Enhanced shadow parsing to handle colors and spread
+                console.log("DEBUG: Attempting to parse shadow:", tokenValue);
                 const shadowEffect = parseCSSBoxShadow(tokenValue);
+                console.log("DEBUG: Parsed shadow effect:", shadowEffect);
+                
                 if (shadowEffect) {
+                  // Only create effect style if parsing was successful
+                  const effectStyle = figma.createEffectStyle();
+                  effectStyle.name = styleName;
+                  effectStyle.description = `Imported shadow: ${tokenValue}`;
                   effectStyle.effects = [shadowEffect];
+                  createdStyles.effect++;
+                  console.log("DEBUG: Successfully created effect style for shadow:", styleName, "with effect type:", shadowEffect.type);
+                } else {
+                  // If shadow parsing fails, log warning and skip creation
+                  console.warn("DEBUG: Failed to parse shadow effect, skipping style creation for:", styleName, "value:", tokenValue);
                 }
-                createdStyles.effect++;
-                console.log("DEBUG: Created effect style for shadow:", styleName);
 
               } else if (tokenName.includes('blur') || tokenValue.includes('blur(')) {
                 // Create effect style for blur
