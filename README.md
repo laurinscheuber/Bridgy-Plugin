@@ -22,16 +22,25 @@ src/
   ├── utils/          # Utility functions
   ├── types/          # TypeScript type definitions
   ├── config/         # Configuration and constants
-  └── ui/             # UI source files (HTML, CSS, JS)
-      ├── template.html
-      ├── body.html
-      ├── styles.css  (2,608 lines)
-      └── main.js     (3,546 lines)
+  └── ui/             # Modular UI source files
+      ├── index.html  # Main HTML template
+      ├── css/        # Organized CSS modules
+      │   ├── 01-variables.css    # Design tokens
+      │   ├── 02-base.css         # Base styles
+      │   ├── 03-components.css   # Component styles
+      │   └── 04-layout.css       # Layout system
+      └── js/         # JavaScript modules
+          ├── bridgy-utils.js     # Utility functions
+          ├── bridgy-state.js     # State management
+          ├── bridgy-components.js # UI components
+          ├── bridgy-api.js       # API communication
+          └── bridgy-app.js       # Main application
 scripts/
-  ├── build-ui.js     # Optimized UI build with minification
+  ├── build-ui.js       # Legacy UI build
+  ├── build-new-ui.js   # Modular UI build system
   └── update-manifest.js
-tests/                # Test suite
-dist/                 # Compiled output
+docs/                   # Architecture documentation
+dist/                   # Compiled output
 ```
 
 ## Quick Start
@@ -132,17 +141,29 @@ The plugin provides helpful suggestions for common variations:
 - `border-radius`, `rounded` → `radius`
 - `fonts` → `font-family`
 
-## Performance Optimizations
+## New Modular Architecture
 
-This plugin has been heavily optimized for performance:
+The plugin has been completely reorganized from a monolithic structure to a modern, modular architecture:
 
-- **UI Bundle**: 212 KB → 167 KB (21.5% reduction)
-- **CSS**: 19.3% size reduction
-- **JavaScript**: 30.3% size reduction
-- **Build Time**: ~5-8ms for UI optimization
-- **Modular Architecture**: Separate source files for maintainability
+### Before (Monolithic)
+- 1 massive 6,248-line `main.js` file
+- 1 large monolithic `styles.css` file
+- Difficult to maintain and extend
 
-See [BUILD_OPTIMIZATIONS.md](BUILD_OPTIMIZATIONS.md) for detailed information.
+### After (Modular)
+- **5 focused JavaScript modules** (72KB total)
+- **4 organized CSS modules** (37KB total)  
+- **50+ reusable UI components**
+- **Centralized state management**
+- **Clean API communication layer**
+
+### Benefits
+- ✅ **Better maintainability**: Clear separation of concerns
+- ✅ **Reusable components**: Consistent UI patterns
+- ✅ **Developer-friendly**: Easy to find and modify code
+- ✅ **Future-proof**: Easy to add features without breaking existing code
+
+See `docs/code-organization.md` for complete documentation.
 
 ## Available Scripts
 
@@ -189,6 +210,13 @@ Output:
 
 ### For UI Changes
 
+#### Option 1: Modular Development (Recommended)
+1. Edit files in `src/ui/js/` and `src/ui/css/` modules
+2. Use `src/ui/index.html` for development
+3. Run `node scripts/build-new-ui.js` to build combined files
+4. Test in Figma with `dist/ui.html`
+
+#### Option 2: Legacy Development
 1. Edit files in `src/ui/` (styles.css, main.js, body.html)
 2. Run `npm run build:ui:dev` for fast development build
 3. Or use `npm run watch:ui` for auto-rebuild
@@ -213,21 +241,28 @@ Output:
 
 ## Architecture
 
-The plugin uses a clean architecture with:
-
+### Plugin Core (TypeScript)
 - **Services**: Business logic (GitLab, CSS export, caching)
 - **Utils**: Helper functions and utilities
 - **Core**: Main plugin entry point and message handling
 - **Config**: Configuration and constants
 - **Types**: TypeScript type definitions
 
-Key features:
+### UI Layer (JavaScript/CSS)
+- **Component System**: 50+ reusable UI components with consistent API
+- **State Management**: Centralized, event-driven state with localStorage persistence
+- **API Communication**: Clean separation between UI and plugin logic
+- **Utility Functions**: Common helpers for DOM, validation, formatting
+- **Modular CSS**: Organized styles with design token system
 
+### Key Features
 - Lazy loading of component details
 - Efficient caching strategies
-- Modular service architecture
+- Modular service architecture  
 - Comprehensive error handling
 - Type-safe TypeScript codebase
+- Event-driven UI updates
+- Mobile-responsive design
 
 ## Troubleshooting
 
