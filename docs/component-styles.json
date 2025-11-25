@@ -1,0 +1,218 @@
+{
+  "cssVariables": {
+    "colors": {
+      "primary": [
+        "#f0f9ff",
+        "#e0e7ff",
+        "#c7d2fe",
+        "#c4b5fd",
+        "#8b5cf6",
+        "#7c3aed",
+        "#6366f1",
+        "#4c1d95"
+      ],
+      "neutral": [
+        "#ffffff",
+        "#fafafa",
+        "#f5f5f5",
+        "#e5e5e5",
+        "#d4d4d4",
+        "#a3a3a3",
+        "#737373",
+        "#525252",
+        "#404040",
+        "#262626",
+        "#171717"
+      ],
+      "semantic": {
+        "success": [
+          "#f0fdf4",
+          "#22c55e",
+          "#16a34a",
+          "#15803d"
+        ],
+        "warning": [
+          "#fefce8",
+          "#eab308",
+          "#ca8a04",
+          "#a16207"
+        ],
+        "error": [
+          "#fef2f2",
+          "#ef4444",
+          "#dc2626",
+          "#b91c1c"
+        ]
+      }
+    },
+    "spacing": {
+      "1": "0.25rem",
+      "2": "0.5rem",
+      "3": "0.75rem",
+      "4": "1rem",
+      "5": "1.25rem",
+      "6": "1.5rem",
+      "8": "2rem",
+      "12": "3rem",
+      "px": "1px",
+      "0.5": "0.125rem"
+    },
+    "typography": {
+      "sizes": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem",
+        "2xl": "1.5rem"
+      },
+      "weights": {
+        "normal": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      }
+    },
+    "borderRadius": {
+      "sm": "0.375rem",
+      "md": "0.5rem",
+      "button": "0.625rem",
+      "card": "0.75rem",
+      "modal": "0.9375rem",
+      "lg": "1rem"
+    }
+  },
+  "components": {
+    "buttons": [
+      ".btn-large {\n        padding: var(--space-3) var(--space-6);\n        font-size: var(--text-base);\n        font-weight: var(--font-semibold);\n        display: flex;\n        align-items: center;\n        gap: var(--space-2);\n      }",
+      ".btn svg,\n      .btn-primary svg,\n      .btn-large svg {\n        display: inline-block;\n        vertical-align: middle;\n        margin-right: var(--space-2);\n        stroke: currentColor;\n        fill: none;\n        flex-shrink: 0;\n      }",
+      ".btn {\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        gap: var(--space-2);\n      }"
+    ],
+    "modals": [
+      ".modal-content::-webkit-scrollbar {\n        width: 8px;\n      }",
+      ".modal-content::-webkit-scrollbar-thumb {\n        background: linear-gradient(135deg, var(--purple-medium) 0%, #a855f7 100%);\n        border-radius: 6px;\n        border: 1px solid var(--glass-white-medium);\n      }",
+      ".modal-content::-webkit-scrollbar-thumb:hover {\n        background: var(--gradient-button-hover);\n      }",
+      ".modal-notification-message a {\n        color: var(--purple-light);\n        font-weight: var(--font-semibold);\n        text-decoration: none;\n        display: inline-block;\n        margin-top: var(--space-2);\n        padding: var(--space-2) var(--space-3);\n        background: var(--glass-purple-light);\n        border: 1px solid var(--glass-purple-heavy);\n        border-radius: var(--radius-md);\n        transition: var(--transition-fast);\n        white-space: nowrap;\n      }",
+      ".modal-notification-message a:hover {\n        background: var(--glass-purple-medium);\n        border-color: rgba(139, 92, 246, 0.6);\n        color: #ddd6fe;\n        transform: translateX(2px);\n      }",
+      ".modal-notification-message a::after {\n        content: \" →\";\n        margin-left: var(--space-1);\n        transition: transform 0.2s ease;\n        display: inline-block;\n      }",
+      ".modal-notification-message a:hover::after {\n        transform: translateX(3px);\n      }",
+      ".modal-notification {\n        margin: var(--space-4) 0;\n        padding: var(--space-4);\n        border-radius: var(--radius-modal);\n        border: 1px solid var(--glass-white-heavy);\n        border-left: 3px solid;\n        background: var(--glass-white-medium);\n        backdrop-filter: var(--blur-intense);\n        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);\n        display: flex;\n        align-items: flex-start;\n        gap: var(--space-3);\n        animation: slideInModal 0.3s ease-out;\n        color: var(--neutral-0);\n      }",
+      ".modal-notification.success {\n        border-left-color: var(--success-500);\n        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, var(--glass-white-light) 100%);\n      }",
+      ".modal-notification.error {\n        border-left-color: #ef4444;\n        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--glass-white-light) 100%);\n      }",
+      ".modal-notification.info {\n        border-left-color: var(--purple-light);\n        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, var(--glass-white-light) 100%);\n      }",
+      ".modal-notification-icon {\n        width: 24px;\n        height: 24px;\n        flex-shrink: 0;\n        border-radius: 50%;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        font-weight: bold;\n        font-size: var(--text-base);\n        margin-top: var(--space-1);\n        backdrop-filter: var(--blur-medium);\n        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);\n      }",
+      ".modal-notification.success .modal-notification-icon {\n        background: rgba(34, 197, 94, 0.8);\n        color: var(--neutral-0);\n      }",
+      ".modal-notification.error .modal-notification-icon {\n        background: rgba(239, 68, 68, 0.8);\n        color: var(--neutral-0);\n      }",
+      ".modal-notification.info .modal-notification-icon {\n        background: rgba(139, 92, 246, 0.8);\n        color: var(--neutral-0);\n      }",
+      ".modal-notification-content {\n        flex: 1;\n        min-width: 0;\n      }",
+      ".modal-notification-title {\n        font-weight: var(--font-semibold);\n        margin-bottom: var(--space-2);\n        font-size: var(--text-base);\n        color: var(--neutral-0);\n      }",
+      ".modal-notification-message {\n        font-size: var(--text-sm);\n        color: rgba(255, 255, 255, 0.85);\n        line-height: 1.4;\n        word-break: break-word;\n      }",
+      ".modal-notification-message a {\n        color: var(--purple-light);\n        text-decoration: underline;\n        font-weight: var(--font-medium);\n      }",
+      ".modal-notification-message a:hover {\n        color: #a78bfa;\n        text-decoration: none;\n      }",
+      ".modal-notification-close {\n        background: var(--glass-white-medium);\n        backdrop-filter: var(--blur-medium);\n        border: 1px solid var(--glass-white-heavy);\n        font-size: var(--text-xl);\n        color: rgba(255, 255, 255, 0.7);\n        cursor: pointer;\n        padding: 0;\n        width: 28px;\n        height: 28px;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        border-radius: var(--radius-modal);\n        flex-shrink: 0;\n        transition: var(--transition-fast);\n      }",
+      ".modal-notification-close:hover {\n        background: var(--glass-white-heavy);\n        color: var(--neutral-0);\n        border-color: rgba(255, 255, 255, 0.3);\n        transform: scale(1.1);\n      }",
+      ".modal {\n        display: none;\n        position: fixed;\n        top: 0;\n        left: 0;\n        width: 100%;\n        height: 100%;\n        background: rgba(0, 0, 0, 0.8);\n        backdrop-filter: var(--blur-intense);\n        -webkit-backdrop-filter: var(--blur-intense);\n        z-index: 1000;\n        animation: fadeIn 0.3s ease-out;\n      }",
+      ".modal-content {\n        position: relative;\n        background: rgba(255, 255, 255, 0.08);\n        backdrop-filter: var(--blur-intense);\n        -webkit-backdrop-filter: var(--blur-intense);\n        margin: 5% auto;\n        padding: var(--space-8);\n        width: 90%;\n        max-width: 500px;\n        max-height: 90vh;\n        border-radius: var(--radius-container);\n        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);\n        overflow-y: auto;\n        display: flex;\n        flex-direction: column;\n        border: 1px solid var(--glass-white-medium);\n        color: var(--neutral-0);\n        animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);\n      }",
+      ".modal-header {\n        margin-bottom: var(--space-4);\n        padding-bottom: var(--space-4);\n        border-bottom: 1px solid var(--glass-white-medium);\n        background: rgba(139, 92, 246, 0.1);\n        margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) var(--space-4);\n        padding: var(--space-6) var(--space-8);\n        border-radius: var(--radius-container) 20px 0 0;\n      }",
+      ".modal-header h3 {\n        margin: 0;\n        color: var(--neutral-0);\n        font-size: var(--text-xl);\n        font-weight: var(--font-bold);\n      }",
+      ".modal-body {\n        margin-bottom: var(--space-4);\n        overflow-y: auto;\n        flex: 1;\n        min-height: 0;\n      }",
+      ".modal-footer {\n        display: flex;\n        justify-content: flex-end;\n        gap: var(--space-3);\n        padding-top: var(--space-4);\n        border-top: 1px solid var(--neutral-200);\n      }",
+      ".modal-content {\n          margin: 2% auto;\n          max-height: 96vh;\n          padding: var(--space-6);\n        }",
+      ".modal-content {\n          margin: 1% auto;\n          max-height: 98vh;\n          padding: var(--space-4);\n        }",
+      ".modal-header {\n          margin-bottom: var(--space-2);\n        }",
+      ".modal-body {\n          margin-bottom: var(--space-2);\n        }"
+    ],
+    "inputs": [
+      ".search-input {\n        width: 100%;\n        padding: 1rem 1.5rem;\n        border: 2px solid rgba(139, 92, 246, 0.6);\n        border-radius: 16px;\n        font-size: var(--text-sm);\n        font-weight: var(--font-medium);\n        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n        background: rgba(0, 0, 0, 0.6);\n        backdrop-filter: var(--blur-intense);\n        color: var(--neutral-0);\n        position: relative;\n        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);\n      }",
+      ".search-input::placeholder {\n        color: rgba(255, 255, 255, 0.8);\n        font-weight: 400;\n      }",
+      ".search-input:focus {\n        border-color: rgba(139, 92, 246, 1);\n        outline: none;\n        box-shadow: 0 8px 32px var(--glass-purple-heavy), 0 0 0 2px rgba(139, 92, 246, 0.5);\n        background: rgba(0, 0, 0, 0.8);\n        transform: translateY(-1px);\n      }",
+      ".search-input-wrapper {\n        position: relative;\n      }",
+      ".form-group {\n        margin-bottom: var(--space-4);\n      }",
+      ".form-group label {\n        display: block;\n        margin-bottom: var(--space-2);\n        color: rgba(255, 255, 255, 0.9);\n        font-weight: var(--font-semibold);\n        font-size: var(--text-sm);\n      }",
+      ".form-group input {\n        width: 100%;\n        padding: var(--space-3) var(--space-4);\n        border: 1px solid var(--neutral-300);\n        border-radius: var(--radius-lg);\n        font-size: var(--text-sm);\n        transition: var(--transition-fast);\n        box-shadow: var(--shadow-sm);\n      }",
+      ".form-group input:focus {\n        border-color: var(--primary-500);\n        outline: none;\n        box-shadow: 0 0 0 3px var(--primary-100);\n      }",
+      ".input-tabs {\n        display: flex;\n        gap: var(--space-1);\n        margin-bottom: var(--space-4);\n        background: var(--glass-white-light);\n        border-radius: var(--radius-card);\n        padding: var(--space-1);\n      }",
+      ".input-tab {\n        flex: 1;\n        padding: var(--space-2) var(--space-4);\n        background: transparent;\n        border: none;\n        color: rgba(255, 255, 255, 0.7);\n        font-size: var(--text-sm);\n        font-weight: var(--font-medium);\n        border-radius: var(--radius-button);\n        cursor: pointer;\n        transition: var(--transition-fast);\n      }",
+      ".input-tab.active {\n        background: var(--gradient-button);\n        color: var(--neutral-0);\n        box-shadow: var(--shadow-purple-light);\n      }",
+      ".input-tab:hover:not(.active) {\n        background: var(--glass-white-medium);\n      }",
+      ".input-content {\n        display: none;\n      }",
+      ".input-content.active {\n        display: block;\n      }",
+      ".input-format-selector {\n        display: flex;\n        gap: var(--space-4);\n        margin-bottom: var(--space-4);\n      }",
+      ".input-format-selector label {\n        display: flex;\n        align-items: center;\n        gap: var(--space-1);\n        color: rgba(255, 255, 255, 0.8);\n        font-size: var(--text-sm);\n        cursor: pointer;\n      }",
+      ".input-format-selector input[type=\"radio\"] {\n        accent-color: var(--purple-medium);\n      }",
+      ".input-actions {\n        display: flex;\n        gap: var(--space-3);\n        margin-top: var(--space-4);\n      }",
+      ".input-group {\n        margin-top: var(--space-3);\n      }",
+      ".input-group label {\n        display: block;\n        margin-bottom: var(--space-1);\n        color: rgba(255, 255, 255, 0.8);\n        font-size: var(--text-sm);\n        font-weight: var(--font-medium);\n      }",
+      ".input-group input[type=\"text\"] {\n        width: 100%;\n        background: rgba(255, 255, 255, 0.05);\n        border: 1px solid var(--glass-white-medium);\n        border-radius: var(--radius-button);\n        padding: var(--space-2) var(--space-3);\n        color: var(--neutral-0);\n        font-size: var(--text-sm);\n        transition: var(--transition-fast);\n      }",
+      ".input-group input[type=\"text\"]:focus {\n        outline: none;\n        border-color: var(--purple-medium);\n        box-shadow: 0 0 0 2px var(--glass-purple-light);\n      }"
+    ],
+    "cards": [
+      ".feedback-section {\n        background: var(--glass-purple-light);\n        backdrop-filter: var(--blur-intense);\n        border: 1px solid var(--glass-purple-medium);\n        border-radius: var(--radius-container);\n        padding: var(--space-4);\n        margin-bottom: var(--space-6);\n        box-shadow: 0 8px 32px var(--glass-purple-light);\n      }"
+    ],
+    "tabs": [
+      ".tabs {\n        display: flex;\n        background: var(--glass-white-light);\n        backdrop-filter: blur(15px);\n        -webkit-backdrop-filter: blur(15px);\n        border: 1px solid var(--glass-white-medium);\n        border-radius: var(--radius-modal);\n        padding: 8px;\n        margin-bottom: var(--space-6);\n        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);\n        gap: 4px;\n      }",
+      ".tab {\n        flex: 1;\n        padding: 1rem 1.5rem;\n        cursor: pointer;\n        font-weight: var(--font-medium);\n        font-size: var(--text-sm);\n        text-align: center;\n        color: rgba(255, 255, 255, 0.7);\n        background: transparent;\n        border: none;\n        border-radius: var(--radius-button);\n        transition: all 0.3s ease;\n        position: relative;\n        overflow: hidden;\n      }",
+      ".tab::before {\n        content: '';\n        position: absolute;\n        top: 0;\n        left: 0;\n        right: 0;\n        bottom: 0;\n        background: linear-gradient(135deg, rgba(139, 92, 246, 0.03) 0%, rgba(168, 85, 247, 0.05) 100%);\n        opacity: 0;\n        transition: opacity 0.2s ease;\n        z-index: -1;\n      }",
+      ".tab:hover {\n        color: var(--purple-light);\n        transform: translateY(-1px);\n      }",
+      ".tab:hover::before {\n        opacity: 0.3;\n      }",
+      ".tab.active {\n        color: var(--neutral-0);\n        background: linear-gradient(135deg, var(--purple-medium), #a855f7);\n        box-shadow: 0 4px 15px var(--glass-purple-heavy);\n        font-weight: var(--font-semibold);\n      }",
+      ".tab.active::before {\n        opacity: 1;\n      }",
+      ".tab:not(.active):hover {\n        background: rgba(139, 92, 246, 0.05);\n        border-color: var(--glass-purple-light);\n        transform: translateY(-2px) scale(1.02);\n        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);\n        color: var(--purple-light);\n      }",
+      ".tab-content {\n        display: none;\n        background: var(--glass-white-light);\n        backdrop-filter: var(--blur-heavy);\n        -webkit-backdrop-filter: var(--blur-heavy);\n        border-radius: var(--radius-container);\n        padding: var(--space-6);\n        box-shadow: var(--shadow-dark);\n        border: 1px solid var(--glass-white-medium);\n        animation: fadeIn 0.3s ease-in-out;\n      }",
+      ".tab-content.active {\n        display: block;\n      }",
+      ".sub-tabs {\n        display: flex;\n        background: rgba(0, 0, 0, 0.15);\n        backdrop-filter: blur(10px);\n        -webkit-backdrop-filter: blur(10px);\n        border: 1px solid rgba(255, 255, 255, 0.1);\n        border-radius: var(--radius-lg);\n        padding: 6px;\n        margin-bottom: var(--space-5);\n        gap: 4px;\n      }",
+      ".sub-tab {\n        flex: 1;\n        padding: 0.75rem 1rem;\n        cursor: pointer;\n        font-weight: var(--font-medium);\n        font-size: var(--text-sm);\n        text-align: center;\n        color: rgba(255, 255, 255, 0.6);\n        background: transparent;\n        border: none;\n        border-radius: var(--radius-md);\n        transition: all 0.2s ease;\n        position: relative;\n      }",
+      ".sub-tab:hover {\n        color: rgba(255, 255, 255, 0.8);\n        background: rgba(255, 255, 255, 0.05);\n        transform: translateY(-1px);\n      }",
+      ".sub-tab.active {\n        color: var(--neutral-0);\n        background: var(--primary-500);\n        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);\n        font-weight: var(--font-semibold);\n      }",
+      ".sub-tab-content {\n        display: none;\n        animation: fadeIn 0.3s ease-in-out;\n      }",
+      ".sub-tab-content.active {\n        display: block;\n      }",
+      ".tabs {\n          flex-direction: column;\n        }",
+      ".tab {\n          text-align: left;\n        }"
+    ],
+    "headers": [
+      ".header {\n        background: rgba(255, 255, 255, 0.08);\n        backdrop-filter: var(--blur-intense);\n        -webkit-backdrop-filter: var(--blur-intense);\n        border: 1px solid var(--glass-white-medium);\n        border-radius: var(--radius-container);\n        padding: var(--space-8);\n        margin-bottom: var(--space-8);\n        position: relative;\n        overflow: visible;\n      }",
+      ".header-content {\n        display: flex;\n        justify-content: space-between;\n        align-items: center;\n      }",
+      ".header-title {\n        display: flex;\n        align-items: center;\n      }",
+      ".header-title h1 {\n        font-size: 2.2rem;\n        font-weight: 900;\n        margin: 0;\n        background: linear-gradient(135deg, #ffffff, #e0e7ff, #c7d2fe);\n        -webkit-background-clip: text;\n        -webkit-text-fill-color: transparent;\n        background-clip: text;\n      }",
+      ".header-subtitle {\n        font-size: var(--text-sm);\n        color: rgba(255, 255, 255, 0.8);\n        font-weight: var(--font-medium);\n        margin-top: var(--space-1);\n        display: block;\n      }",
+      ".header-actions {\n        display: flex;\n        gap: var(--space-2);\n        align-items: center;\n      }"
+    ],
+    "notifications": [
+      ".notification-container {\n        position: fixed;\n        top: var(--space-4);\n        right: var(--space-4);\n        z-index: 1000;\n        max-width: 400px;\n      }",
+      ".notification {\n        background: var(--glass-white-medium);\n        backdrop-filter: var(--blur-intense);\n        border: 1px solid var(--glass-white-heavy);\n        border-radius: var(--radius-modal);\n        padding: var(--space-4);\n        margin-bottom: var(--space-3);\n        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);\n        border-left: 3px solid;\n        display: flex;\n        align-items: flex-start;\n        gap: var(--space-3);\n        animation: slideIn 0.3s ease-out;\n        transition: all 0.3s ease;\n        position: relative;\n        overflow: hidden;\n        color: var(--neutral-0);\n      }",
+      ".notification.success {\n        border-left-color: var(--success-500);\n        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, var(--glass-white-light) 100%);\n      }",
+      ".notification.error {\n        border-left-color: #ef4444;\n        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--glass-white-light) 100%);\n      }",
+      ".notification.info {\n        border-left-color: var(--purple-light);\n        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, var(--glass-white-light) 100%);\n      }",
+      ".notification-icon {\n        width: 20px;\n        height: 20px;\n        flex-shrink: 0;\n        border-radius: 50%;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        font-weight: bold;\n        font-size: var(--text-sm);\n        margin-top: var(--space-1);\n        backdrop-filter: var(--blur-medium);\n        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);\n      }",
+      ".notification.success .notification-icon {\n        background: rgba(34, 197, 94, 0.8);\n        color: var(--neutral-0);\n      }",
+      ".notification.error .notification-icon {\n        background: rgba(239, 68, 68, 0.8);\n        color: var(--neutral-0);\n      }",
+      ".notification.info .notification-icon {\n        background: rgba(139, 92, 246, 0.8);\n        color: var(--neutral-0);\n      }",
+      ".notification-content {\n        flex: 1;\n        min-width: 0;\n      }",
+      ".notification-title {\n        font-weight: var(--font-semibold);\n        margin-bottom: var(--space-1);\n        font-size: var(--text-sm);\n        color: var(--neutral-0);\n      }",
+      ".notification-message {\n        font-size: var(--text-sm);\n        color: rgba(255, 255, 255, 0.85);\n        line-height: 1.4;\n        word-break: break-word;\n      }",
+      ".notification-close {\n        background: var(--glass-white-medium);\n        backdrop-filter: var(--blur-medium);\n        border: 1px solid var(--glass-white-heavy);\n        font-size: var(--text-lg);\n        color: rgba(255, 255, 255, 0.7);\n        cursor: pointer;\n        padding: 0;\n        width: 24px;\n        height: 24px;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        border-radius: var(--radius-modal);\n        flex-shrink: 0;\n        transition: var(--transition-fast);\n      }",
+      ".notification-close:hover {\n        background: var(--glass-white-heavy);\n        color: var(--neutral-0);\n        border-color: rgba(255, 255, 255, 0.3);\n        transform: scale(1.1);\n      }",
+      ".notification.fade-out {\n        animation: fadeOut 0.3s ease-in forwards;\n      }",
+      ".notification-message a,\n      .modal-notification-message a {\n        color: var(--purple-light);\n        font-weight: var(--font-semibold);\n        text-decoration: none;\n        display: inline-block;\n        margin-top: var(--space-2);\n        padding: var(--space-2) var(--space-3);\n        background: var(--glass-purple-light);\n        border: 1px solid var(--glass-purple-heavy);\n        border-radius: var(--radius-md);\n        transition: var(--transition-fast);\n        white-space: nowrap;\n      }",
+      ".notification-message a:hover,\n      .modal-notification-message a:hover {\n        background: var(--glass-purple-medium);\n        border-color: rgba(139, 92, 246, 0.6);\n        color: #ddd6fe;\n        transform: translateX(2px);\n      }",
+      ".notification-message a::after,\n      .modal-notification-message a::after {\n        content: \" →\";\n        margin-left: var(--space-1);\n        transition: transform 0.2s ease;\n        display: inline-block;\n      }",
+      ".notification-message a:hover::after,\n      .modal-notification-message a:hover::after {\n        transform: translateX(3px);\n      }",
+      ".success-message, .test-success-message {\n        background: linear-gradient(135deg, var(--success-50) 0%, var(--success-100) 100%);\n        color: var(--success-700);\n        padding: var(--space-4);\n        border-radius: var(--radius-lg);\n        margin-top: var(--space-4);\n        font-size: var(--text-sm);\n        display: none;\n        border: 1px solid var(--success-200);\n        box-shadow: var(--shadow-sm);\n        font-weight: var(--font-medium);\n      }",
+      ".error-message {\n        background: linear-gradient(135deg, var(--error-50) 0%, var(--error-100) 100%);\n        color: var(--error-700);\n        padding: var(--space-4);\n        border-radius: var(--radius-lg);\n        margin-top: var(--space-4);\n        font-size: var(--text-sm);\n        border: 1px solid var(--error-200);\n        box-shadow: var(--shadow-sm);\n      }",
+      ".error-message p {\n        margin: 0 0 var(--space-2) 0;\n      }",
+      ".error-message p:last-child {\n        margin-bottom: 0;\n      }"
+    ],
+    "loading": [
+      ".loading {\n        text-align: center;\n        padding: var(--space-8);\n        color: rgba(255, 255, 255, 0.8);\n        background: var(--glass-white-light);\n        backdrop-filter: var(--blur-medium);\n        border-radius: var(--radius-lg);\n        position: relative;\n      }",
+      ".loading::before {\n        content: '';\n        width: 20px;\n        height: 20px;\n        border: 2px solid var(--glass-white-heavy);\n        border-top: 2px solid var(--purple-medium);\n        border-radius: 50%;\n        animation: spin 1s linear infinite;\n        display: inline-block;\n        margin-right: var(--space-2);\n      }",
+      ".loading-spinner {\n        animation: pulse 1.5s ease-in-out infinite;\n      }",
+      ".progress-bar-container {\n        width: 100%;\n        height: 8px;\n        background: var(--neutral-200);\n        border-radius: var(--radius-sm);\n        margin: var(--space-4) 0 var(--space-2) 0;\n        overflow: hidden;\n        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);\n      }",
+      ".progress-bar {\n        height: 100%;\n        width: 0%;\n        background: linear-gradient(90deg, var(--primary-500), var(--primary-600));\n        border-radius: var(--radius-sm);\n        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);\n        position: relative;\n      }",
+      ".progress-bar::after {\n        content: '';\n        position: absolute;\n        top: 0;\n        left: 0;\n        bottom: 0;\n        right: 0;\n        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);\n        animation: shimmer 1s infinite;\n      }",
+      ".progress-status {\n        font-size: var(--text-sm);\n        color: rgba(255, 255, 255, 0.8);\n        margin-bottom: var(--space-4);\n        font-style: italic;\n        font-weight: var(--font-medium);\n      }",
+      ".progress-bar {\n        width: 100%;\n        height: 8px;\n        background: rgba(255, 255, 255, 0.1);\n        border-radius: var(--radius-pill);\n        overflow: hidden;\n        margin-bottom: var(--space-2);\n      }",
+      ".progress-fill {\n        height: 100%;\n        background: var(--gradient-button);\n        width: 0%;\n        transition: width 2s ease;\n        border-radius: var(--radius-pill);\n      }",
+      ".progress-text {\n        text-align: center;\n        color: rgba(255, 255, 255, 0.8);\n        font-size: var(--text-sm);\n      }"
+    ]
+  }
+}
