@@ -3691,8 +3691,7 @@
       
       /* ===== VARIABLE IMPORT TAB STYLES ===== */
       
-      /* Import all Variable Import styles */
-      @import url('./services/variableImport/ui/variableImport.css');
+      /* Variable Import styles are included inline below */
 
       #oauth-login-button:hover::before {
         left: 100%;
@@ -3710,4 +3709,23 @@
       /* OAuth Status Animations */
       #oauth-status {
         animation: fadeIn 0.3s ease-out;
+      }
+
+      /* Fix for Import Button Icon */
+      .import-actions .btn svg,
+      .btn-primary svg,
+      .btn-large svg {
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: var(--space-2);
+        stroke: currentColor;
+        fill: none;
+        flex-shrink: 0;
+      }
+
+      .import-actions .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
       }
