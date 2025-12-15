@@ -63,6 +63,25 @@
               </svg>
             </button>
           <button
+            id="units-icon-btn"
+            onclick="openUnitsModal()"
+            class="settings-icon"
+            title="Units Configuration"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
+            </svg>
+          </button>
+          <button
             id="help-icon-btn"
             onclick="openUserGuide()"
             class="settings-icon"
@@ -159,93 +178,65 @@
       <div class="tabs">
         <div class="tab active" data-tab="variables">Variables</div>
         <div class="tab" data-tab="components">Components</div>
+        <div class="tab" data-tab="quality">Quality</div>
       </div>
 
       <div class="tab-content active" id="variables-content">
-        <!-- Sub-tabs for Variables -->
-        <div class="sub-tabs">
-          <div class="sub-tab active" data-sub-tab="overview">Overview</div>
-          <div class="sub-tab" data-sub-tab="import">Import</div>
-          <div class="sub-tab" data-sub-tab="units">Units</div>
-        </div>
-
-        <!-- Overview Sub-tab Content -->
-        <div class="sub-tab-content active" id="overview-content">
-          <div class="search-container">
-            <div class="search-input-wrapper">
-              <input
-                type="text"
-                class="search-input"
-                id="variable-search"
-                placeholder="Search variables..."
-              />
-            </div>
-          </div>
-          <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
-            <button id="export-css-button" disabled>Export Variables</button>
-            <button id="commit-repo-button" disabled>Commit to Repository</button>
-            <div style="display: flex; gap: 8px; margin-left: auto;">
-              <button 
-                onclick="expandAllGroups()" 
-                style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
-                title="Expand all variable groups"
-              >
-                Expand All
-              </button>
-              <button 
-                onclick="collapseAllGroups()" 
-                style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
-                title="Collapse all variable groups"
-              >
-                Collapse All
-              </button>
-            </div>
-          </div>
-          <div id="variables-container">
-            <div class="content-loading">
-              <div class="content-loading-spinner"></div>
-              <div class="content-loading-text">Loading variables and design tokens...</div>
-            </div>
+        <div class="search-container">
+          <div class="search-input-wrapper">
+            <input
+              type="text"
+              class="search-input"
+              id="variable-search"
+              placeholder="Search variables..."
+            />
           </div>
         </div>
-
-        <!-- Import Sub-tab Content -->
-        <div class="sub-tab-content" id="import-content">
-          <div id="variable-import-container"></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+          <button id="export-css-button" disabled>Export Variables</button>
+          <button id="commit-repo-button" disabled>Commit to Repository</button>
+          <button 
+            id="import-icon-button"
+            onclick="openImportModal()"
+            style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer;"
+            title="Import variables"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Import
+          </button>
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button 
+              onclick="expandAllGroups()" 
+              style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
+              title="Expand all variable groups"
+            >
+              Expand All
+            </button>
+            <button 
+              onclick="collapseAllGroups()" 
+              style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
+              title="Collapse all variable groups"
+            >
+              Collapse All
+            </button>
+          </div>
         </div>
-
-        <!-- Units Sub-tab Content -->
-        <div class="sub-tab-content" id="units-content">
-          <div style="margin-bottom: 24px">
-            <h3 style="margin-top: 0; margin-bottom: 16px">
-              Variable Units Settings
-            </h3>
-            <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 16px">
-              Configure units for numeric variables. Collections override
-              defaults, groups override collections.
-            </p>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 16px">
-              <button
-                id="reset-units-button"
-                style="background-color: #f44336"
-                onclick="window.resetUnitsSettings()"
-              >
-                Reset to Smart Defaults
-              </button>
-              <button
-                id="save-units-button"
-                disabled
-                onclick="window.saveUnitsSettings()"
-              >
-                Save Unit Settings
-              </button>
-            </div>
+        <div id="variables-container">
+          <div class="content-loading">
+            <div class="content-loading-spinner"></div>
+            <div class="content-loading-text">Loading variables and design tokens...</div>
           </div>
+        </div>
+      </div>
 
-          <div id="units-settings-container">
-            <div class="loading">Loading unit settings...</div>
-          </div>
+      <div class="tab-content" id="quality-content">
+        <div style="padding: 40px 20px; text-align: center;">
+          <h2 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px;">Quality Tab</h2>
+          <p style="color: rgba(255, 255, 255, 0.7);">Detailed issue view coming soon...</p>
         </div>
       </div>
 
@@ -1108,6 +1099,54 @@
       <p>Successfully committed to GitLab repository!</p>
     </div>
 
+    <!-- Import Variables Modal -->
+    <div id="import-modal" class="modal" style="display: none">
+      <div class="modal-content" style="max-width: 800px">
+        <button class="close-modal" onclick="closeImportModal()">&times;</button>
+        <div class="modal-header">
+          <h3>Import Variables</h3>
+        </div>
+        <div class="modal-body">
+          <div id="variable-import-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Units Configuration Modal -->
+    <div id="units-modal" class="modal" style="display: none">
+      <div class="modal-content" style="max-width: 700px">
+        <button class="close-modal" onclick="closeUnitsModal()">&times;</button>
+        <div class="modal-header">
+          <h3>Variable Units Settings</h3>
+        </div>
+        <div class="modal-body">
+          <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 16px">
+            Configure units for numeric variables. Collections override
+            defaults, groups override collections.
+          </p>
+          <div style="display: flex; gap: 10px; margin-bottom: 16px">
+            <button
+              id="reset-units-button-modal"
+              style="background-color: #f44336"
+              onclick="window.resetUnitsSettings()"
+            >
+              Reset to Smart Defaults
+            </button>
+            <button
+              id="save-units-button-modal"
+              disabled
+              onclick="window.saveUnitsSettings(); closeUnitsModal();"
+            >
+              Save Unit Settings
+            </button>
+          </div>
+          <div id="units-settings-container">
+            <div class="loading">Loading unit settings...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Error message (hidden by default) -->
     <div id="error-message" class="error-message" style="display: none">
       <p>
@@ -1116,4 +1155,5 @@
       </p>
       <p class="error-help">Please check your credentials and try again.</p>
     </div>
+
 
