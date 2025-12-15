@@ -1636,7 +1636,7 @@
           // Show simplified warning if there are any Tailwind issues
           if (tailwindIssues.length > 0) {
             html += `
-              <div class="validation-alert" style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+              <div class="validation-alert validation-alert-warning">
                 <div style="display: flex; align-items: center; gap: 12px;">
                   <span style="font-size: 24px;">⚠️</span>
                   <div>
@@ -1644,7 +1644,7 @@
                     <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
                   </div>
                 </div>
-                <button type="button" onclick="switchToQualityTab()" style="background: rgba(255, 152, 0, 0.2); border: 1px solid rgba(255, 152, 0, 0.4); color: #ff9800; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
                   Go to warnings
                 </button>
               </div>
@@ -1655,7 +1655,7 @@
         // Show simplified warning if there are any validation issues
         if (validationIssues.length > 0) {
           html += `
-            <div class="validation-alert" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="validation-alert validation-alert-error">
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="font-size: 24px;">⚠️</span>
                 <div>
@@ -1663,7 +1663,7 @@
                   <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
                 </div>
               </div>
-              <button type="button" onclick="switchToQualityTab()" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #e74c3c; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500; white-space: nowrap;">
+              <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-error">
                 Go to warnings
               </button>
             </div>
@@ -2845,6 +2845,12 @@
       function openUnitsModal() {
         document.getElementById("units-modal").style.display = "block";
         loadUnitsSettings();
+      }
+
+      // Function to save units and close modal
+      function saveUnitsAndCloseModal() {
+        window.saveUnitsSettings();
+        closeUnitsModal();
       }
 
       // Function to close units modal
@@ -6247,6 +6253,7 @@ ${checkboxes}
       window.closeImportModal = closeImportModal;
       window.openUnitsModal = openUnitsModal;
       window.closeUnitsModal = closeUnitsModal;
+      window.saveUnitsAndCloseModal = saveUnitsAndCloseModal;
       window.switchToQualityTab = switchToQualityTab;
       
       // OAuth helper functions
