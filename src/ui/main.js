@@ -1445,16 +1445,22 @@
           if (message.success) {
             // Show subtle success feedback by temporarily changing button text
             const saveButton = document.getElementById("save-units-button");
-            const originalText = saveButton.textContent;
-            saveButton.textContent = "Saved!";
-            saveButton.style.backgroundColor = "#28a745";
-            saveButton.disabled = true;
+            const saveButtonModal = document.getElementById("save-units-button-modal");
+            
+            [saveButton, saveButtonModal].forEach(button => {
+              if (button) {
+                const originalText = button.textContent;
+                button.textContent = "Saved!";
+                button.style.backgroundColor = "#28a745";
+                button.disabled = true;
 
-            // Reset button appearance after 2 seconds
-            setTimeout(() => {
-              saveButton.textContent = originalText;
-              saveButton.style.backgroundColor = "";
-            }, 2000);
+                // Reset button appearance after 2 seconds
+                setTimeout(() => {
+                  button.textContent = originalText;
+                  button.style.backgroundColor = "";
+                }, 2000);
+              }
+            });
           }
         } else if (message.type === "tailwind-v4-validation") {
           // Store Tailwind v4 validation result
@@ -4454,10 +4460,12 @@ ${checkboxes}
         document.querySelectorAll(".unit-dropdown").forEach((dropdown) => {
           dropdown.addEventListener("change", function () {
             const saveButton = document.getElementById("save-units-button");
+            const saveButtonModal = document.getElementById("save-units-button-modal");
             if (saveButton) {
               saveButton.disabled = false;
-            } else {
-              console.error("Save button not found!");
+            }
+            if (saveButtonModal) {
+              saveButtonModal.disabled = false;
             }
           });
         });
