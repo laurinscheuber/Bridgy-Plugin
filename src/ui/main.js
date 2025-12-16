@@ -15,7 +15,7 @@
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
                   match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
-                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(')) {
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(')) {
                 return match;
               }
               return '';
@@ -25,7 +25,7 @@
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
                   match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
-                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(')) {
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(')) {
                 return match;
               }
               return '';
@@ -896,24 +896,7 @@
         });
       });
 
-      // Sub-tab switching logic for Variables
-      document.querySelectorAll(".sub-tab").forEach((subTab) => {
-        subTab.addEventListener("click", () => {
-          document.querySelectorAll(".sub-tab").forEach((st) => st.classList.remove("active"));
-          document.querySelectorAll(".sub-tab-content").forEach((sc) => sc.classList.remove("active"));
-
-          subTab.classList.add("active");
-          const subTabContent = document.getElementById(subTab.dataset.subTab + "-content");
-          subTabContent.classList.add("active");
-
-          // Handle special initialization for certain sub-tabs
-          if (subTab.dataset.subTab === "units") {
-            loadUnitsSettings();
-          } else if (subTab.dataset.subTab === "import") {
-            initializeVariableImportTab();
-          }
-        });
-      });
+      // Sub-tab switching logic removed - now using modals for Import and Units
 
       let variablesData = [];
       let componentsData = [];
@@ -1472,16 +1455,22 @@
           if (message.success) {
             // Show subtle success feedback by temporarily changing button text
             const saveButton = document.getElementById("save-units-button");
-            const originalText = saveButton.textContent;
-            saveButton.textContent = "Saved!";
-            saveButton.style.backgroundColor = "#28a745";
-            saveButton.disabled = true;
+            const saveButtonModal = document.getElementById("save-units-button-modal");
+            
+            [saveButton, saveButtonModal].forEach(button => {
+              if (button) {
+                const originalText = button.textContent;
+                button.textContent = "Saved!";
+                button.style.backgroundColor = "#28a745";
+                button.disabled = true;
 
-            // Reset button appearance after 2 seconds
-            setTimeout(() => {
-              saveButton.textContent = originalText;
-              saveButton.style.backgroundColor = "";
-            }, 2000);
+                // Reset button appearance after 2 seconds
+                setTimeout(() => {
+                  button.textContent = originalText;
+                  button.style.backgroundColor = "";
+                }, 2000);
+              }
+            });
           }
         } else if (message.type === "tailwind-v4-validation") {
           // Store Tailwind v4 validation result
@@ -1654,67 +1643,39 @@
             });
           });
           
+          // Show simplified warning if there are any Tailwind issues
           if (tailwindIssues.length > 0) {
             html += `
-              <div class="validation-issues" style="background-color: rgba(255, 152, 0, 0.05); border: 1px solid rgba(255, 152, 0, 0.2);">
-                <h3 style="color: #ff9800; margin-bottom: 12px;">
-                  <span style="margin-right: 8px;">⚠️</span>
-                  Tailwind v4 Compatibility Issues
-                </h3>
-                <div class="validation-issues-list">
-                  ${tailwindIssues
-                    .map(
-                      (issue) => `
-                    <div class="validation-issue-item">
-                      <strong>${issue.displayName}</strong>
-                      <span class="issue-description">Invalid Tailwind v4 namespace</span>
-                      <button type="button" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
-                          <path d="m9 18 6-6-6-6"/>
-                        </svg>
-                        Go to section
-                      </button>
-                    </div>
-                  `
-                    )
-                    .join("")}
+              <div class="validation-alert validation-alert-warning">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span style="font-size: 24px;">⚠️</span>
+                  <div>
+                    <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
+                    <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+                  </div>
                 </div>
-                <div class="validation-help">
-                  <small>Tailwind v4 requires valid namespaces like: color, spacing, radius, font-size, shadow, etc.</small>
-                </div>
+                <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
+                  Go to warnings
+                </button>
               </div>
             `;
           }
         }
 
+        // Show simplified warning if there are any validation issues
         if (validationIssues.length > 0) {
           html += `
-            <div class="validation-issues">
-              <h3 style="color: #e74c3c; margin-bottom: 12px;">
-                <span style="margin-right: 8px;">⚠️</span>
-                Variable Configuration Issues
-              </h3>
-              <div class="validation-issues-list">
-                ${validationIssues
-                  .map(
-                    (issue) => `
-                  <div class="validation-issue-item">
-                    <strong>${issue.displayName}</strong>
-                    <span class="issue-description">Contains both direct values and variable links</span>
-                    <button type="button" class="issue-link" onclick="scrollToGroupById('${issue.sanitizedId}')">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
-                        <path d="m9 18 6-6-6-6"/>
-                      </svg>
-                      Go to section
-                    </button>
-                  </div>
-                `
-                  )
-                  .join("")}
+            <div class="validation-alert validation-alert-error">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">⚠️</span>
+                <div>
+                  <strong style="color: #e74c3c; display: block; margin-bottom: 4px;">Warnings detected</strong>
+                  <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+                </div>
               </div>
-              <div class="validation-help">
-                <small>Groups should contain either all direct values or all variable links, not both.</small>
-              </div>
+              <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-error">
+                Go to warnings
+              </button>
             </div>
           `;
         }
@@ -2874,6 +2835,7 @@
       // Function to open settings modal
       function openSettingsModal() {
         document.getElementById("settings-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         loadConfigurationTab(); // Load saved settings into the form
         
         // Ensure provider UI is initialized correctly
@@ -2885,16 +2847,67 @@
       // Function to close settings modal
       function closeSettingsModal() {
         document.getElementById("settings-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
+      }
+
+      // Function to open import modal
+      function openImportModal() {
+        document.getElementById("import-modal").style.display = "block";
+        document.body.classList.add("modal-open");
+        initializeVariableImportTab();
+      }
+
+      // Function to close import modal
+      function closeImportModal() {
+        document.getElementById("import-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
+      }
+
+      // Function to open units modal
+      function openUnitsModal() {
+        document.getElementById("units-modal").style.display = "block";
+        document.body.classList.add("modal-open");
+        loadUnitsSettings();
+      }
+
+      // Function to save units and close modal
+      function saveUnitsAndCloseModal() {
+        window.saveUnitsSettings();
+        closeUnitsModal();
+      }
+
+      // Function to close units modal
+      function closeUnitsModal() {
+        document.getElementById("units-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
+      }
+
+      // Function to switch to Quality tab
+      function switchToQualityTab() {
+        // Remove active class from all tabs
+        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+
+        // Activate Quality tab
+        const qualityTab = document.querySelector('.tab[data-tab="quality"]');
+        const qualityContent = document.getElementById("quality-content");
+        
+        if (qualityTab && qualityContent) {
+          qualityTab.classList.add("active");
+          qualityContent.classList.add("active");
+        }
       }
 
       // Function to open user guide modal
       function openUserGuide() {
         document.getElementById("user-guide-modal").style.display = "block";
+        document.body.classList.add("modal-open");
       }
 
       // Function to close user guide modal
       function closeUserGuide() {
         document.getElementById("user-guide-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to open GitHub with specific feedback type
@@ -2983,12 +2996,14 @@ ${checkboxes}
       function showResetConfirmation() {
         document.getElementById("reset-confirmation-modal").style.display =
           "block";
+        document.body.classList.add("modal-open");
       }
 
       // Function to close reset confirmation modal
       function closeResetConfirmation() {
         document.getElementById("reset-confirmation-modal").style.display =
           "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to confirm and execute reset
@@ -3102,6 +3117,7 @@ ${checkboxes}
         
         // Show modal
         document.getElementById("repository-browser-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         
         // Load repositories
         loadRepositories(provider, token);
@@ -3109,6 +3125,7 @@ ${checkboxes}
       
       function closeRepositoryBrowser() {
         document.getElementById("repository-browser-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
       
       async function loadRepositories(provider, token) {
@@ -3313,12 +3330,14 @@ ${checkboxes}
         `;
         
         document.body.appendChild(modal);
+        document.body.classList.add("modal-open");
       }
       
       function closeModal() {
         const modal = document.getElementById('temp-modal');
         if (modal) {
           modal.remove();
+          document.body.classList.remove("modal-open");
         }
       }
 
@@ -3342,6 +3361,7 @@ ${checkboxes}
         
         // Show modal
         document.getElementById("branch-browser-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         
         // Load branches
         loadBranches(provider, token, projectId);
@@ -3349,6 +3369,7 @@ ${checkboxes}
       
       function closeBranchBrowser() {
         document.getElementById("branch-browser-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
       
       async function loadBranches(provider, token, projectId) {
@@ -3984,6 +4005,7 @@ ${checkboxes}
 
       function openGitLabModal() {
         document.getElementById("gitlab-modal").style.display = "block";
+        document.body.classList.add("modal-open");
 
         const fieldsSection = document.getElementById(
           "gitlab-credentials-fields"
@@ -4073,6 +4095,7 @@ ${checkboxes}
           }
 
           modal.style.display = "none";
+          document.body.classList.remove("modal-open");
         }
         resetCommitButton();
       }
@@ -4479,10 +4502,12 @@ ${checkboxes}
         document.querySelectorAll(".unit-dropdown").forEach((dropdown) => {
           dropdown.addEventListener("change", function () {
             const saveButton = document.getElementById("save-units-button");
+            const saveButtonModal = document.getElementById("save-units-button-modal");
             if (saveButton) {
               saveButton.disabled = false;
-            } else {
-              console.error("Save button not found!");
+            }
+            if (saveButtonModal) {
+              saveButtonModal.disabled = false;
             }
           });
         });
@@ -6483,6 +6508,12 @@ window.clearInput = function() {
       window.closeRepositoryBrowser = closeRepositoryBrowser;
       window.closeBranchBrowser = closeBranchBrowser;
       window.startOAuthFlow = startOAuthFlow;
+      window.openImportModal = openImportModal;
+      window.closeImportModal = closeImportModal;
+      window.openUnitsModal = openUnitsModal;
+      window.closeUnitsModal = closeUnitsModal;
+      window.saveUnitsAndCloseModal = saveUnitsAndCloseModal;
+      window.switchToQualityTab = switchToQualityTab;
       
       // OAuth helper functions
       window.showPopupBlockerHelp = showPopupBlockerHelp;
