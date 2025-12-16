@@ -227,6 +227,10 @@
         overflow-x: hidden;
       }
 
+      body.modal-open {
+        overflow: hidden;
+      }
+
       /* ===== CUSTOM SCROLLBAR STYLING ===== */
       /* Webkit browsers (Chrome, Safari, Edge) */
       ::-webkit-scrollbar {

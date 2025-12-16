@@ -2817,6 +2817,7 @@
       // Function to open settings modal
       function openSettingsModal() {
         document.getElementById("settings-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         loadConfigurationTab(); // Load saved settings into the form
         
         // Ensure provider UI is initialized correctly
@@ -2828,22 +2829,26 @@
       // Function to close settings modal
       function closeSettingsModal() {
         document.getElementById("settings-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to open import modal
       function openImportModal() {
         document.getElementById("import-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         initializeVariableImportTab();
       }
 
       // Function to close import modal
       function closeImportModal() {
         document.getElementById("import-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to open units modal
       function openUnitsModal() {
         document.getElementById("units-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         loadUnitsSettings();
       }
 
@@ -2856,6 +2861,7 @@
       // Function to close units modal
       function closeUnitsModal() {
         document.getElementById("units-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to switch to Quality tab
@@ -2877,11 +2883,13 @@
       // Function to open user guide modal
       function openUserGuide() {
         document.getElementById("user-guide-modal").style.display = "block";
+        document.body.classList.add("modal-open");
       }
 
       // Function to close user guide modal
       function closeUserGuide() {
         document.getElementById("user-guide-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to open GitHub with specific feedback type
@@ -2970,12 +2978,14 @@ ${checkboxes}
       function showResetConfirmation() {
         document.getElementById("reset-confirmation-modal").style.display =
           "block";
+        document.body.classList.add("modal-open");
       }
 
       // Function to close reset confirmation modal
       function closeResetConfirmation() {
         document.getElementById("reset-confirmation-modal").style.display =
           "none";
+        document.body.classList.remove("modal-open");
       }
 
       // Function to confirm and execute reset
@@ -3089,6 +3099,7 @@ ${checkboxes}
         
         // Show modal
         document.getElementById("repository-browser-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         
         // Load repositories
         loadRepositories(provider, token);
@@ -3096,6 +3107,7 @@ ${checkboxes}
       
       function closeRepositoryBrowser() {
         document.getElementById("repository-browser-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
       
       async function loadRepositories(provider, token) {
@@ -3300,12 +3312,14 @@ ${checkboxes}
         `;
         
         document.body.appendChild(modal);
+        document.body.classList.add("modal-open");
       }
       
       function closeModal() {
         const modal = document.getElementById('temp-modal');
         if (modal) {
           modal.remove();
+          document.body.classList.remove("modal-open");
         }
       }
 
@@ -3329,6 +3343,7 @@ ${checkboxes}
         
         // Show modal
         document.getElementById("branch-browser-modal").style.display = "block";
+        document.body.classList.add("modal-open");
         
         // Load branches
         loadBranches(provider, token, projectId);
@@ -3336,6 +3351,7 @@ ${checkboxes}
       
       function closeBranchBrowser() {
         document.getElementById("branch-browser-modal").style.display = "none";
+        document.body.classList.remove("modal-open");
       }
       
       async function loadBranches(provider, token, projectId) {
@@ -3971,6 +3987,7 @@ ${checkboxes}
 
       function openGitLabModal() {
         document.getElementById("gitlab-modal").style.display = "block";
+        document.body.classList.add("modal-open");
 
         const fieldsSection = document.getElementById(
           "gitlab-credentials-fields"
@@ -4060,6 +4077,7 @@ ${checkboxes}
           }
 
           modal.style.display = "none";
+          document.body.classList.remove("modal-open");
         }
         resetCommitButton();
       }
