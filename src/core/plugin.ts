@@ -4,6 +4,7 @@ import { GitLabService } from "../services/gitlabService";
 import { GitServiceFactory } from "../services/gitServiceFactory";
 import { CSSExportService } from "../services/cssExportService";
 import { ComponentService } from "../services/componentService";
+import { TokenCoverageService } from "../services/tokenCoverageService";
 import {SUCCESS_MESSAGES} from "../config";
 import { objectEntries, objectValues } from "../utils/es2015-helpers";
 
@@ -2362,6 +2363,27 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           figma.ui.postMessage({
             type: "delete-error",
             error: deleteError.message || "Failed to delete variable"
+          });
+        }
+        break;
+
+      case "analyze-token-coverage":
+        try {
+          console.log("Analyzing token coverage...");
+          
+          // Analyze current page for token coverage
+          const coverageResult = await TokenCoverageService.analyzeCurrentPage();
+          
+          figma.ui.postMessage({
+            type: "token-coverage-result",
+            result: coverageResult
+          });
+          
+        } catch (coverageError: any) {
+          console.error("Error analyzing token coverage:", coverageError);
+          figma.ui.postMessage({
+            type: "token-coverage-error",
+            error: coverageError.message || "Failed to analyze token coverage"
           });
         }
         break;
