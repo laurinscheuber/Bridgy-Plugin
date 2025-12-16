@@ -6218,145 +6218,170 @@ window.clearInput = function() {
         `;
       }
       function resetImportView() {
-        const importContent = document.getElementById('import-content');
-        // Restore initial state (simplified)
-        // Ideally we should reload the tab or recreate the initial HTML.
-        // For now, let's just trigger the tab initialization again which should reset/repaint.
-        // Or manually inject the input form again.
-        
-        // Better: Reload the tab content
-        const importTab = document.querySelector('.sub-tab-item[data-sub-tab="import"]');
-        if (importTab) {
-           initializeImportTab(); // This usually sets up listeners, but doesn't necessarily clear innerHTML?
-           // We might need to manually reset the HTML structure first if it was replaced by result view.
-           
-           // Re-render the initial import view structure
-           // This requires knowing the initial HTML. 
-           // Alternatively, just hide result/preview and show input sections?
-           // The code around line 6184 REPLACED innerHTML. So we must recreate it.
-           
-           importContent.innerHTML = `
-             <div class="import-section">
-               <div class="input-group">
-                 <label>Paste CSS / JSON / Tailwind Config</label>
-                 <textarea id="import-input" placeholder="Paste your tokens here...
-   --primary: #007bff;
-   --secondary: #6c757d;"></textarea>
-               </div>
-               
-               <div class="input-group">
-                  <label>Import into Collection</label>
-                  <select id="import-collection-select">
-                     <option value="">New Collection...</option>
-                  </select>
-               </div>
-   
-               <div class="actions">
-                 <button id="preview-import-btn" class="btn btn-primary" disabled>Preview Import</button>
-               </div>
-             </div>
-             
-             <!-- Preview Section (Hidden Initially) -->
-             <div id="import-preview-section" class="hidden">
-                <div class="preview-header">
-                  <h3>Preview</h3>
-                  <div class="preview-stats">
-                     <span class="stat-badge total" id="preview-stat-total">0 Total</span>
-                     <span class="stat-badge new" id="preview-stat-new">0 New</span>
-                     <span class="stat-badge update" id="preview-stat-update">0 Updates</span>
-                     <span class="stat-badge conflict" id="preview-stat-conflict">0 Conflicts</span>
-                  </div>
+        console.log('[UI] Resetting import view');
+        try {
+            const importContent = document.getElementById('import-content');
+            if (!importContent) {
+                console.error('[UI] Import content container not found');
+                return;
+            }
+            
+            // Re-render the initial import view structure
+            importContent.innerHTML = `
+              <div class="import-section">
+                <div class="import-input-area">
+                  <textarea 
+                    id="import-input" 
+                    placeholder="Paste your code here...&#10;CSS/SCSS: :root { --primary: #3b82f6; }&#10;Tailwind Config: { theme: { colors: { primary: '#3b82f6' } } }"
+                    spellcheck="false"
+                  ></textarea>
                 </div>
-                
-                <div class="preview-table-container">
-                   <table class="preview-table">
+
+                <div class="import-actions-bar">
+                  <div class="import-options">
+                     <select id="import-collection-select" class="select-input">
+                       <option value="">New Collection...</option>
+                     </select>
+                  </div>
+                  <button id="preview-import-btn" class="btn-primary" disabled>
+                    Preview Import
+                  </button>
+                </div>
+
+                <!-- Preview Section (Hidden by default) -->
+                <div id="import-preview-section" class="import-preview-section hidden">
+                  <div class="preview-header">
+                    <h4>Import Preview</h4>
+                    <div class="preview-stats">
+                      <span id="preview-stat-total" class="badge">0 Total</span>
+                      <span id="preview-stat-new" class="badge badge-success">0 New</span>
+                      <span id="preview-stat-update" class="badge badge-warning">0 Updates</span>
+                      <span id="preview-stat-conflict" class="badge badge-danger">0 Conflicts</span>
+                    </div>
+                  </div>
+
+                  <div class="import-strategy-selector">
+                    <label>Conflict Strategy:</label>
+                    <div class="radio-group">
+                      <label>
+                        <input type="radio" name="import-strategy" value="merge" checked>
+                        <span>Merge (Keep Existing)</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="import-strategy" value="overwrite">
+                        <span>Overwrite Existing</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="preview-table-container">
+                    <table class="preview-table">
                       <thead>
-                         <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Value</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                         </tr>
+                        <tr>
+                          <th>Variable Name</th>
+                          <th>Type</th>
+                          <th>New Value</th>
+                          <th>Status</th>
+                          <th>Action</th>
+                        </tr>
                       </thead>
                       <tbody id="preview-table-body">
-                         <!-- Rows injected via JS -->
+                        <!-- Populated dynamically -->
                       </tbody>
-                   </table>
+                    </table>
+                  </div>
+
+                  <div class="import-confirmation-actions">
+                    <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
+                    <button id="confirm-import-btn" class="btn-primary">
+                      Import Variables
+                    </button>
+                  </div>
                 </div>
+              </div>
+            `;
+            
+            console.log('[UI] Initializing import tab listeners');
+            initializeImportTab();
+            
+            // Re-attach listeners for the newly created elements
+            const inputEl = document.getElementById('import-input');
+            if (inputEl) {
+                inputEl.addEventListener('input', function(e) {
+                  const btn = document.getElementById('preview-import-btn');
+                  if (btn) btn.disabled = !e.target.value.trim();
+                });
+            }
+            
+            document.getElementById('preview-import-btn')?.addEventListener('click', function() {
+               const content = document.getElementById('import-input').value;
+               const collectionId = document.getElementById('import-collection-select').value;
+               
+               if (!content) return;
+        
+               showButtonLoading(this, 'Analyzing...');
+               
+               parent.postMessage({
+                 pluginMessage: {
+                   type: 'preview-import',
+                   content: content,
+                   options: {
+                     collectionId: collectionId
+                   }
+                 }
+               }, '*');
+            });
+            
+            document.getElementById('cancel-import-btn')?.addEventListener('click', function() {
+              document.getElementById('import-preview-section').classList.add('hidden');
+              document.getElementById('preview-import-btn').disabled = false;
+              document.getElementById('import-input').disabled = false;
+            });
+            
+            // Re-attach confirm listener (copying logic from initializeImportTab or defining new)
+            // Ideally we should extract this attachment to a function to avoid code duplication.
+            // But since `initializeImportTab` does setup, maybe we can rely on it?
+            // `initializeImportTab` only sets up collections dropdown. It DOES NOT set up listeners in current implementation?
+            // Wait, previous `view_file` showed `initializeImportTab` ONLY doing collection loading.
+            // The listeners were added globally below it.
+            // Since we overwrote the DOM elements, the global listeners attached earlier are GONE for these elements.
+            // So we MUST re-attach them here.
+            
+             document.getElementById('confirm-import-btn')?.addEventListener('click', function() {
+                if (!currentImportPreview) return;
+        
+                const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
+                const collectionSelect = document.getElementById('import-collection-select');
+                const collectionId = collectionSelect.value;
+                const collectionName = collectionId ? 
+                    collectionSelect.options[collectionSelect.selectedIndex].text : 
+                    'Imported Variables';
+        
+                showButtonLoading(this, 'Importing...');
                 
-                <div class="import-options">
-                   <label>Import Strategy</label>
-                   <div class="radio-group">
-                      <label><input type="radio" name="import-strategy" value="merge" checked> Merge (Skip existing)</label>
-                      <label><input type="radio" name="import-strategy" value="overwrite"> Overwrite (Update existing)</label>
-                   </div>
-                </div>
-   
-                <div class="actions">
-                   <button id="confirm-import-btn" class="btn btn-primary">Import Selected</button>
-                   <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
-                </div>
-             </div>
-           `;
-           
-           // Re-initialize listeners
-           initializeImportTab();
-           
-           // Re-attach listeners for the newly created elements (since they were replaced)
-           const inputEl = document.getElementById('import-input');
-           if (inputEl) {
-               inputEl.addEventListener('input', function(e) {
-                 const btn = document.getElementById('preview-import-btn');
-                 if (btn) btn.disabled = !e.target.value.trim();
-               });
-           }
-           
-           document.getElementById('preview-import-btn')?.addEventListener('click', function() {
-              const content = document.getElementById('import-input').value;
-              const collectionId = document.getElementById('import-collection-select').value;
-              if (!content) return;
-              showButtonLoading(this, 'Analyzing...');
-              parent.postMessage({
-                pluginMessage: {
-                  type: 'preview-import',
-                  content: content,
-                  options: { collectionId: collectionId }
-                }
-              }, '*');
-           });
-           
-           document.getElementById('cancel-import-btn')?.addEventListener('click', function() {
-             document.getElementById('import-preview-section').classList.add('hidden');
-             document.getElementById('preview-import-btn').disabled = false;
-             document.getElementById('import-input').disabled = false;
-             hideButtonLoading(document.getElementById('preview-import-btn'));
-           });
-           
-           document.getElementById('confirm-import-btn')?.addEventListener('click', function() {
-              if (!currentImportPreview) return;
-              const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
-              const collectionSelect = document.getElementById('import-collection-select');
-              const collectionId = collectionSelect.value;
-              const collectionName = collectionId ? collectionSelect.options[collectionSelect.selectedIndex].text : 'Imported Variables';
-              
-              showButtonLoading(this, 'Importing...');
-              
-              const tokensToImport = [
+                const tokensToImport = [
                   ...currentImportPreview.added,
                   ...currentImportPreview.modified.map(m => m.token),
-                  ...currentImportPreview.unchanged, // Include unchanged? Maybe usually not needed but harmless.
+                  ...currentImportPreview.unchanged,
                   ...currentImportPreview.conflicts.map(c => c.token)
-              ];
-              
-              parent.postMessage({
+                ];
+        
+                parent.postMessage({
                   pluginMessage: {
-                      type: 'import-tokens',
-                      tokens: tokensToImport,
-                      options: { collectionId, collectionName, strategy }
+                    type: 'import-tokens',
+                    tokens: tokensToImport,
+                    options: {
+                      collectionId: collectionId,
+                      collectionName: collectionName,
+                      strategy: strategy
+                    }
                   }
-              }, '*');
-           });
+                }, '*');
+              });
+
+        } catch (e) {
+            console.error('[UI] Error resetting import view:', e);
+            showError('UI Error', 'Failed to reset import view. Please reload the plugin.');
         }
       }
       window.resetImportView = resetImportView;

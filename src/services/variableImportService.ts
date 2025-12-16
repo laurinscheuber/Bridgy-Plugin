@@ -95,11 +95,202 @@ export class VariableImportService {
    * Parse Tailwind CSS content (custom properties in @theme or simple key-value pairs)
    * This is a simplified parser for pasted tailwind config objects or CSS with @theme
    */
+  /**
+   * Parse Tailwind CSS content (custom properties in @theme or simple key-value pairs)
+   * Supports:
+   * 1. CSS Variables (standard or @theme)
+   * 2. JS Config Objects (module.exports = { theme: ... } or const config = ...)
+   */
   static parseTailwind(content: string): ImportToken[] {
-    // For now, reuse CSS parser as Tailwind v4 uses CSS variables.
-    // If user pastes JS config, we might need a JSON parser or AST walker.
-    // Assuming CSS format for AC1 based on "Variable Import Feature".
+    const trimmed = content.trim();
+    
+    // Detect JS object / config
+    if (trimmed.startsWith('module.exports') || 
+        trimmed.startsWith('export default') || 
+        trimmed.startsWith('const') || 
+        trimmed.startsWith('{') ||
+        trimmed.includes('theme:')) {
+      return this.parseTailwindJSConfig(trimmed);
+    }
+
+    // Default to CSS parser for @theme or standard CSS
     return this.parseCSS(content);
+  }
+
+  /**
+   * Parse Tailwind JS configuration object
+   * Extracts tokens from theme/extend/colors, spacing, etc.
+   * Flattens nested objects into kebab-case names.
+   */
+  private static parseTailwindJSConfig(content: string): ImportToken[] {
+    const tokens: ImportToken[] = [];
+    
+    try {
+      // 1. Sanitize content to make it vaguely parseable as JSON if possible, 
+      // or use a regex-based tokenizer for robustness against JS syntax (functions, unrelated code).
+      // Since we can't eval() safely and don't have a full parser, we'll use a simplified approach:
+      // Extract the 'theme' or 'extend' object block.
+      
+      // Simple strategy: 
+      // 1. Find 'colors:' block
+      // 2. Parse recursively
+      
+      // We will look for known token categories
+      const categories = ['colors', 'spacing', 'fontSize', 'borderRadius', 'boxShadow'];
+      
+      categories.forEach(category => {
+        // Regex to find "category: { ... }" block
+        // This is tricky with nested braces. 
+        // We'll iterate through the string to capture the matching brace block.
+        const catIndex = content.indexOf(`${category}:`);
+        if (catIndex === -1) return;
+        
+        const blockStart = content.indexOf('{', catIndex);
+        if (blockStart === -1) return;
+        
+        // Extract the block
+        const block = this.extractBraceBlock(content, blockStart);
+        if (block) {
+           // Parse the content of the block (key: value or key: { ... })
+           const categoryTokens = this.parseJSObjectBlock(block, category);
+           tokens.push(...categoryTokens);
+        }
+      });
+      
+    } catch (e) {
+      console.warn('Failed to parse Tailwind JS config', e);
+    }
+    
+    return tokens;
+  }
+  
+  /**
+   * Helper to extract a balanced brace block { ... }
+   */
+  private static extractBraceBlock(text: string, startIndex: number): string | null {
+    let depth = 0;
+    let inString = false;
+    let stringChar = '';
+    
+    for (let i = startIndex; i < text.length; i++) {
+      const char = text[i];
+      
+      if (inString) {
+        if (char === stringChar && text[i-1] !== '\\') {
+          inString = false;
+        }
+      } else {
+        if (char === '"' || char === "'" || char === '`') {
+          inString = true;
+          stringChar = char;
+        } else if (char === '{') {
+          depth++;
+        } else if (char === '}') {
+          depth--;
+          if (depth === 0) {
+            return text.substring(startIndex, i + 1);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Recursive parser for JS object strings
+   * Returns flattened tokens
+   */
+  private static parseJSObjectBlock(block: string, prefix: string): ImportToken[] {
+    const tokens: ImportToken[] = [];
+    
+    // Remove outer braces
+    const inner = block.trim().substring(1, block.trim().length - 1);
+    
+    // Split by comma, respecting nested braces/strings
+    // This is a naive split. A true parser is needed for 100% accuracy but this covers 90% of copy-paste cases.
+    // Instead of splitting, let's regex for "key: value" or "key: { ... }"
+    
+    // Regex matches: key : value OR key : { ... }
+    // Group 1: key
+    // Group 2: value (simple)
+    // Group 3: value (object start)
+    const regex = /([a-zA-Z0-9_$-]+|\"[^\"]+\"|'[^']+')\s*:\s*(?:({)|([^,}\]]+))/g;
+    
+    let match;
+    // We need to manually iterate to handle the Nested Block correctly because Regex can't balance braces
+    // So we use a hybrid approach: Find key, check if value starts with {, if so extract block.
+    
+    let currentIndex = 0;
+    while (currentIndex < inner.length) {
+       // Find next key
+       const keyMatch = inner.substr(currentIndex).match(/([a-zA-Z0-9_$-]+|\"[^\"]+\"|'[^']+')\s*:\s*/);
+       if (!keyMatch) break;
+       
+       const key = keyMatch[1].replace(/['"]/g, ''); // Unquote
+       const valueStart = currentIndex + keyMatch.index! + keyMatch[0].length;
+       
+       // Check if value is object
+       if (inner[valueStart] === '{') {
+         const subBlock = this.extractBraceBlock(inner, valueStart);
+         if (subBlock) {
+            const nextPrefix = prefix ? `${prefix}/${key}` : key;
+            tokens.push(...this.parseJSObjectBlock(subBlock, nextPrefix));
+            currentIndex = valueStart + subBlock.length;
+            // Skip trailing comma
+            const nextComma = inner.indexOf(',', currentIndex);
+            if (nextComma !== -1 && nextComma < inner.indexOf(':', currentIndex)) { // Ensure comma belongs to this level
+                 currentIndex = nextComma + 1;
+            }
+         } else {
+            // Error nested block
+            console.warn(`Unbalanced block for key ${key}`);
+            break;
+         }
+       } else {
+         // Simple value (read until comma or end)
+         // Note: Parsing "value" correctly is hard with multiple commas in colors (rgba). 
+         // Assuming simpler values for now.
+         let potentialValue = '';
+         let inStr = false;
+         let strCh = '';
+         let endFound = false;
+         let j = valueStart;
+         
+         for (; j < inner.length; j++) {
+            const char = inner[j];
+             if (inStr) {
+                 if (char === strCh && inner[j-1] !== '\\') inStr = false;
+             } else {
+                 if (char === '"' || char === "'") { inStr = true; strCh = char; }
+                 else if (char === ',' || char === '}') { // End of value
+                     endFound = true;
+                     break;
+                 }
+             }
+             if (!endFound) potentialValue += char;
+         }
+         
+         const value = potentialValue.trim().replace(/['"]/g, '');
+         const tokenName = prefix ? `${prefix}/${key}` : key;
+         
+         // Determine type
+         let type: ImportToken['type'] = 'string';
+         if (value.match(/^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|[a-zA-Z]+$)/)) type = 'color';
+         else if (value.match(/^-?\d*\.?\d+(px|rem|em|%)?$/)) type = 'number';
+         
+         tokens.push({
+           name: tokenName,
+           value: value,
+           type: type,
+           originalLine: `${key}: ${value}`,
+           lineNumber: 0
+         });
+         
+         currentIndex = j + 1;
+       }
+    }
+    
+    return tokens;
   }
 
   /**

@@ -7,7 +7,9 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: [
       'tests/**/*.{test,spec}.{ts,tsx}',
-      'tests/**/*.e2e.{test,spec}.{ts,tsx}'
+      'tests/**/*.{test,spec}.{ts,tsx}',
+      'tests/**/*.e2e.{test,spec}.{ts,tsx}',
+      'src/**/*.test.ts'
     ],
     exclude: [
       'node_modules',
@@ -29,8 +31,10 @@ export default defineConfig({
       ]
     },
     // Mock Figma API for tests
-    deps: {
-      inline: ['@figma/plugin-typings']
+    server: {
+      deps: {
+        inline: ['@figma/plugin-typings']
+      }
     }
   },
   resolve: {
