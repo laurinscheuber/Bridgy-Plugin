@@ -211,7 +211,85 @@
 
         <!-- Import Sub-tab Content -->
         <div class="sub-tab-content" id="import-content">
-          <div id="variable-import-container"></div>
+          <div id="variable-import-container">
+            <div class="import-section">
+              <div class="import-header">
+                <h3>Import Variables</h3>
+                <p>Paste CSS, SCSS, or Tailwind configuration to import variables.</p>
+              </div>
+              
+              <div class="import-input-area">
+                <textarea 
+                  id="import-input" 
+                  placeholder="Paste your code here... (e.g. :root { --primary: #3b82f6; })"
+                  spellcheck="false"
+                ></textarea>
+              </div>
+
+              <div class="import-actions-bar">
+                <div class="import-options">
+                   <select id="import-collection-select" class="select-input">
+                     <!-- Populated dynamically -->
+                     <option value="">New Collection...</option>
+                   </select>
+                </div>
+                <button id="preview-import-btn" class="btn-primary" disabled>
+                  Preview Import
+                </button>
+              </div>
+
+              <!-- Preview Section (Hidden by default) -->
+              <div id="import-preview-section" class="import-preview-section hidden">
+                <div class="preview-header">
+                  <h4>Import Preview</h4>
+                  <div class="preview-stats">
+                    <span id="preview-stat-total" class="badge">0 Total</span>
+                    <span id="preview-stat-new" class="badge badge-success">0 New</span>
+                    <span id="preview-stat-update" class="badge badge-warning">0 Updates</span>
+                    <span id="preview-stat-conflict" class="badge badge-danger">0 Conflicts</span>
+                  </div>
+                </div>
+
+                <div class="import-strategy-selector">
+                  <label>Conflict Strategy:</label>
+                  <div class="radio-group">
+                    <label>
+                      <input type="radio" name="import-strategy" value="merge" checked>
+                      <span>Merge (Keep Existing)</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="import-strategy" value="overwrite">
+                      <span>Overwrite Existing</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="preview-table-container">
+                  <table class="preview-table">
+                    <thead>
+                      <tr>
+                        <th>Variable Name</th>
+                        <th>Type</th>
+                        <th>New Value</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="preview-table-body">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="import-confirmation-actions">
+                  <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
+                  <button id="confirm-import-btn" class="btn-primary">
+                    Import Variables
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Units Sub-tab Content -->
