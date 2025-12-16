@@ -165,22 +165,22 @@ export class TokenCoverageService {
 
     // Check auto-layout properties
     if ('layoutMode' in layoutNode && layoutNode.layoutMode !== 'NONE') {
-      // Check gap (itemSpacing)
-      if (layoutNode.itemSpacing && !this.isVariableBound(layoutNode, 'itemSpacing')) {
+      // Check gap (itemSpacing) - include zero values
+      if (typeof layoutNode.itemSpacing === 'number' && !this.isVariableBound(layoutNode, 'itemSpacing')) {
         this.addIssue(issuesMap, 'Gap', `${layoutNode.itemSpacing}px`, node, 'Layout');
       }
 
-      // Check padding
-      if (layoutNode.paddingLeft && !this.isVariableBound(layoutNode, 'paddingLeft')) {
+      // Check padding - include zero values
+      if (typeof layoutNode.paddingLeft === 'number' && !this.isVariableBound(layoutNode, 'paddingLeft')) {
         this.addIssue(issuesMap, 'Padding Left', `${layoutNode.paddingLeft}px`, node, 'Layout');
       }
-      if (layoutNode.paddingTop && !this.isVariableBound(layoutNode, 'paddingTop')) {
+      if (typeof layoutNode.paddingTop === 'number' && !this.isVariableBound(layoutNode, 'paddingTop')) {
         this.addIssue(issuesMap, 'Padding Top', `${layoutNode.paddingTop}px`, node, 'Layout');
       }
-      if (layoutNode.paddingRight && !this.isVariableBound(layoutNode, 'paddingRight')) {
+      if (typeof layoutNode.paddingRight === 'number' && !this.isVariableBound(layoutNode, 'paddingRight')) {
         this.addIssue(issuesMap, 'Padding Right', `${layoutNode.paddingRight}px`, node, 'Layout');
       }
-      if (layoutNode.paddingBottom && !this.isVariableBound(layoutNode, 'paddingBottom')) {
+      if (typeof layoutNode.paddingBottom === 'number' && !this.isVariableBound(layoutNode, 'paddingBottom')) {
         this.addIssue(issuesMap, 'Padding Bottom', `${layoutNode.paddingBottom}px`, node, 'Layout');
       }
     }
@@ -250,21 +250,21 @@ export class TokenCoverageService {
       this.addIssue(issuesMap, 'Opacity', `${node.opacity}`, node, 'Appearance');
     }
 
-    // Check corner radius
+    // Check corner radius - exclude zero values as they typically don't need tokens
     if ('cornerRadius' in node) {
       const rectNode = node as RectangleNode | FrameNode | ComponentNode | InstanceNode;
       
       // Check if individual corner radii are used
-      if (typeof rectNode.topLeftRadius === 'number' && !this.isVariableBound(rectNode, 'topLeftRadius')) {
+      if (typeof rectNode.topLeftRadius === 'number' && rectNode.topLeftRadius > 0 && !this.isVariableBound(rectNode, 'topLeftRadius')) {
         this.addIssue(issuesMap, 'Corner Radius (Top Left)', `${rectNode.topLeftRadius}px`, node, 'Appearance');
       }
-      if (typeof rectNode.topRightRadius === 'number' && !this.isVariableBound(rectNode, 'topRightRadius')) {
+      if (typeof rectNode.topRightRadius === 'number' && rectNode.topRightRadius > 0 && !this.isVariableBound(rectNode, 'topRightRadius')) {
         this.addIssue(issuesMap, 'Corner Radius (Top Right)', `${rectNode.topRightRadius}px`, node, 'Appearance');
       }
-      if (typeof rectNode.bottomLeftRadius === 'number' && !this.isVariableBound(rectNode, 'bottomLeftRadius')) {
+      if (typeof rectNode.bottomLeftRadius === 'number' && rectNode.bottomLeftRadius > 0 && !this.isVariableBound(rectNode, 'bottomLeftRadius')) {
         this.addIssue(issuesMap, 'Corner Radius (Bottom Left)', `${rectNode.bottomLeftRadius}px`, node, 'Appearance');
       }
-      if (typeof rectNode.bottomRightRadius === 'number' && !this.isVariableBound(rectNode, 'bottomRightRadius')) {
+      if (typeof rectNode.bottomRightRadius === 'number' && rectNode.bottomRightRadius > 0 && !this.isVariableBound(rectNode, 'bottomRightRadius')) {
         this.addIssue(issuesMap, 'Corner Radius (Bottom Right)', `${rectNode.bottomRightRadius}px`, node, 'Appearance');
       }
     }
