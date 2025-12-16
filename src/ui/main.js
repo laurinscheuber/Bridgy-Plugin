@@ -15,7 +15,7 @@
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
                   match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
-                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(')) {
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(')) {
                 return match;
               }
               return '';
@@ -25,7 +25,7 @@
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
                   match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
-                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(')) {
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(')) {
                 return match;
               }
               return '';
