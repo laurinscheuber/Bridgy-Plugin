@@ -218,8 +218,18 @@
         return cleanUrl;
       }
 
-      // ===== GITLAB CONFIGURATION HELPERS =====
-      function isGitLabConfigured() {
+      // ===== REPOSITORY CONFIGURATION HELPERS =====
+      function isRepositoryConfigured() {
+        // Check unified settings first
+        if (window.gitSettings && 
+            window.gitSettings.projectId && 
+            window.gitSettings.projectId.trim() && 
+            window.gitSettings.token && 
+            window.gitSettings.token.trim()) {
+          return true;
+        }
+
+        // Fallback to legacy GitLab settings
         return window.gitlabSettings && 
                window.gitlabSettings.projectId && 
                window.gitlabSettings.projectId.trim() && 
@@ -231,7 +241,7 @@
         const hasVariables = variablesData && 
           variablesData.some((collection) => collection.variables.length > 0);
         
-        const isConfigured = isGitLabConfigured();
+        const isConfigured = isRepositoryConfigured();
         
         // Check if Tailwind v4 format is selected and if there are validation issues
         const isTailwindV4Selected = window.gitlabSettings?.exportFormat === 'tailwind-v4';
@@ -2389,7 +2399,8 @@
             if (componentId && componentName) {
               const isCommit = action === 'commit';
               generateTest(componentId, componentName, button, true, isCommit);
-            }
+
+          }
           }
         });
 
@@ -2399,14 +2410,21 @@
           );
           const childrenEl = document.getElementById(`children-${index}`);
 
+          if (!headerEl || !childrenEl) {
+            console.warn(`[UI] toggleComponentSet: Elements not found for index ${index}`);
+            return;
+          }
+
           if (childrenEl.classList.contains("expanded")) {
             childrenEl.classList.remove("expanded");
             headerEl.classList.remove("expanded");
-            headerEl.querySelector(".component-set-toggle").textContent = "+";
+            const toggle = headerEl.querySelector(".component-set-toggle");
+            if (toggle) toggle.textContent = "+";
           } else {
             childrenEl.classList.add("expanded");
             headerEl.classList.add("expanded");
-            headerEl.querySelector(".component-set-toggle").textContent = "-";
+            const toggle = headerEl.querySelector(".component-set-toggle");
+            if (toggle) toggle.textContent = "-";
           }
         };
 
@@ -5299,16 +5317,33 @@ ${checkboxes}
   /* Typography */
   --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-lg: 1.125rem;
+      --text-lg: 1.125rem;
 }`;
         document.getElementById('token-input').value = sampleCSS;
       };
 
-      window.clearInput = function() {
-        document.getElementById('token-input').value = '';
-        document.getElementById('parse-status').style.display = 'none';
-        document.getElementById('preview-section').style.display = 'none';
-        document.getElementById('import-section').style.display = 'none';
+      // Variable Import helper functions
+window.clearInput = function() {
+  const tokenInput = document.getElementById('token-input');
+  const importInput = document.getElementById('import-input');
+  const parseStatus = document.getElementById('parse-status');
+  const previewSection = document.getElementById('preview-section');
+  const importSection = document.getElementById('import-section');
+  
+  if (tokenInput) tokenInput.value = '';
+  if (importInput) importInput.value = ''; // Also clear import input
+  if (parseStatus) parseStatus.style.display = 'none';
+  if (previewSection) previewSection.style.display = 'none';
+  if (importSection) importSection.style.display = 'none';
+};
+      
+      window.resetImportView = function() {
+        // Reset the entire import tab to initial state
+        const importTab = document.getElementById('import');
+        if (importTab) {
+          // Re-initialize the import tab content
+          setupImportTab();
+        }
       };
 
       window.handleFileUpload = function(event) {
@@ -5406,7 +5441,7 @@ ${checkboxes}
             console.log('[DEBUG] No more CSS variables found from position', i);
             break;
           }
-          console.log('[DEBUG] Found CSS variable at position', varStart);
+          // Found CSS variable
           
           // Find the colon
           const colonIndex = cleanedCSS.indexOf(':', varStart);
@@ -5417,7 +5452,23 @@ ${checkboxes}
           
           // Extract variable name
           const varName = cleanedCSS.substring(varStart + 2, colonIndex).trim();
-          if (!varName) {
+          
+          // Validation: Reject invalid variable names
+          // 1. Empty names
+          // 2. Names containing invalid characters (newlines, parentheses, braces, semicolons)
+          // 3. Names that are too long (likely captured code blocks)
+          if (!varName || 
+              varName.includes('\n') || 
+              varName.includes('(') || 
+              varName.includes(')') || 
+              varName.includes('{') || 
+              varName.includes('}') || 
+              varName.includes(';') || 
+              varName.length > 100) {
+            
+            // This is likely a false positive (e.g. usage of var(--name) followed by a colon later)
+            // Skip this match and continue search from the colon
+            console.log('[DEBUG] Skipping invalid variable name candidate:', varName.substring(0, 50) + (varName.length > 50 ? '...' : ''));
             i = colonIndex + 1;
             continue;
           }
@@ -5461,7 +5512,7 @@ ${checkboxes}
           
           // Extract and clean the value
           const value = cleanedCSS.substring(valueStart, valueEnd).trim();
-          console.log('[DEBUG] Parsed variable:', varName, '=', value);
+          // Parsed variable
           if (value) {
             const token = {
               name: varName,
@@ -5472,7 +5523,7 @@ ${checkboxes}
               isAlias: value.trim().startsWith('var(') && value.trim().match(/^var\([^)]+\)$/)
             };
             tokens.push(token);
-            console.log('[DEBUG] Added token:', token);
+            // Token added
           }
           
           i = valueEnd + 1;
@@ -5725,14 +5776,19 @@ ${checkboxes}
                             const valueDisplay = category === 'color' ? 
                               `<span class="color-preview" style="background-color: ${token.value}"></span>${token.value}` :
                               token.value;
+                            
+                            const isDuplicate = checkDuplicate(token.name);
+                            const duplicateBadge = isDuplicate ? '<span class="status-badge alias" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;">Exists</span>' : '';
+                            
                             return `
-                              <div class="variable-row">
+                              <div class="variable-row ${isDuplicate ? 'duplicate-row' : ''}">
                                 <label class="checkbox-label">
                                   <input type="checkbox" id="${tokenId}" checked class="variable-checkbox" data-token-name="${token.name}">
                                   <span class="variable-name">${token.name}</span>
                                 </label>
                                 <span class="variable-type">${category}</span>
                                 <span class="variable-value">${valueDisplay}</span>
+                                ${duplicateBadge}
                                 ${token.isAlias ? '<span class="alias-badge">ref</span>' : ''}
                               </div>
                             `;
@@ -5850,14 +5906,23 @@ ${checkboxes}
         previewContent.innerHTML = SecurityUtils.sanitizeHTML(previewHTML);
         previewSection.style.display = 'block';
         
-        // Load existing collections when preview is shown
-        loadExistingCollections();
-        
         // Add event listener to update collection name preview
         const collectionNameInput = document.getElementById('collection-name');
         if (collectionNameInput) {
           collectionNameInput.addEventListener('input', updateCollectionNamePreview);
         }
+      }
+
+      function checkDuplicate(tokenName) {
+        if (!window.existingCollections) return false;
+        
+        // Check all collections for a variable with this name
+        for (const collection of window.existingCollections) {
+          if (collection.variables && collection.variables.some(v => v.name === tokenName)) {
+            return true;
+          }
+        }
+        return false;
       }
 
       function updateCollectionNamePreview() {
@@ -6078,10 +6143,8 @@ ${checkboxes}
             tokens: selectedTokens,
             options: {
               collectionName,
-              createNew,
-              existingCollectionId,
-              organizeByCategories,
-              overwriteExisting
+              collectionId: existingCollectionId,
+              strategy: overwriteExisting ? 'overwrite' : 'merge'
             }
           }
         };
@@ -6149,11 +6212,154 @@ ${checkboxes}
               <p>Your design tokens have been successfully imported to Figma ${variablesCreated > 0 ? 'Variables' : ''}${variablesCreated > 0 && stylesCreated > 0 ? ' and ' : ''}${stylesCreated > 0 ? 'Styles' : ''}. You can now use them in your designs!</p>
             </div>
             <div class="apply-actions">
-              <button class="btn btn-secondary" onclick="clearInput()">Import More Tokens</button>
+              <button class="btn btn-secondary" onclick="resetImportView()">Import More Tokens</button>
             </div>
           </div>
         `;
       }
+      function resetImportView() {
+        const importContent = document.getElementById('import-content');
+        // Restore initial state (simplified)
+        // Ideally we should reload the tab or recreate the initial HTML.
+        // For now, let's just trigger the tab initialization again which should reset/repaint.
+        // Or manually inject the input form again.
+        
+        // Better: Reload the tab content
+        const importTab = document.querySelector('.sub-tab-item[data-sub-tab="import"]');
+        if (importTab) {
+           initializeImportTab(); // This usually sets up listeners, but doesn't necessarily clear innerHTML?
+           // We might need to manually reset the HTML structure first if it was replaced by result view.
+           
+           // Re-render the initial import view structure
+           // This requires knowing the initial HTML. 
+           // Alternatively, just hide result/preview and show input sections?
+           // The code around line 6184 REPLACED innerHTML. So we must recreate it.
+           
+           importContent.innerHTML = `
+             <div class="import-section">
+               <div class="input-group">
+                 <label>Paste CSS / JSON / Tailwind Config</label>
+                 <textarea id="import-input" placeholder="Paste your tokens here...
+   --primary: #007bff;
+   --secondary: #6c757d;"></textarea>
+               </div>
+               
+               <div class="input-group">
+                  <label>Import into Collection</label>
+                  <select id="import-collection-select">
+                     <option value="">New Collection...</option>
+                  </select>
+               </div>
+   
+               <div class="actions">
+                 <button id="preview-import-btn" class="btn btn-primary" disabled>Preview Import</button>
+               </div>
+             </div>
+             
+             <!-- Preview Section (Hidden Initially) -->
+             <div id="import-preview-section" class="hidden">
+                <div class="preview-header">
+                  <h3>Preview</h3>
+                  <div class="preview-stats">
+                     <span class="stat-badge total" id="preview-stat-total">0 Total</span>
+                     <span class="stat-badge new" id="preview-stat-new">0 New</span>
+                     <span class="stat-badge update" id="preview-stat-update">0 Updates</span>
+                     <span class="stat-badge conflict" id="preview-stat-conflict">0 Conflicts</span>
+                  </div>
+                </div>
+                
+                <div class="preview-table-container">
+                   <table class="preview-table">
+                      <thead>
+                         <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                         </tr>
+                      </thead>
+                      <tbody id="preview-table-body">
+                         <!-- Rows injected via JS -->
+                      </tbody>
+                   </table>
+                </div>
+                
+                <div class="import-options">
+                   <label>Import Strategy</label>
+                   <div class="radio-group">
+                      <label><input type="radio" name="import-strategy" value="merge" checked> Merge (Skip existing)</label>
+                      <label><input type="radio" name="import-strategy" value="overwrite"> Overwrite (Update existing)</label>
+                   </div>
+                </div>
+   
+                <div class="actions">
+                   <button id="confirm-import-btn" class="btn btn-primary">Import Selected</button>
+                   <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
+                </div>
+             </div>
+           `;
+           
+           // Re-initialize listeners
+           initializeImportTab();
+           
+           // Re-attach listeners for the newly created elements (since they were replaced)
+           const inputEl = document.getElementById('import-input');
+           if (inputEl) {
+               inputEl.addEventListener('input', function(e) {
+                 const btn = document.getElementById('preview-import-btn');
+                 if (btn) btn.disabled = !e.target.value.trim();
+               });
+           }
+           
+           document.getElementById('preview-import-btn')?.addEventListener('click', function() {
+              const content = document.getElementById('import-input').value;
+              const collectionId = document.getElementById('import-collection-select').value;
+              if (!content) return;
+              showButtonLoading(this, 'Analyzing...');
+              parent.postMessage({
+                pluginMessage: {
+                  type: 'preview-import',
+                  content: content,
+                  options: { collectionId: collectionId }
+                }
+              }, '*');
+           });
+           
+           document.getElementById('cancel-import-btn')?.addEventListener('click', function() {
+             document.getElementById('import-preview-section').classList.add('hidden');
+             document.getElementById('preview-import-btn').disabled = false;
+             document.getElementById('import-input').disabled = false;
+             hideButtonLoading(document.getElementById('preview-import-btn'));
+           });
+           
+           document.getElementById('confirm-import-btn')?.addEventListener('click', function() {
+              if (!currentImportPreview) return;
+              const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
+              const collectionSelect = document.getElementById('import-collection-select');
+              const collectionId = collectionSelect.value;
+              const collectionName = collectionId ? collectionSelect.options[collectionSelect.selectedIndex].text : 'Imported Variables';
+              
+              showButtonLoading(this, 'Importing...');
+              
+              const tokensToImport = [
+                  ...currentImportPreview.added,
+                  ...currentImportPreview.modified.map(m => m.token),
+                  ...currentImportPreview.unchanged, // Include unchanged? Maybe usually not needed but harmless.
+                  ...currentImportPreview.conflicts.map(c => c.token)
+              ];
+              
+              parent.postMessage({
+                  pluginMessage: {
+                      type: 'import-tokens',
+                      tokens: tokensToImport,
+                      options: { collectionId, collectionName, strategy }
+                  }
+              }, '*');
+           });
+        }
+      }
+      window.resetImportView = resetImportView;
 
       function showImportError(error) {
         const importContent = document.getElementById('import-content');
@@ -6167,7 +6373,7 @@ ${checkboxes}
               </div>
             </div>
             <div class="apply-actions">
-              <button class="btn btn-secondary" onclick="clearInput()">Try Again</button>
+              <button class="btn btn-secondary" onclick="resetImportView()">Try Again</button>
             </div>
           </div>
         `;
@@ -6197,6 +6403,10 @@ ${checkboxes}
         // Clear existing options
         existingCollectionSelect.innerHTML = '';
         
+        // Store globally for duplicate checking
+        window.existingCollections = collections || [];
+        console.log('[DEBUG] Stored existing collections:', window.existingCollections);
+        
         if (!collections || collections.length === 0) {
           existingCollectionSelect.innerHTML = '<option value="">No existing collections found</option>';
           return;
@@ -6212,6 +6422,13 @@ ${checkboxes}
           option.textContent = collection.name;
           existingCollectionSelect.appendChild(option);
         });
+        
+        // If we have parsed tokens and the preview is visible, re-render to show duplicate badges
+        const previewSection = document.getElementById('preview-section');
+        if (previewSection && previewSection.style.display !== 'none' && window.parsedTokens) {
+          console.log('[DEBUG] Re-rendering preview with duplicate info');
+          showPreview(window.parsedTokens);
+        }
       }
       
       // Make functions globally available for HTML onclick handlers
@@ -6221,8 +6438,7 @@ ${checkboxes}
       window.openUserGuide = openUserGuide;
       window.closeUserGuide = closeUserGuide;
       window.toggleSubgroup = toggleSubgroup;
-      window.toggleComponentSet = toggleComponentSet;
-      window.toggleStyles = toggleStyles;
+      // toggleComponentSet and toggleStyles are already assigned to window where defined
       window.scrollToGroupById = scrollToGroupById;
       window.generateTest = generateTest;
       window.toggleVariablesList = toggleVariablesList;
@@ -6246,3 +6462,209 @@ ${checkboxes}
       // OAuth helper functions
       window.showPopupBlockerHelp = showPopupBlockerHelp;
       window.detectBrowser = detectBrowser;
+
+      // ===== VARIABLE IMPORT FEATURE =====
+      
+      let currentImportPreview = null;
+
+      function initializeImportTab() {
+        console.log('Initializing Import Tab');
+        
+        // Pre-load existing collections
+        loadExistingCollections();
+        
+        const select = document.getElementById('import-collection-select');
+        if (!select) return;
+
+        // Clear existing options except first
+        select.innerHTML = '<option value="">New Collection...</option>';
+
+        // Populate with existing collections if available
+        if (variablesData) {
+          variablesData.forEach(collection => {
+            const option = document.createElement('option');
+            option.value = collection.id;
+            // Use dataset to store name for later use
+            option.textContent = collection.name; 
+            option.dataset.name = collection.name;
+            select.appendChild(option);
+          });
+        }
+      }
+
+      // Input Handler to enable/disable preview button
+      document.getElementById('import-input')?.addEventListener('input', function(e) {
+        const btn = document.getElementById('preview-import-btn');
+        if (btn) btn.disabled = !e.target.value.trim();
+      });
+
+      // Preview Button Handler
+      document.getElementById('preview-import-btn')?.addEventListener('click', function() {
+        const content = document.getElementById('import-input').value;
+        const collectionId = document.getElementById('import-collection-select').value;
+        
+        if (!content) return;
+
+        showButtonLoading(this, 'Analyzing...');
+        
+        parent.postMessage({
+          pluginMessage: {
+            type: 'preview-import',
+            content: content,
+            options: {
+              collectionId: collectionId
+            }
+          }
+        }, '*');
+      });
+
+      // Cancel Import Handler
+      document.getElementById('cancel-import-btn')?.addEventListener('click', function() {
+        document.getElementById('import-preview-section').classList.add('hidden');
+        document.getElementById('preview-import-btn').disabled = false;
+        document.getElementById('import-input').disabled = false;
+      });
+
+      // Confirm Import Handler
+      document.getElementById('confirm-import-btn')?.addEventListener('click', function() {
+        if (!currentImportPreview) return;
+
+        const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
+        const collectionSelect = document.getElementById('import-collection-select');
+        const collectionId = collectionSelect.value;
+        const collectionName = collectionId ? 
+            collectionSelect.options[collectionSelect.selectedIndex].text : 
+            'Imported Variables'; // Fallback name for new collection
+
+        showButtonLoading(this, 'Importing...');
+        
+        // Filter tokens based on strategy manually if needed, 
+        // but backend logic handles "merge" vs "overwrite" mostly.
+        // We just pass the tokens and let backend handle it, or we filter here?
+        // The service has a 'strategy' option, so we pass all tokens and the strategy.
+        
+        // We need to pass the original tokens back. 
+        // currentImportPreview.added + currentImportPreview.modified + unchanged?
+        // Actually we should import ALL detected tokens that are not ignored.
+        // For simplicity, we reconstruct the full list from the preview data or 
+        // we should have stored the raw tokens.
+        
+        // Let's assume we want to import everything that was previewed.
+        const tokensToImport = [
+          ...currentImportPreview.added,
+          ...currentImportPreview.modified.map(m => m.token),
+          ...currentImportPreview.unchanged,
+          ...currentImportPreview.conflicts.map(c => c.token)
+        ];
+
+        parent.postMessage({
+          pluginMessage: {
+            type: 'import-tokens',
+            tokens: tokensToImport,
+            options: {
+              collectionId: collectionId,
+              collectionName: collectionName,
+              strategy: strategy
+            }
+          }
+        }, '*');
+      });
+
+      // Handle Preview Message
+      function handleImportPreview(msg) {
+        hideButtonLoading(document.getElementById('preview-import-btn'));
+        
+        if (!msg.diff) {
+            showError('Import Error', 'Failed to generate preview');
+            return;
+        }
+
+        currentImportPreview = msg.diff;
+        const { added, modified, unchanged, conflicts } = msg.diff;
+        
+        // Update Stats
+        document.getElementById('preview-stat-total').textContent = `${added.length + modified.length + unchanged.length + conflicts.length} Total`;
+        document.getElementById('preview-stat-new').textContent = `${added.length} New`;
+        document.getElementById('preview-stat-update').textContent = `${modified.length} Updates`;
+        document.getElementById('preview-stat-conflict').textContent = `${conflicts.length} Conflicts`;
+
+        // Render Table
+        const tbody = document.getElementById('preview-table-body');
+        tbody.innerHTML = '';
+
+        const appendRow = (token, status, oldValue = null) => {
+          const tr = document.createElement('tr');
+          const valueDisplay = status === 'update' || status === 'conflict' ? 
+            `<div class="old-value">${SecurityUtils.escapeHTML(JSON.stringify(oldValue))}</div>
+             <div class="new-value">→ ${SecurityUtils.escapeHTML(token.value)}</div>` : 
+            SecurityUtils.escapeHTML(token.value);
+
+          tr.innerHTML = `
+            <td>${SecurityUtils.escapeHTML(token.name)}</td>
+            <td>${SecurityUtils.escapeHTML(token.type)}</td>
+            <td>${valueDisplay}</td>
+            <td class="token-${status}">${status.toUpperCase()}</td>
+            <td>-</td>
+          `;
+          tbody.appendChild(tr);
+        };
+
+        added.forEach(t => appendRow(t, 'new'));
+        modified.forEach(m => appendRow(m.token, 'update', m.oldValue));
+        conflicts.forEach(c => appendRow(c.token, 'conflict', c.existingValue));
+        unchanged.forEach(t => appendRow(t, 'ignore')); // Or 'unchanged'
+
+        // Show Preview
+        document.getElementById('import-preview-section').classList.remove('hidden');
+        
+        // Scroll to preview
+        document.getElementById('import-preview-section').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      function handleImportComplete(msg) {
+          const btn = document.getElementById('confirm-import-btn');
+          hideButtonLoading(btn);
+          
+          if (msg.result.success) {
+              showSuccess('Import Successful', `Imported ${msg.result.success} variables.`);
+              document.getElementById('import-preview-section').classList.add('hidden');
+              document.getElementById('import-input').value = '';
+              
+              // Trigger data refresh
+              refreshData();
+          } else {
+              showError('Import Failed', msg.error || 'Unknown error');
+          }
+      }
+
+      // Listen for messages from the plugin backend
+      window.addEventListener('message', function(event) {
+        if (event.data.pluginMessage) {
+          const message = event.data.pluginMessage;
+          
+          if (message.type === 'preview-import-result') {
+             handleImportPreview(message);
+          } else if (message.type === 'preview-import-error') {
+             hideButtonLoading(document.getElementById('preview-import-btn'));
+             showError('Preview Failed', message.message);
+          } else if (message.type === 'import-complete' && window.importProgressControl) {
+             window.importProgressControl.complete(message.result);
+             delete window.importProgressControl;
+          } else if (message.type === 'import-error' && window.importProgressControl) {
+             window.importProgressControl.error(message.error);
+             delete window.importProgressControl;
+          } else if (message.type === 'existing-collections') {
+             updateExistingCollectionsDropdown(message.collections);
+          }
+        }
+      });
+
+      // Initialize tab logic globally to catch tab switches
+      document.addEventListener('click', function(e) {
+        // Build path to handle clicks on children of the tab item
+        const tabItem = e.target.closest('.sub-tab-item');
+        if (tabItem && tabItem.dataset.subTab === 'import') {
+           console.log('Import tab clicked');
+           setTimeout(initializeImportTab, 50); // Small delay to ensure view is updated
+        }
+      });
