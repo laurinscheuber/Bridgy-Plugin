@@ -258,33 +258,9 @@
       </div>
 
       <div class="tab-content" id="quality-content">
-        <div style="padding: 20px;">
-          <h2 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            Token Coverage Analysis
-          </h2>
-          <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 24px;">
-            Analyze which elements in your design use hard-coded values instead of design tokens.
-          </p>
-          <button 
-            id="analyze-token-coverage-btn" 
-            onclick="analyzeTokenCoverage()" 
-            style="margin-bottom: 24px; background: linear-gradient(135deg, var(--purple-medium) 0%, #a855f7 100%);"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
-              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            Analyze Current Page
-          </button>
-          <div id="token-coverage-results">
-            <div class="content-loading" style="display: none;">
-              <div class="content-loading-spinner"></div>
-              <div class="content-loading-text">Analyzing token coverage...</div>
-            </div>
-          </div>
+        <div style="padding: 40px 20px; text-align: center;">
+          <h2 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px;">Quality Tab</h2>
+          <p style="color: rgba(255, 255, 255, 0.7);">Detailed issue view coming soon...</p>
         </div>
       </div>
 
@@ -2712,24 +2688,6 @@
           // Handle refresh error
           showNotification('error', 'Refresh Failed', message.error || 'Failed to refresh data');
           console.error('Data refresh failed:', message.error);
-        } else if (message.type === "token-coverage-result") {
-          // Handle token coverage analysis result
-          displayTokenCoverageResults(message.result);
-        } else if (message.type === "token-coverage-error") {
-          // Handle token coverage analysis error
-          const resultsContainer = document.getElementById("token-coverage-results");
-          resultsContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444; margin-bottom: 16px;">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="15" y1="9" x2="9" y2="15"></line>
-                <line x1="9" y1="9" x2="15" y2="15"></line>
-              </svg>
-              <h3 style="color: #ef4444; margin-bottom: 8px;">Analysis Failed</h3>
-              <p style="color: rgba(255, 255, 255, 0.8);">${message.error || 'Failed to analyze token coverage'}</p>
-            </div>
-          `;
-          showNotification('error', 'Analysis Failed', message.error || 'Failed to analyze token coverage');
         }
         } catch (error) {
           console.error('Error handling plugin message:', error);
@@ -4105,142 +4063,6 @@
           qualityTab.classList.add("active");
           qualityContent.classList.add("active");
         }
-      }
-
-      // Function to analyze token coverage
-      function analyzeTokenCoverage() {
-        const resultsContainer = document.getElementById("token-coverage-results");
-        const loadingDiv = resultsContainer.querySelector(".content-loading");
-        
-        // Show loading state
-        loadingDiv.style.display = "flex";
-        resultsContainer.innerHTML = "";
-        resultsContainer.appendChild(loadingDiv);
-        
-        // Send message to plugin backend
-        parent.postMessage({
-          pluginMessage: {
-            type: "analyze-token-coverage"
-          }
-        }, "*");
-      }
-
-      // Function to display token coverage results
-      function displayTokenCoverageResults(result) {
-        const resultsContainer = document.getElementById("token-coverage-results");
-        
-        if (!result || result.totalIssues === 0) {
-          resultsContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #22c55e; margin-bottom: 16px;">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              <h3 style="color: #22c55e; margin-bottom: 8px;">Excellent Token Coverage!</h3>
-              <p style="color: rgba(255, 255, 255, 0.8);">All elements on this page use design tokens. No hard-coded values found.</p>
-              <p style="color: rgba(255, 255, 255, 0.6); font-size: 14px; margin-top: 8px;">Analyzed ${result.totalNodes} nodes</p>
-            </div>
-          `;
-          return;
-        }
-        
-        // Calculate statistics
-        const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
-        const issuesByCategory = result.issuesByCategory;
-        
-        let html = `
-          <div style="margin-bottom: 24px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
-            <h3 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; font-size: 18px;">Summary</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
-              <div style="background: rgba(0, 0, 0, 0.2); padding: 16px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #a855f7; margin-bottom: 4px;">${result.totalNodes}</div>
-                <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Nodes Analyzed</div>
-              </div>
-              <div style="background: rgba(0, 0, 0, 0.2); padding: 16px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #f59e0b; margin-bottom: 4px;">${result.totalIssues}</div>
-                <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Unique Issues</div>
-              </div>
-            </div>
-          </div>
-        `;
-        
-        // Display issues by category
-        categories.forEach(category => {
-          const issues = issuesByCategory[category] || [];
-          if (issues.length === 0) return;
-          
-          const categoryIcons = {
-            'Layout': '📐',
-            'Fill': '🎨',
-            'Stroke': '✏️',
-            'Appearance': '✨'
-          };
-          
-          html += `
-            <div class="variable-subgroup" style="margin-bottom: 24px;">
-              <div class="subgroup-header" onclick="toggleSubgroup('coverage-${category}')">
-                <h3 class="subgroup-title">
-                  ${categoryIcons[category]} ${category}
-                  <span class="subgroup-stats">${issues.length} issues</span>
-                </h3>
-                <span class="subgroup-toggle">▼</span>
-              </div>
-              <div id="coverage-${category}-content" class="subgroup-content expanded">
-          `;
-          
-          // Display each issue as a card
-          issues.forEach(issue => {
-            html += `
-              <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                  <div style="flex: 1;">
-                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 4px;">${issue.property}</div>
-                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 14px;">${SecurityUtils.escapeHTML(issue.value)}</div>
-                  </div>
-                  <div style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); color: #fbbf24; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 14px; white-space: nowrap; margin-left: 16px;">
-                    ${issue.count} occurrence${issue.count > 1 ? 's' : ''}
-                  </div>
-                </div>
-                <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px; margin-top: 12px;">
-                  <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; font-weight: 600;">Found in:</div>
-                  <div style="max-height: 150px; overflow-y: auto;">
-            `;
-            
-            // Show first 5 node names, then "and X more"
-            const maxDisplay = 5;
-            issue.nodeNames.slice(0, maxDisplay).forEach((nodeName, idx) => {
-              html += `
-                <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; margin-bottom: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.8);">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                  </svg>
-                  ${SecurityUtils.escapeHTML(nodeName)}
-                </div>
-              `;
-            });
-            
-            if (issue.nodeNames.length > maxDisplay) {
-              html += `
-                <div style="padding: 4px 8px; font-size: 13px; color: rgba(255, 255, 255, 0.6); font-style: italic;">
-                  ... and ${issue.nodeNames.length - maxDisplay} more
-                </div>
-              `;
-            }
-            
-            html += `
-                  </div>
-                </div>
-              </div>
-            `;
-          });
-          
-          html += `
-              </div>
-            </div>
-          `;
-        });
-        
-        resultsContainer.innerHTML = SecurityUtils.sanitizeHTML(html);
       }
 
       // Function to open user guide modal
@@ -7636,7 +7458,6 @@ ${checkboxes}
       window.closeUnitsModal = closeUnitsModal;
       window.saveUnitsAndCloseModal = saveUnitsAndCloseModal;
       window.switchToQualityTab = switchToQualityTab;
-      window.analyzeTokenCoverage = analyzeTokenCoverage;
       
       // OAuth helper functions
       window.showPopupBlockerHelp = showPopupBlockerHelp;

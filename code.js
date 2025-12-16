@@ -6755,6 +6755,223 @@ ${Object.keys(cssProperties).map((property) => {
     }
   });
 
+  // dist/services/tokenCoverageService.js
+  var require_tokenCoverageService = __commonJS({
+    "dist/services/tokenCoverageService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.TokenCoverageService = void 0;
+      var TokenCoverageService = class {
+        /**
+         * Analyzes the current page for token coverage
+         */
+        static analyzeCurrentPage() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const currentPage = figma.currentPage;
+            const allFrames = currentPage.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            const issuesMap = /* @__PURE__ */ new Map();
+            let totalNodes = 0;
+            for (const node of allFrames) {
+              totalNodes++;
+              yield this.analyzeNode(node, issuesMap);
+            }
+            const issuesByCategory = {
+              Layout: [],
+              Fill: [],
+              Stroke: [],
+              Appearance: []
+            };
+            for (const issue of issuesMap.values()) {
+              issuesByCategory[issue.category].push(issue);
+            }
+            for (const category of Object.keys(issuesByCategory)) {
+              issuesByCategory[category].sort((a, b) => b.count - a.count);
+            }
+            return {
+              totalNodes,
+              totalIssues: issuesMap.size,
+              issuesByCategory
+            };
+          });
+        }
+        /**
+         * Analyzes a single node for token coverage issues
+         */
+        static analyzeNode(node, issuesMap) {
+          return __awaiter(this, void 0, void 0, function* () {
+            this.checkLayoutProperties(node, issuesMap);
+            this.checkFillProperties(node, issuesMap);
+            this.checkStrokeProperties(node, issuesMap);
+            this.checkAppearanceProperties(node, issuesMap);
+          });
+        }
+        /**
+         * Checks layout properties (spacing, sizing)
+         */
+        static checkLayoutProperties(node, issuesMap) {
+          if (!("minWidth" in node))
+            return;
+          const layoutNode = node;
+          if (layoutNode.minWidth !== null && !this.isVariableBound(layoutNode, "minWidth")) {
+            this.addIssue(issuesMap, "Min Width", `${layoutNode.minWidth}px`, node, "Layout");
+          }
+          if (layoutNode.maxWidth !== null && !this.isVariableBound(layoutNode, "maxWidth")) {
+            this.addIssue(issuesMap, "Max Width", `${layoutNode.maxWidth}px`, node, "Layout");
+          }
+          if (layoutNode.width && typeof layoutNode.width === "number" && !this.isVariableBound(layoutNode, "width")) {
+            this.addIssue(issuesMap, "Width", `${layoutNode.width}px`, node, "Layout");
+          }
+          if (layoutNode.height && typeof layoutNode.height === "number" && !this.isVariableBound(layoutNode, "height")) {
+            this.addIssue(issuesMap, "Height", `${layoutNode.height}px`, node, "Layout");
+          }
+          if (layoutNode.minHeight !== null && !this.isVariableBound(layoutNode, "minHeight")) {
+            this.addIssue(issuesMap, "Min Height", `${layoutNode.minHeight}px`, node, "Layout");
+          }
+          if (layoutNode.maxHeight !== null && !this.isVariableBound(layoutNode, "maxHeight")) {
+            this.addIssue(issuesMap, "Max Height", `${layoutNode.maxHeight}px`, node, "Layout");
+          }
+          if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
+            if (layoutNode.itemSpacing && !this.isVariableBound(layoutNode, "itemSpacing")) {
+              this.addIssue(issuesMap, "Gap", `${layoutNode.itemSpacing}px`, node, "Layout");
+            }
+            if (layoutNode.paddingLeft && !this.isVariableBound(layoutNode, "paddingLeft")) {
+              this.addIssue(issuesMap, "Padding Left", `${layoutNode.paddingLeft}px`, node, "Layout");
+            }
+            if (layoutNode.paddingTop && !this.isVariableBound(layoutNode, "paddingTop")) {
+              this.addIssue(issuesMap, "Padding Top", `${layoutNode.paddingTop}px`, node, "Layout");
+            }
+            if (layoutNode.paddingRight && !this.isVariableBound(layoutNode, "paddingRight")) {
+              this.addIssue(issuesMap, "Padding Right", `${layoutNode.paddingRight}px`, node, "Layout");
+            }
+            if (layoutNode.paddingBottom && !this.isVariableBound(layoutNode, "paddingBottom")) {
+              this.addIssue(issuesMap, "Padding Bottom", `${layoutNode.paddingBottom}px`, node, "Layout");
+            }
+          }
+        }
+        /**
+         * Checks fill/color properties
+         */
+        static checkFillProperties(node, issuesMap) {
+          if (!("fills" in node))
+            return;
+          const fills = node.fills;
+          if (!Array.isArray(fills) || fills.length === 0)
+            return;
+          if (!this.isVariableBound(node, "fills")) {
+            const solidFill = fills.find((fill) => fill.type === "SOLID" && fill.visible !== false);
+            if (solidFill && solidFill.type === "SOLID") {
+              const color = solidFill.color;
+              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              this.addIssue(issuesMap, "Fill Color", colorValue, node, "Fill");
+            }
+          }
+        }
+        /**
+         * Checks stroke properties
+         */
+        static checkStrokeProperties(node, issuesMap) {
+          if (!("strokes" in node))
+            return;
+          const strokes = node.strokes;
+          if (!Array.isArray(strokes) || strokes.length === 0)
+            return;
+          if (!this.isVariableBound(node, "strokes")) {
+            const solidStroke = strokes.find((stroke) => stroke.type === "SOLID" && stroke.visible !== false);
+            if (solidStroke && solidStroke.type === "SOLID") {
+              const color = solidStroke.color;
+              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke");
+            }
+          }
+          if ("strokeWeight" in node && typeof node.strokeWeight === "number" && !this.isVariableBound(node, "strokeWeight")) {
+            this.addIssue(issuesMap, "Stroke Weight", `${node.strokeWeight}px`, node, "Stroke");
+          }
+        }
+        /**
+         * Checks appearance properties (opacity, radius)
+         */
+        static checkAppearanceProperties(node, issuesMap) {
+          if ("opacity" in node && node.opacity !== 1 && !this.isVariableBound(node, "opacity")) {
+            this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
+          }
+          if ("cornerRadius" in node) {
+            const rectNode = node;
+            if (typeof rectNode.topLeftRadius === "number" && !this.isVariableBound(rectNode, "topLeftRadius")) {
+              this.addIssue(issuesMap, "Corner Radius (Top Left)", `${rectNode.topLeftRadius}px`, node, "Appearance");
+            }
+            if (typeof rectNode.topRightRadius === "number" && !this.isVariableBound(rectNode, "topRightRadius")) {
+              this.addIssue(issuesMap, "Corner Radius (Top Right)", `${rectNode.topRightRadius}px`, node, "Appearance");
+            }
+            if (typeof rectNode.bottomLeftRadius === "number" && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
+              this.addIssue(issuesMap, "Corner Radius (Bottom Left)", `${rectNode.bottomLeftRadius}px`, node, "Appearance");
+            }
+            if (typeof rectNode.bottomRightRadius === "number" && !this.isVariableBound(rectNode, "bottomRightRadius")) {
+              this.addIssue(issuesMap, "Corner Radius (Bottom Right)", `${rectNode.bottomRightRadius}px`, node, "Appearance");
+            }
+          }
+        }
+        /**
+         * Checks if a property is bound to a variable (design token)
+         */
+        static isVariableBound(node, property) {
+          if (!node.boundVariables)
+            return false;
+          const boundVariable = node.boundVariables[property];
+          return boundVariable !== void 0 && boundVariable !== null;
+        }
+        /**
+         * Adds or updates an issue in the issues map
+         */
+        static addIssue(issuesMap, property, value, node, category) {
+          const key = `${category}:${property}:${value}`;
+          if (issuesMap.has(key)) {
+            const issue = issuesMap.get(key);
+            issue.count++;
+            issue.nodeIds.push(node.id);
+            issue.nodeNames.push(node.name);
+          } else {
+            issuesMap.set(key, {
+              property,
+              value,
+              count: 1,
+              nodeIds: [node.id],
+              nodeNames: [node.name],
+              category
+            });
+          }
+        }
+      };
+      exports.TokenCoverageService = TokenCoverageService;
+    }
+  });
+
   // dist/services/oauthService.js
   var require_oauthService = __commonJS({
     "dist/services/oauthService.js"(exports) {
@@ -7107,6 +7324,7 @@ ${Object.keys(cssProperties).map((property) => {
       var gitServiceFactory_1 = require_gitServiceFactory();
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
+      var tokenCoverageService_1 = require_tokenCoverageService();
       var config_1 = require_config();
       var es2015_helpers_1 = require_es2015_helpers();
       figma.showUI(__html__, { width: 1e3, height: 900, themeColors: true });
@@ -8841,6 +9059,22 @@ ${Object.keys(cssProperties).map((property) => {
                 figma.ui.postMessage({
                   type: "delete-error",
                   error: deleteError.message || "Failed to delete variable"
+                });
+              }
+              break;
+            case "analyze-token-coverage":
+              try {
+                console.log("Analyzing token coverage...");
+                const coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage();
+                figma.ui.postMessage({
+                  type: "token-coverage-result",
+                  result: coverageResult
+                });
+              } catch (coverageError) {
+                console.error("Error analyzing token coverage:", coverageError);
+                figma.ui.postMessage({
+                  type: "token-coverage-error",
+                  error: coverageError.message || "Failed to analyze token coverage"
                 });
               }
               break;

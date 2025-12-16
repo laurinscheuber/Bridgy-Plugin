@@ -233,7 +233,7 @@ export class TokenCoverageService {
     }
 
     // Check stroke weight
-    if ('strokeWeight' in node && node.strokeWeight && !this.isVariableBound(node, 'strokeWeight')) {
+    if ('strokeWeight' in node && typeof node.strokeWeight === 'number' && !this.isVariableBound(node, 'strokeWeight')) {
       this.addIssue(issuesMap, 'Stroke Weight', `${node.strokeWeight}px`, node, 'Stroke');
     }
   }
