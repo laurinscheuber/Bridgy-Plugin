@@ -2903,10 +2903,12 @@
         const resultsContainer = document.getElementById("token-coverage-results");
         const loadingDiv = resultsContainer.querySelector(".content-loading");
 
-        // Show loading state
-        loadingDiv.style.display = "flex";
-        resultsContainer.innerHTML = "";
-        resultsContainer.appendChild(loadingDiv);
+        if (resultsContainer && loadingDiv) {
+          // Show loading state
+          loadingDiv.style.display = "flex";
+          resultsContainer.innerHTML = "";
+          resultsContainer.appendChild(loadingDiv);
+        }
 
         // Send message to plugin backend
         parent.postMessage({

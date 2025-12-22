@@ -6839,39 +6839,49 @@ ${Object.keys(cssProperties).map((property) => {
           if (!("minWidth" in node))
             return;
           const layoutNode = node;
-          if (layoutNode.minWidth !== null && !this.isVariableBound(layoutNode, "minWidth")) {
+          if (layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
             this.addIssue(issuesMap, "Min Width", `${layoutNode.minWidth}px`, node, "Layout");
           }
-          if (layoutNode.maxWidth !== null && !this.isVariableBound(layoutNode, "maxWidth")) {
+          if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
             this.addIssue(issuesMap, "Max Width", `${layoutNode.maxWidth}px`, node, "Layout");
           }
-          if (layoutNode.width && typeof layoutNode.width === "number" && !this.isVariableBound(layoutNode, "width")) {
+          if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width")) {
             this.addIssue(issuesMap, "Width", `${layoutNode.width}px`, node, "Layout");
           }
-          if (layoutNode.height && typeof layoutNode.height === "number" && !this.isVariableBound(layoutNode, "height")) {
+          if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height")) {
             this.addIssue(issuesMap, "Height", `${layoutNode.height}px`, node, "Layout");
           }
-          if (layoutNode.minHeight !== null && !this.isVariableBound(layoutNode, "minHeight")) {
+          if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
             this.addIssue(issuesMap, "Min Height", `${layoutNode.minHeight}px`, node, "Layout");
           }
-          if (layoutNode.maxHeight !== null && !this.isVariableBound(layoutNode, "maxHeight")) {
+          if (layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
             this.addIssue(issuesMap, "Max Height", `${layoutNode.maxHeight}px`, node, "Layout");
           }
           if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
-            if (typeof layoutNode.itemSpacing === "number" && !this.isVariableBound(layoutNode, "itemSpacing")) {
+            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, "itemSpacing")) {
               this.addIssue(issuesMap, "Gap", `${layoutNode.itemSpacing}px`, node, "Layout");
             }
-            if (typeof layoutNode.paddingLeft === "number" && !this.isVariableBound(layoutNode, "paddingLeft")) {
-              this.addIssue(issuesMap, "Padding Left", `${layoutNode.paddingLeft}px`, node, "Layout");
-            }
-            if (typeof layoutNode.paddingTop === "number" && !this.isVariableBound(layoutNode, "paddingTop")) {
-              this.addIssue(issuesMap, "Padding Top", `${layoutNode.paddingTop}px`, node, "Layout");
-            }
-            if (typeof layoutNode.paddingRight === "number" && !this.isVariableBound(layoutNode, "paddingRight")) {
-              this.addIssue(issuesMap, "Padding Right", `${layoutNode.paddingRight}px`, node, "Layout");
-            }
-            if (typeof layoutNode.paddingBottom === "number" && !this.isVariableBound(layoutNode, "paddingBottom")) {
-              this.addIssue(issuesMap, "Padding Bottom", `${layoutNode.paddingBottom}px`, node, "Layout");
+            const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;
+            const paddingTop = typeof layoutNode.paddingTop === "number" ? layoutNode.paddingTop : 0;
+            const paddingRight = typeof layoutNode.paddingRight === "number" ? layoutNode.paddingRight : 0;
+            const paddingBottom = typeof layoutNode.paddingBottom === "number" ? layoutNode.paddingBottom : 0;
+            const allPaddingSame = paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
+            const anyPaddingBound = this.isVariableBound(layoutNode, "paddingLeft") || this.isVariableBound(layoutNode, "paddingTop") || this.isVariableBound(layoutNode, "paddingRight") || this.isVariableBound(layoutNode, "paddingBottom");
+            if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
+              this.addIssue(issuesMap, "Padding", `${paddingLeft}px`, node, "Layout");
+            } else {
+              if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, "paddingLeft")) {
+                this.addIssue(issuesMap, "Padding Left", `${paddingLeft}px`, node, "Layout");
+              }
+              if (paddingTop !== 0 && !this.isVariableBound(layoutNode, "paddingTop")) {
+                this.addIssue(issuesMap, "Padding Top", `${paddingTop}px`, node, "Layout");
+              }
+              if (paddingRight !== 0 && !this.isVariableBound(layoutNode, "paddingRight")) {
+                this.addIssue(issuesMap, "Padding Right", `${paddingRight}px`, node, "Layout");
+              }
+              if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, "paddingBottom")) {
+                this.addIssue(issuesMap, "Padding Bottom", `${paddingBottom}px`, node, "Layout");
+              }
             }
           }
         }
@@ -6910,7 +6920,7 @@ ${Object.keys(cssProperties).map((property) => {
               this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke");
             }
           }
-          if ("strokeWeight" in node && typeof node.strokeWeight === "number" && !this.isVariableBound(node, "strokeWeight")) {
+          if ("strokeWeight" in node && typeof node.strokeWeight === "number" && node.strokeWeight !== 0 && !this.isVariableBound(node, "strokeWeight")) {
             this.addIssue(issuesMap, "Stroke Weight", `${node.strokeWeight}px`, node, "Stroke");
           }
         }
@@ -6918,22 +6928,32 @@ ${Object.keys(cssProperties).map((property) => {
          * Checks appearance properties (opacity, radius)
          */
         static checkAppearanceProperties(node, issuesMap) {
-          if ("opacity" in node && node.opacity !== 1 && !this.isVariableBound(node, "opacity")) {
+          if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0 && !this.isVariableBound(node, "opacity")) {
             this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
           }
           if ("cornerRadius" in node) {
             const rectNode = node;
-            if (typeof rectNode.topLeftRadius === "number" && rectNode.topLeftRadius > 0 && !this.isVariableBound(rectNode, "topLeftRadius")) {
-              this.addIssue(issuesMap, "Corner Radius (Top Left)", `${rectNode.topLeftRadius}px`, node, "Appearance");
-            }
-            if (typeof rectNode.topRightRadius === "number" && rectNode.topRightRadius > 0 && !this.isVariableBound(rectNode, "topRightRadius")) {
-              this.addIssue(issuesMap, "Corner Radius (Top Right)", `${rectNode.topRightRadius}px`, node, "Appearance");
-            }
-            if (typeof rectNode.bottomLeftRadius === "number" && rectNode.bottomLeftRadius > 0 && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
-              this.addIssue(issuesMap, "Corner Radius (Bottom Left)", `${rectNode.bottomLeftRadius}px`, node, "Appearance");
-            }
-            if (typeof rectNode.bottomRightRadius === "number" && rectNode.bottomRightRadius > 0 && !this.isVariableBound(rectNode, "bottomRightRadius")) {
-              this.addIssue(issuesMap, "Corner Radius (Bottom Right)", `${rectNode.bottomRightRadius}px`, node, "Appearance");
+            const topLeft = typeof rectNode.topLeftRadius === "number" ? rectNode.topLeftRadius : 0;
+            const topRight = typeof rectNode.topRightRadius === "number" ? rectNode.topRightRadius : 0;
+            const bottomLeft = typeof rectNode.bottomLeftRadius === "number" ? rectNode.bottomLeftRadius : 0;
+            const bottomRight = typeof rectNode.bottomRightRadius === "number" ? rectNode.bottomRightRadius : 0;
+            const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
+            const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
+            if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
+              this.addIssue(issuesMap, "Corner Radius", `${topLeft}px`, node, "Appearance");
+            } else {
+              if (topLeft > 0 && !this.isVariableBound(rectNode, "topLeftRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Top Left)", `${topLeft}px`, node, "Appearance");
+              }
+              if (topRight > 0 && !this.isVariableBound(rectNode, "topRightRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Top Right)", `${topRight}px`, node, "Appearance");
+              }
+              if (bottomLeft > 0 && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Bottom Left)", `${bottomLeft}px`, node, "Appearance");
+              }
+              if (bottomRight > 0 && !this.isVariableBound(rectNode, "bottomRightRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Bottom Right)", `${bottomRight}px`, node, "Appearance");
+              }
             }
           }
         }
