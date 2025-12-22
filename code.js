@@ -8408,7 +8408,7 @@ ${Object.keys(cssProperties).map((property) => {
         }
       });
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a, _b;
+        var _a;
         console.log("DEBUG: Received ANY message:", msg.type, msg);
         try {
           switch (msg.type) {
