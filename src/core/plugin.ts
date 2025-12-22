@@ -647,7 +647,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case "commit-component-test":
         if (
           !msg.projectId ||
-          !msg.gitlabToken ||
+          (!msg.token && !msg.gitlabToken) ||
           !msg.commitMessage ||
           !msg.testContent ||
           !msg.componentName
@@ -656,10 +656,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
 
         try {
-          const settings: GitLabSettings = {
-            gitlabUrl: msg.gitlabUrl,
+          const provider = msg.provider || 'gitlab';
+          const gitService = GitServiceFactory.getService(provider);
+
+          const settings: GitSettings = {
+            provider: provider,
+            baseUrl: msg.baseUrl || '',
             projectId: msg.projectId,
-            gitlabToken: msg.gitlabToken,
+            token: msg.token || msg.gitlabToken,
             filePath: "variables.css", // Default value
             testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
             strategy: "merge-request", // Default value  
@@ -671,7 +675,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
           };
 
-          const testResult = await GitLabService.commitComponentTest(
+          const testResult = await gitService.commitComponentTest(
             settings,
             msg.commitMessage,
             msg.componentName,
@@ -685,7 +689,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             type: "test-commit-success",
             message: SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,
             componentName: msg.componentName,
-            mergeRequestUrl: testResult && testResult.mergeRequestUrl,
+            mergeRequestUrl: testResult && testResult.pullRequestUrl,
           });
         } catch (error: any) {
           // Send specific error information to UI

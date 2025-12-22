@@ -826,13 +826,70 @@ export class VariableImportService {
           stylesMap.set(styleName, style);
       }
       
-      // Parse shadow
-      // Simplified
+      // Parse shadow values
+      const value = token.value.trim();
+      const isInset = value.includes('inset');
+      
+      // Remove 'inset' keyword for easier parsing
+      const cleanValue = value.replace('inset', '').trim();
+      
+      // Parse color (hex, rgb, rgba, hsl, named)
+      // We look for color patterns first to separate them from lengths
+      let color: RGBA = { r: 0, g: 0, b: 0, a: 0.2 }; // Default black with opacity
+      
+      // Match color parts
+      // 1. Hex
+      const hexMatch = cleanValue.match(/#[0-9a-fA-F]{3,8}/);
+      if (hexMatch) {
+          const parsed = this.parseColor(hexMatch[0]);
+          if (parsed) color = parsed;
+      } 
+      // 2. RGB/HSL/Named - complex regex or reuse parseColor on parts
+      else {
+          // Try to extract parts that look like color
+          const parts = cleanValue.split(/\s+/);
+          for (const part of parts) {
+               if (this.isColorStop(part)) {
+                   const parsed = this.parseColor(part);
+                   if (parsed) {
+                       color = parsed;
+                       break;
+                   }
+               }
+          }
+      }
+      
+      // Extract lengths (px, em, rem, or unitless 0)
+      // Regex for numbers with optional units
+      const lengthRegex = /(-?\d*\.?\d+)(px|rem|em|%)?/g;
+      const lengths: number[] = [];
+      let match;
+      while ((match = lengthRegex.exec(cleanValue)) !== null) {
+          lengths.push(parseFloat(match[1]));
+      }
+      
+      // CSS Shadow order: offset-x | offset-y | blur-radius | spread-radius
+      // At least 2 lengths (offsets) are required
+      
+      let x = 0, y = 4, blur = 4, spread = 0;
+      
+      if (lengths.length >= 2) {
+          x = lengths[0];
+          y = lengths[1];
+      }
+      if (lengths.length >= 3) {
+          blur = lengths[2];
+      }
+      if (lengths.length >= 4) {
+          spread = lengths[3];
+      }
+      
       style.effects = [{
-          type: 'DROP_SHADOW',
-          color: { r: 0, g: 0, b: 0, a: 0.25 },
-          offset: { x: 0, y: 4 },
-          radius: 4,
+          type: isInset ? 'INNER_SHADOW' : 'DROP_SHADOW',
+          color: color,
+          offset: { x, y },
+          radius: blur,
+          spread: spread,
           visible: true,
           blendMode: 'NORMAL'
       }];

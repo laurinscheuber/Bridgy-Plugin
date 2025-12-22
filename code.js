@@ -272,8 +272,7 @@
         REQUEST_TIMEOUT: 3e4,
         DEFAULT_HEADERS: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "Bridgy-Plugin"
+          "Accept": "application/json"
         }
       };
       var buildGitLabApiUrl = (gitlabUrl) => __awaiter(void 0, void 0, void 0, function* () {
@@ -7665,11 +7664,50 @@ ${Object.keys(cssProperties).map((property) => {
             style.name = styleName;
             stylesMap.set(styleName, style);
           }
+          const value = token.value.trim();
+          const isInset = value.includes("inset");
+          const cleanValue = value.replace("inset", "").trim();
+          let color = { r: 0, g: 0, b: 0, a: 0.2 };
+          const hexMatch = cleanValue.match(/#[0-9a-fA-F]{3,8}/);
+          if (hexMatch) {
+            const parsed = this.parseColor(hexMatch[0]);
+            if (parsed)
+              color = parsed;
+          } else {
+            const parts = cleanValue.split(/\s+/);
+            for (const part of parts) {
+              if (this.isColorStop(part)) {
+                const parsed = this.parseColor(part);
+                if (parsed) {
+                  color = parsed;
+                  break;
+                }
+              }
+            }
+          }
+          const lengthRegex = /(-?\d*\.?\d+)(px|rem|em|%)?/g;
+          const lengths = [];
+          let match;
+          while ((match = lengthRegex.exec(cleanValue)) !== null) {
+            lengths.push(parseFloat(match[1]));
+          }
+          let x = 0, y = 4, blur = 4, spread = 0;
+          if (lengths.length >= 2) {
+            x = lengths[0];
+            y = lengths[1];
+          }
+          if (lengths.length >= 3) {
+            blur = lengths[2];
+          }
+          if (lengths.length >= 4) {
+            spread = lengths[3];
+          }
           style.effects = [{
-            type: "DROP_SHADOW",
-            color: { r: 0, g: 0, b: 0, a: 0.25 },
-            offset: { x: 0, y: 4 },
-            radius: 4,
+            type: isInset ? "INNER_SHADOW" : "DROP_SHADOW",
+            color,
+            offset: { x, y },
+            radius: blur,
+            spread,
             visible: true,
             blendMode: "NORMAL"
           }];
@@ -8820,14 +8858,17 @@ ${Object.keys(cssProperties).map((property) => {
               }
               break;
             case "commit-component-test":
-              if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
+              if (!msg.projectId || !msg.token && !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
                 throw new Error("Missing required fields for component test commit");
               }
               try {
+                const provider = msg.provider || "gitlab";
+                const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
                 const settings = {
-                  gitlabUrl: msg.gitlabUrl,
+                  provider,
+                  baseUrl: msg.baseUrl || "",
                   projectId: msg.projectId,
-                  gitlabToken: msg.gitlabToken,
+                  token: msg.token || msg.gitlabToken,
                   filePath: "variables.css",
                   // Default value
                   testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
@@ -8843,12 +8884,12 @@ ${Object.keys(cssProperties).map((property) => {
                   savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                   savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
                 };
-                const testResult = yield gitlabService_1.GitLabService.commitComponentTest(settings, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
+                const testResult = yield gitService2.commitComponentTest(settings, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
                 figma.ui.postMessage({
                   type: "test-commit-success",
                   message: config_1.SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,
                   componentName: msg.componentName,
-                  mergeRequestUrl: testResult && testResult.mergeRequestUrl
+                  mergeRequestUrl: testResult && testResult.pullRequestUrl
                 });
               } catch (error) {
                 let errorMessage = "Unknown error occurred";
