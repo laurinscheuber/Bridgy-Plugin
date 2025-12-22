@@ -18,6 +18,12 @@ const DEFAULT_ENVIRONMENTS = {
     name: 'GitLab.com',
     description: 'Official GitLab SaaS platform'
   },
+  'github.com': {
+    gitlabBaseUrl: 'https://api.github.com',
+    allowedDomains: ['github.com', 'api.github.com', '*.github.com', '*.githubusercontent.com'],
+    name: 'GitHub.com',
+    description: 'Official GitHub SaaS platform'
+  },
   // Support for common GitLab hosting patterns (Figma only allows wildcards at beginning of domain)
   'gitlab-enterprise': {
     allowedDomains: [
@@ -143,7 +149,7 @@ function updateManifest(customEnvironments = {}) {
     
     // Update reasoning
     const environmentNames = Object.values(allEnvironments).map(env => env.name).join(', ');
-    manifest.networkAccess.reasoning = `This plugin connects to GitLab instances (${environmentNames}) for committing design tokens and component tests. JSZip is loaded from CDN for file export functionality.`;
+    manifest.networkAccess.reasoning = `This plugin connects to Git providers (${environmentNames}) for committing design tokens and component tests. JSZip is loaded from CDN for file export functionality.`;
     
     // Write updated manifest
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));

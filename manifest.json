@@ -41,6 +41,8 @@
       "https://*.git.fr",
       "https://*.git.net",
       "https://*.git.org",
+      "https://*.github.com",
+      "https://*.githubusercontent.com",
       "https://*.gitlab.ae",
       "https://*.gitlab.at",
       "https://*.gitlab.au",
@@ -88,7 +90,9 @@
       "https://*.scm.com",
       "https://*.scm.org",
       "https://*.vcs.com",
+      "https://api.github.com",
       "https://cdnjs.cloudflare.com",
+      "https://github.com",
       "https://gitlab.ae",
       "https://gitlab.at",
       "https://gitlab.au",
@@ -132,7 +136,7 @@
       "https://gitlab.za",
       "https://static.figma.com"
     ],
-    "reasoning": "This plugin connects to GitLab instances (GitLab.com, Enterprise GitLab Instances) for committing design tokens and component tests. JSZip is loaded from CDN for file export functionality."
+    "reasoning": "This plugin connects to Git providers (GitLab.com, GitHub.com, Enterprise GitLab Instances) for committing design tokens and component tests. JSZip is loaded from CDN for file export functionality."
   },
   "permissions": [
     "currentuser"
