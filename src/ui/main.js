@@ -5539,8 +5539,20 @@ window.clearInput = function() {
           const value = cleanedCSS.substring(valueStart, valueEnd).trim();
           // Parsed variable
           if (value) {
+            // Convert dash-separated names to slash-separated groups for Figma
+            // e.g. --primary-50 -> primary/50
+            let finalName = varName;
+            const cleanName = varName.startsWith('--') ? varName.substring(2) : varName;
+            const parts = cleanName.split('-');
+            if (parts.length > 1) {
+                // Heuristic: Use first part as group
+                const groupPart = parts[0];
+                const valuePart = parts.slice(1).join('-');
+                finalName = `${groupPart}/${valuePart}`;
+            }
+
             const token = {
-              name: varName,
+              name: finalName,
               value: value,
               type: detectTokenType(value, varName),
               // Detect if this token references other variables
@@ -5573,7 +5585,7 @@ window.clearInput = function() {
             if (typeof value === 'object' && value !== null) {
               traverse(value, [...path, key]);
             } else {
-              const tokenName = [...path, key].join('-');
+              const tokenName = [...path, key].join('/');
               tokens.push({
                 name: tokenName,
                 value: value.toString(),
@@ -5706,6 +5718,11 @@ window.clearInput = function() {
         
         // Function to extract group name from token name (matching backend logic)
         function extractGroupFromTokenName(tokenName) {
+          // Handle Figma-style grouping with slashes first (primary/50)
+          if (tokenName.includes('/')) {
+             return tokenName.split('/')[0];
+          }
+          
           const cleanName = tokenName.startsWith('--') ? tokenName.slice(2) : tokenName;
           const parts = cleanName.split('-');
           return parts.length > 1 ? parts[0] : 'misc';

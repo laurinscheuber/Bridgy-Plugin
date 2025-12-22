@@ -6825,8 +6825,24 @@ ${Object.keys(cssProperties).map((property) => {
               } else if (value.match(/^-?\d*\.?\d+(px|rem|em|%)?$/)) {
                 type = "number";
               }
+              let groupedName = name;
+              console.log(`[Parser] Original token name: "${name}"`);
+              if (name.startsWith("--")) {
+                groupedName = name.substring(2);
+                console.log(`[Parser] Removed CSS prefix: "${groupedName}"`);
+              }
+              const parts = groupedName.split("-");
+              console.log(`[Parser] Split into parts: [${parts.join(", ")}]`);
+              if (parts.length > 1) {
+                const groupPart = parts[0];
+                const valuePart = parts.slice(1).join("-");
+                groupedName = `${groupPart}/${valuePart}`;
+                console.log(`[Parser] Converted to grouped format: "${groupedName}"`);
+              } else {
+                console.log(`[Parser] Single part, no grouping needed: "${groupedName}"`);
+              }
               tokens.push({
-                name,
+                name: groupedName,
                 value,
                 type,
                 originalLine: line.trim(),
@@ -6842,8 +6858,146 @@ ${Object.keys(cssProperties).map((property) => {
          * Parse Tailwind CSS content (custom properties in @theme or simple key-value pairs)
          * This is a simplified parser for pasted tailwind config objects or CSS with @theme
          */
+        /**
+         * Parse Tailwind CSS content (custom properties in @theme or simple key-value pairs)
+         * Supports:
+         * 1. CSS Variables (standard or @theme)
+         * 2. JS Config Objects (module.exports = { theme: ... } or const config = ...)
+         */
         static parseTailwind(content) {
+          const trimmed = content.trim();
+          if (trimmed.startsWith("module.exports") || trimmed.startsWith("export default") || trimmed.startsWith("const") || trimmed.startsWith("{") || trimmed.includes("theme:")) {
+            return this.parseTailwindJSConfig(trimmed);
+          }
           return this.parseCSS(content);
+        }
+        /**
+         * Parse Tailwind JS configuration object
+         * Extracts tokens from theme/extend/colors, spacing, etc.
+         * Flattens nested objects into kebab-case names.
+         */
+        static parseTailwindJSConfig(content) {
+          const tokens = [];
+          try {
+            const categories = ["colors", "spacing", "fontSize", "borderRadius", "boxShadow"];
+            categories.forEach((category) => {
+              const catIndex = content.indexOf(`${category}:`);
+              if (catIndex === -1)
+                return;
+              const blockStart = content.indexOf("{", catIndex);
+              if (blockStart === -1)
+                return;
+              const block = this.extractBraceBlock(content, blockStart);
+              if (block) {
+                const categoryTokens = this.parseJSObjectBlock(block, category);
+                tokens.push(...categoryTokens);
+              }
+            });
+          } catch (e) {
+            console.warn("Failed to parse Tailwind JS config", e);
+          }
+          return tokens;
+        }
+        /**
+         * Helper to extract a balanced brace block { ... }
+         */
+        static extractBraceBlock(text, startIndex) {
+          let depth = 0;
+          let inString = false;
+          let stringChar = "";
+          for (let i = startIndex; i < text.length; i++) {
+            const char = text[i];
+            if (inString) {
+              if (char === stringChar && text[i - 1] !== "\\") {
+                inString = false;
+              }
+            } else {
+              if (char === '"' || char === "'" || char === "`") {
+                inString = true;
+                stringChar = char;
+              } else if (char === "{") {
+                depth++;
+              } else if (char === "}") {
+                depth--;
+                if (depth === 0) {
+                  return text.substring(startIndex, i + 1);
+                }
+              }
+            }
+          }
+          return null;
+        }
+        /**
+         * Recursive parser for JS object strings
+         * Returns flattened tokens
+         */
+        static parseJSObjectBlock(block, prefix) {
+          const tokens = [];
+          const inner = block.trim().substring(1, block.trim().length - 1);
+          const regex = /([a-zA-Z0-9_$-]+|\"[^\"]+\"|'[^']+')\s*:\s*(?:({)|([^,}\]]+))/g;
+          let match;
+          let currentIndex = 0;
+          while (currentIndex < inner.length) {
+            const keyMatch = inner.substr(currentIndex).match(/([a-zA-Z0-9_$-]+|\"[^\"]+\"|'[^']+')\s*:\s*/);
+            if (!keyMatch)
+              break;
+            const key = keyMatch[1].replace(/['"]/g, "");
+            const valueStart = currentIndex + keyMatch.index + keyMatch[0].length;
+            if (inner[valueStart] === "{") {
+              const subBlock = this.extractBraceBlock(inner, valueStart);
+              if (subBlock) {
+                const nextPrefix = prefix ? `${prefix}/${key}` : key;
+                tokens.push(...this.parseJSObjectBlock(subBlock, nextPrefix));
+                currentIndex = valueStart + subBlock.length;
+                const nextComma = inner.indexOf(",", currentIndex);
+                if (nextComma !== -1 && nextComma < inner.indexOf(":", currentIndex)) {
+                  currentIndex = nextComma + 1;
+                }
+              } else {
+                console.warn(`Unbalanced block for key ${key}`);
+                break;
+              }
+            } else {
+              let potentialValue = "";
+              let inStr = false;
+              let strCh = "";
+              let endFound = false;
+              let j = valueStart;
+              for (; j < inner.length; j++) {
+                const char = inner[j];
+                if (inStr) {
+                  if (char === strCh && inner[j - 1] !== "\\")
+                    inStr = false;
+                } else {
+                  if (char === '"' || char === "'") {
+                    inStr = true;
+                    strCh = char;
+                  } else if (char === "," || char === "}") {
+                    endFound = true;
+                    break;
+                  }
+                }
+                if (!endFound)
+                  potentialValue += char;
+              }
+              const value = potentialValue.trim().replace(/['"]/g, "");
+              const tokenName = prefix ? `${prefix}/${key}` : key;
+              let type = "string";
+              if (value.match(/^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|[a-zA-Z]+$)/))
+                type = "color";
+              else if (value.match(/^-?\d*\.?\d+(px|rem|em|%)?$/))
+                type = "number";
+              tokens.push({
+                name: tokenName,
+                value,
+                type,
+                originalLine: `${key}: ${value}`,
+                lineNumber: 0
+              });
+              currentIndex = j + 1;
+            }
+          }
+          return tokens;
         }
         /**
          * Compare parsed tokens against existing Figma variables
@@ -6901,7 +7055,6 @@ ${Object.keys(cssProperties).map((property) => {
               var _a;
               console.log(`[Import] Starting import of ${tokens.length} tokens with options:`, JSON.stringify(options));
               let collection;
-              const groups = /* @__PURE__ */ new Set();
               if (options.collectionId) {
                 console.log(`[Import] Looking for collection with ID: ${options.collectionId}`);
                 collection = yield figma.variables.getVariableCollectionByIdAsync(options.collectionId);
@@ -6934,6 +7087,36 @@ ${Object.keys(cssProperties).map((property) => {
               }
               const modeId = collection.modes[0].modeId;
               console.log(`[Import] Using Mode ID: ${modeId} (${collection.modes[0].name})`);
+              const groups = /* @__PURE__ */ new Set();
+              console.log(`[Import] Analyzing ${tokens.length} tokens for groups...`);
+              for (const token of tokens) {
+                let varName = token.name;
+                console.log(`[Import] Processing token: "${token.name}"`);
+                if (varName.startsWith("--")) {
+                  varName = varName.substring(2);
+                  console.log(`[Import] Removed CSS prefix: "${varName}"`);
+                }
+                if (varName.startsWith("$")) {
+                  varName = varName.substring(1);
+                  console.log(`[Import] Removed SCSS prefix: "${varName}"`);
+                }
+                varName = varName.replace(/\./g, "-");
+                if (varName.includes("/")) {
+                  const groupName = varName.substring(0, varName.lastIndexOf("/"));
+                  console.log(`[Import] Found group in "${varName}": "${groupName}"`);
+                  if (groupName) {
+                    const parts = groupName.split("/");
+                    for (let i = 0; i < parts.length; i++) {
+                      const groupPath = parts.slice(0, i + 1).join("/");
+                      groups.add(groupPath);
+                      console.log(`[Import] Added group to set: "${groupPath}"`);
+                    }
+                  }
+                } else {
+                  console.log(`[Import] No group found in variable name: "${varName}"`);
+                }
+              }
+              console.log(`[Import] Variables will be organized into ${groups.size} groups based on their names`);
               const existingVariablesMap = /* @__PURE__ */ new Map();
               let paintStylesMap;
               let effectStylesMap;
@@ -6958,15 +7141,21 @@ ${Object.keys(cssProperties).map((property) => {
               for (const token of tokens) {
                 try {
                   let varName = token.name;
-                  if (varName.startsWith("--"))
+                  console.log(`[Import] Processing variable creation for: "${token.name}"`);
+                  if (varName.startsWith("--")) {
                     varName = varName.substring(2);
-                  if (varName.startsWith("$"))
+                    console.log(`[Import] After removing CSS prefix: "${varName}"`);
+                  }
+                  if (varName.startsWith("$")) {
                     varName = varName.substring(1);
+                    console.log(`[Import] After removing SCSS prefix: "${varName}"`);
+                  }
                   varName = varName.replace(/\./g, "-");
+                  console.log(`[Import] Final variable name to create: "${varName}"`);
                   if (varName.includes("/")) {
-                    const groupName = varName.substring(0, varName.lastIndexOf("/"));
-                    if (groupName)
-                      groups.add(groupName);
+                    console.log(`[Import] Variable "${varName}" WILL create groups in Figma`);
+                  } else {
+                    console.log(`[Import] Variable "${varName}" will NOT create groups (no slash)`);
                   }
                   if (token.type) {
                     const lowerType = token.type.toLowerCase();
@@ -7116,6 +7305,8 @@ ${Object.keys(cssProperties).map((property) => {
               if (errors.length > 0) {
                 console.log(`[Import] Errors:`, errors);
               }
+              console.log(`[Import] Final groups set contents: [${Array.from(groups).join(", ")}]`);
+              console.log(`[Import] Total groups created: ${groups.size}`);
               return { success: successCount, errors, groupsCreated: groups.size };
             }), {
               operation: "import_variables",
@@ -8499,7 +8690,8 @@ ${Object.keys(cssProperties).map((property) => {
                   result: {
                     importedCount: result.success,
                     errors: result.errors,
-                    collectionName: importOptions.collectionName
+                    collectionName: importOptions.collectionName,
+                    groupsCreated: result.groupsCreated
                   }
                 });
               } catch (error) {

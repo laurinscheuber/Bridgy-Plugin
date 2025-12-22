@@ -76,8 +76,31 @@ export class VariableImportService {
           type = 'number';
         }
 
+        // Convert CSS variable names to grouped format using the same logic as the UI preview
+        // This matches the extractGroupFromTokenName function in main.js
+        let groupedName = name;
+        console.log(`[Parser] Original token name: "${name}"`);
+        
+        if (name.startsWith('--')) {
+          groupedName = name.substring(2);
+          console.log(`[Parser] Removed CSS prefix: "${groupedName}"`);
+        }
+        
+        // Convert dash-separated names to slash-separated groups
+        const parts = groupedName.split('-');
+        console.log(`[Parser] Split into parts: [${parts.join(', ')}]`);
+        
+        if (parts.length > 1) {
+          const groupPart = parts[0];
+          const valuePart = parts.slice(1).join('-');
+          groupedName = `${groupPart}/${valuePart}`;
+          console.log(`[Parser] Converted to grouped format: "${groupedName}"`);
+        } else {
+          console.log(`[Parser] Single part, no grouping needed: "${groupedName}"`);
+        }
+
         tokens.push({
-          name,
+          name: groupedName,
           value,
           type,
           originalLine: line.trim(),
@@ -386,8 +409,6 @@ export class VariableImportService {
     return await ErrorHandler.withErrorHandling(async () => {
       console.log(`[Import] Starting import of ${tokens.length} tokens with options:`, JSON.stringify(options));
       let collection: VariableCollection;
-      
-      const groups = new Set<string>();
 
       // 1. Get or Create Collection
       if (options.collectionId) {
@@ -434,6 +455,46 @@ export class VariableImportService {
       const modeId = collection.modes[0].modeId;
       console.log(`[Import] Using Mode ID: ${modeId} (${collection.modes[0].name})`);
 
+      // First pass: collect all groups needed
+      const groups = new Set<string>();
+      console.log(`[Import] Analyzing ${tokens.length} tokens for groups...`);
+      
+      for (const token of tokens) {
+        let varName = token.name;
+        console.log(`[Import] Processing token: "${token.name}"`);
+        
+        if (varName.startsWith('--')) {
+          varName = varName.substring(2);
+          console.log(`[Import] Removed CSS prefix: "${varName}"`);
+        }
+        if (varName.startsWith('$')) {
+          varName = varName.substring(1);
+          console.log(`[Import] Removed SCSS prefix: "${varName}"`);
+        }
+        varName = varName.replace(/\./g, '-');
+        
+        if (varName.includes('/')) {
+          const groupName = varName.substring(0, varName.lastIndexOf('/'));
+          console.log(`[Import] Found group in "${varName}": "${groupName}"`);
+          
+          if (groupName) {
+            // Add all levels of the hierarchy
+            const parts = groupName.split('/');
+            for (let i = 0; i < parts.length; i++) {
+              const groupPath = parts.slice(0, i + 1).join('/');
+              groups.add(groupPath);
+              console.log(`[Import] Added group to set: "${groupPath}"`);
+            }
+          }
+        } else {
+          console.log(`[Import] No group found in variable name: "${varName}"`);
+        }
+      }
+      
+      // In Figma, groups are created implicitly when variables have slashes in their names
+      // We don't need to explicitly create groups - they appear automatically
+      console.log(`[Import] Variables will be organized into ${groups.size} groups based on their names`);
+
       // OPTIMIZATION: Fetch ALL variables once to avoid thousands of async calls
       const existingVariablesMap = new Map<string, Variable>();
       let paintStylesMap: Map<string, PaintStyle>;
@@ -467,18 +528,30 @@ export class VariableImportService {
         try {
           // Normalize name
           let varName = token.name;
-          if (varName.startsWith('--')) varName = varName.substring(2);
-          if (varName.startsWith('$')) varName = varName.substring(1);
+          console.log(`[Import] Processing variable creation for: "${token.name}"`);
+          
+          if (varName.startsWith('--')) {
+            varName = varName.substring(2);
+            console.log(`[Import] After removing CSS prefix: "${varName}"`);
+          }
+          if (varName.startsWith('$')) {
+            varName = varName.substring(1);
+            console.log(`[Import] After removing SCSS prefix: "${varName}"`);
+          }
           
           // Sanitize name for Figma (replace dots with hyphens or underscores, keep slashes)
           // Figma variables allow /, -, _ but not .
           varName = varName.replace(/\./g, '-');
+          console.log(`[Import] Final variable name to create: "${varName}"`);
           
-          // Track groups
+          // Check if this variable name contains a slash for grouping
           if (varName.includes('/')) {
-             const groupName = varName.substring(0, varName.lastIndexOf('/'));
-             if (groupName) groups.add(groupName);
+            console.log(`[Import] Variable "${varName}" WILL create groups in Figma`);
+          } else {
+            console.log(`[Import] Variable "${varName}" will NOT create groups (no slash)`);
           }
+          
+          // Groups are already created above, no need to track them here
 
           // Infer type/properties if missing (UI passes 'COLOR' etc, backend expects 'color')
           // and may not pass isGradient/isShadow boolean flags
@@ -673,6 +746,9 @@ export class VariableImportService {
       if (errors.length > 0) {
         console.log(`[Import] Errors:`, errors);
       }
+      
+      console.log(`[Import] Final groups set contents: [${Array.from(groups).join(', ')}]`);
+      console.log(`[Import] Total groups created: ${groups.size}`);
 
       return { success: successCount, errors, groupsCreated: groups.size };
     }, {

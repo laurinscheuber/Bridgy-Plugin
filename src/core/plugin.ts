@@ -844,7 +844,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
              result: {
                importedCount: result.success,
                errors: result.errors,
-               collectionName: importOptions.collectionName
+               collectionName: importOptions.collectionName,
+               groupsCreated: result.groupsCreated
              }
            });
         } catch (error: any) {
