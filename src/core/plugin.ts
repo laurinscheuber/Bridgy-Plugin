@@ -4,6 +4,7 @@ import { GitLabService } from "../services/gitlabService";
 import { GitServiceFactory } from "../services/gitServiceFactory";
 import { CSSExportService } from "../services/cssExportService";
 import { ComponentService } from "../services/componentService";
+import { TokenCoverageService } from "../services/tokenCoverageService";
 import { VariableImportService } from "../services/variableImportService";
 import {SUCCESS_MESSAGES} from "../config";
 import { objectEntries, objectValues } from "../utils/es2015-helpers";
@@ -806,9 +807,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         try {
           const content = (msg as any).content;
           if (!content) throw new Error("No content provided");
-          
+
           const tokens = VariableImportService.parseCSS(content);
-          
+
           // Get current state for diff
           const collections = await figma.variables.getLocalVariableCollectionsAsync();
           const variableIds = collections.reduce((acc, c) => acc.concat(c.variableIds), [] as string[]);
@@ -816,9 +817,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             variableIds.map(id => figma.variables.getVariableByIdAsync(id))
           );
           const validVariables = allVariables.filter(v => v !== null);
-          
+
           const diff = VariableImportService.compareTokens(tokens, validVariables);
-          
+
           figma.ui.postMessage({
             type: 'import-preview-ready',
             diff: diff,
@@ -838,15 +839,15 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         try {
            const importOptions = (msg as any).options || {};
            const tokens = (msg as any).tokens || [];
-           
+
            console.log(`DEBUG: Received ${tokens.length} tokens to import`);
            console.log("DEBUG: Import options:", JSON.stringify(importOptions, null, 2));
-           
+
            // Log first token as sample
            if (tokens.length > 0) {
              console.log("DEBUG: Sample token:", JSON.stringify(tokens[0], null, 2));
            }
-           
+
            // Ensure tokens have required fields for ImportToken interface
            const validTokens = tokens.map((t: any) => ({
              ...t,
@@ -879,7 +880,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
-          
+
           // Old inline logic removed in favor of VariableImportService
 
 
@@ -944,6 +945,27 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           figma.ui.postMessage({
             type: "delete-error",
             error: deleteError.message || "Failed to delete variable"
+          });
+        }
+        break;
+
+      case "analyze-token-coverage":
+        try {
+          console.log("Analyzing token coverage...");
+
+          // Analyze current page for token coverage
+          const coverageResult = await TokenCoverageService.analyzeCurrentPage();
+
+          figma.ui.postMessage({
+            type: "token-coverage-result",
+            result: coverageResult
+          });
+
+        } catch (coverageError: any) {
+          console.error("Error analyzing token coverage:", coverageError);
+          figma.ui.postMessage({
+            type: "token-coverage-error",
+            error: coverageError.message || "Failed to analyze token coverage"
           });
         }
         break;

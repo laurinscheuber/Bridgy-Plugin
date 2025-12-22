@@ -234,9 +234,33 @@
       </div>
 
       <div class="tab-content" id="quality-content">
-        <div style="padding: 40px 20px; text-align: center;">
-          <h2 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px;">Quality Tab</h2>
-          <p style="color: rgba(255, 255, 255, 0.7);">Detailed issue view coming soon...</p>
+        <div style="padding: 20px;">
+          <h2 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Token Coverage Analysis
+          </h2>
+          <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 24px;">
+            Analyze which elements in your design use hard-coded values instead of design tokens.
+          </p>
+          <button
+            id="analyze-token-coverage-btn"
+            onclick="analyzeTokenCoverage()"
+            style="margin-bottom: 24px; background: linear-gradient(135deg, var(--purple-medium) 0%, #a855f7 100%);"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            Analyze Current Page
+          </button>
+          <div id="token-coverage-results">
+            <div class="content-loading" style="display: none;">
+              <div class="content-loading-spinner"></div>
+              <div class="content-loading-text">Analyzing token coverage...</div>
+            </div>
+          </div>
         </div>
       </div>
 
