@@ -3109,14 +3109,14 @@
 
           html += `
             <div class="variable-subgroup" style="margin-bottom: 24px;">
-              <div class="subgroup-header" onclick="toggleSubgroup('coverage-${category}')">
+              <div class="subgroup-header collapsed" onclick="toggleSubgroup('coverage-${category}')">
                 <h3 class="subgroup-title">
                   ${categoryIcons[category]} ${category}
                   <span class="subgroup-stats">${issues.length} issues</span>
                 </h3>
                 <span class="subgroup-toggle">▼</span>
               </div>
-              <div id="coverage-${category}-content" class="subgroup-content expanded">
+              <div id="coverage-${category}-content" class="subgroup-content collapsed">
           `;
 
           // Display each issue as a card
@@ -4860,10 +4860,18 @@ ${checkboxes}
       function toggleSubgroup(groupId) {
         try {
           const content = document.getElementById(groupId + '-content');
-          const header = document.querySelector(`#${groupId} .subgroup-header`);
-          
-          if (!content || !header) {
-            console.log('Elements not found:', { groupId, content: !!content, header: !!header });
+
+          if (!content) {
+            console.log('Content element not found for groupId:', groupId);
+            return;
+          }
+
+          // Find the header by looking at the parent's subgroup-header child
+          const parent = content.parentElement;
+          const header = parent ? parent.querySelector('.subgroup-header') : null;
+
+          if (!header) {
+            console.log('Header element not found for groupId:', groupId);
             return;
           }
           
