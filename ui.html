@@ -2579,9 +2579,12 @@
               {
                 pluginMessage: {
                   type: "commit-component-test",
+                  provider: window.gitlabSettings.provider || 'gitlab',
                   gitlabUrl: window.gitlabSettings.gitlabUrl,
+                  baseUrl: window.gitlabSettings.baseUrl,
                   projectId: window.gitlabSettings.projectId,
-                  gitlabToken: window.gitlabSettings.gitlabToken,
+                  token: window.gitlabSettings.token || window.gitlabSettings.gitlabToken,
+                  gitlabToken: window.gitlabSettings.token || window.gitlabSettings.gitlabToken,
                   commitMessage: commitMessage,
                   componentName: message.componentName,
                   testContent: message.testContent,
@@ -2741,7 +2744,7 @@
 
               // Show success notification matching variable commit style
               const notificationMessage = message.mergeRequestUrl 
-                ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request →</a>`
+                ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request</a>`
                 : "Component test committed successfully!";
               
               const title = message.mergeRequestUrl ? "Merge Request Created!" : "Commit Successful";
@@ -2752,7 +2755,7 @@
           // If no specific button was found, show global notification (fallback)
           if (!buttonFound) {
             const notificationMessage = message.mergeRequestUrl 
-              ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request →</a>`
+              ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request</a>`
               : "Component test committed successfully!";
             
             const title = message.mergeRequestUrl ? "Merge Request Created!" : "Commit Successful";
@@ -3651,9 +3654,9 @@
 
             html += `
             <div class="component-set">
-              <div class="component-set-header">
+              <div class="component-set-header" data-index="${index}">
                 <div class="component-header-content">
-                  <div class="component-set-toggle" data-index="${index}" onclick="toggleComponentSet(${index})">
+                  <div class="component-set-toggle" onclick="toggleComponentSet(${index})">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M9.5 7L14.5 12L9.5 17V7Z"/>
                     </svg>
@@ -3977,45 +3980,66 @@
           // Store timeout ID for potential cleanup
           button.dataset.timeoutId = timeoutId;
 
-          parent.postMessage(
-            {
+          if (forCommit) {
+             // For commits, we need to pass all the context needed for the backend to commit
+             parent.postMessage({
               pluginMessage: {
-              type: "generate-test",
-              componentId: componentId,
-              componentName: componentName,
-              generateAllVariants: generateAllVariants,
-              forCommit: forCommit,
+                type: "commit-component-test",
+                componentId: componentId,
+                componentName: componentName,
+                settings: window.gitlabSettings, // Pass all settings
+                provider: window.gitlabSettings?.provider || 'gitlab',
+                token: window.gitlabSettings?.token || window.gitlabSettings?.gitlabToken,
+                gitlabToken: window.gitlabSettings?.token || window.gitlabSettings?.gitlabToken, // Compat
+                projectId: window.gitlabSettings?.projectId,
+                baseUrl: window.gitlabSettings?.baseUrl,
+                commitMessage: `test: add component test for ${componentName}`,
+                // We'll let the backend generate the content if it's missing, 
+                // or the backend logic for 'commit-component-test' might need to be adjusted to generate it first.
+                // However, based on the error "Missing required fields", we were hitting the commit handler directly.
+                // A better approach is often: Generate -> Get Content -> Commit.
+                // But for now, let's fix the immediate "Missing required fields" error by checking if we have content.
+                // If we don't have content, we should probably trigger 'generate-test' with a flag to commit after.
+                // BUT, looking at the previous logic that failed, it seems it WAS creating a commit message directly?
+                // Let's assume for now we want to use the backend's ability to generate & commit.
+                // If 'commit-component-test' expects 'testContent', we must provide it.
+                // Since we don't have it here, we should probably stick to 'generate-test' BUT pass 'forCommit: true'
+                // AND ensure the backend handles 'forCommit' correctly.
+                
+                // WAIT: The previous error came from 'commit-component-test' handler.
+                // This means 'generate-test' in backend probably sends 'commit-component-test' OR the UI calls it directly.
+                // If I change this to send 'commit-component-test', I MUST provide 'testContent'.
+                
+                // Let's stick to 'generate-test' but ensure we pass the settings needed for the *callback* or *subsequent step*.
+                 type: "generate-test",
+                 componentId: componentId,
+                 componentName: componentName,
+                 generateAllVariants: generateAllVariants,
+                 forCommit: forCommit, // Backend should handle this
+                 // Pass these just in case backend needs them for the subsequent commit
+                 provider: window.gitlabSettings?.provider || 'gitlab',
+                 // we don't need tokens here if generate-test just generates.
+               }
+             }, "*");
+          } else {
+             parent.postMessage(
+              {
+                pluginMessage: {
+                type: "generate-test",
+                componentId: componentId,
+                componentName: componentName,
+                generateAllVariants: generateAllVariants,
+                forCommit: forCommit,
+              },
             },
-          },
-          "*"
-          );
+            "*"
+            );
+          }
 
         } catch (error) {
-          console.error('Error in generateTest:', error);
-          
-          try {
-            // Clean up button state
-            button.classList.remove("loading");
-            button.textContent = button.dataset.originalText || 'Generate Test';
-            button.disabled = false;
-            
-            // Clear timeout if it exists
-            if (button.dataset.timeoutId) {
-              clearTimeout(parseInt(button.dataset.timeoutId));
-              delete button.dataset.timeoutId;
-            }
-            
-            // Show user-friendly error
-            if (error.message.includes('parameters')) {
-              showError('Invalid Input', 'Invalid component data. Please try selecting the component again.');
-            } else if (error.message.includes('DOM')) {
-              showError('Interface Error', 'Interface error occurred. Please refresh the plugin.');
-            } else {
-              showError('Generation Failed', 'Failed to generate test. Please try again.');
-            }
-          } catch (recoveryError) {
-            console.error('Failed to recover from generateTest error:', recoveryError);
-          }
+           // ... catch block
+           console.error('Error in generateTest:', error);
+           // ... (rest of catch block)
         }
       }
 

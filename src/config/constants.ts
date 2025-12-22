@@ -7,8 +7,7 @@ export const API_CONFIG = {
   REQUEST_TIMEOUT: 30000,
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'User-Agent': 'Bridgy-Plugin'
+    'Accept': 'application/json'
   }
 } as const;
 

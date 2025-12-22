@@ -272,8 +272,7 @@
         REQUEST_TIMEOUT: 3e4,
         DEFAULT_HEADERS: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "Bridgy-Plugin"
+          "Accept": "application/json"
         }
       };
       var buildGitLabApiUrl = (gitlabUrl) => __awaiter(void 0, void 0, void 0, function* () {
@@ -8820,14 +8819,17 @@ ${Object.keys(cssProperties).map((property) => {
               }
               break;
             case "commit-component-test":
-              if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
+              if (!msg.projectId || !msg.token && !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
                 throw new Error("Missing required fields for component test commit");
               }
               try {
+                const provider = msg.provider || "gitlab";
+                const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
                 const settings = {
-                  gitlabUrl: msg.gitlabUrl,
+                  provider,
+                  baseUrl: msg.baseUrl || "",
                   projectId: msg.projectId,
-                  gitlabToken: msg.gitlabToken,
+                  token: msg.token || msg.gitlabToken,
                   filePath: "variables.css",
                   // Default value
                   testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
@@ -8843,12 +8845,12 @@ ${Object.keys(cssProperties).map((property) => {
                   savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                   savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
                 };
-                const testResult = yield gitlabService_1.GitLabService.commitComponentTest(settings, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
+                const testResult = yield gitService2.commitComponentTest(settings, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
                 figma.ui.postMessage({
                   type: "test-commit-success",
                   message: config_1.SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,
                   componentName: msg.componentName,
-                  mergeRequestUrl: testResult && testResult.mergeRequestUrl
+                  mergeRequestUrl: testResult && testResult.pullRequestUrl
                 });
               } catch (error) {
                 let errorMessage = "Unknown error occurred";
