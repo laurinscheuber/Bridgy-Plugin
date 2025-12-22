@@ -7664,11 +7664,50 @@ ${Object.keys(cssProperties).map((property) => {
             style.name = styleName;
             stylesMap.set(styleName, style);
           }
+          const value = token.value.trim();
+          const isInset = value.includes("inset");
+          const cleanValue = value.replace("inset", "").trim();
+          let color = { r: 0, g: 0, b: 0, a: 0.2 };
+          const hexMatch = cleanValue.match(/#[0-9a-fA-F]{3,8}/);
+          if (hexMatch) {
+            const parsed = this.parseColor(hexMatch[0]);
+            if (parsed)
+              color = parsed;
+          } else {
+            const parts = cleanValue.split(/\s+/);
+            for (const part of parts) {
+              if (this.isColorStop(part)) {
+                const parsed = this.parseColor(part);
+                if (parsed) {
+                  color = parsed;
+                  break;
+                }
+              }
+            }
+          }
+          const lengthRegex = /(-?\d*\.?\d+)(px|rem|em|%)?/g;
+          const lengths = [];
+          let match;
+          while ((match = lengthRegex.exec(cleanValue)) !== null) {
+            lengths.push(parseFloat(match[1]));
+          }
+          let x = 0, y = 4, blur = 4, spread = 0;
+          if (lengths.length >= 2) {
+            x = lengths[0];
+            y = lengths[1];
+          }
+          if (lengths.length >= 3) {
+            blur = lengths[2];
+          }
+          if (lengths.length >= 4) {
+            spread = lengths[3];
+          }
           style.effects = [{
-            type: "DROP_SHADOW",
-            color: { r: 0, g: 0, b: 0, a: 0.25 },
-            offset: { x: 0, y: 4 },
-            radius: 4,
+            type: isInset ? "INNER_SHADOW" : "DROP_SHADOW",
+            color,
+            offset: { x, y },
+            radius: blur,
+            spread,
             visible: true,
             blendMode: "NORMAL"
           }];
