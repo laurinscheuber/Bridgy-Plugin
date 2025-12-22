@@ -269,9 +269,9 @@
           <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 24px;">
             Analyze which elements in your design use hard-coded values instead of design tokens.
           </p>
-          <button 
-            id="analyze-token-coverage-btn" 
-            onclick="analyzeTokenCoverage()" 
+          <button
+            id="analyze-token-coverage-btn"
+            onclick="analyzeTokenCoverage()"
             style="margin-bottom: 24px; background: linear-gradient(135deg, var(--purple-medium) 0%, #a855f7 100%);"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
@@ -4111,12 +4111,12 @@
       function analyzeTokenCoverage() {
         const resultsContainer = document.getElementById("token-coverage-results");
         const loadingDiv = resultsContainer.querySelector(".content-loading");
-        
+
         // Show loading state
         loadingDiv.style.display = "flex";
         resultsContainer.innerHTML = "";
         resultsContainer.appendChild(loadingDiv);
-        
+
         // Send message to plugin backend
         parent.postMessage({
           pluginMessage: {
@@ -4128,7 +4128,7 @@
       // Function to display token coverage results
       function displayTokenCoverageResults(result) {
         const resultsContainer = document.getElementById("token-coverage-results");
-        
+
         if (!result || result.totalIssues === 0) {
           resultsContainer.innerHTML = `
             <div style="text-align: center; padding: 40px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px;">
@@ -4143,11 +4143,11 @@
           `;
           return;
         }
-        
+
         // Calculate statistics
         const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
         const issuesByCategory = result.issuesByCategory;
-        
+
         let html = `
           <div style="margin-bottom: 24px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
             <h3 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; font-size: 18px;">Summary</h3>
@@ -4163,19 +4163,19 @@
             </div>
           </div>
         `;
-        
+
         // Display issues by category
         categories.forEach(category => {
           const issues = issuesByCategory[category] || [];
           if (issues.length === 0) return;
-          
+
           const categoryIcons = {
             'Layout': '📐',
             'Fill': '🎨',
             'Stroke': '✏️',
             'Appearance': '✨'
           };
-          
+
           html += `
             <div class="variable-subgroup" style="margin-bottom: 24px;">
               <div class="subgroup-header" onclick="toggleSubgroup('coverage-${category}')">
@@ -4187,7 +4187,7 @@
               </div>
               <div id="coverage-${category}-content" class="subgroup-content expanded">
           `;
-          
+
           // Display each issue as a card
           issues.forEach(issue => {
             html += `
@@ -4205,7 +4205,7 @@
                   <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; font-weight: 600;">Found in:</div>
                   <div style="max-height: 400px; overflow-y: auto;">
             `;
-            
+
             // Show ALL node names with their properties
             issue.nodeNames.forEach((nodeName, idx) => {
               html += `
@@ -4217,20 +4217,20 @@
                 </div>
               `;
             });
-            
+
             html += `
                   </div>
                 </div>
               </div>
             `;
           });
-          
+
           html += `
               </div>
             </div>
           `;
         });
-        
+
         resultsContainer.innerHTML = SecurityUtils.sanitizeHTML(html);
       }
 
@@ -7627,7 +7627,6 @@ ${checkboxes}
       window.closeUnitsModal = closeUnitsModal;
       window.saveUnitsAndCloseModal = saveUnitsAndCloseModal;
       window.switchToQualityTab = switchToQualityTab;
-      window.analyzeTokenCoverage = analyzeTokenCoverage;
       
       // OAuth helper functions
       window.showPopupBlockerHelp = showPopupBlockerHelp;
