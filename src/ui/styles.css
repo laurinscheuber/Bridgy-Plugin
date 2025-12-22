@@ -1581,7 +1581,6 @@
       }
       
       .subgroup-content.expanded {
-        max-height: 3000px;
         opacity: 1;
         padding-top: 0;
         padding-bottom: 0;
