@@ -6992,6 +6992,915 @@ ${Object.keys(cssProperties).map((property) => {
     }
   });
 
+  // dist/services/variableImportService.js
+  var require_variableImportService = __commonJS({
+    "dist/services/variableImportService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.VariableImportService = void 0;
+      var errorHandler_1 = require_errorHandler();
+      var VariableImportService = class {
+        /**
+         * Parse CSS content to extract variables
+         */
+        static parseCSS(content) {
+          const tokens = [];
+          const lines = content.split("\n");
+          const cssVarRegex = /^\s*--([a-zA-Z0-9-_]+)\s*:\s*([^;]+);/;
+          const scssVarRegex = /^\s*\$([a-zA-Z0-9-_]+)\s*:\s*([^;]+);/;
+          lines.forEach((line, index) => {
+            let match = line.match(cssVarRegex);
+            let isScss = false;
+            if (!match) {
+              match = line.match(scssVarRegex);
+              isScss = true;
+            }
+            if (match) {
+              let name = match[1].trim();
+              let value = match[2].trim();
+              if (isScss) {
+                value = value.replace(/\s*!default\s*$/, "");
+              }
+              let type = "string";
+              let isGradient = false;
+              let isShadow = false;
+              if (value.includes("gradient(")) {
+                isGradient = true;
+                type = "string";
+              } else if (value.includes("box-shadow") || value.includes("drop-shadow") || value.match(/\d+px\s+\d+px/) && value.includes("rgba")) {
+                isShadow = true;
+                type = "string";
+              } else if (value.match(/^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|[a-zA-Z]+$)/)) {
+                type = "color";
+              } else if (value.match(/^-?\d*\.?\d+(px|rem|em|%)?$/)) {
+                type = "number";
+              }
+              let groupedName = name;
+              console.log(`[Parser] Original token name: "${name}"`);
+              if (name.startsWith("--")) {
+                groupedName = name.substring(2);
+                console.log(`[Parser] Removed CSS prefix: "${groupedName}"`);
+              }
+              const parts = groupedName.split("-");
+              console.log(`[Parser] Split into parts: [${parts.join(", ")}]`);
+              if (parts.length > 1) {
+                const groupPart = parts[0];
+                const valuePart = parts.slice(1).join("-");
+                groupedName = `${groupPart}/${valuePart}`;
+                console.log(`[Parser] Converted to grouped format: "${groupedName}"`);
+              } else {
+                console.log(`[Parser] Single part, no grouping needed: "${groupedName}"`);
+              }
+              tokens.push({
+                name: groupedName,
+                value,
+                type,
+                originalLine: line.trim(),
+                lineNumber: index + 1,
+                isGradient,
+                isShadow
+              });
+            }
+          });
+          return tokens;
+        }
+        /**
+         * Parse Tailwind CSS content (custom properties in @theme or simple key-value pairs)
+         * This is a simplified parser for pasted tailwind config objects or CSS with @theme
+         */
+        /**
+         * Parse Tailwind CSS content (custom properties in @theme or simple key-value pairs)
+         * Supports:
+         * 1. CSS Variables (standard or @theme)
+         * 2. JS Config Objects (module.exports = { theme: ... } or const config = ...)
+         */
+        static parseTailwind(content) {
+          const trimmed = content.trim();
+          if (trimmed.startsWith("module.exports") || trimmed.startsWith("export default") || trimmed.startsWith("const") || trimmed.startsWith("{") || trimmed.includes("theme:")) {
+            return this.parseTailwindJSConfig(trimmed);
+          }
+          return this.parseCSS(content);
+        }
+        /**
+         * Parse Tailwind JS configuration object
+         * Extracts tokens from theme/extend/colors, spacing, etc.
+         * Flattens nested objects into kebab-case names.
+         */
+        static parseTailwindJSConfig(content) {
+          const tokens = [];
+          try {
+            const categories = ["colors", "spacing", "fontSize", "borderRadius", "boxShadow"];
+            categories.forEach((category) => {
+              const catIndex = content.indexOf(`${category}:`);
+              if (catIndex === -1)
+                return;
+              const blockStart = content.indexOf("{", catIndex);
+              if (blockStart === -1)
+                return;
+              const block = this.extractBraceBlock(content, blockStart);
+              if (block) {
+                const categoryTokens = this.parseJSObjectBlock(block, category);
+                tokens.push(...categoryTokens);
+              }
+            });
+          } catch (e) {
+            console.warn("Failed to parse Tailwind JS config", e);
+          }
+          return tokens;
+        }
+        /**
+         * Helper to extract a balanced brace block { ... }
+         */
+        static extractBraceBlock(text, startIndex) {
+          let depth = 0;
+          let inString = false;
+          let stringChar = "";
+          for (let i = startIndex; i < text.length; i++) {
+            const char = text[i];
+            if (inString) {
+              if (char === stringChar && text[i - 1] !== "\\") {
+                inString = false;
+              }
+            } else {
+              if (char === '"' || char === "'" || char === "`") {
+                inString = true;
+                stringChar = char;
+              } else if (char === "{") {
+                depth++;
+              } else if (char === "}") {
+                depth--;
+                if (depth === 0) {
+                  return text.substring(startIndex, i + 1);
+                }
+              }
+            }
+          }
+          return null;
+        }
+        /**
+         * Recursive parser for JS object strings
+         * Returns flattened tokens
+         */
+        static parseJSObjectBlock(block, prefix) {
+          const tokens = [];
+          const inner = block.trim().substring(1, block.trim().length - 1);
+          const regex = /([a-zA-Z0-9_$-]+|\"[^\"]+\"|'[^']+')\s*:\s*(?:({)|([^,}\]]+))/g;
+          let match;
+          let currentIndex = 0;
+          while (currentIndex < inner.length) {
+            const keyMatch = inner.substr(currentIndex).match(/([a-zA-Z0-9_$-]+|\"[^\"]+\"|'[^']+')\s*:\s*/);
+            if (!keyMatch)
+              break;
+            const key = keyMatch[1].replace(/['"]/g, "");
+            const valueStart = currentIndex + keyMatch.index + keyMatch[0].length;
+            if (inner[valueStart] === "{") {
+              const subBlock = this.extractBraceBlock(inner, valueStart);
+              if (subBlock) {
+                const nextPrefix = prefix ? `${prefix}/${key}` : key;
+                tokens.push(...this.parseJSObjectBlock(subBlock, nextPrefix));
+                currentIndex = valueStart + subBlock.length;
+                const nextComma = inner.indexOf(",", currentIndex);
+                if (nextComma !== -1 && nextComma < inner.indexOf(":", currentIndex)) {
+                  currentIndex = nextComma + 1;
+                }
+              } else {
+                console.warn(`Unbalanced block for key ${key}`);
+                break;
+              }
+            } else {
+              let potentialValue = "";
+              let inStr = false;
+              let strCh = "";
+              let endFound = false;
+              let j = valueStart;
+              for (; j < inner.length; j++) {
+                const char = inner[j];
+                if (inStr) {
+                  if (char === strCh && inner[j - 1] !== "\\")
+                    inStr = false;
+                } else {
+                  if (char === '"' || char === "'") {
+                    inStr = true;
+                    strCh = char;
+                  } else if (char === "," || char === "}") {
+                    endFound = true;
+                    break;
+                  }
+                }
+                if (!endFound)
+                  potentialValue += char;
+              }
+              const value = potentialValue.trim().replace(/['"]/g, "");
+              const tokenName = prefix ? `${prefix}/${key}` : key;
+              let type = "string";
+              if (value.match(/^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|[a-zA-Z]+$)/))
+                type = "color";
+              else if (value.match(/^-?\d*\.?\d+(px|rem|em|%)?$/))
+                type = "number";
+              tokens.push({
+                name: tokenName,
+                value,
+                type,
+                originalLine: `${key}: ${value}`,
+                lineNumber: 0
+              });
+              currentIndex = j + 1;
+            }
+          }
+          return tokens;
+        }
+        /**
+         * Compare parsed tokens against existing Figma variables
+         */
+        static compareTokens(newTokens, existingVariables) {
+          const added = [];
+          const modified = [];
+          const unchanged = [];
+          const conflicts = [];
+          const existingMap = /* @__PURE__ */ new Map();
+          existingVariables.forEach((v) => {
+            existingMap.set(v.name, v);
+            const cssVarName = v.name.replace(/\//g, "-").toLowerCase();
+            existingMap.set(cssVarName, v);
+          });
+          newTokens.forEach((token) => {
+            var _a, _b;
+            let match = existingMap.get(token.name);
+            if (!match) {
+              let cleanName = token.name.replace(/^--|\$/, "");
+              cleanName = cleanName.replace(/\./g, "-");
+              match = existingMap.get(cleanName);
+            }
+            if (match) {
+              const valuesMatch = this.valuesAreEquivalent(token.value, match);
+              if (valuesMatch) {
+                unchanged.push(token);
+              } else {
+                modified.push({
+                  token,
+                  oldValue: ((_b = (_a = match.valuesByMode) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.value) || "mixed",
+                  // Simplified
+                  existingId: match.id
+                });
+              }
+            } else {
+              added.push(token);
+            }
+          });
+          return { added, modified, unchanged, conflicts };
+        }
+        static valuesAreEquivalent(cssValue, figmaVariable) {
+          var _a;
+          const firstMode = (_a = figmaVariable.valuesByMode) === null || _a === void 0 ? void 0 : _a[0];
+          if (!firstMode)
+            return false;
+          return false;
+        }
+        /**
+         * Apply variables to Figma
+         */
+        static importVariables(tokens, options) {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              var _a;
+              console.log(`[Import] Starting import of ${tokens.length} tokens with options:`, JSON.stringify(options));
+              let collection;
+              if (options.collectionId) {
+                console.log(`[Import] Looking for collection with ID: ${options.collectionId}`);
+                collection = yield figma.variables.getVariableCollectionByIdAsync(options.collectionId);
+                if (!collection)
+                  throw new Error(`Collection ${options.collectionId} not found`);
+              } else {
+                const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+                const name = options.collectionName || "Imported Variables";
+                console.log(`[Import] Looking for collection with name: ${name}`);
+                collection = collections.find((c) => c.name === name);
+                if (!collection) {
+                  console.log(`[Import] Creating new collection: ${name}`);
+                  collection = figma.variables.createVariableCollection(name);
+                } else {
+                  console.log(`[Import] Found existing collection: ${name}`);
+                }
+              }
+              let successCount = 0;
+              const errors = [];
+              if (!collection.modes || collection.modes.length === 0) {
+                console.log("[Import] Collection has no modes, attempting recovery...");
+                try {
+                  collection.renameMode(((_a = collection.modes[0]) === null || _a === void 0 ? void 0 : _a.modeId) || "Mode 1", "Mode 1");
+                } catch (e) {
+                  console.log("[Import] Mode recovery failed or unnecessary:", e);
+                }
+              }
+              if (!collection.modes || collection.modes.length === 0) {
+                throw new Error("Collection has no modes and could not recover");
+              }
+              const modeId = collection.modes[0].modeId;
+              console.log(`[Import] Using Mode ID: ${modeId} (${collection.modes[0].name})`);
+              const groups = /* @__PURE__ */ new Set();
+              console.log(`[Import] Analyzing ${tokens.length} tokens for groups...`);
+              for (const token of tokens) {
+                let varName = token.name;
+                console.log(`[Import] Processing token: "${token.name}"`);
+                if (varName.startsWith("--")) {
+                  varName = varName.substring(2);
+                  console.log(`[Import] Removed CSS prefix: "${varName}"`);
+                }
+                if (varName.startsWith("$")) {
+                  varName = varName.substring(1);
+                  console.log(`[Import] Removed SCSS prefix: "${varName}"`);
+                }
+                varName = varName.replace(/\./g, "-");
+                if (varName.includes("/")) {
+                  const groupName = varName.substring(0, varName.lastIndexOf("/"));
+                  console.log(`[Import] Found group in "${varName}": "${groupName}"`);
+                  if (groupName) {
+                    const parts = groupName.split("/");
+                    for (let i = 0; i < parts.length; i++) {
+                      const groupPath = parts.slice(0, i + 1).join("/");
+                      groups.add(groupPath);
+                      console.log(`[Import] Added group to set: "${groupPath}"`);
+                    }
+                  }
+                } else {
+                  console.log(`[Import] No group found in variable name: "${varName}"`);
+                }
+              }
+              console.log(`[Import] Variables will be organized into ${groups.size} groups based on their names`);
+              const existingVariablesMap = /* @__PURE__ */ new Map();
+              let paintStylesMap;
+              let effectStylesMap;
+              try {
+                const allVariables = yield figma.variables.getLocalVariablesAsync();
+                for (const v of allVariables) {
+                  if (v.variableCollectionId === collection.id) {
+                    existingVariablesMap.set(v.name, v);
+                  }
+                }
+                const paintStyles = yield figma.getLocalPaintStylesAsync();
+                const effectStyles = yield figma.getLocalEffectStylesAsync();
+                paintStylesMap = /* @__PURE__ */ new Map();
+                paintStyles.forEach((s) => paintStylesMap.set(s.name, s));
+                effectStylesMap = /* @__PURE__ */ new Map();
+                effectStyles.forEach((s) => effectStylesMap.set(s.name, s));
+              } catch (err) {
+                console.error("[Import] Error fetching local variables/styles:", err);
+                throw new Error("Failed to fetch existing variables or styles");
+              }
+              console.log(`[Import] Processing ${tokens.length} tokens...`);
+              for (const token of tokens) {
+                try {
+                  let varName = token.name;
+                  console.log(`[Import] Processing variable creation for: "${token.name}"`);
+                  if (varName.startsWith("--")) {
+                    varName = varName.substring(2);
+                    console.log(`[Import] After removing CSS prefix: "${varName}"`);
+                  }
+                  if (varName.startsWith("$")) {
+                    varName = varName.substring(1);
+                    console.log(`[Import] After removing SCSS prefix: "${varName}"`);
+                  }
+                  varName = varName.replace(/\./g, "-");
+                  console.log(`[Import] Final variable name to create: "${varName}"`);
+                  if (varName.includes("/")) {
+                    console.log(`[Import] Variable "${varName}" WILL create groups in Figma`);
+                  } else {
+                    console.log(`[Import] Variable "${varName}" will NOT create groups (no slash)`);
+                  }
+                  if (token.type) {
+                    const lowerType = token.type.toLowerCase();
+                    if (lowerType === "gradient" || lowerType === "linear-gradient" || lowerType === "radial-gradient") {
+                      token.isGradient = true;
+                    }
+                    if (lowerType === "shadow" || lowerType === "box-shadow") {
+                      token.isShadow = true;
+                    }
+                    if (["color", "number", "string"].indexOf(lowerType) !== -1) {
+                      token.type = lowerType;
+                    } else if (lowerType === "float") {
+                      token.type = "number";
+                    }
+                  }
+                  if (token.isGradient) {
+                    this.createGradientStyle(token, paintStylesMap, options.strategy === "overwrite");
+                    successCount++;
+                    console.log(`[Import] \u2713 Created gradient style: ${varName}`);
+                    continue;
+                  }
+                  if (token.isShadow) {
+                    this.createShadowStyle(token, effectStylesMap, options.strategy === "overwrite");
+                    successCount++;
+                    console.log(`[Import] \u2713 Created shadow style: ${varName}`);
+                    continue;
+                  }
+                  let val = this.parseValueForFigma(token.value, token.type);
+                  if (val === void 0 && token.value.includes("var(")) {
+                    const match = token.value.match(/var\((--[^)]+)\)/);
+                    if (match) {
+                      const aliasName = match[1].replace(/^--/, "");
+                      const aliasedVar = existingVariablesMap.get(aliasName);
+                      if (aliasedVar) {
+                        val = figma.variables.createVariableAlias(aliasedVar);
+                        console.log(`[Import] Resolved alias for ${varName} -> ${aliasName}`);
+                        if (token.type === "string" && aliasedVar.resolvedType) {
+                          if (aliasedVar.resolvedType === "COLOR")
+                            token.type = "color";
+                          else if (aliasedVar.resolvedType === "FLOAT")
+                            token.type = "number";
+                        }
+                      } else {
+                        console.warn(`[Import] Could not find variable for alias: ${aliasName}`);
+                      }
+                    }
+                    if (val === void 0) {
+                      let resolvedString = token.value;
+                      let hasUnresolved = false;
+                      resolvedString = resolvedString.replace(/var\((--[^)]+)\)/g, (fullMatch, cssVarName) => {
+                        const name = cssVarName.replace(/^--/, "");
+                        const existing = existingVariablesMap.get(name);
+                        if (existing) {
+                          const modeVal = existing.valuesByMode[modeId];
+                          if (typeof modeVal === "object" && "r" in modeVal) {
+                            const alpha = "a" in modeVal ? modeVal.a : 1;
+                            return `rgba(${Math.round(modeVal.r * 255)}, ${Math.round(modeVal.g * 255)}, ${Math.round(modeVal.b * 255)}, ${alpha})`;
+                          } else if (typeof modeVal === "number") {
+                            return modeVal.toString();
+                          }
+                        }
+                        const t = tokens.find((t2) => t2.name === cssVarName);
+                        if (t) {
+                          if (!t.value.includes("var("))
+                            return t.value;
+                        }
+                        hasUnresolved = true;
+                        return fullMatch;
+                      });
+                      if (!hasUnresolved) {
+                        val = this.parseValueForFigma(resolvedString, token.type);
+                        if (val !== void 0 && token.type === "string") {
+                          if (this.parseColor(resolvedString))
+                            token.type = "color";
+                        }
+                      }
+                    }
+                  }
+                  let targetVar = existingVariablesMap.get(varName);
+                  const desiredType = this.mapTokenTypeToFigmaType(token.type);
+                  if (targetVar) {
+                    if (desiredType && targetVar.resolvedType !== desiredType && options.strategy === "overwrite") {
+                      console.warn(`[Import] Type mismatch for ${varName} (Existing: ${targetVar.resolvedType}, New: ${desiredType}). Re-creating...`);
+                      try {
+                        targetVar.remove();
+                        targetVar = void 0;
+                      } catch (e) {
+                        console.error(`[Import] Failed to remove mismatched variable ${varName}:`, e);
+                        errors.push(`Failed to remove mismatched variable ${varName}`);
+                        continue;
+                      }
+                    } else if (options.strategy === "merge") {
+                      successCount++;
+                      continue;
+                    }
+                  }
+                  if (!targetVar) {
+                    if (!desiredType) {
+                      console.warn(`[Import] Skipped ${token.name}: Unsupported variable type ${token.type}`);
+                      errors.push(`Skipped ${token.name}: Unsupported variable type ${token.type}`);
+                      continue;
+                    }
+                    try {
+                      console.log(`[Import] Creating variable '${varName}' in collection '${collection.name}' (ID: ${collection.id}) with type '${desiredType}'`);
+                      try {
+                        targetVar = figma.variables.createVariable(varName, collection.id, desiredType);
+                      } catch (e) {
+                        if (e.message && e.message.includes("pass the collection node")) {
+                          console.warn("[Import] 'createVariable' requested collection node. Retrying with collection object...");
+                          targetVar = figma.variables.createVariable(varName, collection, desiredType);
+                        } else {
+                          throw e;
+                        }
+                      }
+                      existingVariablesMap.set(varName, targetVar);
+                      console.log(`[Import] Created variable: ${varName} (ID: ${targetVar.id})`);
+                    } catch (createErr) {
+                      console.error(`[Import] Failed to create variable ${varName}:`, createErr);
+                      errors.push(`Failed to create variable ${varName}: ${createErr.message}`);
+                      continue;
+                    }
+                  }
+                  if (val !== void 0 && targetVar) {
+                    try {
+                      targetVar.setValueForMode(modeId, val);
+                      successCount++;
+                    } catch (err) {
+                      console.error(`[Import] Failed to set value for ${token.name}:`, err);
+                      if (err.message.includes("Mismatched variable resolved type")) {
+                        errors.push(`Type mismatch for ${token.name}: Variable is ${targetVar.resolvedType} but value is incompatible.`);
+                      } else {
+                        errors.push(`Failed to set value for ${token.name}: ${err.message}`);
+                      }
+                    }
+                  } else if (!targetVar) {
+                    errors.push(`No target variable for ${token.name}`);
+                  } else {
+                    console.warn(`[Import] Failed to parse value for ${token.name}: ${token.value}`);
+                    errors.push(`Failed to parse value for ${token.name}: ${token.value}`);
+                  }
+                } catch (e) {
+                  console.error(`[Import] Error importing ${token.name}:`, e);
+                  errors.push(`Error importing ${token.name}: ${e.message}`);
+                }
+              }
+              console.log(`[Import] Completed. Success: ${successCount}/${tokens.length}`);
+              if (errors.length > 0) {
+                console.log(`[Import] Errors:`, errors);
+              }
+              console.log(`[Import] Final groups set contents: [${Array.from(groups).join(", ")}]`);
+              console.log(`[Import] Total groups created: ${groups.size}`);
+              return { success: successCount, errors, groupsCreated: groups.size };
+            }), {
+              operation: "import_variables",
+              component: "VariableImportService",
+              severity: "medium"
+            });
+          });
+        }
+        /**
+         * Create a Paint Style for a gradient token
+         * Now synchronous using pre-fetched map
+         */
+        static createGradientStyle(token, stylesMap, overwrite) {
+          const isLinear = token.value.includes("linear-gradient");
+          const isRadial = token.value.includes("radial-gradient");
+          const isConic = token.value.includes("conic-gradient");
+          if (!isLinear && !isRadial && !isConic)
+            return;
+          const styleName = token.name.replace(/^--|\$/, "");
+          let style = stylesMap.get(styleName);
+          if (style && !overwrite)
+            return;
+          if (!style) {
+            style = figma.createPaintStyle();
+            style.name = styleName;
+            stylesMap.set(styleName, style);
+          }
+          try {
+            let gradient = null;
+            if (isLinear) {
+              gradient = this.parseLinearGradient(token.value);
+            } else if (isRadial) {
+              gradient = this.parseRadialGradient(token.value);
+            } else if (isConic) {
+              gradient = this.parseConicGradient(token.value);
+            }
+            if (gradient) {
+              style.paints = [gradient];
+            }
+          } catch (error) {
+            console.warn(`Failed to parse gradient ${token.name}:`, error);
+            const fallback = {
+              type: "GRADIENT_LINEAR",
+              gradientTransform: [[1, 0, 0], [0, 1, 0]],
+              gradientStops: [
+                { position: 0, color: { r: 0.5, g: 0.5, b: 0.5, a: 1 } },
+                { position: 1, color: { r: 0.8, g: 0.8, b: 0.8, a: 1 } }
+              ]
+            };
+            style.paints = [fallback];
+          }
+        }
+        /**
+         * Create an Effect Style for a shadow token
+         * Now synchronous using pre-fetched map
+         */
+        static createShadowStyle(token, stylesMap, overwrite) {
+          const styleName = token.name.replace(/^--|\$/, "");
+          let style = stylesMap.get(styleName);
+          if (style && !overwrite)
+            return;
+          if (!style) {
+            style = figma.createEffectStyle();
+            style.name = styleName;
+            stylesMap.set(styleName, style);
+          }
+          style.effects = [{
+            type: "DROP_SHADOW",
+            color: { r: 0, g: 0, b: 0, a: 0.25 },
+            offset: { x: 0, y: 4 },
+            radius: 4,
+            visible: true,
+            blendMode: "NORMAL"
+          }];
+        }
+        static mapTokenTypeToFigmaType(type) {
+          switch (type) {
+            case "color":
+              return "COLOR";
+            case "number":
+              return "FLOAT";
+            case "string":
+              return "STRING";
+            default:
+              return "STRING";
+          }
+        }
+        static parseValueForFigma(value, type) {
+          if (type === "color") {
+            return this.parseColor(value);
+          }
+          if (type === "number") {
+            const num = parseFloat(value.replace(/[^0-9.-]/g, ""));
+            return isNaN(num) ? 0 : num;
+          }
+          return value;
+        }
+        static parseColor(colorStr) {
+          try {
+            const cleanColor = colorStr.trim().toLowerCase();
+            if (cleanColor.startsWith("#")) {
+              const hex = cleanColor.substring(1);
+              if (hex.length === 3) {
+                const r = parseInt(hex[0] + hex[0], 16) / 255;
+                const g = parseInt(hex[1] + hex[1], 16) / 255;
+                const b = parseInt(hex[2] + hex[2], 16) / 255;
+                return { r, g, b, a: 1 };
+              }
+              if (hex.length === 6) {
+                const r = parseInt(hex.substring(0, 2), 16) / 255;
+                const g = parseInt(hex.substring(2, 4), 16) / 255;
+                const b = parseInt(hex.substring(4, 6), 16) / 255;
+                return { r, g, b, a: 1 };
+              }
+              if (hex.length === 8) {
+                const r = parseInt(hex.substring(0, 2), 16) / 255;
+                const g = parseInt(hex.substring(2, 4), 16) / 255;
+                const b = parseInt(hex.substring(4, 6), 16) / 255;
+                const a = parseInt(hex.substring(6, 8), 16) / 255;
+                return { r, g, b, a };
+              }
+            }
+            if (cleanColor.startsWith("rgb")) {
+              const match = cleanColor.match(/rgba?\s*\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*(?:,\s*(\d+(?:\.\d+)?))?\s*\)/);
+              if (match) {
+                return {
+                  r: Math.min(1, parseFloat(match[1]) / 255),
+                  g: Math.min(1, parseFloat(match[2]) / 255),
+                  b: Math.min(1, parseFloat(match[3]) / 255),
+                  a: match[4] !== void 0 ? parseFloat(match[4]) : 1
+                };
+              }
+            }
+            if (cleanColor.startsWith("hsl")) {
+              const match = cleanColor.match(/hsla?\s*\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*(\d+(?:\.\d+)?))?\s*\)/);
+              if (match) {
+                const h = parseInt(match[1]) / 360;
+                const s = parseInt(match[2]) / 100;
+                const l = parseInt(match[3]) / 100;
+                const a = match[4] !== void 0 ? parseFloat(match[4]) : 1;
+                const c = (1 - Math.abs(2 * l - 1)) * s;
+                const x = c * (1 - Math.abs(h * 6 % 2 - 1));
+                const m = l - c / 2;
+                let r = 0, g = 0, b = 0;
+                if (h < 1 / 6) {
+                  r = c;
+                  g = x;
+                  b = 0;
+                } else if (h < 2 / 6) {
+                  r = x;
+                  g = c;
+                  b = 0;
+                } else if (h < 3 / 6) {
+                  r = 0;
+                  g = c;
+                  b = x;
+                } else if (h < 4 / 6) {
+                  r = 0;
+                  g = x;
+                  b = c;
+                } else if (h < 5 / 6) {
+                  r = x;
+                  g = 0;
+                  b = c;
+                } else {
+                  r = c;
+                  g = 0;
+                  b = x;
+                }
+                return { r: r + m, g: g + m, b: b + m, a };
+              }
+            }
+            const namedColors = {
+              "transparent": { r: 0, g: 0, b: 0, a: 0 },
+              "black": { r: 0, g: 0, b: 0, a: 1 },
+              "white": { r: 1, g: 1, b: 1, a: 1 },
+              "red": { r: 1, g: 0, b: 0, a: 1 },
+              "green": { r: 0, g: 0.5, b: 0, a: 1 },
+              "blue": { r: 0, g: 0, b: 1, a: 1 },
+              "yellow": { r: 1, g: 1, b: 0, a: 1 },
+              "cyan": { r: 0, g: 1, b: 1, a: 1 },
+              "magenta": { r: 1, g: 0, b: 1, a: 1 },
+              "gray": { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+              "grey": { r: 0.5, g: 0.5, b: 0.5, a: 1 }
+            };
+            if (namedColors[cleanColor]) {
+              return namedColors[cleanColor];
+            }
+            if (cleanColor.includes("var(") || cleanColor.includes("calc(")) {
+              console.warn(`Cannot parse CSS variable or calc expression: ${colorStr}`);
+              return void 0;
+            }
+          } catch (error) {
+            console.error(`Error parsing color "${colorStr}":`, error);
+          }
+          console.warn(`Unable to parse color: ${colorStr}`);
+          return void 0;
+        }
+        /**
+         * Parse linear gradient CSS value into Figma GradientPaint
+         */
+        static parseLinearGradient(value) {
+          const match = value.match(/linear-gradient\s*\(\s*([^)]+)\)/);
+          if (!match)
+            throw new Error("Invalid linear gradient syntax");
+          const content = match[1];
+          const parts = this.parseGradientParts(content);
+          let angle = 180;
+          const firstPart = parts[0].trim();
+          if (firstPart.includes("deg")) {
+            angle = parseInt(firstPart.replace("deg", ""));
+            parts.shift();
+          } else if (firstPart.startsWith("to ")) {
+            if (firstPart.includes("right"))
+              angle = 90;
+            else if (firstPart.includes("left"))
+              angle = 270;
+            else if (firstPart.includes("top"))
+              angle = 0;
+            else if (firstPart.includes("bottom"))
+              angle = 180;
+            parts.shift();
+          }
+          const stops = this.parseGradientStops(parts);
+          const transform = this.angleToGradientTransform(angle);
+          return {
+            type: "GRADIENT_LINEAR",
+            gradientTransform: transform,
+            gradientStops: stops
+          };
+        }
+        /**
+         * Parse radial gradient CSS value into Figma GradientPaint
+         */
+        static parseRadialGradient(value) {
+          const match = value.match(/radial-gradient\s*\(\s*([^)]+)\)/);
+          if (!match)
+            throw new Error("Invalid radial gradient syntax");
+          const content = match[1];
+          const parts = this.parseGradientParts(content);
+          while (parts.length > 0 && !this.isColorStop(parts[0])) {
+            parts.shift();
+          }
+          const stops = this.parseGradientStops(parts);
+          return {
+            type: "GRADIENT_RADIAL",
+            gradientTransform: [[1, 0, 0.5], [0, 1, 0.5]],
+            // Centered radial
+            gradientStops: stops
+          };
+        }
+        /**
+         * Parse conic gradient CSS value into Figma GradientPaint
+         */
+        static parseConicGradient(value) {
+          const match = value.match(/conic-gradient\s*\(\s*([^)]+)\)/);
+          if (!match)
+            throw new Error("Invalid conic gradient syntax");
+          const content = match[1];
+          const parts = this.parseGradientParts(content);
+          while (parts.length > 0 && !this.isColorStop(parts[0])) {
+            parts.shift();
+          }
+          const stops = this.parseGradientStops(parts);
+          return {
+            type: "GRADIENT_ANGULAR",
+            gradientTransform: [[1, 0, 0.5], [0, 1, 0.5]],
+            // Centered angular
+            gradientStops: stops
+          };
+        }
+        /**
+         * Split gradient content into parts, handling nested functions
+         */
+        static parseGradientParts(content) {
+          const parts = [];
+          let current = "";
+          let depth = 0;
+          for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+            if (char === "(")
+              depth++;
+            else if (char === ")")
+              depth--;
+            else if (char === "," && depth === 0) {
+              if (current.trim())
+                parts.push(current.trim());
+              current = "";
+              continue;
+            }
+            current += char;
+          }
+          if (current.trim())
+            parts.push(current.trim());
+          return parts;
+        }
+        /**
+         * Check if a string looks like a color stop
+         */
+        static isColorStop(part) {
+          const trimmed = part.trim();
+          return trimmed.includes("#") || trimmed.includes("rgb") || trimmed.includes("hsl") || trimmed.includes("var(") || /^[a-zA-Z]+(\s+\d+%?)?$/.test(trimmed);
+        }
+        /**
+         * Parse color stops from gradient parts
+         */
+        static parseGradientStops(parts) {
+          const stops = [];
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i].trim();
+            if (!part)
+              continue;
+            const colorStopMatch = part.match(/^(.*?)(?:\s+(\d+(?:\.\d+)?%?))?$/);
+            if (!colorStopMatch)
+              continue;
+            const colorStr = colorStopMatch[1].trim();
+            const positionStr = colorStopMatch[2];
+            const color = this.parseColor(colorStr);
+            if (!color)
+              continue;
+            let position = 0;
+            if (positionStr) {
+              if (positionStr.includes("%")) {
+                position = parseFloat(positionStr.replace("%", "")) / 100;
+              } else {
+                position = parseFloat(positionStr) / 100;
+              }
+            } else {
+              position = i / Math.max(1, parts.length - 1);
+            }
+            position = Math.max(0, Math.min(1, position));
+            stops.push({ position, color });
+          }
+          if (stops.length === 0) {
+            stops.push({ position: 0, color: { r: 0.5, g: 0.5, b: 0.5, a: 1 } }, { position: 1, color: { r: 0.8, g: 0.8, b: 0.8, a: 1 } });
+          } else if (stops.length === 1) {
+            const firstColor = stops[0].color;
+            stops.length = 0;
+            stops.push({ position: 0, color: firstColor }, { position: 1, color: firstColor });
+          }
+          stops.sort((a, b) => a.position - b.position);
+          return stops;
+        }
+        /**
+         * Convert CSS angle to Figma gradient transform matrix
+         */
+        static angleToGradientTransform(degrees) {
+          const radians = degrees * Math.PI / 180;
+          const cos = Math.cos(radians);
+          const sin = Math.sin(radians);
+          return [[cos, -sin, 0.5], [sin, cos, 0.5]];
+        }
+      };
+      exports.VariableImportService = VariableImportService;
+    }
+  });
+
   // dist/services/oauthService.js
   var require_oauthService = __commonJS({
     "dist/services/oauthService.js"(exports) {
@@ -7345,8 +8254,8 @@ ${Object.keys(cssProperties).map((property) => {
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
       var tokenCoverageService_1 = require_tokenCoverageService();
+      var variableImportService_1 = require_variableImportService();
       var config_1 = require_config();
-      var es2015_helpers_1 = require_es2015_helpers();
       figma.showUI(__html__, { width: 1e3, height: 900, themeColors: true });
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -7973,1069 +8882,65 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
-            case "import-tokens":
-              console.log("DEBUG: Received import-tokens message", { tokensCount: (_b = msg.tokens) === null || _b === void 0 ? void 0 : _b.length, options: msg.options });
+            case "preview-import":
               try {
-                let extractThemeNameFromSelector = function(selector) {
-                  const dataThemeMatch = selector.match(/\[data-theme=["']([^"']+)["']\]/);
-                  if (dataThemeMatch) {
-                    return dataThemeMatch[1];
-                  }
-                  const genericMatch = selector.match(/\[(?:theme|mode)=["']([^"']+)["']\]/);
-                  if (genericMatch) {
-                    return genericMatch[1];
-                  }
-                  const classMatch = selector.match(/\.(theme|mode)-([a-zA-Z0-9-_]+)/);
-                  if (classMatch) {
-                    return classMatch[2];
-                  }
-                  return selector.replace(/[[\]"'=]/g, "").replace(/[^a-zA-Z0-9-_]/g, "-");
-                }, extractGroupFromTokenName = function(tokenName) {
-                  const cleanName = tokenName.startsWith("--") ? tokenName.slice(2) : tokenName;
-                  const parts = cleanName.split("-");
-                  return parts.length > 1 ? parts[0] : "misc";
-                }, toTailwindFormat = function(tokenName) {
-                  let cleanName = tokenName.startsWith("--") ? tokenName.slice(2) : tokenName;
-                  const parts = cleanName.split("-");
-                  if (parts.length >= 2) {
-                    const category = parts[0];
-                    const rest = parts.slice(1).join("-");
-                    switch (category) {
-                      case "primary":
-                      case "neutral":
-                      case "success":
-                      case "warning":
-                      case "error":
-                      case "orange":
-                      case "purple":
-                        return `color/${category}/${rest}`;
-                      case "space":
-                        return `spacing/${rest}`;
-                      case "text":
-                        return `font-size/${rest}`;
-                      case "font":
-                        return `font-weight/${rest}`;
-                      case "leading":
-                        return `line-height/${rest}`;
-                      case "radius":
-                        return `border-radius/${rest}`;
-                      case "shadow":
-                        return `box-shadow/${rest}`;
-                      case "icon":
-                        return `size/${rest}`;
-                      case "opacity":
-                        return `opacity/${rest}`;
-                      case "z":
-                        return `z-index/${rest}`;
-                      case "transition":
-                        return `transition/${rest}`;
-                      default:
-                        return `${category}/${rest}`;
-                    }
-                  }
-                  return cleanName;
-                }, getThemeInfo = function(tokenName) {
-                  const name = tokenName.toLowerCase();
-                  if ((name.endsWith("-light") || name.endsWith(".light") || name.endsWith("_light") || name.includes("-light-") || name.includes("_light_")) && !name.match(/-\d+$/)) {
-                    return {
-                      baseName: tokenName.replace(/[-._]light/i, ""),
-                      theme: "light",
-                      modeId: lightModeId
-                    };
-                  }
-                  if ((name.endsWith("-dark") || name.endsWith(".dark") || name.endsWith("_dark") || name.includes("-dark-") || name.includes("_dark_")) && !name.match(/-\d+$/)) {
-                    return {
-                      baseName: tokenName.replace(/[-._]dark/i, ""),
-                      theme: "dark",
-                      modeId: darkModeId || lightModeId
-                    };
-                  }
-                  return {
-                    baseName: tokenName,
-                    theme: "neutral",
-                    modeId: lightModeId
-                  };
-                }, groupThemeTokens = function(tokens2) {
-                  const groups = /* @__PURE__ */ new Map();
-                  for (const token of tokens2) {
-                    let baseName;
-                    let themeKey;
-                    let targetModeId;
-                    if (token.selector && token.selector !== ":root") {
-                      baseName = token.name;
-                      themeKey = token.selector;
-                      targetModeId = themeModes.get(token.selector) || lightModeId;
-                    } else {
-                      const themeInfo = getThemeInfo(token.name);
-                      baseName = themeInfo.baseName;
-                      themeKey = themeInfo.theme;
-                      targetModeId = themeInfo.modeId;
-                    }
-                    if (!groups.has(baseName)) {
-                      groups.set(baseName, {});
-                    }
-                    const group = groups.get(baseName);
-                    group[themeKey] = Object.assign(Object.assign({}, token), {
-                      themeKey,
-                      targetModeId,
-                      isSelector: !!token.selector
-                    });
-                  }
-                  console.log("DEBUG: Grouped theme tokens:", Array.from(groups.entries()).map(([name, variants]) => ({
-                    name,
-                    variants: Object.keys(variants)
-                  })));
-                  return groups;
-                }, parseCSSGradient = function(cssGradient) {
-                  try {
-                    const linearMatch = cssGradient.match(/linear-gradient\(([^)]+)\)/);
-                    if (linearMatch) {
-                      const gradientContent = linearMatch[1];
-                      let angle = 180;
-                      let colorStops = [];
-                      const parts = gradientContent.split(",").map((s) => s.trim());
-                      if (parts[0].includes("deg") || parts[0].includes("to ")) {
-                        const directionPart = parts[0];
-                        if (directionPart.includes("deg")) {
-                          angle = parseFloat(directionPart);
-                        } else if (directionPart === "to top") {
-                          angle = 0;
-                        } else if (directionPart === "to right") {
-                          angle = 90;
-                        } else if (directionPart === "to bottom") {
-                          angle = 180;
-                        } else if (directionPart === "to left") {
-                          angle = 270;
-                        }
-                        colorStops = parts.slice(1);
-                      } else {
-                        colorStops = parts;
-                      }
-                      const gradientStops = [];
-                      for (let i = 0; i < colorStops.length; i++) {
-                        const stop = colorStops[i].trim();
-                        const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
-                        if (colorMatch) {
-                          const colorStr = colorMatch[1];
-                          const position = colorMatch[3] ? parseFloat(colorMatch[3]) / 100 : i / (colorStops.length - 1);
-                          const color = parseColor(colorStr);
-                          if (color) {
-                            gradientStops.push({
-                              color,
-                              position: Math.max(0, Math.min(1, position))
-                            });
-                          }
-                        }
-                      }
-                      if (gradientStops.length < 2) {
-                        return null;
-                      }
-                      const radians = angle * Math.PI / 180;
-                      return {
-                        type: "GRADIENT_LINEAR",
-                        gradientTransform: [
-                          [Math.cos(radians), Math.sin(radians), 0],
-                          [-Math.sin(radians), Math.cos(radians), 0]
-                        ],
-                        gradientStops
-                      };
-                    }
-                    const radialMatch = cssGradient.match(/radial-gradient\(([^)]+)\)/);
-                    if (radialMatch) {
-                      const gradientContent = radialMatch[1];
-                      const parts = gradientContent.split(",").map((s) => s.trim());
-                      const gradientStops = [];
-                      for (let i = 0; i < parts.length; i++) {
-                        const stop = parts[i].trim();
-                        if (stop.includes("circle") || stop.includes("ellipse") || stop.includes("at ")) {
-                          continue;
-                        }
-                        const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
-                        if (colorMatch) {
-                          const colorStr = colorMatch[1];
-                          const position = colorMatch[3] ? parseFloat(colorMatch[3]) / 100 : gradientStops.length / (parts.length - 1);
-                          const color = parseColor(colorStr);
-                          if (color) {
-                            gradientStops.push({
-                              color,
-                              position: Math.max(0, Math.min(1, position))
-                            });
-                          }
-                        }
-                      }
-                      if (gradientStops.length >= 2) {
-                        return {
-                          type: "GRADIENT_RADIAL",
-                          gradientTransform: [[1, 0, 0], [0, 1, 0]],
-                          gradientStops
-                        };
-                      }
-                    }
-                    return null;
-                  } catch (error) {
-                    console.warn("Failed to parse gradient:", cssGradient, error);
-                    return null;
-                  }
-                }, parseCSSBoxShadow = function(boxShadow) {
-                  try {
-                    console.log("DEBUG: Parsing box shadow:", boxShadow);
-                    const isInset = boxShadow.includes("inset");
-                    const cleanShadow = boxShadow.replace("inset", "").trim();
-                    const firstShadow = cleanShadow.split(",")[0].trim();
-                    const shadowRegex = /(-?\d+(?:\.\d+)?(?:px)?)\s+(-?\d+(?:\.\d+)?(?:px)?)\s+(-?\d+(?:\.\d+)?(?:px)?)(?:\s+(-?\d+(?:\.\d+)?(?:px)?))?\s*(.*)/;
-                    const match = firstShadow.match(shadowRegex);
-                    console.log("DEBUG: Shadow regex match:", match);
-                    if (match) {
-                      const [, xStr, yStr, blurStr, spreadStr, colorPart] = match;
-                      const x = roundNumber(parseFloat(xStr.replace("px", "")));
-                      const y = roundNumber(parseFloat(yStr.replace("px", "")));
-                      const blur = roundNumber(parseFloat(blurStr.replace("px", "")));
-                      console.log("DEBUG: Parsed shadow values:", { x, y, blur, colorPart });
-                      let color = { r: 0, g: 0, b: 0, a: 0.25 };
-                      if (colorPart && colorPart.trim()) {
-                        const parsedColor = parseColor(colorPart.trim());
-                        if (parsedColor) {
-                          color = parsedColor;
-                          console.log("DEBUG: Parsed shadow color:", color);
-                        } else {
-                          console.warn("DEBUG: Failed to parse shadow color:", colorPart.trim());
-                        }
-                      }
-                      const shadowEffect = {
-                        type: isInset ? "INNER_SHADOW" : "DROP_SHADOW",
-                        color,
-                        offset: { x, y },
-                        radius: Math.max(0, blur),
-                        // Ensure non-negative radius
-                        visible: true,
-                        blendMode: "NORMAL"
-                      };
-                      console.log("DEBUG: Created shadow effect:", shadowEffect);
-                      return shadowEffect;
-                    }
-                    console.warn("DEBUG: Shadow regex did not match:", firstShadow);
-                    return null;
-                  } catch (error) {
-                    console.warn("Failed to parse box shadow:", boxShadow, error);
-                    return null;
-                  }
-                }, detectVariableType = function(tokenName, tokenValue, tokenType) {
-                  if (tokenType === "COLOR" || tokenType === "RGBA_COLOR") {
-                    const color = parseColor(tokenValue);
-                    return {
-                      figmaType: "COLOR",
-                      parsedValue: color,
-                      isBindable: true
-                    };
-                  }
-                  if (tokenType === "NUMBER") {
-                    const numValue = parseFloat(tokenValue);
-                    return {
-                      figmaType: "FLOAT",
-                      parsedValue: isNaN(numValue) ? 0 : roundNumber(numValue),
-                      isBindable: true
-                    };
-                  }
-                  const name = tokenName.toLowerCase();
-                  const value = tokenValue.toString().toLowerCase().trim();
-                  if (name.includes("color") || name.includes("bg") || name.includes("background") || name.includes("border-color") || name.includes("text-color") || value.startsWith("#") || value.startsWith("rgb") || value.startsWith("hsl")) {
-                    const color = parseColor(tokenValue);
-                    if (color) {
-                      return {
-                        figmaType: "COLOR",
-                        parsedValue: color,
-                        isBindable: true
-                      };
-                    }
-                  }
-                  if (name.includes("font-family") || name.includes("fontfamily")) {
-                    return {
-                      figmaType: "STRING",
-                      parsedValue: tokenValue.replace(/['"]/g, ""),
-                      // Remove quotes
-                      isBindable: true
-                    };
-                  }
-                  if (name.includes("font-weight") || name.includes("fontweight")) {
-                    let numValue;
-                    const weightStr = value.toLowerCase();
-                    switch (weightStr) {
-                      case "thin":
-                        numValue = 100;
-                        break;
-                      case "extra-light":
-                      case "ultralight":
-                        numValue = 200;
-                        break;
-                      case "light":
-                        numValue = 300;
-                        break;
-                      case "normal":
-                      case "regular":
-                        numValue = 400;
-                        break;
-                      case "medium":
-                        numValue = 500;
-                        break;
-                      case "semi-bold":
-                      case "demibold":
-                        numValue = 600;
-                        break;
-                      case "bold":
-                        numValue = 700;
-                        break;
-                      case "extra-bold":
-                      case "ultrabold":
-                        numValue = 800;
-                        break;
-                      case "black":
-                      case "heavy":
-                        numValue = 900;
-                        break;
-                      default:
-                        numValue = parseInt(value) || 400;
-                    }
-                    return {
-                      figmaType: "FLOAT",
-                      parsedValue: numValue,
-                      isBindable: true
-                    };
-                  }
-                  if (name.includes("line-height") || name.includes("lineheight")) {
-                    let numValue = parseFloat(value);
-                    if (!value.includes("px") && !value.includes("rem") && !value.includes("em") && !value.includes("%")) {
-                      numValue = numValue * 16;
-                    } else if (value.includes("rem")) {
-                      numValue *= 16;
-                    } else if (value.includes("em")) {
-                      numValue *= 16;
-                    } else if (value.includes("%")) {
-                      numValue = numValue / 100 * 16;
-                    }
-                    return {
-                      figmaType: "FLOAT",
-                      parsedValue: isNaN(numValue) ? 24 : roundNumber(numValue),
-                      isBindable: true
-                    };
-                  }
-                  if (name.includes("letter-spacing") || name.includes("letterspacing")) {
-                    let numValue = parseFloat(value);
-                    if (value.includes("rem")) {
-                      numValue *= 16;
-                    } else if (value.includes("em")) {
-                      numValue *= 16;
-                    }
-                    return {
-                      figmaType: "FLOAT",
-                      parsedValue: isNaN(numValue) ? 0 : roundNumber(numValue),
-                      isBindable: true
-                    };
-                  }
-                  if (name.includes("spacing") || name.includes("margin") || name.includes("padding") || name.includes("width") || name.includes("height") || name.includes("size") || name.includes("radius") || name.includes("border-width") || value.match(/^\d+(\.\d+)?(px|rem|em|%)$/)) {
-                    let numValue = parseFloat(value);
-                    if (value.includes("rem")) {
-                      numValue *= 16;
-                    } else if (value.includes("em")) {
-                      numValue *= 16;
-                    }
-                    return {
-                      figmaType: "FLOAT",
-                      parsedValue: isNaN(numValue) ? 0 : roundNumber(numValue),
-                      isBindable: true
-                    };
-                  }
-                  if (name.includes("font-size") || name.includes("fontsize")) {
-                    let numValue = parseFloat(value);
-                    if (value.includes("rem")) {
-                      numValue *= 16;
-                    } else if (value.includes("em")) {
-                      numValue *= 16;
-                    }
-                    return {
-                      figmaType: "FLOAT",
-                      parsedValue: isNaN(numValue) ? 16 : roundNumber(numValue),
-                      isBindable: true
-                    };
-                  }
-                  if (name.includes("gradient") || value.includes("linear-gradient") || value.includes("radial-gradient") || value.includes("conic-gradient")) {
-                    return {
-                      figmaType: "STRING",
-                      parsedValue: tokenValue,
-                      isBindable: false
-                      // Gradients become paint styles with bound variables
-                    };
-                  }
-                  if (name.includes("shadow") || value.includes("drop-shadow") || value.match(/\d+px\s+\d+px\s+\d+px/)) {
-                    return {
-                      figmaType: "STRING",
-                      parsedValue: tokenValue,
-                      isBindable: false
-                      // Shadows become effect styles
-                    };
-                  }
-                  if (name.includes("typography") || name.includes("text-style") || value.includes("px") && (value.includes("bold") || value.includes("normal") || value.includes("italic"))) {
-                    return {
-                      figmaType: "STRING",
-                      parsedValue: tokenValue,
-                      isBindable: false
-                      // Typography composites should become text styles
-                    };
-                  }
-                  if (value.includes("blur") || value.includes("transition") || value.includes("transform")) {
-                    return {
-                      figmaType: "STRING",
-                      // Fallback, but mark as non-bindable
-                      parsedValue: tokenValue,
-                      isBindable: false
-                    };
-                  }
-                  return {
-                    figmaType: "STRING",
-                    parsedValue: tokenValue.toString(),
-                    isBindable: true
-                  };
-                }, createVariableAlias = function(referencedVariableName, existingVariables2) {
-                  const referencedVar = existingVariables2.find((v) => v && v.name === referencedVariableName);
-                  if (referencedVar) {
-                    return figma.variables.createVariableAlias(referencedVar);
-                  }
-                  return null;
-                }, createOrFindColorVariable = function(colorStr, variableName, collection2, modeId2, existingVariables2) {
-                  return __awaiter(this, void 0, void 0, function* () {
-                    try {
-                      const existingVar = existingVariables2.find((v) => v && v.name === variableName);
-                      if (existingVar && existingVar.resolvedType === "COLOR") {
-                        return existingVar;
-                      }
-                      const color = parseColor(colorStr);
-                      if (!color) {
-                        return null;
-                      }
-                      const colorVar = figma.variables.createVariable(variableName, collection2, "COLOR");
-                      colorVar.setValueForMode(modeId2, { r: color.r, g: color.g, b: color.b });
-                      console.log("DEBUG: Created color variable for gradient stop:", variableName, color);
-                      return colorVar;
-                    } catch (error) {
-                      console.warn("DEBUG: Failed to create color variable:", variableName, error);
-                      return null;
-                    }
-                  });
-                }, parseTypographyValue = function(typographyStr) {
-                  const typography = {};
-                  try {
-                    const parts = typographyStr.trim().split(/\s+/);
-                    for (let i = 0; i < parts.length; i++) {
-                      const part = parts[i].toLowerCase();
-                      if (["normal", "bold", "bolder", "lighter", "thin", "extra-light", "light", "medium", "semi-bold", "extra-bold", "black"].indexOf(part) !== -1 || /^[1-9]00$/.test(part)) {
-                        if (part === "normal")
-                          typography.fontWeight = 400;
-                        else if (part === "bold")
-                          typography.fontWeight = 700;
-                        else if (part === "bolder")
-                          typography.fontWeight = 700;
-                        else if (part === "lighter")
-                          typography.fontWeight = 300;
-                        else if (/^[1-9]00$/.test(part))
-                          typography.fontWeight = parseInt(part);
-                      }
-                      if (["normal", "italic", "oblique"].indexOf(part) !== -1) {
-                        typography.fontStyle = part;
-                      }
-                      if (part.includes("/")) {
-                        const [fontSize, lineHeight] = part.split("/");
-                        if (fontSize.includes("px")) {
-                          typography.fontSize = parseFloat(fontSize);
-                        }
-                        if (lineHeight) {
-                          if (lineHeight.includes("px")) {
-                            typography.lineHeight = parseFloat(lineHeight);
-                          } else {
-                            typography.lineHeight = parseFloat(lineHeight) * (typography.fontSize || 16);
-                          }
-                        }
-                      } else if (part.includes("px") && !typography.fontSize) {
-                        typography.fontSize = parseFloat(part);
-                      }
-                      if (part.includes("'") || part.includes('"')) {
-                        const familyPart = parts.slice(i).join(" ");
-                        const familyMatch = familyPart.match(/['"]([^'"]+)['"]/);
-                        if (familyMatch) {
-                          typography.fontFamily = familyMatch[1];
-                          break;
-                        }
-                      }
-                    }
-                    console.log("DEBUG: Parsed typography:", typographyStr, "->", typography);
-                    return typography;
-                  } catch (error) {
-                    console.warn("Failed to parse typography value:", typographyStr, error);
-                    return {};
-                  }
-                }, createTextStyleWithBoundVariables = function(styleName, typographyData, collection2, modeId2, existingVariables2) {
-                  return __awaiter(this, void 0, void 0, function* () {
-                    try {
-                      const createdVars = [];
-                      const createTypographyVariable = (varName, varType, value) => __awaiter(this, void 0, void 0, function* () {
-                        const existing = existingVariables2.find((v) => v && v.name === varName);
-                        if (existing && existing.resolvedType === varType) {
-                          return existing;
-                        }
-                        const variable = figma.variables.createVariable(varName, collection2, varType);
-                        variable.setValueForMode(modeId2, value);
-                        createdVars.push(variable);
-                        console.log("DEBUG: Created typography variable:", varName, varType, value);
-                        return variable;
-                      });
-                      const textStyle = figma.createTextStyle();
-                      textStyle.name = styleName;
-                      textStyle.description = `Typography style with bound variables`;
-                      if (typographyData.fontFamily) {
-                        const fontFamilyVar = yield createTypographyVariable(`${styleName}-font-family`, "STRING", typographyData.fontFamily);
-                        if (fontFamilyVar) {
-                          console.log("DEBUG: Created font-family variable (not bindable yet):", fontFamilyVar.name);
-                        }
-                      }
-                      if (typographyData.fontSize) {
-                        const fontSizeVar = yield createTypographyVariable(`${styleName}-font-size`, "FLOAT", typographyData.fontSize);
-                        if (fontSizeVar) {
-                          const fontSizeAlias = figma.variables.createVariableAlias(fontSizeVar);
-                          textStyle.setBoundVariable("fontSize", fontSizeAlias);
-                        }
-                      }
-                      if (typographyData.fontWeight) {
-                        yield createTypographyVariable(`${styleName}-font-weight`, "FLOAT", typographyData.fontWeight);
-                      }
-                      if (typographyData.lineHeight) {
-                        const lineHeightVar = yield createTypographyVariable(`${styleName}-line-height`, "FLOAT", typographyData.lineHeight);
-                        if (lineHeightVar) {
-                          const lineHeightAlias = figma.variables.createVariableAlias(lineHeightVar);
-                          textStyle.setBoundVariable("lineHeight", lineHeightAlias);
-                        }
-                      }
-                      if (typographyData.letterSpacing !== void 0) {
-                        const letterSpacingVar = yield createTypographyVariable(`${styleName}-letter-spacing`, "FLOAT", typographyData.letterSpacing);
-                        if (letterSpacingVar) {
-                          const letterSpacingAlias = figma.variables.createVariableAlias(letterSpacingVar);
-                          textStyle.setBoundVariable("letterSpacing", letterSpacingAlias);
-                        }
-                      }
-                      if (typographyData.fontSize) {
-                        textStyle.fontSize = typographyData.fontSize;
-                      }
-                      if (typographyData.lineHeight) {
-                        textStyle.lineHeight = { value: typographyData.lineHeight, unit: "PIXELS" };
-                      }
-                      if (typographyData.letterSpacing !== void 0) {
-                        textStyle.letterSpacing = { value: typographyData.letterSpacing, unit: "PIXELS" };
-                      }
-                      return { textStyle, createdVars };
-                    } catch (error) {
-                      console.warn("Failed to create text style with bound variables:", styleName, error);
-                      return { textStyle: null, createdVars: [] };
-                    }
-                  });
-                }, createGradientWithBoundColors = function(cssGradient, gradientName, collection2, modeId2, existingVariables2) {
-                  return __awaiter(this, void 0, void 0, function* () {
-                    try {
-                      const createdVars = [];
-                      const gradientRegex = /(linear-gradient|radial-gradient|conic-gradient)\(([^)]+)\)/g;
-                      let match;
-                      const matches = [];
-                      while ((match = gradientRegex.exec(cssGradient)) !== null) {
-                        matches.push(match);
-                      }
-                      if (matches.length === 0) {
-                        return { paint: null, createdVars };
-                      }
-                      const [, gradientType, gradientContent] = matches[0];
-                      console.log(`DEBUG: Processing ${gradientType} with content:`, gradientContent);
-                      if (gradientType === "linear-gradient") {
-                        let angle = 180;
-                        let colorStops = [];
-                        const parts = gradientContent.split(",").map((s) => s.trim());
-                        if (parts[0].includes("deg") || parts[0].includes("to ")) {
-                          const directionPart = parts[0];
-                          if (directionPart.includes("deg")) {
-                            angle = parseFloat(directionPart);
-                          } else if (directionPart === "to top") {
-                            angle = 0;
-                          } else if (directionPart === "to right") {
-                            angle = 90;
-                          } else if (directionPart === "to bottom") {
-                            angle = 180;
-                          } else if (directionPart === "to left") {
-                            angle = 270;
-                          }
-                          colorStops = parts.slice(1);
-                        } else {
-                          colorStops = parts;
-                        }
-                        const gradientStops = [];
-                        for (let i = 0; i < colorStops.length; i++) {
-                          const stop = colorStops[i].trim();
-                          const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
-                          if (colorMatch) {
-                            const colorStr = colorMatch[1];
-                            const position = colorMatch[3] ? parseFloat(colorMatch[3]) / 100 : i / (colorStops.length - 1);
-                            const colorVarName = `${gradientName}-stop-${i + 1}`;
-                            const colorVar = yield createOrFindColorVariable(colorStr, colorVarName, collection2, modeId2, existingVariables2);
-                            if (colorVar) {
-                              createdVars.push(colorVar);
-                              const fallbackColor = parseColor(colorStr);
-                              gradientStops.push({
-                                color: fallbackColor || { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-                                position: Math.max(0, Math.min(1, roundNumber(position))),
-                                boundVariables: {
-                                  color: {
-                                    type: "VARIABLE_ALIAS",
-                                    id: colorVar.id
-                                  }
-                                }
-                              });
-                            }
-                          }
-                        }
-                        if (gradientStops.length < 2) {
-                          console.warn("DEBUG: Not enough gradient stops found, expected at least 2, got:", gradientStops.length);
-                          return { paint: null, createdVars };
-                        }
-                        const radians = angle * Math.PI / 180;
-                        const gradientPaint = {
-                          type: "GRADIENT_LINEAR",
-                          gradientTransform: [
-                            [Math.cos(radians), Math.sin(radians), 0],
-                            [-Math.sin(radians), Math.cos(radians), 0]
-                          ],
-                          gradientStops
-                        };
-                        console.log("DEBUG: Successfully created linear gradient with", gradientStops.length, "stops");
-                        return { paint: gradientPaint, createdVars };
-                      } else if (gradientType === "radial-gradient") {
-                        const parts = gradientContent.split(",").map((s) => s.trim());
-                        const gradientStops = [];
-                        let colorIndex = 0;
-                        for (let i = 0; i < parts.length; i++) {
-                          const stop = parts[i].trim();
-                          if (stop.includes("circle") || stop.includes("ellipse") || stop.includes("at ") || stop.includes("closest-side") || stop.includes("farthest-corner")) {
-                            continue;
-                          }
-                          const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-zA-Z]+)(\s+(\d+)%)?/);
-                          if (colorMatch) {
-                            const colorStr = colorMatch[1];
-                            const position = colorMatch[3] ? parseFloat(colorMatch[3]) / 100 : colorIndex / Math.max(1, parts.length - 1);
-                            const colorVarName = `${gradientName}-radial-stop-${colorIndex + 1}`;
-                            const colorVar = yield createOrFindColorVariable(colorStr, colorVarName, collection2, modeId2, existingVariables2);
-                            if (colorVar) {
-                              createdVars.push(colorVar);
-                              const fallbackColor = parseColor(colorStr);
-                              gradientStops.push({
-                                color: fallbackColor || { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-                                position: Math.max(0, Math.min(1, roundNumber(position))),
-                                boundVariables: {
-                                  color: {
-                                    type: "VARIABLE_ALIAS",
-                                    id: colorVar.id
-                                  }
-                                }
-                              });
-                              colorIndex++;
-                            }
-                          }
-                        }
-                        if (gradientStops.length >= 2) {
-                          const gradientPaint = {
-                            type: "GRADIENT_RADIAL",
-                            gradientTransform: [[1, 0, 0], [0, 1, 0]],
-                            gradientStops
-                          };
-                          console.log("DEBUG: Successfully created radial gradient with", gradientStops.length, "stops");
-                          return { paint: gradientPaint, createdVars };
-                        }
-                      } else if (gradientType === "conic-gradient") {
-                        const parts = gradientContent.split(",").map((s) => s.trim());
-                        const gradientStops = [];
-                        let colorIndex = 0;
-                        for (let i = 0; i < parts.length; i++) {
-                          const stop = parts[i].trim();
-                          if (stop.includes("from ") || stop.includes("at ")) {
-                            continue;
-                          }
-                          const colorMatch = stop.match(/^(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-zA-Z]+)(\s+(\d+)(deg|%))?/);
-                          if (colorMatch) {
-                            const colorStr = colorMatch[1];
-                            const position = colorMatch[3] && colorMatch[4] === "%" ? parseFloat(colorMatch[3]) / 100 : colorIndex / Math.max(1, parts.length - 1);
-                            const colorVarName = `${gradientName}-conic-stop-${colorIndex + 1}`;
-                            const colorVar = yield createOrFindColorVariable(colorStr, colorVarName, collection2, modeId2, existingVariables2);
-                            if (colorVar) {
-                              createdVars.push(colorVar);
-                              const fallbackColor = parseColor(colorStr);
-                              gradientStops.push({
-                                color: fallbackColor || { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-                                position: Math.max(0, Math.min(1, roundNumber(position))),
-                                boundVariables: {
-                                  color: {
-                                    type: "VARIABLE_ALIAS",
-                                    id: colorVar.id
-                                  }
-                                }
-                              });
-                              colorIndex++;
-                            }
-                          }
-                        }
-                        if (gradientStops.length >= 2) {
-                          const gradientPaint = {
-                            type: "GRADIENT_RADIAL",
-                            gradientTransform: [[1, 0, 0], [0, 1, 0]],
-                            gradientStops
-                          };
-                          console.log("DEBUG: Successfully created conic gradient (as radial) with", gradientStops.length, "stops");
-                          return { paint: gradientPaint, createdVars };
-                        }
-                      }
-                      console.warn("DEBUG: No valid gradient found or unsupported gradient type:", gradientType);
-                      return { paint: null, createdVars };
-                    } catch (error) {
-                      console.warn("Failed to create gradient with bound colors:", cssGradient, error);
-                      return { paint: null, createdVars: [] };
-                    }
-                  });
-                }, roundNumber = function(value, decimals = 4) {
-                  if (typeof value !== "number" || isNaN(value))
-                    return 0;
-                  const factor = Math.pow(10, decimals);
-                  const rounded = Math.round(value * factor) / factor;
-                  if (Math.abs(rounded - Math.round(rounded)) < 1e-4) {
-                    return Math.round(rounded);
-                  }
-                  return rounded;
-                }, parseColor = function(colorStr) {
-                  try {
-                    colorStr = colorStr.trim();
-                    if (colorStr.startsWith("#")) {
-                      const hex = colorStr.slice(1);
-                      let r, g, b;
-                      if (hex.length === 3) {
-                        r = parseInt(hex[0] + hex[0], 16) / 255;
-                        g = parseInt(hex[1] + hex[1], 16) / 255;
-                        b = parseInt(hex[2] + hex[2], 16) / 255;
-                      } else if (hex.length === 6) {
-                        r = parseInt(hex.slice(0, 2), 16) / 255;
-                        g = parseInt(hex.slice(2, 4), 16) / 255;
-                        b = parseInt(hex.slice(4, 6), 16) / 255;
-                      } else {
-                        return null;
-                      }
-                      return { r, g, b, a: 1 };
-                    }
-                    const rgbMatch = colorStr.match(/rgba?\(([^)]+)\)/);
-                    if (rgbMatch) {
-                      const content = rgbMatch[1].trim();
-                      let values;
-                      let alpha = 1;
-                      if (content.includes("/")) {
-                        const [rgbPart, alphaPart] = content.split("/").map((p) => p.trim());
-                        values = rgbPart.split(/\s+/).map((v) => v.trim());
-                        alpha = parseFloat(alphaPart);
-                      } else {
-                        values = content.split(",").map((v) => v.trim());
-                        alpha = values[3] ? parseFloat(values[3]) : 1;
-                      }
-                      const r = parseInt(values[0]) / 255;
-                      const g = parseInt(values[1]) / 255;
-                      const b = parseInt(values[2]) / 255;
-                      const a = roundNumber(alpha);
-                      return { r: roundNumber(r), g: roundNumber(g), b: roundNumber(b), a };
-                    }
-                    const namedColors = {
-                      "red": { r: 1, g: 0, b: 0, a: 1 },
-                      "green": { r: 0, g: 1, b: 0, a: 1 },
-                      "blue": { r: 0, g: 0, b: 1, a: 1 },
-                      "white": { r: 1, g: 1, b: 1, a: 1 },
-                      "black": { r: 0, g: 0, b: 0, a: 1 },
-                      "transparent": { r: 0, g: 0, b: 0, a: 0 }
-                    };
-                    return namedColors[colorStr.toLowerCase()] || null;
-                  } catch (error) {
-                    console.warn("Failed to parse color:", colorStr, error);
-                    return null;
-                  }
-                };
-                if (!msg.tokens || !Array.isArray(msg.tokens)) {
-                  console.error("DEBUG: Invalid tokens data", msg.tokens);
-                  throw new Error("Invalid tokens data");
-                }
-                const tokens = msg.tokens;
-                const options = msg.options || {};
-                let collection;
-                if (options.createNew || !options.existingCollectionId) {
-                  collection = figma.variables.createVariableCollection(options.collectionName || "Imported Tokens");
-                } else {
-                  const existingCollections = yield figma.variables.getLocalVariableCollectionsAsync();
-                  collection = existingCollections.find((c) => c.id === options.existingCollectionId);
-                  if (!collection) {
-                    throw new Error("Selected collection not found");
-                  }
-                }
-                let lightModeId = collection.modes[0].modeId;
-                let darkModeId = null;
-                let themeModes = /* @__PURE__ */ new Map();
-                const parseThemeInfo = (tokens2) => {
-                  const themeSelectors2 = /* @__PURE__ */ new Set();
-                  let lightVariants = 0;
-                  let darkVariants = 0;
-                  const hasTraditionalThemes2 = tokens2.some((token) => {
-                    const name = token.name.toLowerCase();
-                    const isThemeVariant = (name.endsWith("-light") || name.endsWith("-dark") || name.endsWith(".light") || name.endsWith(".dark") || name.endsWith("_light") || name.endsWith("_dark") || name.includes("-light-") || name.includes("-dark-") || name.includes("_light_") || name.includes("_dark_")) && !name.match(/-\d+$/);
-                    if (isThemeVariant) {
-                      if (name.includes("light"))
-                        lightVariants++;
-                      if (name.includes("dark"))
-                        darkVariants++;
-                    }
-                    return isThemeVariant;
-                  });
-                  const actuallyHasThemes = hasTraditionalThemes2 && (lightVariants > 0 && darkVariants > 0);
-                  tokens2.forEach((token) => {
-                    if (token.selector && token.selector !== ":root") {
-                      themeSelectors2.add(token.selector);
-                    }
-                  });
-                  return { themeSelectors: themeSelectors2, hasTraditionalThemes: actuallyHasThemes };
-                };
-                const { themeSelectors, hasTraditionalThemes } = parseThemeInfo(tokens);
-                if (themeSelectors.size > 0) {
-                  if (collection.modes[0].name === "Mode 1") {
-                    collection.renameMode(lightModeId, "Default");
-                  }
-                  for (const selector of themeSelectors) {
-                    const themeName = extractThemeNameFromSelector(selector);
-                    if (themeName) {
-                      const existingMode = collection.modes.find((mode) => mode.name.toLowerCase() === themeName.toLowerCase());
-                      if (existingMode) {
-                        themeModes.set(selector, existingMode.modeId);
-                      } else {
-                        const newModeId = collection.addMode(themeName);
-                        themeModes.set(selector, newModeId);
-                        console.log("DEBUG: Created mode for selector:", selector, "->", themeName);
-                      }
-                    }
-                  }
-                }
-                if (hasTraditionalThemes && themeSelectors.size === 0) {
-                  if (collection.modes[0].name === "Mode 1") {
-                    collection.renameMode(lightModeId, "Light");
-                  }
-                  const darkMode = collection.modes.find((mode) => mode.name.toLowerCase().includes("dark"));
-                  if (darkMode) {
-                    darkModeId = darkMode.modeId;
-                  } else {
-                    darkModeId = collection.addMode("Dark");
-                    console.log("DEBUG: Created dark mode for theme variants");
-                  }
-                }
-                const modeId = lightModeId;
-                let importedCount = 0;
-                let importedStyleCount = 0;
-                const createdGroups = /* @__PURE__ */ new Set();
-                const createdStyles = {
-                  paint: 0,
-                  effect: 0,
-                  text: 0
-                };
-                const allTokensWithTypes = tokens.map((token) => Object.assign(Object.assign({}, token), { detection: detectVariableType(token.name, token.value, token.type) }));
-                const variableTokens = allTokensWithTypes.filter((token) => token.detection.isBindable);
-                const styleTokens = allTokensWithTypes.filter((token) => !token.detection.isBindable);
-                console.log("DEBUG: Starting import with enhanced token detection:", {
-                  total: tokens.length,
-                  variables: variableTokens.length,
-                  styles: styleTokens.length,
-                  breakdown: {
-                    color: variableTokens.filter((t) => t.detection.figmaType === "COLOR").length,
-                    number: variableTokens.filter((t) => t.detection.figmaType === "FLOAT").length,
-                    string: variableTokens.filter((t) => t.detection.figmaType === "STRING").length
-                  }
+                const content = msg.content;
+                if (!content)
+                  throw new Error("No content provided");
+                const tokens = variableImportService_1.VariableImportService.parseCSS(content);
+                const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+                const variableIds = collections.reduce((acc, c) => acc.concat(c.variableIds), []);
+                const allVariables = yield Promise.all(variableIds.map((id) => figma.variables.getVariableByIdAsync(id)));
+                const validVariables = allVariables.filter((v) => v !== null);
+                const diff = variableImportService_1.VariableImportService.compareTokens(tokens, validVariables);
+                figma.ui.postMessage({
+                  type: "import-preview-ready",
+                  diff,
+                  totalFound: tokens.length
                 });
-                const existingVariables = yield Promise.all(collection.variableIds.map((id) => figma.variables.getVariableByIdAsync(id)));
-                const validExistingVariables = existingVariables.filter((v) => v !== null);
-                const themeGroups = groupThemeTokens(variableTokens);
-                for (const [baseName, variants] of themeGroups.entries()) {
-                  console.log("DEBUG: Processing theme group:", baseName, "variants:", Object.keys(variants));
-                  try {
-                    const primaryToken = variants[":root"] || variants["neutral"] || (0, es2015_helpers_1.objectValues)(variants)[0];
-                    if (!primaryToken)
-                      continue;
-                    const variableName = toTailwindFormat(baseName);
-                    const existingVariable = validExistingVariables.find((v) => v.name === variableName);
-                    if (existingVariable && !options.overwriteExisting) {
-                      console.log("DEBUG: Skipping existing variable:", variableName);
-                      continue;
-                    }
-                    let variable;
-                    if (existingVariable && options.overwriteExisting) {
-                      console.log("DEBUG: Overwriting existing variable:", variableName);
-                      variable = existingVariable;
-                    } else {
-                      console.log("DEBUG: Creating new variable:", variableName, "type:", primaryToken.detection.figmaType);
-                      variable = figma.variables.createVariable(variableName, collection, primaryToken.detection.figmaType);
-                    }
-                    const processVariant = (variant, targetModeId) => __awaiter(void 0, void 0, void 0, function* () {
-                      let value = variant.detection.parsedValue;
-                      if (variant.isAlias && variant.references && variant.references.length > 0) {
-                        const referencedVarName = variant.references[0];
-                        console.log("DEBUG: Looking for referenced variable:", referencedVarName);
-                        const aliasValue = createVariableAlias(referencedVarName, validExistingVariables);
-                        if (aliasValue) {
-                          console.log("DEBUG: Created variable alias for:", referencedVarName);
-                          value = aliasValue;
-                        } else {
-                          console.warn("DEBUG: Referenced variable not found:", referencedVarName, "using parsed value");
-                          value = variant.detection.parsedValue;
-                        }
-                      } else {
-                        value = variant.detection.parsedValue;
-                      }
-                      if (typeof value === "number") {
-                        value = roundNumber(value);
-                      }
-                      console.log("DEBUG: Setting value for mode:", targetModeId, "value:", value);
-                      variable.setValueForMode(targetModeId, value);
-                    });
-                    for (const [variantKey, variant] of (0, es2015_helpers_1.objectEntries)(variants)) {
-                      if (variant && variant.targetModeId) {
-                        yield processVariant(variant, variant.targetModeId);
-                        console.log("DEBUG: Set value for variant:", variantKey, "mode:", variant.targetModeId);
-                      }
-                    }
-                    if (!(0, es2015_helpers_1.objectValues)(variants).some((v) => v === null || v === void 0 ? void 0 : v.isSelector)) {
-                      const hasLightVariant = variants.light !== void 0;
-                      const hasDarkVariant = variants.dark !== void 0;
-                      const hasNeutralOnly = variants.neutral !== void 0 && !hasLightVariant && !hasDarkVariant;
-                      if (hasNeutralOnly) {
-                        yield processVariant(variants.neutral, lightModeId);
-                        console.log("DEBUG: Created single-mode variable for neutral variant:", baseName);
-                      } else {
-                        if (variants.light) {
-                          yield processVariant(variants.light, lightModeId);
-                        } else if (variants.neutral) {
-                          yield processVariant(variants.neutral, lightModeId);
-                        }
-                        if (darkModeId && hasDarkVariant) {
-                          yield processVariant(variants.dark, darkModeId);
-                        }
-                      }
-                    }
-                    const groupName = extractGroupFromTokenName(baseName);
-                    if (!createdGroups.has(groupName)) {
-                      variable.name = `${groupName}/${baseName}`;
-                      createdGroups.add(groupName);
-                      console.log("DEBUG: Created group:", groupName, "for variable:", variable.name);
-                    } else {
-                      variable.name = `${groupName}/${baseName}`;
-                      console.log("DEBUG: Added to existing group:", groupName, "variable:", variable.name);
-                    }
-                    importedCount++;
-                    console.log("DEBUG: Successfully created multi-mode variable:", baseName, "importedCount:", importedCount);
-                  } catch (tokenError) {
-                    console.error(`DEBUG: Failed to import token group ${baseName}:`, tokenError);
-                  }
+              } catch (error) {
+                figma.ui.postMessage({
+                  type: "import-error",
+                  message: error.message
+                });
+              }
+              break;
+            case "import-tokens":
+              console.log("DEBUG: Received import-tokens message");
+              console.log("DEBUG: Message content:", JSON.stringify(msg, null, 2));
+              try {
+                const importOptions = msg.options || {};
+                const tokens = msg.tokens || [];
+                console.log(`DEBUG: Received ${tokens.length} tokens to import`);
+                console.log("DEBUG: Import options:", JSON.stringify(importOptions, null, 2));
+                if (tokens.length > 0) {
+                  console.log("DEBUG: Sample token:", JSON.stringify(tokens[0], null, 2));
                 }
-                for (const token of styleTokens) {
-                  console.log("DEBUG: Processing style token:", token);
-                  try {
-                    const styleName = token.name;
-                    const tokenValue = token.value || token.detection.parsedValue;
-                    const tokenName = token.name.toLowerCase();
-                    if (tokenName.includes("gradient") || tokenValue.includes("linear-gradient") || tokenValue.includes("radial-gradient") || tokenValue.includes("conic-gradient")) {
-                      const gradientResult = yield createGradientWithBoundColors(tokenValue, styleName, collection, modeId, validExistingVariables);
-                      if (gradientResult.paint) {
-                        const paintStyle = figma.createPaintStyle();
-                        paintStyle.name = styleName;
-                        paintStyle.description = `Imported gradient with ${gradientResult.createdVars.length} bound color variables: ${tokenValue}`;
-                        paintStyle.paints = [gradientResult.paint];
-                        validExistingVariables.push(...gradientResult.createdVars);
-                        createdStyles.paint++;
-                        console.log("DEBUG: Created gradient with bound colors:", styleName, "color vars:", gradientResult.createdVars.length);
-                      } else {
-                        const paintStyle = figma.createPaintStyle();
-                        paintStyle.name = styleName;
-                        paintStyle.description = `Imported gradient (fallback): ${tokenValue}`;
-                        const gradientPaint = parseCSSGradient(tokenValue);
-                        if (gradientPaint) {
-                          paintStyle.paints = [gradientPaint];
-                        } else {
-                          paintStyle.paints = [{ type: "SOLID", color: { r: 0.5, g: 0.5, b: 0.9 } }];
-                        }
-                        createdStyles.paint++;
-                        console.log("DEBUG: Created basic gradient style (fallback):", styleName);
-                      }
-                    } else if (tokenName.includes("shadow") || tokenValue.includes("drop-shadow") || tokenValue.match(/\d+px\s+\d+px\s+\d+px/) || tokenValue.includes("box-shadow")) {
-                      console.log("DEBUG: Attempting to parse shadow:", tokenValue);
-                      const shadowEffect = parseCSSBoxShadow(tokenValue);
-                      console.log("DEBUG: Parsed shadow effect:", shadowEffect);
-                      if (shadowEffect) {
-                        const effectStyle = figma.createEffectStyle();
-                        effectStyle.name = styleName;
-                        effectStyle.description = `Imported shadow: ${tokenValue}`;
-                        effectStyle.effects = [shadowEffect];
-                        createdStyles.effect++;
-                        console.log("DEBUG: Successfully created effect style for shadow:", styleName, "with effect type:", shadowEffect.type);
-                      } else {
-                        console.warn("DEBUG: Failed to parse shadow effect, skipping style creation for:", styleName, "value:", tokenValue);
-                      }
-                    } else if (tokenName.includes("blur") || tokenValue.includes("blur(")) {
-                      const effectStyle = figma.createEffectStyle();
-                      effectStyle.name = styleName;
-                      effectStyle.description = `Imported blur: ${tokenValue}`;
-                      const blurMatch = tokenValue.match(/blur\((\d+)px\)/);
-                      if (blurMatch) {
-                        const radius = parseInt(blurMatch[1]);
-                        effectStyle.effects = [{
-                          type: "LAYER_BLUR",
-                          radius,
-                          visible: true
-                        }];
-                      }
-                      createdStyles.effect++;
-                      console.log("DEBUG: Created effect style for blur:", styleName);
-                    } else {
-                      console.log("DEBUG: Skipping unrecognized style token:", styleName, "value:", tokenValue);
-                    }
-                    importedStyleCount++;
-                  } catch (styleError) {
-                    console.error(`DEBUG: Failed to import style ${token.name}:`, styleError);
-                  }
-                }
-                const totalStylesCreated = createdStyles.paint + createdStyles.effect + createdStyles.text;
-                console.log("DEBUG: Import completed successfully", {
-                  importedCount,
-                  importedStyleCount,
-                  totalTokens: tokens.length,
-                  groupsCreated: createdGroups.size,
-                  stylesCreated: totalStylesCreated
+                const validTokens = tokens.map((t) => Object.assign(Object.assign({}, t), { originalLine: t.originalLine || "", lineNumber: t.lineNumber || 0 }));
+                console.log("DEBUG: Calling VariableImportService.importVariables now...");
+                const result = yield variableImportService_1.VariableImportService.importVariables(validTokens, {
+                  collectionId: importOptions.collectionId,
+                  collectionName: importOptions.collectionName,
+                  strategy: importOptions.strategy || "merge"
                 });
                 figma.ui.postMessage({
                   type: "import-complete",
                   result: {
-                    success: true,
-                    importedCount,
-                    importedStyleCount: totalStylesCreated,
-                    totalTokens: tokens.length,
-                    collectionName: collection.name,
-                    collectionId: collection.id,
-                    groupsCreated: createdGroups.size,
-                    groups: Array.from(createdGroups),
-                    stylesCreated: createdStyles
+                    importedCount: result.success,
+                    errors: result.errors,
+                    collectionName: importOptions.collectionName,
+                    groupsCreated: result.groupsCreated
                   }
                 });
-              } catch (importError) {
-                console.error("DEBUG: Import failed", importError);
+              } catch (error) {
+                console.error("Import failed:", error);
                 figma.ui.postMessage({
                   type: "import-error",
-                  error: importError.message || "Failed to import tokens"
+                  error: error.message
                 });
               }
               break;
+            // Old inline logic removed in favor of VariableImportService
             case "refresh-data":
               try {
                 console.log("Refreshing document data...");
