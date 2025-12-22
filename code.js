@@ -272,7 +272,8 @@
         REQUEST_TIMEOUT: 3e4,
         DEFAULT_HEADERS: {
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          "Accept": "application/json",
+          "User-Agent": "Bridgy-Plugin"
         }
       };
       var buildGitLabApiUrl = (gitlabUrl) => __awaiter(void 0, void 0, void 0, function* () {
@@ -996,7 +997,7 @@
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.SecurityUtils = void 0;
-      var SecurityUtils = class {
+      var SecurityUtils = class _SecurityUtils {
         /**
          * Sanitize HTML content to prevent XSS attacks
          * @param htmlString Raw HTML string
@@ -1180,9 +1181,40 @@
           const timestamp = Math.floor(Date.now() / (1e3 * 60 * 60 * 24));
           return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
         }
+        static btoaPolyfill(input) {
+          let str = input;
+          let output = "";
+          for (let block = 0, charCode, i = 0, map = _SecurityUtils.b64chars; str.charAt(i | 0) || (map = "=", i % 1); output += map.charAt(63 & block >> 8 - i % 1 * 8)) {
+            charCode = str.charCodeAt(i += 3 / 4);
+            if (charCode > 255) {
+              console.warn("btoaPolyfill: unexpected multibyte character");
+            }
+            block = block << 8 | charCode;
+          }
+          return output;
+        }
+        static toBase64(str) {
+          let binaryString = "";
+          try {
+            binaryString = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(_match, p1) {
+              return String.fromCharCode(parseInt(p1, 16));
+            });
+          } catch (e) {
+            console.error("UTF-8 binary conversion failed:", e);
+            binaryString = str;
+          }
+          try {
+            if (typeof btoa === "function") {
+              return btoa(binaryString);
+            }
+          } catch (ignore) {
+          }
+          return _SecurityUtils.btoaPolyfill(binaryString);
+        }
       };
       exports.SecurityUtils = SecurityUtils;
       SecurityUtils.rateLimitCache = /* @__PURE__ */ new Map();
+      SecurityUtils.b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
     }
   });
 
@@ -3073,24 +3105,39 @@
                 figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.token) {
                   try {
+                    console.log("DEBUG: Starting token encryption");
                     let cryptoAvailable = false;
                     try {
+                      console.log("DEBUG: Checking CryptoService.isAvailable");
+                      console.log("DEBUG: CryptoService object:", cryptoService_1.CryptoService);
                       cryptoAvailable = cryptoService_1.CryptoService.isAvailable();
+                      console.log("DEBUG: CryptoService.isAvailable result:", cryptoAvailable);
                     } catch (cryptoError) {
                       console.warn("CryptoService.isAvailable() failed:", cryptoError);
                       cryptoAvailable = false;
                     }
                     if (cryptoAvailable) {
+                      console.log("DEBUG: Calls CryptoService.encrypt");
                       const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.token);
+                      console.log("DEBUG: CryptoService.encrypt success");
                       yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
                       yield figma.clientStorage.setAsync(`${settingsKey}-crypto`, "v2");
                     } else {
+                      console.log("DEBUG: Using fallback encryption");
+                      console.log("DEBUG: SecurityUtils object:", securityUtils_1.SecurityUtils);
+                      if (typeof securityUtils_1.SecurityUtils.generateEncryptionKey !== "function") {
+                        console.error("CRITICAL: SecurityUtils.generateEncryptionKey is not a function");
+                      }
                       const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
+                      if (typeof securityUtils_1.SecurityUtils.encryptData !== "function") {
+                        console.error("CRITICAL: SecurityUtils.encryptData is not a function");
+                      }
                       const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.token, encryptionKey);
                       yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
                       yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
                     }
                   } catch (error) {
+                    console.error("DEBUG: Caught error in encrypt_token:", error);
                     errorHandler_1.ErrorHandler.handleError(error, {
                       operation: "encrypt_token",
                       component: "GitHubService",
@@ -3369,10 +3416,15 @@
             const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
             const apiBase = _GitHubService.getGitHubApiBase(settings);
             const url = `${apiBase}/repos/${owner}/${repo}/contents/${filePath}`;
-            const existingFile = yield this.getFile(settings, filePath, branch);
+            let existingFile;
+            try {
+              existingFile = yield this.getFile(settings, filePath, branch);
+            } catch (e) {
+            }
+            const encodedContent = securityUtils_1.SecurityUtils.toBase64(content);
             const requestBody = {
               message: commitMessage,
-              content: btoa(unescape(encodeURIComponent(content))),
+              content: encodedContent,
               branch
             };
             if (existingFile) {
@@ -3393,6 +3445,8 @@
                 webUrl: result.commit.html_url
               };
             } catch (error) {
+              console.error("DEBUG: commitFile error catch block:", error);
+              console.log("DEBUG: this.handleGitHubError type:", typeof this.handleGitHubError);
               throw this.handleGitHubError(error, "create commit");
             }
           });
@@ -3475,6 +3529,7 @@
                 const newPR = yield this.createPullRequest(settings, branchName, defaultBranch, commitMessage, "Automatically created pull request for CSS variables update", false);
                 return { pullRequestUrl: newPR.webUrl };
               }
+              console.log("DEBUG: Found existing PR");
               return { pullRequestUrl: existingPR.webUrl };
             }), {
               operation: "commit_to_github",
@@ -3560,10 +3615,10 @@
          * Private helper methods
          */
         getHeaders(token) {
-          return Object.assign({
+          return Object.assign({}, _GitHubService.DEFAULT_HEADERS, {
             "Authorization": `Bearer ${token}`,
             "Accept": _GitHubService.API_VERSION
-          }, _GitHubService.DEFAULT_HEADERS);
+          });
         }
         validateCommitParameters(settings, commitMessage, filePath, cssData) {
           if (!settings.projectId || !settings.projectId.trim()) {
@@ -8290,6 +8345,9 @@ ${Object.keys(cssProperties).map((property) => {
               break;
             case "save-git-settings":
               const gitService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
+              console.log("DEBUG: gitService:", gitService);
+              console.log("DEBUG: gitService.saveSettings type:", typeof (gitService === null || gitService === void 0 ? void 0 : gitService.saveSettings));
+              console.log("DEBUG: msg.provider:", msg.provider);
               const gitSettings = {
                 provider: msg.provider || "gitlab",
                 baseUrl: msg.baseUrl,
@@ -8305,11 +8363,17 @@ ${Object.keys(cssProperties).map((property) => {
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
               };
+              if (typeof gitService.saveSettings !== "function") {
+                console.error("CRITICAL: gitService.saveSettings is not a function!", gitService);
+                throw new Error(`Internal Error: Service for ${msg.provider} is not initialized correctly.`);
+              }
               yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
               figma.ui.postMessage({
                 type: "git-settings-saved",
                 success: true,
-                sharedWithTeam: msg.shareWithTeam
+                sharedWithTeam: msg.shareWithTeam,
+                savedAt: gitSettings.savedAt,
+                savedBy: gitSettings.savedBy
               });
               break;
             case "save-gitlab-settings":
@@ -8330,7 +8394,10 @@ ${Object.keys(cssProperties).map((property) => {
               figma.ui.postMessage({
                 type: "gitlab-settings-saved",
                 success: true,
-                sharedWithTeam: msg.shareWithTeam
+                sharedWithTeam: msg.shareWithTeam,
+                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+                // We need to match what was saved
+                savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
               });
               break;
             case "list-repositories":
@@ -8448,58 +8515,59 @@ ${Object.keys(cssProperties).map((property) => {
               }
               break;
             case "commit-to-gitlab":
-              if (!msg.projectId || !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
-                throw new Error("Missing required fields for GitLab commit");
+            case "commit-to-repo":
+              const isLegacy = msg.type === "commit-to-gitlab";
+              if (!msg.projectId || !msg.token && !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
+                throw new Error("Missing required fields for commit");
               }
               try {
+                const provider = msg.provider || "gitlab";
+                const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
                 const settings = {
-                  gitlabUrl: msg.gitlabUrl,
+                  provider,
+                  baseUrl: msg.baseUrl || "",
                   projectId: msg.projectId,
-                  gitlabToken: msg.gitlabToken,
-                  filePath: msg.filePath || "variables.css",
+                  token: msg.token || msg.gitlabToken,
+                  // Accept either
+                  filePath: msg.filePath || "src/variables.css",
                   testFilePath: "components/{componentName}.spec.ts",
-                  // Default value
                   strategy: "merge-request",
-                  // Default value  
                   branchName: msg.branchName || "feature/variables",
                   testBranchName: "feature/component-tests",
-                  // Default value
                   exportFormat: "css",
-                  // Default value
                   saveToken: false,
-                  // Default value
                   savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                   savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
                 };
-                const result = yield gitlabService_1.GitLabService.commitToGitLab(settings, msg.commitMessage, msg.filePath || "variables.css", msg.cssData, msg.branchName || "feature/variables");
+                const result = yield gitService2.commitWorkflow(settings, msg.commitMessage, msg.filePath || "src/variables.css", msg.cssData, msg.branchName || "feature/variables");
                 figma.ui.postMessage({
                   type: "commit-success",
                   message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
-                  mergeRequestUrl: result && result.mergeRequestUrl
+                  mergeRequestUrl: result && result.pullRequestUrl
                 });
               } catch (error) {
                 let errorMessage = "Unknown error occurred";
                 let errorType = "unknown";
-                if (error.name === "GitLabAuthError") {
+                if (error.name === "GitAuthError" || error.name === "GitLabAuthError") {
                   errorType = "auth";
-                  errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
-                } else if (error.name === "GitLabNetworkError") {
+                  errorMessage = "Authentication failed. Please check your token and permissions.";
+                } else if (error.name === "GitNetworkError" || error.name === "GitLabNetworkError") {
                   errorType = "network";
-                  errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
-                } else if (error.name === "GitLabAPIError") {
+                  errorMessage = "Network error. Please check your internet connection.";
+                } else if (error.name === "GitServiceError" || error.name === "GitLabAPIError") {
                   if (error.statusCode === 401 || error.statusCode === 403) {
                     errorType = "auth";
-                    errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+                    errorMessage = "Authentication failed. Please check your token and permissions.";
                   } else {
                     errorType = "api";
                     if (error.statusCode === 404) {
-                      errorMessage = "Project not found. Please check your project ID.";
+                      errorMessage = "Project/Repository not found. Please check your ID.";
                     } else if (error.statusCode === 422) {
-                      errorMessage = "Invalid data provided. Please check your settings and try again.";
+                      errorMessage = "Invalid data provided. Please check your settings.";
                     } else if (error.statusCode === 429) {
-                      errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+                      errorMessage = "Rate limit exceeded. Please try again later.";
                     } else {
-                      errorMessage = error.message || "GitLab API error occurred.";
+                      errorMessage = error.message || "Git API error occurred.";
                     }
                   }
                 } else {

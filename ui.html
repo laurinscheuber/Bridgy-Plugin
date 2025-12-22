@@ -1954,20 +1954,48 @@
             throw new Error('Project ID and token are required for fetching project information');
           }
 
-          const apiUrl = buildGitLabApiUrl(window.gitlabSettings?.gitlabUrl);
-          if (!apiUrl) {
-            throw new Error('Unable to build GitLab API URL from settings');
+          let apiUrl;
+          let headers = { 'Content-Type': 'application/json' };
+          let isGitHub = false;
+
+          // Determine provider based on selected option or settings
+          const providerSelect = document.getElementById("config-provider");
+          const provider = (window.gitSettings?.provider) || (providerSelect ? providerSelect.value : 'gitlab');
+
+          if (provider === 'github') {
+            isGitHub = true;
+            // GitHub API
+            const baseUrl = window.gitSettings?.baseUrl || document.getElementById("config-github-url")?.value || 'https://api.github.com';
+            
+            // Clean base URL - if it's github.com, use api.github.com
+            let apiBase = baseUrl;
+            if (baseUrl === 'https://github.com' || baseUrl === 'https://www.github.com' || !baseUrl) {
+              apiBase = 'https://api.github.com';
+            } else if (baseUrl.includes('/api/v3')) {
+               // Enterprise URL already has api path
+               apiBase = baseUrl;
+            } else {
+               // Initial attempt for enterprise without path
+               apiBase = `${baseUrl}/api/v3`;
+            }
+
+            apiUrl = `${apiBase}/repos/${projectId}`;
+            headers['Authorization'] = `token ${token}`; // GitHub format
+            headers['Accept'] = 'application/vnd.github.v3+json';
+          } else {
+            // GitLab API
+            const gitlabUrl = window.gitSettings?.baseUrl || window.gitlabSettings?.gitlabUrl;
+            const baseUrl = buildGitLabApiUrl(gitlabUrl);
+            apiUrl = `${baseUrl}/projects/${encodeURIComponent(projectId)}`;
+            headers['PRIVATE-TOKEN'] = token; // GitLab format
           }
 
           // Add timeout to prevent hanging requests
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-          const response = await fetch(`${apiUrl}/projects/${encodeURIComponent(projectId)}`, {
-            headers: {
-              'PRIVATE-TOKEN': token,
-              'Content-Type': 'application/json'
-            },
+          const response = await fetch(apiUrl, {
+            headers: headers,
             signal: controller.signal
           });
           
@@ -1976,29 +2004,39 @@
           if (response.ok) {
             const projectData = await response.json();
             
-            if (!projectData.web_url) {
-              throw new Error('Invalid project data received from GitLab API');
+            if (isGitHub) {
+               repoButton.href = projectData.html_url;
+               repoButton.title = `Open GitHub Repository: ${projectData.full_name}`;
+            } else {
+               if (!projectData.web_url) {
+                 throw new Error('Invalid project data received from GitLab API');
+               }
+               const mergeRequestsUrl = `${projectData.web_url}/-/merge_requests`;
+               repoButton.href = mergeRequestsUrl;
+               repoButton.title = `Open Merge Requests for ${projectData.path_with_namespace || projectData.name || 'project'}`;
             }
             
-            const mergeRequestsUrl = `${projectData.web_url}/-/merge_requests`;
-            
-            repoButton.href = mergeRequestsUrl;
             repoButton.style.opacity = '1';
             repoButton.style.pointerEvents = 'auto';
-            repoButton.title = `Open Merge Requests for ${projectData.path_with_namespace || projectData.name || 'project'}`;
+            // Store valid state visually if needed
           } else {
             // Handle specific HTTP errors
-            let errorMessage = `GitLab API error: ${response.status} ${response.statusText}`;
+            let errorMessage = `API error: ${response.status} ${response.statusText}`;
             if (response.status === 401 || response.status === 403) {
-              errorMessage = 'Authentication failed. Please check your GitLab token.';
+              errorMessage = 'Authentication failed. Please check your token.';
             } else if (response.status === 404) {
-              errorMessage = 'Project not found. Please check your project ID.';
+              errorMessage = 'Project/Repository not found. Please check your ID.';
             }
             
             if (!silent) {
               console.warn(errorMessage);
             }
-            setFallbackRepositoryLink(projectId, repoButton);
+            const fallbackSettings = {
+                provider: provider,
+                projectId: projectId,
+                baseUrl: window.gitSettings?.baseUrl || (provider === 'gitlab' ? window.gitlabSettings?.gitlabUrl : '')
+            };
+            setFallbackRepositoryLink(fallbackSettings, repoButton);
           }
         } catch (error) {
           if (!silent) {
@@ -2290,6 +2328,52 @@
           updateCommitButtonStates();
           checkAndShowUserGuide();
         } else if (message.type === "gitlab-settings-saved" || message.type === "git-settings-saved") {
+          // Update local settings with new metadata
+          if (window.gitlabSettings) {
+            if (message.savedAt) window.gitlabSettings.savedAt = message.savedAt;
+            if (message.savedBy) window.gitlabSettings.savedBy = message.savedBy;
+            
+            // Update UI display immediately
+            if (message.savedAt && message.savedBy) {
+              try {
+                const savedDate = new Date(message.savedAt);
+                const formattedDate = savedDate.toLocaleDateString() + " " + savedDate.toLocaleTimeString();
+                
+                // Use SecurityUtils if available, otherwise fallback
+                const escapeHTML = (window.SecurityUtils && window.SecurityUtils.escapeHTML) ? 
+                  window.SecurityUtils.escapeHTML : (str) => str.replace(/[&<>'"]/g, tag => ({
+                      '&': '&amp;',
+                      '<': '&lt;',
+                      '>': '&gt;',
+                      "'": '&#39;',
+                      '"': '&quot;'
+                    }[tag]));
+                    
+                const sanitizeHTML = (window.SecurityUtils && window.SecurityUtils.sanitizeHTML) ?
+                  window.SecurityUtils.sanitizeHTML : (html) => html;
+
+                const savedInfoText = `Last updated by: <strong>${escapeHTML(message.savedBy)}</strong> on ${escapeHTML(formattedDate)}`;
+                
+                const securityNoteCompact = document.getElementById("security-note-compact");
+                const securityNoteFull = document.getElementById("security-note-full");
+                
+                if (securityNoteCompact) {
+                  securityNoteCompact.innerHTML = sanitizeHTML(savedInfoText);
+                  securityNoteCompact.style.display = "block";
+                }
+                
+                if (securityNoteFull) {
+                  const savedInfoDiv = securityNoteFull.querySelector(".saved-info");
+                  if (savedInfoDiv) {
+                    savedInfoDiv.innerHTML = sanitizeHTML(savedInfoText);
+                  }
+                }
+              } catch (e) {
+                console.error("Error updating saved info:", e);
+              }
+            }
+          }
+
           // Update repository link when settings are successfully saved
           updateRepositoryLink();
         } else if (message.type === "repositories-loaded") {
@@ -2591,10 +2675,14 @@
             helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
           } else if (message.errorType === "network") {
             // Add link to GitLab project for network errors
+            // Add link to project for network errors
+            const provider = window.gitlabSettings?.provider || 'gitlab';
+            const providerName = provider === 'github' ? 'GitHub' : 'GitLab';
+            const baseUrl = window.gitlabSettings?.baseUrl || (provider === 'github' ? 'https://github.com' : 'https://gitlab.com');
             const projectUrl = window.gitlabSettings?.projectId 
-              ? `${buildGitLabWebUrl(window.gitlabSettings.gitlabUrl)}/projects/${window.gitlabSettings.projectId}`
-              : buildGitLabWebUrl(window.gitlabSettings.gitlabUrl);
-            helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection in browser →</a>`;
+              ? (provider === 'github' ? `${baseUrl}/${window.gitlabSettings.projectId}` : `${baseUrl}/${window.gitlabSettings.projectId}`)
+              : baseUrl;
+            helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test ${providerName} connection in browser →</a>`;
           } else if (message.errorType === "api") {
             if (message.statusCode === 404) {
               helpMessage = "Please verify your project ID is correct and you have access to this project.";
@@ -2667,10 +2755,14 @@
                 helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
               } else if (message.errorType === "network") {
                 // Add link to GitLab project for network errors
+                // Add link to project for network errors
+                const provider = window.gitlabSettings?.provider || 'gitlab';
+                const providerName = provider === 'github' ? 'GitHub' : 'GitLab';
+                const baseUrl = window.gitlabSettings?.baseUrl || (provider === 'github' ? 'https://github.com' : 'https://gitlab.com');
                 const projectUrl = window.gitlabSettings?.projectId 
-                  ? `https://gitlab.fhnw.ch/projects/${window.gitlabSettings.projectId}`
-                  : 'https://gitlab.fhnw.ch';
-                helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection →</a>`;
+                  ? (provider === 'github' ? `${baseUrl}/${window.gitlabSettings.projectId}` : `${baseUrl}/${window.gitlabSettings.projectId}`)
+                  : baseUrl;
+                helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test ${providerName} connection →</a>`;
               } else if (message.errorType === "api") {
                 if (message.statusCode === 404) {
                   helpMessage = "Please verify your project ID and permissions.";
@@ -2696,10 +2788,14 @@
               helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
             } else if (message.errorType === "network") {
               // Add link to GitLab project for network errors
+              // Add link to project for network errors
+              const provider = window.gitlabSettings?.provider || 'gitlab';
+              const providerName = provider === 'github' ? 'GitHub' : 'GitLab';
+              const baseUrl = window.gitlabSettings?.baseUrl || (provider === 'github' ? 'https://github.com' : 'https://gitlab.com');
               const projectUrl = window.gitlabSettings?.projectId 
-                ? `https://gitlab.fhnw.ch/projects/${window.gitlabSettings.projectId}`
-                : 'https://gitlab.fhnw.ch';
-              helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test GitLab connection →</a>`;
+                ? (provider === 'github' ? `${baseUrl}/${window.gitlabSettings.projectId}` : `${baseUrl}/${window.gitlabSettings.projectId}`)
+                : baseUrl;
+              helpMessage = `<a href="${projectUrl}" target="_blank" style="color: var(--primary-600); text-decoration: underline;">Test ${providerName} connection →</a>`;
             } else if (message.errorType === "api") {
               helpMessage = "Please check your GitLab settings and try again.";
             } else {
@@ -4362,6 +4458,11 @@ ${checkboxes}
           
           // Check OAuth availability
           checkOAuthAvailability();
+          
+          // Show hint if OAuth button is hidden (checked async, but we can show a general help link/text if needed)
+           if (oauthLoginButton && oauthLoginButton.style.display === 'none') {
+             // We wait for checkOAuthAvailability response, but we can also set a default state
+           }
         }
       }
 
@@ -4738,25 +4839,12 @@ ${checkboxes}
         
         if (!oauthLoginButton || !oauthStatus || !tokenHelp) return;
         
-        if (status.configured && status.available) {
-          oauthLoginButton.style.display = 'block';
-          oauthStatus.style.display = 'block';
-          oauthStatus.innerHTML = `
-            <small style="color: rgba(34, 197, 94, 0.8); font-size: 12px;">
-              ✓ OAuth login available for better security
-            </small>
-          `;
-          tokenHelp.innerHTML = 'Use Personal Access Token or click OAuth button for secure login';
-        } else {
-          oauthLoginButton.style.display = 'none';
-          oauthStatus.style.display = 'block';
-          oauthStatus.innerHTML = `
-            <small style="color: rgba(255, 255, 255, 0.6); font-size: 12px;">
-              💡 OAuth not configured - using Personal Access Token method
-            </small>
-          `;
-          tokenHelp.innerHTML = 'Create a Personal Access Token at: github.com → Settings → Developer settings → Personal access tokens';
-        }
+        // OAuth disabled for now - always hide OAuth elements
+        oauthLoginButton.style.display = 'none';
+        oauthStatus.style.display = 'none';
+        
+        // Show generic help text
+        tokenHelp.innerHTML = 'Create a Personal Access Token in your provider settings (GitHub or GitLab)';
       }
       
       async function startOAuthFlow() {
@@ -5280,10 +5368,10 @@ ${checkboxes}
         );
         const securityNoteFull = document.getElementById("security-note-full");
 
-        fieldsSection.style.display = "block";
-        summarySection.style.display = "none";
-        securityNoteCompact.style.display = "none";
-        securityNoteFull.style.display = "block";
+        if (fieldsSection) fieldsSection.style.display = "block";
+        if (summarySection) summarySection.style.display = "none";
+        if (securityNoteCompact) securityNoteCompact.style.display = "none";
+        if (securityNoteFull) securityNoteFull.style.display = "block";
 
         if (window.gitlabSettings) {
           if (window.gitlabSettings.projectId) {
@@ -5394,20 +5482,29 @@ ${checkboxes}
           `);
 
           // Comprehensive settings validation
-          if (!window.gitlabSettings) {
-            throw new Error('GitLab settings not configured. Please configure your settings in the Config tab first.');
+          const settings = window.gitlabSettings || window.gitSettings;
+          if (!settings) {
+            throw new Error('Settings not configured. Please configure your settings in the Config tab first.');
           }
 
-          if (!window.gitlabSettings.projectId || !window.gitlabSettings.projectId.trim()) {
-            throw new Error('Project ID is required. Please configure your GitLab settings.');
+          if (!settings.projectId || !settings.projectId.trim()) {
+            throw new Error('Project/Repository ID is required. Please configure your settings.');
           }
 
-          if (!window.gitlabSettings.gitlabToken || !window.gitlabSettings.gitlabToken.trim()) {
-            throw new Error('GitLab token is required. Please configure your GitLab settings.');
-          }
+          // Determine provider and validated token
+          const provider = settings.provider || 'gitlab';
+          let token = settings.token;
 
-          // GitLab URL is optional - if empty, it defaults to gitlab.com
-          // No validation needed here since buildGitLabApiUrl handles empty URLs
+          if (provider === 'gitlab') {
+             token = settings.gitlabToken || settings.token;
+             if (!token || !token.trim()) {
+               throw new Error('GitLab token is required. Please configure your GitLab settings.');
+             }
+          } else if (provider === 'github') {
+             if (!token || !token.trim()) {
+               throw new Error('GitHub token is required. Please configure your GitHub settings.');
+             }
+          }
 
           // Validate commit message
           const commitMessageElement = document.getElementById("commit-message");
@@ -5425,7 +5522,7 @@ ${checkboxes}
           }
 
           // Validate file path
-          const filePath = window.gitlabSettings.filePath || "src/variables.css";
+          const filePath = settings.filePath || "src/variables.css";
           if (!filePath.trim()) {
             throw new Error('File path cannot be empty. Please configure a valid file path.');
           }
@@ -5441,12 +5538,13 @@ ${checkboxes}
         }
 
         try {
-          const projectId = window.gitlabSettings.projectId;
-          const gitlabToken = window.gitlabSettings.gitlabToken;
-          const filePath = window.gitlabSettings.filePath || "src/variables.css";
-          const strategy = window.gitlabSettings.strategy || "merge-request";
-          const branchName =
-            window.gitlabSettings.branchName || "feature/variables";
+          const settings = window.gitlabSettings || window.gitSettings;
+          const provider = settings.provider || 'gitlab';
+          const projectId = settings.projectId;
+          const token = settings.token || settings.gitlabToken;
+          const filePath = settings.filePath || "src/variables.css";
+          const strategy = settings.strategy || "merge-request";
+          const branchName = settings.branchName || "feature/variables";
 
           const commitMessage =
             document.getElementById("commit-message").value.trim() ||
@@ -5460,7 +5558,7 @@ ${checkboxes}
 
           if (!currentCSSData) {
             try {
-              const exportFormat = window.gitlabSettings?.exportFormat || "css";
+              const exportFormat = settings?.exportFormat || "css";
               parent.postMessage(
                 {
                   pluginMessage: {
@@ -5484,10 +5582,12 @@ ${checkboxes}
                     parent.postMessage(
                       {
                         pluginMessage: {
-                          type: "commit-to-gitlab",
-                          gitlabUrl: window.gitlabSettings.gitlabUrl,
+                          type: "commit-to-repo", // Updated to generic message type
+                          provider: provider,
+                          gitlabUrl: settings.gitlabUrl, // Optional for GitHub
                           projectId,
-                          gitlabToken,
+                          token,
+                          gitlabToken: token, // For legacy compatibility if needed
                           commitMessage,
                           filePath,
                           branchName,
@@ -5523,10 +5623,11 @@ ${checkboxes}
               parent.postMessage(
                 {
                   pluginMessage: {
-                    type: "commit-to-gitlab",
+                    type: "commit-to-repo",
+                    provider: window.gitlabSettings.provider || 'gitlab',
                     gitlabUrl: window.gitlabSettings.gitlabUrl,
                     projectId,
-                    gitlabToken,
+                    token: token,
                     commitMessage,
                     filePath,
                     branchName,
