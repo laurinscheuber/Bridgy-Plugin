@@ -404,6 +404,7 @@ export class VariableImportService {
       collectionId?: string;
       collectionName?: string;
       strategy: 'merge' | 'overwrite';
+      organizeByCategories?: boolean;
     }
   ): Promise<{ success: number; errors: string[]; groupsCreated: number }> {
     return await ErrorHandler.withErrorHandling(async () => {
@@ -542,6 +543,13 @@ export class VariableImportService {
           // Sanitize name for Figma (replace dots with hyphens or underscores, keep slashes)
           // Figma variables allow /, -, _ but not .
           varName = varName.replace(/\./g, '-');
+          
+          // If organization is disabled, flatten the name (replace slashes with dashes)
+          if (options.organizeByCategories === false) {
+              varName = varName.replace(/\//g, '-');
+              console.log(`[Import] Flattened variable name (categories disabled): "${varName}"`);
+          }
+
           console.log(`[Import] Final variable name to create: "${varName}"`);
           
           // Check if this variable name contains a slash for grouping

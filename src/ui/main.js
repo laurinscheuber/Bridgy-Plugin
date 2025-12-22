@@ -13,9 +13,8 @@
             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, (match) => {
               // Allow onclick for specific safe functions
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
-                  match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
-                  match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
-                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(')) {
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(') || match.includes('dismissFeedback(') || match.includes('closeNotification(') || 
+                  match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(')) {
                 return match;
               }
               return '';
@@ -23,9 +22,10 @@
             .replace(/on\w+\s*=\s*[^>\s]+/gi, (match) => {
               // Allow onclick for specific safe functions
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
-                  match.includes('toggleCollectionOptions(') || match.includes('toggleImportGroup(') || match.includes('expandAllImportGroups(') || match.includes('collapseAllImportGroups(') || 
-                  match.includes('expandAllStyleGroups(') || match.includes('collapseAllStyleGroups(') || match.includes('selectAllVariables(') || match.includes('selectAllStyles(') || 
-                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(')) {
+                  match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(') || match.includes('dismissFeedback(') || match.includes('closeNotification(') || 
+                  match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(') ||
+                  match.includes('expandAllVariables(') || match.includes('collapseAllVariables(') || match.includes('toggleSearchBar(') ||
+                  match.includes('expandAllComponents(') || match.includes('collapseAllComponents(') || match.includes('toggleFeedback(')) {
                 return match;
               }
               return '';
@@ -419,6 +419,27 @@
             refreshBtn.style.opacity = '1';
           }
         }, 2000);
+      }
+
+      // ===== FEEDBACK SYSTEM =====
+      window.dismissFeedback = function() {
+        const feedbackSection = document.querySelector('.feedback-section');
+        if (feedbackSection) {
+          feedbackSection.style.opacity = '0';
+          feedbackSection.style.transform = 'translateY(-20px)';
+          setTimeout(() => {
+            feedbackSection.style.display = 'none';
+          }, 300);
+          
+          // Persist dismissal
+          parent.postMessage({
+            pluginMessage: {
+              type: "set-client-storage",
+              key: "feedback_dismissed",
+              value: true
+            }
+          }, "*");
+        }
       }
 
       // ===== NOTIFICATION SYSTEM =====
@@ -1159,6 +1180,14 @@
           
           renderVariables(variablesData);
           renderComponents(componentsData);
+
+          // Handle feedback dismissal state
+          if (message.feedbackDismissed) {
+            const feedbackSection = document.querySelector('.feedback-section');
+            if (feedbackSection) {
+              feedbackSection.style.display = 'none';
+            }
+          }
           
           // Enable the export button only if there are variables
           if (
@@ -1651,6 +1680,20 @@
 
       // Render variables
       function renderVariables(data) {
+        // Calculate totals for summary
+        let totalVariables = 0;
+        const collectionsCount = data.length;
+        data.forEach(collection => {
+          totalVariables += collection.variables ? collection.variables.length : 0;
+        });
+        
+        // Update summary
+        if (typeof updateVariablesSummary === 'function') {
+          updateVariablesSummary(totalVariables, collectionsCount);
+        } else if (window.updateVariablesSummary) {
+          window.updateVariablesSummary(totalVariables, collectionsCount);
+        }
+
         if (data.length === 0) {
           const container = document.getElementById("variables-container");
           container.innerHTML = '';
@@ -1817,9 +1860,18 @@
             });
 
             // Build collection HTML
+            const collectionId = `collection-${collection.name.replace(/[^a-zA-Z0-9]/g, "-")}`;
             html += `
-              <div class="variable-collection">
-                <h3 class="collection-name">${collection.name}</h3>
+              <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
+                <div class="collection-header" onclick="toggleCollection('${collectionId}')">
+                  <div class="collection-info">
+                    <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">folder</span>
+                    <h3 class="collection-name-title">${collection.name}</h3>
+                    <span class="subgroup-stats">${collection.variables.length} total</span>
+                  </div>
+                  <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+                </div>
+                <div class="collection-content" id="${collectionId}-content">
             `;
 
             // Render standalone variables first
@@ -1865,10 +1917,7 @@
               const isTailwindValid = tailwindV4Validation && 
                 tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
               
-              const groupId = `group-${collection.name.replace(
-                /[^a-zA-Z0-9]/g,
-                "-"
-              )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+              const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
               html += `
                 <div class="variable-subgroup ${
@@ -1877,24 +1926,24 @@
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <div class="subgroup-title">
                       ${displayName}
-                      <span class="subgroup-stats">${variables.length} variable${variables.length !== 1 ? 's' : ''}</span>
+                      <span class="subgroup-stats">${variables.length}</span>
                       ${
                         isTailwindValid
-                          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-left: 4px; vertical-align: middle;" title="Valid Tailwind v4 namespace"><path d="M12.001 4.8c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624C13.666 10.618 15.027 12 18.001 12c3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C16.337 6.182 14.976 4.8 12.001 4.8zm-6 7.2c-3.2 0-5.2 1.6-6 4.8 1.2-1.6 2.6-2.2 4.2-1.8.913.228 1.565.89 2.288 1.624 1.177 1.194 2.538 2.576 5.512 2.576 3.2 0 5.2-1.6 6-4.8-1.2 1.6-2.6 2.2-4.2 1.8-.913-.228-1.565-.89-2.288-1.624C10.337 13.382 8.976 12 6.001 12z" fill="#38bdf8"/></svg>'
+                          ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #38bdf8; margin-left: 4px;" title="Valid Tailwind v4 namespace">verified</span>'
                           : ""
                       }
                       ${
                         hasMixedValues
-                          ? '<span class="validation-warning" title="This group contains both direct values and variable links">⚠️</span>'
+                          ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #fbbf24; margin-left: 4px;" title="Mixed values and links">warning</span>'
                           : ""
                       }
                       ${
                         isTailwindInvalid
-                          ? '<span class="validation-warning" title="Invalid Tailwind v4 namespace" style="color: #ff9800;">⚠️</span>'
+                          ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #f87171; margin-left: 4px;" title="Invalid Tailwind namespace">error</span>'
                           : ""
                       }
                     </div>
-                    <span class="subgroup-toggle">▼</span>
+                    <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
@@ -1909,11 +1958,19 @@
               `;
             });
 
-            html += "</div>";
+            html += `
+                </div>
+              </div>
+            `;
           }
         });
 
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
+        
+        // Collapse all by default
+        if (window.collapseAllVariables) {
+          window.collapseAllVariables();
+        }
       }
 
       // Render a group of variables with a title
@@ -1922,10 +1979,10 @@
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Type</th>
+                  <th style="width: 30%;">Name</th>
+                  <th style="width: 15%;">Type</th>
                   <th>Values</th>
-                  <th>Actions</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -1938,7 +1995,7 @@
           html += `
             <tr id="var-${sanitizedId}">
               <td>${variable.name}</td>
-              <td>${variable.resolvedType}</td>
+              <td>${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</td>
               <td>
           `;
 
@@ -1994,13 +2051,12 @@
               </td>
               <td>
                 <button 
-                  class="delete-variable-btn" 
+                  class="compact-action-btn" 
+                  style="color: rgba(255, 255, 255, 0.4); background: transparent; border: none; cursor: pointer;"
                   onclick="deleteVariable('${variable.id}', '${variable.name.replace(/'/g, "\\'")}')"
                   title="Delete ${variable.name}"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5zM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 5.883 16h4.234a2 2 0 0 0 1.992-1.84l.853-10.66h.538a.5.5 0 0 0 0-1H11zm1.958 1H3.042l.846 10.58a1 1 0 0 0 .996.92h4.234a1 1 0 0 0 .996-.92L11.958 3.5zM6.5 5.5a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6zm2 0a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6z"/>
-                  </svg>
+                  <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
                 </button>
               </td>
             </tr>
@@ -2351,6 +2407,26 @@
       function renderComponents(data) {
         const container = document.getElementById("components-container");
 
+        // Calculate totals for summary
+        let totalComponents = 0;
+        let setsCount = 0;
+        if (data && data.length > 0) {
+          data.forEach(component => {
+            if (component.type === 'COMPONENT_SET') {
+              setsCount++;
+              totalComponents += component.children ? component.children.length : 0;
+              totalComponents++; // Count the set itself
+            } else {
+              totalComponents++;
+            }
+          });
+        }
+        
+        // Update summary
+        if (window.updateComponentsSummary) {
+          window.updateComponentsSummary(totalComponents, setsCount);
+        }
+
         if (!data || data.length === 0) {
           container.innerHTML = '';
           const noItemsDiv = document.createElement('div');
@@ -2370,13 +2446,11 @@
             <div class="component-set">
               <div class="component-set-header" data-index="${index}">
                 <div class="component-header-content">
-                  <div class="component-set-toggle" onclick="toggleComponentSet(${index})">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M9.5 7L14.5 12L9.5 17V7Z"/>
-                    </svg>
+                  <div class="component-set-toggle">
+                    <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
                   </div>
-                  <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component in Figma">
-                    📍
+                  <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component">
+                    <span class="material-symbols-outlined">filter_center_focus</span>
                   </button>
                   <div class="component-meta">
                     <span class="component-name">${parsedName.name}</span>
@@ -2384,8 +2458,8 @@
                   </div>
                 </div>
                 <div class="component-actions">
-                  <button class="generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate">Generate Test</button>
-                  <button class="commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit">Commit Test</button>
+                  <button class="compact-action-btn generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate" title="Generate"><span class="material-symbols-outlined">download</span></button>
+                  <button class="compact-action-btn commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit" title="Commit"><span class="material-symbols-outlined">commit</span></button>
                 </div>
               </div>
               <div class="component-set-children" id="children-${index}">
@@ -2398,8 +2472,8 @@
                 html += `
                 <div class="child-component">
                   <div class="child-header">
-                    <button class="nav-icon" data-component-id="${child.id}" title="Navigate to variant in Figma">
-                      📍
+                    <button class="nav-icon" data-component-id="${child.id}" title="Navigate to variant">
+                      <span class="material-symbols-outlined">filter_center_focus</span>
                     </button>
                     <div class="component-meta">
                       <span class="component-name">${childParsed.name}</span>
@@ -2428,8 +2502,8 @@
             html += `
             <div class="component-regular">
               <div class="component-header-content">
-                <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component in Figma">
-                  📍
+                <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component">
+                  <span class="material-symbols-outlined">target</span>
                 </button>
                 <div class="component-meta">
                   <span class="component-name">${parsedName.name}</span>
@@ -2442,8 +2516,8 @@
                   }
                 </div>
                 <div class="component-actions">
-                  <button class="generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate">Generate Test</button>
-                  <button class="commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit">Commit Test</button>
+                  <button class="compact-action-btn generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate" title="Generate"><span class="material-symbols-outlined">download</span></button>
+                  <button class="compact-action-btn commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit" title="Commit"><span class="material-symbols-outlined">commit</span></button>
                 </div>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
@@ -2457,28 +2531,34 @@
 
         // Add event listeners for navigation buttons and component action buttons
         container.addEventListener('click', function(event) {
-          if (event.target.closest('.nav-icon')) {
-            const button = event.target.closest('.nav-icon');
-            const componentId = button.getAttribute('data-component-id');
-            if (componentId) {
-              console.log('Clicked nav icon for component:', componentId);
-              window.selectComponent(componentId);
-            }
+          // 1. Handle navigation first
+          const navIcon = event.target.closest('.nav-icon');
+          if (navIcon) {
+            const componentId = navIcon.getAttribute('data-component-id');
+            if (componentId) window.selectComponent(componentId);
+            return;
           }
-          
-          // Handle generate/commit test buttons
-          if (event.target.matches('.generate-all-variants-button, .commit-all-variants-button')) {
-            event.stopPropagation();
-            const button = event.target;
-            const componentId = button.getAttribute('data-component-id');
-            const componentName = button.getAttribute('data-component-name');
-            const action = button.getAttribute('data-action');
-            
+
+          // 2. Handle generate/commit buttons
+          const actionBtn = event.target.closest('.generate-all-variants-button, .commit-all-variants-button');
+          if (actionBtn) {
+            const componentId = actionBtn.getAttribute('data-component-id');
+            const componentName = actionBtn.getAttribute('data-component-name');
+            const action = actionBtn.getAttribute('data-action');
             if (componentId && componentName) {
               const isCommit = action === 'commit';
-              generateTest(componentId, componentName, button, true, isCommit);
-
+              generateTest(componentId, componentName, actionBtn, true, isCommit);
+            }
+            return;
           }
+
+          // 3. Handle header toggle last
+          const header = event.target.closest('.component-set-header');
+          if (header) {
+            const index = header.getAttribute('data-index');
+            if (index !== null) {
+              window.toggleComponentSet(index);
+            }
           }
         });
 
@@ -2496,13 +2576,9 @@
           if (childrenEl.classList.contains("expanded")) {
             childrenEl.classList.remove("expanded");
             headerEl.classList.remove("expanded");
-            const toggle = headerEl.querySelector(".component-set-toggle");
-            if (toggle) toggle.textContent = "+";
           } else {
             childrenEl.classList.add("expanded");
             headerEl.classList.add("expanded");
-            const toggle = headerEl.querySelector(".component-set-toggle");
-            if (toggle) toggle.textContent = "-";
           }
         };
 
@@ -2635,9 +2711,7 @@
 
       function updateExportButtonText() {
         const exportButton = document.getElementById("export-css-button");
-        const format = window.gitlabSettings?.exportFormat || "css";
-        const formatText = format === 'tailwind-v4' ? 'Tailwind v4' : format.toUpperCase();
-        exportButton.textContent = `Export Variables as ${formatText}`;
+        exportButton.innerHTML = `<span class="material-symbols-outlined">download</span><span class="toolbar-btn-text">Download</span>`;
       }
 
 
@@ -2829,6 +2903,11 @@
       if (variableSearchElement) {
         variableSearchElement.addEventListener("input", (e) => {
           const searchTerm = e.target.value.toLowerCase();
+          
+          const clearBtn = document.getElementById('clear-variable-search');
+          if (clearBtn) {
+            clearBtn.style.display = searchTerm ? 'flex' : 'none';
+          }
 
           const filteredData = variablesData
             .map((collection) => {
@@ -2929,7 +3008,21 @@
             .filter((collection) => collection.variables.length > 0);
 
           renderVariables(filteredData);
+          
+          // Auto-expand if searching
+          if (searchTerm && typeof expandAllVariables === 'function') {
+             expandAllVariables();
+          }
         });
+      }
+
+      window.clearSearch = function(inputId) {
+        const input = document.getElementById(inputId);
+        if (input) {
+          input.value = '';
+          input.dispatchEvent(new Event('input'));
+          input.focus();
+        }
       }
 
       const componentSearchElement =
@@ -2937,6 +3030,12 @@
       if (componentSearchElement) {
         componentSearchElement.addEventListener("input", (e) => {
           const searchTerm = e.target.value.toLowerCase();
+
+          // Toggle clear button
+          const clearBtn = document.getElementById('clear-component-search');
+          if (clearBtn) {
+            clearBtn.style.display = searchTerm ? 'flex' : 'none';
+          }
 
           // Search in component names, types, and metadata
           const filteredData = componentsData.filter((component) => {
@@ -3107,22 +3206,25 @@
             'Appearance': '✨'
           };
 
+          const groupId = `coverage-${category}`;
+
           html += `
-            <div class="variable-subgroup" style="margin-bottom: 24px;">
-              <div class="subgroup-header collapsed" onclick="toggleSubgroup('coverage-${category}')">
-                <h3 class="subgroup-title">
+            <div class="variable-subgroup" style="margin-bottom: 12px;">
+              <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
+                <div class="subgroup-title">
                   ${categoryIcons[category]} ${category}
                   <span class="subgroup-stats">${issues.length} issues</span>
-                </h3>
-                <span class="subgroup-toggle">▼</span>
+                </div>
+                <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
               </div>
-              <div id="coverage-${category}-content" class="subgroup-content collapsed">
+              <div id="${groupId}-content" class="subgroup-content collapsed">
+                <div style="padding: 12px;">
           `;
 
           // Display each issue as a card
           issues.forEach(issue => {
             html += `
-              <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+              <div class="quality-issue-card" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                   <div style="flex: 1;">
                     <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 4px;">${issue.property}</div>
@@ -3157,6 +3259,7 @@
           });
 
           html += `
+                </div>
               </div>
             </div>
           `;
@@ -4857,7 +4960,8 @@ ${checkboxes}
       }
 
       // Toggle collapsible subgroups
-      function toggleSubgroup(groupId) {
+      // Toggle collapsible subgroups
+      window.toggleSubgroup = function(groupId) {
         try {
           const content = document.getElementById(groupId + '-content');
 
@@ -4878,21 +4982,115 @@ ${checkboxes}
           const isCollapsed = content.classList.contains('collapsed');
           
           if (isCollapsed) {
-            // Expand
             content.classList.remove('collapsed');
             content.classList.add('expanded');
             header.classList.remove('collapsed');
           } else {
-            // Collapse
             content.classList.remove('expanded');
             content.classList.add('collapsed');
             header.classList.add('collapsed');
           }
-          
-          console.log('Toggled group:', groupId, 'to', isCollapsed ? 'expanded' : 'collapsed');
         } catch (error) {
           console.error('Error toggling subgroup:', error);
         }
+      }
+
+      // Toggle collapsible collections
+      // Toggle collapsible collections
+      window.toggleCollection = function(collectionId) {
+        try {
+          const content = document.getElementById(collectionId + '-content');
+          const header = document.querySelector(`#${collectionId} .collection-header`);
+          
+          if (!content || !header) return;
+          
+          const isCollapsed = content.classList.contains('collapsed');
+          
+          if (isCollapsed) {
+            content.classList.remove('collapsed');
+            header.classList.remove('collapsed');
+          } else {
+            content.classList.add('collapsed');
+            header.classList.add('collapsed');
+          }
+        } catch (error) {
+          console.error('Error toggling collection:', error);
+        }
+      }
+
+      window.expandAllQuality = function() {
+        const headers = document.querySelectorAll('#token-coverage-results .subgroup-header.collapsed');
+        headers.forEach(header => {
+           header.click();
+        });
+      }
+
+      window.collapseAllQuality = function() {
+         const headers = document.querySelectorAll('#token-coverage-results .subgroup-header:not(.collapsed)');
+         headers.forEach(header => {
+            header.click();
+         });
+      }
+
+      // Initialize Quality Search
+      document.addEventListener('DOMContentLoaded', () => {
+         const searchInput = document.getElementById('quality-search');
+         if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+               const query = e.target.value.toLowerCase();
+               const container = document.getElementById('token-coverage-results');
+               if (!container) return;
+               
+               const groups = container.querySelectorAll('.variable-subgroup');
+               groups.forEach(group => {
+                   const issues = group.querySelectorAll('.quality-issue-card');
+                   let hasVisibleIssues = false;
+                   
+                   issues.forEach(issue => {
+                       if (issue.textContent.toLowerCase().includes(query)) {
+                           issue.style.display = 'block';
+                           hasVisibleIssues = true;
+                       } else {
+                           issue.style.display = 'none';
+                       }
+                   });
+                   
+                   if (hasVisibleIssues) {
+                       group.style.display = 'block';
+                   } else {
+                       group.style.display = 'none';
+                   }
+               });
+            });
+         }
+      });
+
+      // Expand all subgroups within a collection
+      function expandAllSubgroups(collectionId) {
+        const collection = document.getElementById(collectionId);
+        if (!collection) return;
+        
+        collection.querySelectorAll('.subgroup-content').forEach(content => {
+          content.classList.remove('collapsed');
+          content.classList.add('expanded');
+        });
+        collection.querySelectorAll('.subgroup-header').forEach(header => {
+          header.classList.remove('collapsed');
+        });
+      }
+
+      // Collapse all subgroups within a collection
+      function collapseAllSubgroups(collectionId) {
+        const collection = document.getElementById(collectionId);
+        if (!collection) return;
+        
+        collection.querySelectorAll('.subgroup-content').forEach(content => {
+          content.classList.remove('expanded');
+          content.classList.add('collapsed');
+        });
+        collection.querySelectorAll('.subgroup-header').forEach(header => {
+          header.classList.add('collapsed');
+        });
       }
 
       // Expand all groups function
@@ -6059,18 +6257,47 @@ window.clearInput = function() {
           </div>
 
           <div class="import-structure-preview">
-            <h4>📁 Variables Preview</h4>
-            <div class="import-controls">
-              <button class="btn btn-small" onclick="expandAllImportGroups()">Expand All</button>
-              <button class="btn btn-small" onclick="collapseAllImportGroups()">Collapse All</button>
-              <button class="btn btn-small" onclick="selectAllVariables(true)">Select All</button>
-              <button class="btn btn-small" onclick="selectAllVariables(false)">Deselect All</button>
+            <div class="tab-header" style="margin-bottom: var(--space-2);">
+                <h3 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                  <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">folder_open</span>
+                  Variables Preview
+                </h3>
             </div>
+            
+            <div class="toolbar" style="margin-bottom: 16px;">
+              <div class="toolbar-group">
+                <button class="compact-action-btn" onclick="expandAllImportGroups()" title="Expand All">
+                  <span class="material-symbols-outlined">unfold_more</span>
+                  <span class="toolbar-btn-text">Expand All</span>
+                </button>
+                <button class="compact-action-btn" onclick="collapseAllImportGroups()" title="Collapse All">
+                  <span class="material-symbols-outlined">unfold_less</span>
+                  <span class="toolbar-btn-text">Collapse All</span>
+                </button>
+              </div>
+              <div class="toolbar-group">
+                <button class="compact-action-btn" onclick="selectAllVariables(true)" title="Select All">
+                  <span class="material-symbols-outlined">select_all</span>
+                  <span class="toolbar-btn-text">Select All</span>
+                </button>
+                <button class="compact-action-btn" onclick="selectAllVariables(false)" title="Deselect All">
+                  <span class="material-symbols-outlined">deselect</span>
+                  <span class="toolbar-btn-text">Deselect All</span>
+                </button>
+              </div>
+            </div>
+
             <div class="variables-preview">
-              <div class="collection-preview">
-                <span class="icon">📁</span>
-                <span class="name collection-name-preview">Design Tokens</span>
-                <span class="type">(Collection)</span>
+              <div class="variable-collection">
+                <div class="collection-header">
+                  <div class="collection-info">
+                    <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">folder</span>
+                    <h3 class="collection-name-title">Design Tokens</h3>
+                    <span class="subgroup-stats">(Collection)</span>
+                  </div>
+                </div>
+                
+                <div class="collection-content">
                 ${groupNames.map(groupName => {
                   const groupTokens = tokensByGroup[groupName].filter(t => categorizeToken(t) === 'color' || categorizeToken(t) === 'numeric');
                   if (groupTokens.length === 0) return '';
@@ -6078,19 +6305,25 @@ window.clearInput = function() {
                   const colorCount = groupTokens.filter(t => categorizeToken(t) === 'color').length;
                   const numericCount = groupTokens.filter(t => categorizeToken(t) === 'numeric').length;
                   const aliasCount = groupTokens.filter(t => t.isAlias).length;
+                  
+                  // Clean group name (remove trailing slash if present for display)
+                  const displayName = groupName.endsWith('/') ? groupName.slice(0, -1) : groupName;
+                  
                   return `
-                    <div class="import-group-container" id="${groupId}">
-                      <div class="import-group-header collapsed" onclick="toggleImportGroup('${groupId}')">
-                        <span class="expand-icon">▶</span>
-                        <span class="icon">📂</span>
-                        <span class="name">${groupName}/</span>
-                        <span class="count">(${groupTokens.length} variables • ${colorCount} colors • ${numericCount} numeric)</span>
-                        <div class="group-status">
-                          <span class="status-badge new">${groupTokens.length - aliasCount} new</span>
-                          ${aliasCount > 0 ? `<span class="status-badge alias">${aliasCount} refs</span>` : ''}
+                    <div class="variable-subgroup" id="${groupId}">
+                      <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
+                        <div class="subgroup-title">
+                          <span class="material-symbols-outlined" style="font-size: 16px; margin-right: 6px; color: var(--text-secondary);">folder_open</span>
+                          ${displayName}
+                          <span class="subgroup-stats">${groupTokens.length} vars • ${colorCount} colors • ${numericCount} numeric</span>
+                          <div class="group-status" style="display: inline-flex; margin-left: 8px; gap: 4px;">
+                             <span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${groupTokens.length - aliasCount} new</span>
+                             ${aliasCount > 0 ? `<span class="status-badge alias" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(168, 85, 247, 0.2); color: #c084fc;">${aliasCount} refs</span>` : ''}
+                          </div>
                         </div>
+                        <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                       </div>
-                      <div class="import-group-content collapsed" id="${groupId}-content">
+                      <div class="subgroup-content collapsed" id="${groupId}-content">
                         <div class="variables-table">
                           ${groupTokens.map(token => {
                             const tokenId = `token-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
@@ -6120,43 +6353,70 @@ window.clearInput = function() {
                     </div>
                   `;
                 }).filter(Boolean).join('')}
+                </div>
               </div>
             </div>
-            <div class="summary-stats">
+            <div class="summary-stats" style="margin-top: 16px; color: var(--text-secondary); font-size: 11px;">
               <span class="summary-item">📁 1 collection</span>
-              <span class="summary-item">📂 ${groupNames.length} groups</span>
-              <span class="summary-item">🎯 ${variableTokens.length} variables</span>
+              <span class="summary-item"> • 📂 ${groupNames.length} groups</span>
+              <span class="summary-item"> • 🎯 ${variableTokens.length} variables</span>
             </div>
           </div>
           
           ${styleTokens.length > 0 ? `
           <div class="import-structure-preview">
-            <h4>🎨 Figma Styles Preview</h4>
-            <div class="import-controls">
-              <button class="btn btn-small" onclick="expandAllStyleGroups()">Expand All</button>
-              <button class="btn btn-small" onclick="collapseAllStyleGroups()">Collapse All</button>
-              <button class="btn btn-small" onclick="selectAllStyles(true)">Select All</button>
-              <button class="btn btn-small" onclick="selectAllStyles(false)">Deselect All</button>
+            <div class="tab-header" style="margin-bottom: var(--space-2);">
+                <h3 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                  <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">palette</span>
+                  Figma Styles Preview
+                </h3>
             </div>
+            
+            <div class="toolbar" style="margin-bottom: 16px;">
+              <div class="toolbar-group">
+                <button class="compact-action-btn" onclick="expandAllStyleGroups()" title="Expand All">
+                  <span class="material-symbols-outlined">unfold_more</span>
+                  <span class="toolbar-btn-text">Expand All</span>
+                </button>
+                <button class="compact-action-btn" onclick="collapseAllStyleGroups()" title="Collapse All">
+                  <span class="material-symbols-outlined">unfold_less</span>
+                  <span class="toolbar-btn-text">Collapse All</span>
+                </button>
+              </div>
+              <div class="toolbar-group">
+                <button class="compact-action-btn" onclick="selectAllStyles(true)" title="Select All">
+                  <span class="material-symbols-outlined">select_all</span>
+                  <span class="toolbar-btn-text">Select All</span>
+                </button>
+                <button class="compact-action-btn" onclick="selectAllStyles(false)" title="Deselect All">
+                  <span class="material-symbols-outlined">deselect</span>
+                  <span class="toolbar-btn-text">Deselect All</span>
+                </button>
+              </div>
+            </div>
+
             <div class="styles-preview">
               ${['gradient', 'shadow', 'effect', 'transition'].map(category => {
                 const categoryTokens = styleTokens.filter(t => categorizeToken(t) === category);
                 if (categoryTokens.length === 0) return '';
-                const categoryIcons = { gradient: '🌈', shadow: '🌫️', effect: '✨', transition: '⚡' };
+                // Ensure icons are Material Symbols
+                const categoryIcons = { gradient: 'palette', shadow: 'blur_on', effect: 'auto_fix_high', transition: 'animation' };
                 const categoryNames = { gradient: 'Paint Styles', shadow: 'Effect Styles', effect: 'Effect Styles', transition: 'Transitions' };
                 const categoryId = `style-group-${category}`;
                 return `
-                  <div class="import-group-container" id="${categoryId}">
-                    <div class="import-group-header collapsed" onclick="toggleImportGroup('${categoryId}')">
-                      <span class="expand-icon">▶</span>
-                      <span class="icon">${categoryIcons[category]}</span>
-                      <span class="name">${categoryNames[category]}</span>
-                      <span class="count">(${categoryTokens.length} styles)</span>
-                      <div class="group-status">
-                        <span class="status-badge new">${categoryTokens.length} new</span>
+                  <div class="variable-subgroup" id="${categoryId}">
+                    <div class="subgroup-header collapsed" onclick="toggleSubgroup('${categoryId}')">
+                      <div class="subgroup-title">
+                        <span class="material-symbols-outlined" style="font-size: 16px; margin-right: 6px; color: var(--text-secondary);">${categoryIcons[category]}</span>
+                        ${categoryNames[category]}
+                        <span class="subgroup-stats">${categoryTokens.length} styles</span>
+                        <div class="group-status" style="display: inline-flex; margin-left: 8px;">
+                          <span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${categoryTokens.length} new</span>
+                        </div>
                       </div>
+                      <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                     </div>
-                    <div class="import-group-content collapsed" id="${categoryId}-content">
+                    <div class="subgroup-content collapsed" id="${categoryId}-content">
                       <div class="styles-table">
                         ${categoryTokens.map(token => {
                           const tokenId = `style-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
@@ -6175,40 +6435,53 @@ window.clearInput = function() {
                     </div>
                   </div>
                 `;
-              }).filter(Boolean).join('')}
+              }).join('')}
             </div>
-            <div style-summary">
-              <span class="summary-item">🎨 ${styleTokens.length} Figma styles</span>
-              <span class="summary-item">📝 Organized by type</span>
+            <div class="summary-stats" style="margin-top: 16px; color: var(--text-secondary); font-size: 11px;">
+               <span class="summary-item">🎨 ${styleTokens.length} styles ready to import</span>
             </div>
           </div>
           ` : ''}
           
           <div class="options-grid">
             <div class="option-group">
-              <h4>Import Options</h4>
-              <label class="checkbox-label">
-                <input type="checkbox" id="create-new-collection" checked onchange="toggleCollectionOptions()">
-                Create new collection
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="organize-by-categories" checked>
-                Organize by categories
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="overwrite-existing">
-                Overwrite existing
-              </label>
-              <div class="input-group" id="collection-name-group">
-                <label>Collection Name</label>
+              <h4>Import Destination</h4>
+              <div class="destination-selector" style="display: flex; gap: 16px; margin-bottom: 12px;">
+                <label class="radio-option" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                   <input type="radio" name="import-destination" value="new" checked onchange="toggleImportDestination('new')">
+                   <span>New Collection</span>
+                </label>
+                <label class="radio-option" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                   <input type="radio" name="import-destination" value="existing" onchange="toggleImportDestination('existing')">
+                   <span>Existing Collection</span>
+                </label>
+              </div>
+
+              <div id="new-collection-group" class="input-group">
+                <label>Collection Name <span class="material-symbols-outlined help-icon" data-tooltip="Name of the variable collection to create in Figma">help</span></label>
                 <input type="text" id="collection-name" value="Design Tokens" placeholder="Enter collection name">
               </div>
-              <div class="input-group" id="existing-collection-group" style="display: none;">
-                <label>Select Existing Collection</label>
+
+              <div id="existing-collection-group" class="input-group" style="display: none;">
+                <label>Select Collection <span class="material-symbols-outlined help-icon" data-tooltip="Choose an existing variable collection to merge into">help</span></label>
                 <select id="existing-collection-select">
                   <option value="">Loading collections...</option>
                 </select>
               </div>
+
+              <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
+
+              <h4>Settings</h4>
+              <label class="checkbox-label">
+                <input type="checkbox" id="organize-by-categories" checked>
+                Organize by categories
+                <span class="material-symbols-outlined help-icon" data-tooltip="Group variables into folders (e.g. colors/primary) based on their name path">help</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="overwrite-existing">
+                Overwrite existing variables
+                <span class="material-symbols-outlined help-icon" data-tooltip="If checked, variables with the same name will differ overwritten. If unchecked, they will be skipped.">help</span>
+              </label>
             </div>
           </div>
           
@@ -6257,101 +6530,86 @@ window.clearInput = function() {
         }
       }
 
-      function toggleImportGroup(groupId) {
-        const content = document.getElementById(groupId + '-content');
-        const header = document.querySelector(`#${groupId} .import-group-header`);
-        const expandIcon = header?.querySelector('.expand-icon');
-        
-        if (!content || !header) return;
-        
-        const isCollapsed = content.classList.contains('collapsed');
-        
-        if (isCollapsed) {
-          // Expand
-          content.classList.remove('collapsed');
-          header.classList.remove('collapsed');
-          if (expandIcon) expandIcon.textContent = '▼';
-        } else {
-          // Collapse
-          content.classList.add('collapsed');
-          header.classList.add('collapsed');
-          if (expandIcon) expandIcon.textContent = '▶';
-        }
-      }
+      window.expandAllImportGroups = function() {
+        // Expand all subgroups in the variables preview
+        const subgroups = document.querySelectorAll('.variables-preview .variable-subgroup');
+        subgroups.forEach(group => {
+           const header = group.querySelector('.subgroup-header');
+           const content = group.querySelector('.subgroup-content');
+           if (header) header.classList.remove('collapsed');
+           if (content) {
+             content.classList.remove('collapsed');
+             content.classList.add('expanded');
+           }
+        });
+      };
 
-      function expandAllImportGroups() {
-        document.querySelectorAll('.import-group-content').forEach(content => {
-          content.classList.remove('collapsed');
+      window.collapseAllImportGroups = function() {
+        // Collapse all subgroups in the variables preview
+        const subgroups = document.querySelectorAll('.variables-preview .variable-subgroup');
+        subgroups.forEach(group => {
+           const header = group.querySelector('.subgroup-header');
+           const content = group.querySelector('.subgroup-content');
+           if (header) header.classList.add('collapsed');
+           if (content) {
+             content.classList.add('collapsed');
+             content.classList.remove('expanded');
+           }
         });
-        document.querySelectorAll('.import-group-header').forEach(header => {
-          header.classList.remove('collapsed');
-        });
-        document.querySelectorAll('.expand-icon').forEach(icon => {
-          icon.textContent = '▼';
-        });
-      }
+      };
 
-      function collapseAllImportGroups() {
-        document.querySelectorAll('.import-group-content').forEach(content => {
-          content.classList.add('collapsed');
+      window.expandAllStyleGroups = function() {
+        // Expand all subgroups in the styles preview
+        const subgroups = document.querySelectorAll('.styles-preview .variable-subgroup');
+        subgroups.forEach(group => {
+           const header = group.querySelector('.subgroup-header');
+           const content = group.querySelector('.subgroup-content');
+           if (header) header.classList.remove('collapsed');
+           if (content) {
+             content.classList.remove('collapsed');
+             content.classList.add('expanded');
+           }
         });
-        document.querySelectorAll('.import-group-header').forEach(header => {
-          header.classList.add('collapsed');
-        });
-        document.querySelectorAll('.expand-icon').forEach(icon => {
-          icon.textContent = '▶';
-        });
-      }
+      };
 
-      function expandAllStyleGroups() {
-        document.querySelectorAll('[id^="style-group-"] .import-group-content').forEach(content => {
-          content.classList.remove('collapsed');
+      window.collapseAllStyleGroups = function() {
+        // Collapse all subgroups in the styles preview
+        const subgroups = document.querySelectorAll('.styles-preview .variable-subgroup');
+        subgroups.forEach(group => {
+           const header = group.querySelector('.subgroup-header');
+           const content = group.querySelector('.subgroup-content');
+           if (header) header.classList.add('collapsed');
+           if (content) {
+             content.classList.add('collapsed');
+             content.classList.remove('expanded');
+           }
         });
-        document.querySelectorAll('[id^="style-group-"] .import-group-header').forEach(header => {
-          header.classList.remove('collapsed');
-        });
-        document.querySelectorAll('[id^="style-group-"] .expand-icon').forEach(icon => {
-          icon.textContent = '▼';
-        });
-      }
+      };
 
-      function collapseAllStyleGroups() {
-        document.querySelectorAll('[id^="style-group-"] .import-group-content').forEach(content => {
-          content.classList.add('collapsed');
-        });
-        document.querySelectorAll('[id^="style-group-"] .import-group-header').forEach(header => {
-          header.classList.add('collapsed');
-        });
-        document.querySelectorAll('[id^="style-group-"] .expand-icon').forEach(icon => {
-          icon.textContent = '▶';
-        });
-      }
-
-      function selectAllVariables(checked) {
+      window.selectAllVariables = function(checked) {
         document.querySelectorAll('.variable-checkbox').forEach(checkbox => {
           checkbox.checked = checked;
         });
-      }
+      };
 
-      function selectAllStyles(checked) {
+      window.selectAllStyles = function(checked) {
         document.querySelectorAll('.style-checkbox').forEach(checkbox => {
           checkbox.checked = checked;
         });
-      }
+      };
 
-      window.toggleCollectionOptions = function() {
-        const createNewCheckbox = document.getElementById('create-new-collection');
-        const collectionNameGroup = document.getElementById('collection-name-group');
+      window.toggleImportDestination = function(mode) {
+        const collectionNameGroup = document.getElementById('new-collection-group');
         const existingCollectionGroup = document.getElementById('existing-collection-group');
         
-        if (createNewCheckbox && createNewCheckbox.checked) {
+        if (mode === 'new') {
           // Show collection name input, hide existing collections dropdown
-          collectionNameGroup.style.display = 'block';
-          existingCollectionGroup.style.display = 'none';
+          if (collectionNameGroup) collectionNameGroup.style.display = 'block';
+          if (existingCollectionGroup) existingCollectionGroup.style.display = 'none';
         } else {
           // Hide collection name input, show existing collections dropdown
-          collectionNameGroup.style.display = 'none';
-          existingCollectionGroup.style.display = 'block';
+          if (collectionNameGroup) collectionNameGroup.style.display = 'none';
+          if (existingCollectionGroup) existingCollectionGroup.style.display = 'block';
           // Refresh existing collections list
           loadExistingCollections();
         }
@@ -6381,25 +6639,25 @@ window.clearInput = function() {
           return;
         }
         
-        // Get import configuration BEFORE replacing content
-        const createNewElement = document.getElementById('create-new-collection');
+        // Get import configuration
+        const destinationRadio = document.querySelector('input[name="import-destination"]:checked');
         const organizeByCategoriesElement = document.getElementById('organize-by-categories');
         const overwriteExistingElement = document.getElementById('overwrite-existing');
         
         // Check if elements exist before accessing properties
-        if (!createNewElement || !organizeByCategoriesElement || !overwriteExistingElement) {
+        if (!destinationRadio || !organizeByCategoriesElement || !overwriteExistingElement) {
           alert('Please parse tokens first to see import options');
           return;
         }
         
-        const createNew = createNewElement.checked;
+        const mode = destinationRadio.value; // 'new' or 'existing'
         const organizeByCategories = organizeByCategoriesElement.checked;
         const overwriteExisting = overwriteExistingElement.checked;
         
         let collectionName = 'Design Tokens';
         let existingCollectionId = null;
         
-        if (createNew) {
+        if (mode === 'new') {
           const collectionNameElement = document.getElementById('collection-name');
           collectionName = collectionNameElement ? collectionNameElement.value || 'Design Tokens' : 'Design Tokens';
         } else {
@@ -6466,7 +6724,8 @@ window.clearInput = function() {
             options: {
               collectionName,
               collectionId: existingCollectionId,
-              strategy: overwriteExisting ? 'overwrite' : 'merge'
+              strategy: overwriteExisting ? 'overwrite' : 'merge',
+              organizeByCategories
             }
           }
         };
@@ -6573,38 +6832,70 @@ window.clearInput = function() {
                 <!-- Preview Section (Hidden by default) -->
                 <div id="import-preview-section" class="import-preview-section hidden">
                   <div class="preview-header">
-                    <h4>Import Preview</h4>
+                    <h4 style="display: flex; align-items: center; gap: 8px;">
+                      <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">preview</span>
+                      Import Preview
+                    </h4>
                     <div class="preview-stats">
-                      <span id="preview-stat-total" class="badge">0 Total</span>
-                      <span id="preview-stat-new" class="badge badge-success">0 New</span>
-                      <span id="preview-stat-update" class="badge badge-warning">0 Updates</span>
-                      <span id="preview-stat-conflict" class="badge badge-danger">0 Conflicts</span>
+                      <span id="preview-stat-total" class="badge" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">functions</span>
+                        <span>0</span>
+                      </span>
+                      <span id="preview-stat-new" class="badge badge-success" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">add_circle</span>
+                        <span>0</span>
+                      </span>
+                      <span id="preview-stat-update" class="badge badge-warning" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">sync</span>
+                        <span>0</span>
+                      </span>
+                      <span id="preview-stat-conflict" class="badge badge-danger" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">warning</span>
+                        <span>0</span>
+                      </span>
                     </div>
                   </div>
 
-                  <div class="import-strategy-selector">
-                    <label>Conflict Strategy:</label>
-                    <div class="radio-group">
-                      <label>
+                  <div class="preview-toolbar" style="display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-md);">
+                    <button class="compact-action-btn" id="select-all-import" title="Select All" style="display: flex; align-items: center; gap: 4px; width: auto; padding: 4px 8px;">
+                      <span class="material-symbols-outlined" style="font-size: 16px;">select_all</span>
+                      <span style="font-size: 11px;">All</span>
+                    </button>
+                    <button class="compact-action-btn" id="deselect-all-import" title="Deselect All" style="display: flex; align-items: center; gap: 4px; width: auto; padding: 4px 8px;">
+                      <span class="material-symbols-outlined" style="font-size: 16px;">deselect</span>
+                      <span style="font-size: 11px;">None</span>
+                    </button>
+                    <div style="border-left: 1px solid rgba(255,255,255,0.2); margin: 0 4px;"></div>
+                    <button class="compact-action-btn" id="expand-all-import" title="Expand All" style="width: 28px; height: 28px;">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">unfold_more</span>
+                    </button>
+                    <button class="compact-action-btn" id="collapse-all-import" title="Collapse All" style="width: 28px; height: 28px;">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">unfold_less</span>
+                    </button>
+                  </div>
+
+                  <div class="import-strategy-selector" style="padding: 8px 12px; margin-bottom: 12px;">
+                    <label style="font-size: 12px; color: rgba(255,255,255,0.7);">On Conflict:</label>
+                    <div class="radio-group" style="gap: 16px;">
+                      <label style="font-size: 12px;">
                         <input type="radio" name="import-strategy" value="merge" checked>
-                        <span>Merge (Keep Existing)</span>
+                        <span>Skip</span>
                       </label>
-                      <label>
+                      <label style="font-size: 12px;">
                         <input type="radio" name="import-strategy" value="overwrite">
-                        <span>Overwrite Existing</span>
+                        <span>Overwrite</span>
                       </label>
                     </div>
                   </div>
 
-                  <div class="preview-table-container">
+                  <div class="preview-table-container" style="max-height: 250px;">
                     <table class="preview-table">
                       <thead>
                         <tr>
-                          <th>Variable Name</th>
-                          <th>Type</th>
-                          <th>New Value</th>
-                          <th>Status</th>
-                          <th>Action</th>
+                          <th style="width: 40%;">Variable</th>
+                          <th style="width: 15%;">Type</th>
+                          <th style="width: 30%;">Value</th>
+                          <th style="width: 15%;">Status</th>
                         </tr>
                       </thead>
                       <tbody id="preview-table-body">
@@ -6613,9 +6904,10 @@ window.clearInput = function() {
                     </table>
                   </div>
 
-                  <div class="import-confirmation-actions">
+                  <div class="import-confirmation-actions" style="margin-top: 12px;">
                     <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
-                    <button id="confirm-import-btn" class="btn-primary">
+                    <button id="confirm-import-btn" class="btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">upload</span>
                       Import Variables
                     </button>
                   </div>
@@ -6791,6 +7083,8 @@ window.clearInput = function() {
       window.toggleVariablesList = toggleVariablesList;
       window.expandAllGroups = expandAllGroups;
       window.collapseAllGroups = collapseAllGroups;
+      window.expandAllSubgroups = expandAllSubgroups;
+      window.collapseAllSubgroups = collapseAllSubgroups;
       window.deleteVariable = deleteVariable;
       window.scrollToVariable = scrollToVariable;
       window.toggleImportGroup = toggleImportGroup;
@@ -6934,30 +7228,51 @@ window.clearInput = function() {
 
         currentImportPreview = msg.diff;
         const { added, modified, unchanged, conflicts } = msg.diff;
+        const totalCount = added.length + modified.length + unchanged.length + conflicts.length;
         
-        // Update Stats
-        document.getElementById('preview-stat-total').textContent = `${added.length + modified.length + unchanged.length + conflicts.length} Total`;
-        document.getElementById('preview-stat-new').textContent = `${added.length} New`;
-        document.getElementById('preview-stat-update').textContent = `${modified.length} Updates`;
-        document.getElementById('preview-stat-conflict').textContent = `${conflicts.length} Conflicts`;
+        // Update Stats with new format (icon + number only)
+        document.getElementById('preview-stat-total').querySelector('span:last-child').textContent = totalCount;
+        document.getElementById('preview-stat-new').querySelector('span:last-child').textContent = added.length;
+        document.getElementById('preview-stat-update').querySelector('span:last-child').textContent = modified.length;
+        document.getElementById('preview-stat-conflict').querySelector('span:last-child').textContent = conflicts.length;
 
         // Render Table
         const tbody = document.getElementById('preview-table-body');
         tbody.innerHTML = '';
 
+        // Helper to get type icon
+        const getTypeIcon = (type) => {
+          const t = (type || '').toLowerCase();
+          if (t.includes('color')) return '<span class="material-symbols-outlined" style="font-size: 14px; color: #a78bfa;">palette</span>';
+          if (t.includes('number') || t.includes('numeric') || t.includes('float')) return '<span class="material-symbols-outlined" style="font-size: 14px; color: #60a5fa;">123</span>';
+          if (t.includes('string')) return '<span class="material-symbols-outlined" style="font-size: 14px; color: #4ade80;">text_fields</span>';
+          if (t.includes('boolean')) return '<span class="material-symbols-outlined" style="font-size: 14px; color: #fbbf24;">toggle_on</span>';
+          return '<span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.5);">data_object</span>';
+        };
+        
+        // Helper to get status badge
+        const getStatusBadge = (status) => {
+          const statusMap = {
+            'new': '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(34,197,94,0.2); color: #4ade80; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">add</span>NEW</span>',
+            'update': '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(234,179,8,0.2); color: #facc15; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">sync</span>UPD</span>',
+            'conflict': '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(239,68,68,0.2); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">warning</span>!</span>',
+            'ignore': '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">remove</span>SKIP</span>'
+          };
+          return statusMap[status] || status.toUpperCase();
+        };
+
         const appendRow = (token, status, oldValue = null) => {
           const tr = document.createElement('tr');
           const valueDisplay = status === 'update' || status === 'conflict' ? 
-            `<div class="old-value">${SecurityUtils.escapeHTML(JSON.stringify(oldValue))}</div>
-             <div class="new-value">→ ${SecurityUtils.escapeHTML(token.value)}</div>` : 
-            SecurityUtils.escapeHTML(token.value);
+            `<span style="color: rgba(255,255,255,0.4); font-size: 10px; text-decoration: line-through;">${SecurityUtils.escapeHTML(String(oldValue).substring(0, 20))}</span>
+             <span style="color: var(--purple-light);"> → ${SecurityUtils.escapeHTML(String(token.value).substring(0, 25))}</span>` : 
+            `<span style="font-family: monospace; font-size: 11px;">${SecurityUtils.escapeHTML(String(token.value).substring(0, 30))}</span>`;
 
           tr.innerHTML = `
-            <td>${SecurityUtils.escapeHTML(token.name)}</td>
-            <td>${SecurityUtils.escapeHTML(token.type)}</td>
-            <td>${valueDisplay}</td>
-            <td class="token-${status}">${status.toUpperCase()}</td>
-            <td>-</td>
+            <td style="font-size: 11px; font-family: monospace;">${SecurityUtils.escapeHTML(token.name)}</td>
+            <td style="text-align: center;">${getTypeIcon(token.type)}</td>
+            <td style="font-size: 11px;">${valueDisplay}</td>
+            <td style="text-align: center;">${getStatusBadge(status)}</td>
           `;
           tbody.appendChild(tr);
         };
@@ -7021,3 +7336,144 @@ window.clearInput = function() {
            setTimeout(initializeImportTab, 50); // Small delay to ensure view is updated
         }
       });
+
+      function expandAllVariables() {
+        console.log('Expanding all variable collections');
+        const collections = document.querySelectorAll('.variable-collection');
+        collections.forEach(coll => {
+          const content = coll.querySelector('.collection-content');
+          const header = coll.querySelector('.collection-header');
+          if (content) content.classList.remove('collapsed');
+          if (header) header.classList.remove('collapsed');
+          
+          const collectionId = coll.getAttribute('data-collection-id');
+          if (collectionId) {
+             if (typeof expandAllSubgroups === 'function') {
+                expandAllSubgroups(collectionId);
+             } else if (window.expandAllSubgroups) {
+                window.expandAllSubgroups(collectionId);
+             }
+          }
+        });
+      }
+      window.expandAllVariables = expandAllVariables;
+
+      function collapseAllVariables() {
+        console.log('Collapsing all variable collections');
+        const collections = document.querySelectorAll('.variable-collection');
+        collections.forEach(coll => {
+          const content = coll.querySelector('.collection-content');
+          const header = coll.querySelector('.collection-header');
+          if (content) content.classList.add('collapsed');
+          if (header) header.classList.add('collapsed');
+          
+          const collectionId = coll.getAttribute('data-collection-id');
+          if (collectionId) {
+             if (typeof collapseAllSubgroups === 'function') {
+                collapseAllSubgroups(collectionId);
+             } else if (window.collapseAllSubgroups) {
+                window.collapseAllSubgroups(collectionId);
+             }
+          }
+        });
+      }
+      window.collapseAllVariables = collapseAllVariables;
+
+      function toggleSearchBar(wrapperId) {
+        const wrapper = document.getElementById(wrapperId);
+        if (wrapper) {
+          const isExpanded = wrapper.classList.toggle('expanded');
+          if (isExpanded) {
+            const input = wrapper.querySelector('input');
+            if (input) input.focus();
+          }
+        }
+      }
+      window.toggleSearchBar = toggleSearchBar;
+
+      window.expandAllComponents = function() {
+        console.log('Expanding all component sets');
+        const sets = document.querySelectorAll('.component-set');
+        sets.forEach(set => {
+          const children = set.querySelector('.component-set-children');
+          const header = set.querySelector('.component-set-header');
+          if (children) children.classList.add('expanded');
+          if (header) header.classList.add('expanded');
+        });
+      };
+
+      window.collapseAllComponents = function() {
+        console.log('Collapsing all component sets');
+        const sets = document.querySelectorAll('.component-set');
+        sets.forEach(set => {
+          const children = set.querySelector('.component-set-children');
+          const header = set.querySelector('.component-set-header');
+          if (children) children.classList.remove('expanded');
+          if (header) header.classList.remove('expanded');
+        });
+      };
+
+      window.showFeedbackInSettings = function() {
+        // Open settings modal and scroll to feedback section
+        const modal = document.getElementById('settings-modal');
+        if (modal) {
+          modal.style.display = 'flex';
+          // Wait a tick for display, then scroll to feedback
+          setTimeout(() => {
+            const feedbackSection = document.getElementById('settings-feedback-section');
+            if (feedbackSection) {
+              feedbackSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 100);
+        }
+      };
+
+      window.toggleFeedback = function() {
+        const feedbackSection = document.getElementById('feedback-section');
+        if (feedbackSection) {
+          const isHidden = feedbackSection.style.display === 'none' || !feedbackSection.style.display;
+          feedbackSection.style.display = isHidden ? 'block' : 'none';
+          // Also persist the state
+          if (!isHidden) {
+            parent.postMessage({ pluginMessage: { type: 'set-client-storage', key: 'feedbackDismissed', value: true }}, '*');
+          }
+        }
+      };
+
+      // Function to update Variables summary
+      function updateVariablesSummary(variablesCount, collectionsCount) {
+        const summaryDiv = document.getElementById('variables-summary');
+        if (summaryDiv) {
+          summaryDiv.innerHTML = `
+            <div class="summary-badge" data-tooltip="Total Variables">
+               <span class="material-symbols-outlined">data_object</span>
+               <span>${variablesCount} Variables</span>
+            </div>
+            <div class="summary-badge" data-tooltip="Collections">
+               <span class="material-symbols-outlined">folder_open</span>
+               <span>${collectionsCount} Collections</span>
+            </div>
+          `;
+          summaryDiv.style.display = 'flex';
+        }
+      }
+      window.updateVariablesSummary = updateVariablesSummary;
+
+      // Function to update Components summary
+      function updateComponentsSummary(componentsCount, setsCount) {
+        const summaryDiv = document.getElementById('components-summary');
+        if (summaryDiv) {
+           summaryDiv.innerHTML = `
+            <div class="summary-badge" data-tooltip="Total Components">
+               <span class="material-symbols-outlined">widgets</span>
+               <span>${componentsCount} Components</span>
+            </div>
+            <div class="summary-badge" data-tooltip="Component Sets">
+               <span class="material-symbols-outlined">layers</span>
+               <span>${setsCount} Sets</span>
+            </div>
+          `;
+          summaryDiv.style.display = 'flex';
+        }
+      }
+      window.updateComponentsSummary = updateComponentsSummary;

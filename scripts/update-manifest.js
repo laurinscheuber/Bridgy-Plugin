@@ -103,6 +103,10 @@ function generateManifestDomains(environments = DEFAULT_ENVIRONMENTS) {
   
   // Add Figma static domain for fonts
   domains.add('https://static.figma.com');
+  
+  // Add Google Fonts domains
+  domains.add('https://fonts.googleapis.com');
+  domains.add('https://fonts.gstatic.com');
 
   // Add all environment domains
   for (const config of Object.values(environments)) {

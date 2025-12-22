@@ -19,145 +19,75 @@
         <div class="header-content">
           <div class="header-title">
             <h1>Bridgy</h1>
-            <div class="beta-badge">BETA</div>
+            <div class="beta-badge" onclick="toggleFeedback()" style="cursor: pointer;" data-tooltip="Click to show feedback">BETA</div>
           </div>
           <div class="header-actions">
+            <button
+              id="refresh-btn"
+              onclick="refreshData()"
+              class="refresh-button"
+              data-tooltip="Refresh variables and components"
+            >
+              <span class="material-symbols-outlined">refresh</span>
+            </button>
+            <button
+              id="units-icon-btn"
+              onclick="openUnitsModal()"
+              class="settings-icon"
+              data-tooltip="Units Configuration"
+            >
+              <span class="material-symbols-outlined">straighten</span>
+            </button>
+            <button
+              id="help-icon-btn"
+              onclick="openUserGuide()"
+              class="settings-icon"
+              data-tooltip="User Guide"
+            >
+              <span class="material-symbols-outlined">help</span>
+            </button>
+            <button
+              id="settings-icon-btn"
+              onclick="openSettingsModal()"
+              class="settings-icon"
+              data-tooltip="Settings"
+            >
+              <span class="material-symbols-outlined">settings</span>
+            </button>
             <a
               id="repo-link-button"
               class="repo-link-button"
               href="#"
               target="_blank"
-              title="Open Repository"
+              data-tooltip="Open Repository"
               style="display: none;"
             >
-              <span class="repo-link-icon">🔗</span>
+              <span class="material-symbols-outlined repo-link-icon">link</span>
               <span>Repository</span>
             </a>
-            <button
-              id="refresh-btn"
-              onclick="refreshData()"
-              class="refresh-button"
-              title="Refresh variables and components"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M23 4v6h-6"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-          <button
-            id="units-icon-btn"
-            onclick="openUnitsModal()"
-            class="settings-icon"
-            title="Units Configuration"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
-              <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
-              <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" rx="1"/>
-            </svg>
-          </button>
-          <button
-            id="help-icon-btn"
-            onclick="openUserGuide()"
-            class="settings-icon"
-            title="User Guide"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-              <path
-                d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-              <circle cx="12" cy="17" r="1" fill="currentColor" />
-            </svg>
-          </button>
-          <button
-            id="settings-icon-btn"
-            onclick="openSettingsModal()"
-            class="settings-icon"
-            title="Settings"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-              <path
-                d="M19.4 15C19.2669 15.3016 19.2272 15.6362 19.286 15.9606C19.3448 16.285 19.4995 16.5843 19.73 16.82L19.79 16.88C19.976 17.0657 20.1235 17.2863 20.2241 17.5291C20.3248 17.7719 20.3766 18.0322 20.3766 18.295C20.3766 18.5578 20.3248 18.8181 20.2241 19.0609C20.1235 19.3037 19.976 19.5243 19.79 19.71C19.6043 19.896 19.3837 20.0435 19.1409 20.1441C18.8981 20.2448 18.6378 20.2966 18.375 20.2966C18.1122 20.2966 17.8519 20.2448 17.6091 20.1441C17.3663 20.0435 17.1457 19.896 16.96 19.71L16.9 19.65C16.6643 19.4195 16.365 19.2648 16.0406 19.206C15.7162 19.1472 15.3816 19.1869 15.08 19.32C14.7842 19.4468 14.532 19.6572 14.3543 19.9255C14.1766 20.1938 14.0813 20.5082 14.08 20.83V21C14.08 21.5304 13.8693 22.0391 13.4942 22.4142C13.1191 22.7893 12.6104 23 12.08 23C11.5496 23 11.0409 22.7893 10.6658 22.4142C10.2907 22.0391 10.08 21.5304 10.08 21V20.91C10.0723 20.579 9.96512 20.258 9.77251 19.9887C9.5799 19.7194 9.31074 19.5143 9 19.4C8.69838 19.2669 8.36381 19.2272 8.03941 19.286C7.71502 19.3448 7.41568 19.4995 7.18 19.73L7.12 19.79C6.93425 19.976 6.71368 20.1235 6.47088 20.2241C6.22808 20.3248 5.96783 20.3766 5.705 20.3766C5.44217 20.3766 5.18192 20.3248 4.93912 20.2241C4.69632 20.1235 4.47575 19.976 4.29 19.79C4.10405 19.6043 3.95653 19.3837 3.85588 19.1409C3.75523 18.8981 3.70343 18.6378 3.70343 18.375C3.70343 18.1122 3.75523 17.8519 3.85588 17.6091C3.95653 17.3663 4.10405 17.1457 4.29 16.96L4.35 16.9C4.58054 16.6643 4.73519 16.365 4.794 16.0406C4.85282 15.7162 4.81312 15.3816 4.68 15.08C4.55324 14.7842 4.34276 14.532 4.07447 14.3543C3.80618 14.1766 3.49179 14.0813 3.17 14.08H3C2.46957 14.08 1.96086 13.8693 1.58579 13.4942C1.21071 13.1191 1 12.6104 1 12.08C1 11.5496 1.21071 11.0409 1.58579 10.6658C1.96086 10.2907 2.46957 10.08 3 10.08H3.09C3.42099 10.0723 3.742 9.96512 4.0113 9.77251C4.28059 9.5799 4.48572 9.31074 4.6 9C4.73312 8.69838 4.77282 8.36381 4.714 8.03941C4.65519 7.71502 4.50054 7.41568 4.27 7.18L4.21 7.12C4.02405 6.93425 3.87653 6.71368 3.77588 6.47088C3.67523 6.22808 3.62343 5.96783 3.62343 5.705C3.62343 5.44217 3.67523 5.18192 3.77588 4.93912C3.87653 4.69632 4.02405 4.47575 4.21 4.29C4.39575 4.10405 4.61632 3.95653 4.85912 3.85588C5.10192 3.75523 5.36217 3.70343 5.625 3.70343C5.88783 3.70343 6.14808 3.75523 6.39088 3.85588C6.63368 3.95653 6.85425 4.10405 7.04 4.29L7.1 4.35C7.33568 4.58054 7.63502 4.73519 7.95941 4.794C8.28381 4.85282 8.61838 4.81312 8.92 4.68H9C9.29577 4.55324 9.54802 4.34276 9.72569 4.07447C9.90337 3.80618 9.99872 3.49179 10 3.17V3C10 2.46957 10.2107 1.96086 10.5858 1.58579C10.9609 1.21071 11.4696 1 12 1C12.5304 1 13.0391 1.21071 13.4142 1.58579C13.7893 1.96086 14 2.46957 14 3V3.09C14.0013 3.41179 14.0966 3.72618 14.2743 3.99447C14.452 4.26276 14.7042 4.47324 15 4.6C15.3016 4.73312 15.6362 4.77282 15.9606 4.714C16.285 4.65519 16.5843 4.50054 16.82 4.27L16.88 4.21C17.0657 4.02405 17.2863 3.87653 17.5291 3.77588C17.7719 3.67523 18.0322 3.62343 18.295 3.62343C18.5578 3.62343 18.8181 3.67523 19.0609 3.77588C19.3037 3.87653 19.5243 4.02405 19.71 4.21C19.896 4.39575 20.0435 4.61632 20.1441 4.85912C20.2448 5.10192 20.2966 5.36217 20.2966 5.625C20.2966 5.88783 20.2448 6.14808 20.1441 6.39088C20.0435 6.63368 19.896 6.85425 19.71 7.04L19.65 7.1C19.4195 7.33568 19.2648 7.63502 19.206 7.95941C19.1472 8.28381 19.1869 8.61838 19.32 8.92V9C19.4468 9.29577 19.6572 9.54802 19.9255 9.72569C20.1938 9.90337 20.5082 9.99872 20.83 10H21C21.5304 10 22.0391 10.2107 22.4142 10.5858C22.7893 10.9609 23 11.4696 23 12C23 12.5304 22.7893 13.0391 22.4142 13.4142C22.0391 13.7893 21.5304 14 21 14H20.91C20.5882 14.0013 20.2738 14.0966 20.0055 14.2743C19.7372 14.452 19.5268 14.7042 19.4 15Z"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-            </svg>
-          </button>
           </div>
         </div>
       </header>
 
-      <!-- Prominent Feedback Section -->
-      <div class="feedback-section">
+      <!-- Toggleable Feedback Section -->
+      <div id="feedback-section" class="feedback-section" style="display: none;">
         <div class="feedback-header">
           <div class="feedback-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z"></path>
-            </svg>
+            <span class="material-symbols-outlined" style="font-size: 20px;">campaign</span>
             Welcome to Bridgy BETA!
           </div>
-          <a href="https://bridgy-plugin.com/" target="_blank" class="feedback-website-link">
-            Visit our website
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <line x1="10" y1="14" x2="21" y2="3"></line>
-            </svg>
-          </a>
+          <div style="display: flex; align-items: center; gap: var(--space-2);">
+            <a href="https://bridgy-plugin.com/" target="_blank" class="feedback-website-link">
+              Visit our website
+              <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">open_in_new</span>
+            </a>
+            <button class="feedback-close-btn" onclick="dismissFeedback()" title="Dismiss">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
         </div>
         <p class="feedback-description">
-          Thank you for trying Bridgy! We're actively improving based on your feedback. Your input helps us build the best Figma to code experience.
+          Thank you for trying Bridgy! We're actively improving based on your feedback.
         </p>
         <div class="feedback-buttons">
           <button class="feedback-button" onclick="openGitHubFeedback('bug')">
@@ -182,79 +112,124 @@
       </div>
 
       <div class="tab-content active" id="variables-content">
-        <div class="search-container">
-          <div class="search-input-wrapper">
-            <input
-              type="text"
-              class="search-input"
-              id="variable-search"
-              placeholder="Search variables..."
-            />
+        <div class="content-padding">
+          <!-- Tab Header -->
+          <div class="tab-header" style="margin-bottom: var(--space-2);">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
+              <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">data_object</span>
+                Design Variables
+              </h2>
+              <div id="variables-summary" class="header-summary">
+                <span id="variables-count">0 vars</span> • <span id="collections-count">0 cols</span>
+              </div>
+            </div>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
+              View and manage your Figma design tokens. Export to CSS or commit directly to your repository.
+            </p>
           </div>
-        </div>
-        <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
-          <button id="export-css-button" disabled>Export Variables</button>
-          <button id="commit-repo-button" disabled>Commit to Repository</button>
-          <button 
-            id="import-icon-button"
-            onclick="openImportModal()"
-            style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer;"
-            title="Import variables"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle;">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7,10 12,15 17,10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Import
-          </button>
-          <div style="display: flex; gap: 8px; margin-left: auto;">
-            <button 
-              onclick="expandAllGroups()" 
-              style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
-              title="Expand all variable groups"
-            >
-              Expand All
-            </button>
-            <button 
-              onclick="collapseAllGroups()" 
-              style="padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd;"
-              title="Collapse all variable groups"
-            >
-              Collapse All
-            </button>
+
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <button id="export-css-button" class="compact-action-btn" disabled title="Download CSS" style="width: auto; padding: 0 8px;">
+                <span class="material-symbols-outlined">download</span>
+                <span class="toolbar-btn-text">Download</span>
+              </button>
+              <button id="commit-repo-button" class="compact-action-btn" disabled title="Commit to repository" style="width: auto; padding: 0 8px;">
+                <span class="material-symbols-outlined">commit</span>
+                <span class="toolbar-btn-text">Commit</span>
+              </button>
+              <button id="import-icon-button" class="compact-action-btn" onclick="openImportModal()" title="Import variables" style="width: auto; padding: 0 8px;">
+                <span class="material-symbols-outlined">input</span>
+                <span class="toolbar-btn-text">Import</span>
+              </button>
+            </div>
+
+            <div id="variable-search-wrapper" class="search-wrapper-collapsible">
+              <div class="search-input-wrapper" style="flex: 1;">
+                <input
+                  type="text"
+                  class="search-input"
+                  id="variable-search"
+                  placeholder="Search variables..."
+                />
+                <button class="search-clear-btn" id="clear-variable-search" onclick="clearSearch('variable-search')">
+                  <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-group">
+              <button class="compact-action-btn" onclick="toggleSearchBar('variable-search-wrapper')" title="Toggle Search">
+                <span class="material-symbols-outlined">search</span>
+              </button>
+              <button class="compact-action-btn" onclick="expandAllVariables()" title="Expand all collections">
+                <span class="material-symbols-outlined">unfold_more</span>
+              </button>
+              <button class="compact-action-btn" onclick="collapseAllVariables()" title="Collapse all collections">
+                <span class="material-symbols-outlined">unfold_less</span>
+              </button>
+            </div>
           </div>
-        </div>
-        <div id="variables-container">
-          <div class="content-loading">
-            <div class="content-loading-spinner"></div>
-            <div class="content-loading-text">Loading variables and design tokens...</div>
+          <div id="variables-container">
+            <div class="content-loading">
+              <div class="content-loading-spinner"></div>
+              <div class="content-loading-text">Loading variables and design tokens...</div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="tab-content" id="quality-content">
-        <div style="padding: 20px;">
-          <h2 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            Token Coverage Analysis
-          </h2>
-          <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 24px;">
-            Identify elements using hard-coded values (colors, spacing, sizes, etc.) instead of design tokens. Each unique property-value combination is counted as one issue, showing how many times it appears across your design.
-          </p>
-          <button
-            id="analyze-token-coverage-btn"
-            onclick="analyzeTokenCoverage()"
-            style="margin-bottom: 24px; background: linear-gradient(135deg, var(--purple-medium) 0%, #a855f7 100%);"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
-              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            Analyze Current Page
-          </button>
+        <div class="content-padding">
+          <!-- Tab Header -->
+          <div class="tab-header" style="margin-bottom: var(--space-2);">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
+               <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">fact_check</span>
+                Token Coverage
+              </h2>
+            </div>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
+              Identify elements using hard-coded values instead of design tokens.
+            </p>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <button id="analyze-token-coverage-btn" class="compact-action-btn" onclick="analyzeTokenCoverage()" title="Analyze Current Page" style="width: auto; padding: 0 8px;">
+                <span class="material-symbols-outlined">refresh</span>
+                <span class="toolbar-btn-text">Analyze</span>
+              </button>
+            </div>
+
+            <div id="quality-search-wrapper" class="search-wrapper-collapsible">
+              <div class="search-input-wrapper" style="flex: 1;">
+                <input
+                  type="text"
+                  class="search-input"
+                  id="quality-search"
+                  placeholder="Search issues..."
+                />
+                <button class="search-clear-btn" id="clear-quality-search" onclick="clearSearch('quality-search')">
+                  <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-group">
+              <button class="compact-action-btn" onclick="toggleSearchBar('quality-search-wrapper')" title="Toggle Search">
+                <span class="material-symbols-outlined">search</span>
+              </button>
+              <button class="compact-action-btn" onclick="expandAllQuality()" title="Expand all issues">
+                <span class="material-symbols-outlined">unfold_more</span>
+              </button>
+              <button class="compact-action-btn" onclick="collapseAllQuality()" title="Collapse all issues">
+                <span class="material-symbols-outlined">unfold_less</span>
+              </button>
+            </div>
+          </div>
+
           <div id="token-coverage-results">
             <div class="content-loading" style="display: none;">
               <div class="content-loading-spinner"></div>
@@ -265,21 +240,60 @@
       </div>
 
       <div class="tab-content" id="components-content">
-        <div class="search-container">
-          <div class="search-input-wrapper">
-            <input
-              type="text"
-              class="search-input"
-              id="component-search"
-              placeholder="Search components..."
-            />
+        <div class="content-padding">
+          <!-- Tab Header -->
+          <div class="tab-header" style="margin-bottom: var(--space-2);">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
+              <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">widgets</span>
+                Components
+              </h2>
+              <div id="components-summary" class="header-summary">
+                <span id="components-count">0 comps</span> • <span id="component-sets-count">0 sets</span>
+              </div>
+            </div>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
+              Browse your component library. Generate CSS or commit component styles to your repository.
+            </p>
           </div>
-        </div>
 
-        <div id="components-container">
-          <div class="content-loading">
-            <div class="content-loading-spinner"></div>
-            <div class="content-loading-text">Scanning document for components...</div>
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <div style="width: 8px;"></div>
+            </div>
+
+            <div id="component-search-wrapper" class="search-wrapper-collapsible">
+              <div class="search-input-wrapper" style="flex: 1;">
+                <input
+                  type="text"
+                  class="search-input"
+                  id="component-search"
+                  placeholder="Search components..."
+                />
+                <button class="search-clear-btn" id="clear-component-search" onclick="clearSearch('component-search')">
+                  <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-group">
+              <button class="compact-action-btn" onclick="toggleSearchBar('component-search-wrapper')" title="Toggle Search">
+                <span class="material-symbols-outlined">search</span>
+              </button>
+              <button class="compact-action-btn" onclick="expandAllComponents()" title="Expand all component sets">
+                <span class="material-symbols-outlined">unfold_more</span>
+              </button>
+              <button class="compact-action-btn" onclick="collapseAllComponents()" title="Collapse all component sets">
+                <span class="material-symbols-outlined">unfold_less</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="components-container">
+            <div class="content-loading">
+              <div class="content-loading-spinner"></div>
+              <div class="content-loading-text">Scanning document for components...</div>
+            </div>
           </div>
         </div>
       </div>
@@ -290,7 +304,7 @@
     <div id="gitlab-modal" class="modal">
       <div class="modal-content">
         <button class="close-modal" onclick="closeGitLabModal()">
-          &times;
+          <span class="material-symbols-outlined">close</span>
         </button>
         <div class="modal-header">
           <h3>Commit to Repository</h3>
@@ -327,7 +341,7 @@
     <div id="settings-modal" class="modal" style="display: none">
       <div class="modal-content">
         <button class="close-modal" onclick="closeSettingsModal()">
-          &times;
+          <span class="material-symbols-outlined">close</span>
         </button>
         <div class="modal-header">
           <h3>Settings</h3>
@@ -586,6 +600,32 @@
               <span id="config-metadata-text" style="font-weight: 400; line-height: 1.5;">Last saved: Loading...</span>
             </div>
           </div>
+
+          <!-- Feedback Section -->
+          <div id="settings-feedback-section" style="border-top: 1px solid rgba(139, 92, 246, 0.2); padding-top: var(--space-4); margin-top: var(--space-4);">
+            <h4 style="margin-bottom: var(--space-2);">Feedback & Support</h4>
+            <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-bottom: var(--space-3);">
+              We're actively improving Bridgy based on your feedback!
+            </p>
+            <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+              <button class="feedback-button" onclick="openGitHubFeedback('bug')" style="flex: 1; min-width: 100px;">
+                <span class="feedback-button-icon">🐛</span>
+                <span>Report Bug</span>
+              </button>
+              <button class="feedback-button" onclick="openGitHubFeedback('feature')" style="flex: 1; min-width: 100px;">
+                <span class="feedback-button-icon">💡</span>
+                <span>Request Feature</span>
+              </button>
+              <button class="feedback-button" onclick="openGitHubFeedback('general')" style="flex: 1; min-width: 100px;">
+                <span class="feedback-button-icon">💭</span>
+                <span>General Feedback</span>
+              </button>
+            </div>
+            <a href="https://bridgy-plugin.com/" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; margin-top: var(--space-3); color: #c4b5fd; font-size: 13px; text-decoration: none;">
+              Visit our website
+              <span class="material-symbols-outlined" style="font-size: 14px;">open_in_new</span>
+            </a>
+          </div>
         </div>
         <div
           class="modal-footer"
@@ -640,7 +680,9 @@
     <!-- User Guide Modal -->
     <div id="user-guide-modal" class="modal" style="display: none">
       <div class="modal-content" style="max-width: 800px">
-        <button class="close-modal" onclick="closeUserGuide()">&times;</button>
+        <button class="close-modal" onclick="closeUserGuide()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
         <div class="modal-header">
           <h3>🎨 Bridgy - User Guide</h3>
           <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 14px">
@@ -981,7 +1023,7 @@
     <div id="reset-confirmation-modal" class="modal" style="display: none">
       <div class="modal-content" style="max-width: 500px">
         <button class="close-modal" onclick="closeResetConfirmation()">
-          &times;
+          <span class="material-symbols-outlined">close</span>
         </button>
         <div class="modal-header">
           <h3
@@ -1065,7 +1107,9 @@
     <!-- Repository Browser Modal -->
     <div id="repository-browser-modal" class="modal" style="display: none">
       <div class="modal-content" style="max-width: 600px">
-        <button class="close-modal" onclick="closeRepositoryBrowser()">&times;</button>
+        <button class="close-modal" onclick="closeRepositoryBrowser()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
         <div class="modal-header">
           <h3>Select Repository</h3>
         </div>
@@ -1093,7 +1137,9 @@
     <!-- Branch Browser Modal -->
     <div id="branch-browser-modal" class="modal" style="display: none">
       <div class="modal-content" style="max-width: 500px">
-        <button class="close-modal" onclick="closeBranchBrowser()">&times;</button>
+        <button class="close-modal" onclick="closeBranchBrowser()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
         <div class="modal-header">
           <h3>Select Branch</h3>
         </div>
@@ -1126,7 +1172,9 @@
     <!-- Import Variables Modal -->
     <div id="import-modal" class="modal" style="display: none">
       <div class="modal-content" style="max-width: 800px">
-        <button class="close-modal" onclick="closeImportModal()">&times;</button>
+        <button class="close-modal" onclick="closeImportModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
         <div class="modal-header">
           <h3>Import Variables</h3>
         </div>
@@ -1216,7 +1264,9 @@
     <!-- Units Configuration Modal -->
     <div id="units-modal" class="modal" style="display: none">
       <div class="modal-content" style="max-width: 700px">
-        <button class="close-modal" onclick="closeUnitsModal()">&times;</button>
+        <button class="close-modal" onclick="closeUnitsModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
         <div class="modal-header">
           <h3>Variable Units Settings</h3>
         </div>

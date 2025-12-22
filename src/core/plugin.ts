@@ -10,7 +10,7 @@ import {SUCCESS_MESSAGES} from "../config";
 import { objectEntries, objectValues } from "../utils/es2015-helpers";
 
 // Show the UI (required for inspect panel plugins)
-figma.showUI(__html__, { width: 1000, height: 900, themeColors: true });
+figma.showUI(__html__, { width: 650, height: 900, themeColors: true });
 
 // Store component data for later use
 let componentMap = new Map<string, any>();
@@ -114,12 +114,16 @@ async function collectDocumentData() {
       console.warn('No components found in document');
     }
 
+    // Check for feedback dismissal status
+    const feedbackDismissed = await figma.clientStorage.getAsync('feedback_dismissed');
+
     // Send the data to the UI
     figma.ui.postMessage({
       type: "document-data",
       variablesData,
       stylesData,
       componentsData: componentsData || [],
+      feedbackDismissed: !!feedbackDismissed
     });
 
     // Return the data for internal use
@@ -863,7 +867,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
            const result = await VariableImportService.importVariables(validTokens, {
              collectionId: importOptions.collectionId,
              collectionName: importOptions.collectionName,
-             strategy: importOptions.strategy || 'merge'
+             strategy: importOptions.strategy || 'merge',
+             organizeByCategories: importOptions.organizeByCategories
            });
 
            figma.ui.postMessage({
@@ -971,6 +976,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             type: "token-coverage-error",
             error: coverageError.message || "Failed to analyze token coverage"
           });
+        }
+        break;
+
+      case "set-client-storage":
+        const storageMsg = msg as any;
+        if (storageMsg.key) {
+          await figma.clientStorage.setAsync(storageMsg.key, storageMsg.value);
+          console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
         }
         break;
 

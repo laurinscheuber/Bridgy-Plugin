@@ -7442,6 +7442,10 @@ ${Object.keys(cssProperties).map((property) => {
                     console.log(`[Import] After removing SCSS prefix: "${varName}"`);
                   }
                   varName = varName.replace(/\./g, "-");
+                  if (options.organizeByCategories === false) {
+                    varName = varName.replace(/\//g, "-");
+                    console.log(`[Import] Flattened variable name (categories disabled): "${varName}"`);
+                  }
                   console.log(`[Import] Final variable name to create: "${varName}"`);
                   if (varName.includes("/")) {
                     console.log(`[Import] Variable "${varName}" WILL create groups in Figma`);
@@ -8349,7 +8353,7 @@ ${Object.keys(cssProperties).map((property) => {
       var tokenCoverageService_1 = require_tokenCoverageService();
       var variableImportService_1 = require_variableImportService();
       var config_1 = require_config();
-      figma.showUI(__html__, { width: 1e3, height: 900, themeColors: true });
+      figma.showUI(__html__, { width: 650, height: 900, themeColors: true });
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
           try {
@@ -8426,11 +8430,13 @@ ${Object.keys(cssProperties).map((property) => {
             if (!componentsData || componentsData.length === 0) {
               console.warn("No components found in document");
             }
+            const feedbackDismissed = yield figma.clientStorage.getAsync("feedback_dismissed");
             figma.ui.postMessage({
               type: "document-data",
               variablesData,
               stylesData,
-              componentsData: componentsData || []
+              componentsData: componentsData || [],
+              feedbackDismissed: !!feedbackDismissed
             });
             return {
               variables: variablesData,
@@ -9030,7 +9036,8 @@ ${Object.keys(cssProperties).map((property) => {
                 const result = yield variableImportService_1.VariableImportService.importVariables(validTokens, {
                   collectionId: importOptions.collectionId,
                   collectionName: importOptions.collectionName,
-                  strategy: importOptions.strategy || "merge"
+                  strategy: importOptions.strategy || "merge",
+                  organizeByCategories: importOptions.organizeByCategories
                 });
                 figma.ui.postMessage({
                   type: "import-complete",
@@ -9110,6 +9117,13 @@ ${Object.keys(cssProperties).map((property) => {
                   type: "token-coverage-error",
                   error: coverageError.message || "Failed to analyze token coverage"
                 });
+              }
+              break;
+            case "set-client-storage":
+              const storageMsg = msg;
+              if (storageMsg.key) {
+                yield figma.clientStorage.setAsync(storageMsg.key, storageMsg.value);
+                console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
               }
               break;
             default:
