@@ -223,4 +223,58 @@ export class SecurityUtils {
     
     return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
   }
+
+  /**
+   * Safe Base64 encoding for UTF-8 strings
+   * Handles emoji and other double-byte characters correctly
+   */
+  private static readonly b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+
+  private static btoaPolyfill(input: string): string {
+    let str = input;
+    let output = '';
+
+    for (let block = 0, charCode, i = 0, map = SecurityUtils.b64chars;
+    str.charAt(i | 0) || (map = '=', i % 1);
+    output += map.charAt(63 & block >> 8 - i % 1 * 8)) {
+
+      charCode = str.charCodeAt(i += 3/4);
+
+      if (charCode > 0xFF) {
+        // Fallback for charCode > 255 (should be handled by utf8 conversion, but just in case)
+        console.warn("btoaPolyfill: unexpected multibyte character");
+      }
+
+      block = block << 8 | charCode;
+    }
+
+    return output;
+  }
+
+  static toBase64(str: string): string {
+    let binaryString = "";
+    try {
+      // 1. Convert UTF-8 to Binary String (Latin1)
+      // This is a robust way to handle emojis and other UTF-8 chars in a binary string container
+      binaryString = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+        function toSolidBytes(_match, p1) {
+          return String.fromCharCode(parseInt(p1, 16));
+        });
+    } catch (e) {
+      console.error("UTF-8 binary conversion failed:", e);
+      binaryString = str; // best effort
+    }
+
+    // 2. Encode Binary String to Base64
+    try {
+      if (typeof btoa === 'function') {
+        return btoa(binaryString);
+      }
+    } catch (ignore) {
+      // Accessing btoa might throw if strict mode or weird env
+    }
+
+    // Fallback to polyfill
+    return SecurityUtils.btoaPolyfill(binaryString);
+  }
 }

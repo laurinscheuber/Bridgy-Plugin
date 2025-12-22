@@ -151,16 +151,22 @@ export class GitHubService implements BaseGitService {
         // Encrypt and save token separately if requested
         if (settings.saveToken && settings.token) {
           try {
+            console.log('DEBUG: Starting token encryption');
             let cryptoAvailable = false;
             try {
+              console.log('DEBUG: Checking CryptoService.isAvailable');
+              console.log('DEBUG: CryptoService object:', CryptoService);
               cryptoAvailable = CryptoService.isAvailable();
+              console.log('DEBUG: CryptoService.isAvailable result:', cryptoAvailable);
             } catch (cryptoError) {
               console.warn('CryptoService.isAvailable() failed:', cryptoError);
               cryptoAvailable = false;
             }
             
             if (cryptoAvailable) {
+              console.log('DEBUG: Calls CryptoService.encrypt');
               const encryptedToken = await CryptoService.encrypt(settings.token);
+              console.log('DEBUG: CryptoService.encrypt success');
               await figma.clientStorage.setAsync(
                 `${settingsKey}-token`,
                 encryptedToken
@@ -171,8 +177,19 @@ export class GitHubService implements BaseGitService {
               );
             } else {
               // Fallback encryption
+              console.log('DEBUG: Using fallback encryption');
+              console.log('DEBUG: SecurityUtils object:', SecurityUtils);
+              
+              if (typeof SecurityUtils.generateEncryptionKey !== 'function') {
+                 console.error('CRITICAL: SecurityUtils.generateEncryptionKey is not a function');
+              }
               const encryptionKey = SecurityUtils.generateEncryptionKey();
+              
+              if (typeof SecurityUtils.encryptData !== 'function') {
+                 console.error('CRITICAL: SecurityUtils.encryptData is not a function');
+              }
               const encryptedToken = SecurityUtils.encryptData(settings.token, encryptionKey);
+              
               await figma.clientStorage.setAsync(
                 `${settingsKey}-token`,
                 encryptedToken
@@ -183,6 +200,7 @@ export class GitHubService implements BaseGitService {
               );
             }
           } catch (error) {
+            console.error('DEBUG: Caught error in encrypt_token:', error);
             ErrorHandler.handleError(error as Error, {
               operation: 'encrypt_token',
               component: 'GitHubService',
@@ -536,11 +554,18 @@ export class GitHubService implements BaseGitService {
     const url = `${apiBase}/repos/${owner}/${repo}/contents/${filePath}`;
 
     // Check if file exists to get SHA
-    const existingFile = await this.getFile(settings, filePath, branch);
+    let existingFile;
+    try {
+      existingFile = await this.getFile(settings, filePath, branch);
+    } catch (e) {
+      // File doesn't exist, which is fine for new files
+    }
     
+    const encodedContent = SecurityUtils.toBase64(content);
+
     const requestBody: any = {
       message: commitMessage,
-      content: btoa(unescape(encodeURIComponent(content))),
+      content: encodedContent,
       branch: branch
     };
 
@@ -568,6 +593,8 @@ export class GitHubService implements BaseGitService {
         webUrl: result.commit.html_url
       };
     } catch (error: any) {
+      console.error('DEBUG: commitFile error catch block:', error);
+      console.log('DEBUG: this.handleGitHubError type:', typeof this.handleGitHubError);
       throw this.handleGitHubError(error, 'create commit');
     }
   }
@@ -688,6 +715,7 @@ export class GitHubService implements BaseGitService {
         return { pullRequestUrl: newPR.webUrl };
       }
 
+      console.log('DEBUG: Found existing PR');
       return { pullRequestUrl: existingPR.webUrl };
     }, {
       operation: 'commit_to_github',
@@ -803,10 +831,10 @@ export class GitHubService implements BaseGitService {
    */
 
   private getHeaders(token: string): Record<string, string> {
-    return Object.assign({
+    return Object.assign({}, GitHubService.DEFAULT_HEADERS, {
       'Authorization': `Bearer ${token}`,
       'Accept': GitHubService.API_VERSION
-    }, GitHubService.DEFAULT_HEADERS);
+    });
   }
 
   private validateCommitParameters(

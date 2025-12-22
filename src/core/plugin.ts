@@ -357,6 +357,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case "save-git-settings":
         const gitService = GitServiceFactory.getService(msg.provider || 'gitlab');
+        console.log('DEBUG: gitService:', gitService);
+        console.log('DEBUG: gitService.saveSettings type:', typeof gitService?.saveSettings);
+        console.log('DEBUG: msg.provider:', msg.provider);
+        
         const gitSettings: GitSettings = {
           provider: msg.provider || 'gitlab',
           baseUrl: msg.baseUrl,
@@ -373,12 +377,19 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
         };
         
+        if (typeof gitService.saveSettings !== 'function') {
+           console.error('CRITICAL: gitService.saveSettings is not a function!', gitService);
+           throw new Error(`Internal Error: Service for ${msg.provider} is not initialized correctly.`);
+        }
+
         await gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
         
         figma.ui.postMessage({
           type: "git-settings-saved",
           success: true,
           sharedWithTeam: msg.shareWithTeam,
+          savedAt: gitSettings.savedAt,
+          savedBy: gitSettings.savedBy
         });
         break;
 
@@ -408,6 +419,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           type: "gitlab-settings-saved",
           success: true,
           sharedWithTeam: msg.shareWithTeam,
+          savedAt: new Date().toISOString(), // We need to match what was saved
+          savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
         });
         break;
         
@@ -543,35 +556,44 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
 
       case "commit-to-gitlab":
+      case "commit-to-repo":
+        // Generic commit handler for both GitLab and GitHub
+        const isLegacy = msg.type === "commit-to-gitlab";
+        
         if (
           !msg.projectId ||
-          !msg.gitlabToken ||
+          (!msg.token && !msg.gitlabToken) ||
           !msg.commitMessage ||
           !msg.cssData
         ) {
-          throw new Error("Missing required fields for GitLab commit");
+          throw new Error("Missing required fields for commit");
         }
 
         try {
-          const settings: GitLabSettings = {
-            gitlabUrl: msg.gitlabUrl,
+          // Determine provider and service
+          const provider = msg.provider || 'gitlab';
+          const gitService = GitServiceFactory.getService(provider);
+          
+          const settings: GitSettings = {
+            provider: provider,
+            baseUrl: msg.baseUrl || '',
             projectId: msg.projectId,
-            gitlabToken: msg.gitlabToken,
-            filePath: msg.filePath || "variables.css",
-            testFilePath: "components/{componentName}.spec.ts", // Default value
-            strategy: "merge-request", // Default value  
+            token: msg.token || msg.gitlabToken, // Accept either
+            filePath: msg.filePath || "src/variables.css",
+            testFilePath: "components/{componentName}.spec.ts",
+            strategy: "merge-request",
             branchName: msg.branchName || "feature/variables",
-            testBranchName: "feature/component-tests", // Default value
-            exportFormat: "css", // Default value
-            saveToken: false, // Default value
+            testBranchName: "feature/component-tests",
+            exportFormat: "css",
+            saveToken: false,
             savedAt: new Date().toISOString(),
             savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user",
           };
 
-          const result = await GitLabService.commitToGitLab(
+          const result = await gitService.commitWorkflow(
             settings,
             msg.commitMessage,
-            msg.filePath || "variables.css",
+            msg.filePath || "src/variables.css",
             msg.cssData,
             msg.branchName || "feature/variables"
           );
@@ -579,33 +601,33 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           figma.ui.postMessage({
             type: "commit-success",
             message: SUCCESS_MESSAGES.COMMIT_SUCCESS,
-            mergeRequestUrl: result && result.mergeRequestUrl,
+            mergeRequestUrl: result && result.pullRequestUrl,
           });
         } catch (error: any) {
-          // Send specific error information to UI
+             // Send specific error information to UI
           let errorMessage = "Unknown error occurred";
           let errorType = "unknown";
           
-          if (error.name === 'GitLabAuthError') {
+          if (error.name === 'GitAuthError' || error.name === 'GitLabAuthError') {
             errorType = "auth";
-            errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
-          } else if (error.name === 'GitLabNetworkError') {
+            errorMessage = "Authentication failed. Please check your token and permissions.";
+          } else if (error.name === 'GitNetworkError' || error.name === 'GitLabNetworkError') {
             errorType = "network";
-            errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
-          } else if (error.name === 'GitLabAPIError') {
-            if (error.statusCode === 401 || error.statusCode === 403) {
+            errorMessage = "Network error. Please check your internet connection.";
+          } else if (error.name === 'GitServiceError' || error.name === 'GitLabAPIError') {
+             if (error.statusCode === 401 || error.statusCode === 403) {
               errorType = "auth";
-              errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
+              errorMessage = "Authentication failed. Please check your token and permissions.";
             } else {
               errorType = "api";
               if (error.statusCode === 404) {
-                errorMessage = "Project not found. Please check your project ID.";
+                errorMessage = "Project/Repository not found. Please check your ID.";
               } else if (error.statusCode === 422) {
-                errorMessage = "Invalid data provided. Please check your settings and try again.";
+                errorMessage = "Invalid data provided. Please check your settings.";
               } else if (error.statusCode === 429) {
-                errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+                errorMessage = "Rate limit exceeded. Please try again later.";
               } else {
-                errorMessage = error.message || "GitLab API error occurred.";
+                errorMessage = error.message || "Git API error occurred.";
               }
             }
           } else {
