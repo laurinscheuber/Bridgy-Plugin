@@ -143,14 +143,18 @@ export class TokenCoverageService {
       this.addIssue(issuesMap, 'Max Width', `${layoutNode.maxWidth}px`, node, 'Layout');
     }
 
-    // Check width (if not auto) - exclude zero values
-    if (layoutNode.width && typeof layoutNode.width === 'number' && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, 'width')) {
-      this.addIssue(issuesMap, 'Width', `${layoutNode.width}px`, node, 'Layout');
+    // Check width (if not auto) - exclude zero values and dynamic sizing
+    if (layoutNode.width && typeof layoutNode.width === 'number' && layoutNode.width !== 0 
+        && !this.isVariableBound(layoutNode, 'width')
+        && !this.isWidthDynamic(layoutNode)) {
+      this.addIssue(issuesMap, 'Width', `${Math.round(layoutNode.width * 100) / 100}px`, node, 'Layout');
     }
 
-    // Check height (if not auto) - exclude zero values
-    if (layoutNode.height && typeof layoutNode.height === 'number' && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, 'height')) {
-      this.addIssue(issuesMap, 'Height', `${layoutNode.height}px`, node, 'Layout');
+    // Check height (if not auto) - exclude zero values and dynamic sizing
+    if (layoutNode.height && typeof layoutNode.height === 'number' && layoutNode.height !== 0 
+        && !this.isVariableBound(layoutNode, 'height')
+        && !this.isHeightDynamic(layoutNode)) {
+      this.addIssue(issuesMap, 'Height', `${Math.round(layoutNode.height * 100) / 100}px`, node, 'Layout');
     }
 
     // Check minHeight - exclude zero values
@@ -343,5 +347,75 @@ export class TokenCoverageService {
         category
       });
     }
+  }
+
+  /**
+   * Checks if width is dynamic (Hug or Fill)
+   */
+  private static isWidthDynamic(node: SceneNode): boolean {
+    // 1. Check for "Hug contents"
+    // Available on Frame, Component, ComponentSet, Instance
+    if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+      if (node.layoutMode === 'HORIZONTAL') {
+        if (node.primaryAxisSizingMode === 'AUTO') return true;
+      } else if (node.layoutMode === 'VERTICAL') {
+        if (node.counterAxisSizingMode === 'AUTO') return true;
+      }
+    }
+
+    // 2. Check for "Fill container"
+    // Depends on parent's auto layout settings
+    const parent = node.parent;
+    if (parent && 'layoutMode' in parent && parent.layoutMode !== 'NONE') {
+      if (parent.layoutMode === 'HORIZONTAL') {
+        // In horizontal parent, width fill is layoutGrow = 1
+        if ('layoutGrow' in node && node.layoutGrow === 1) return true;
+      } else if (parent.layoutMode === 'VERTICAL') {
+        // In vertical parent, width fill is layoutAlign = 'STRETCH'
+        if ('layoutAlign' in node && node.layoutAlign === 'STRETCH') return true;
+      }
+    }
+
+    // Special case for Text nodes (Auto Width)
+    if (node.type === 'TEXT' && node.textAutoResize === 'WIDTH_AND_HEIGHT') {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Checks if height is dynamic (Hug or Fill)
+   */
+  private static isHeightDynamic(node: SceneNode): boolean {
+    // 1. Check for "Hug contents"
+    if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+      if (node.layoutMode === 'HORIZONTAL') {
+        if (node.counterAxisSizingMode === 'AUTO') return true;
+      } else if (node.layoutMode === 'VERTICAL') {
+        if (node.primaryAxisSizingMode === 'AUTO') return true;
+      }
+    }
+
+    // 2. Check for "Fill container"
+    const parent = node.parent;
+    if (parent && 'layoutMode' in parent && parent.layoutMode !== 'NONE') {
+      if (parent.layoutMode === 'HORIZONTAL') {
+        // In horizontal parent, height fill is layoutAlign = 'STRETCH'
+        if ('layoutAlign' in node && node.layoutAlign === 'STRETCH') return true;
+      } else if (parent.layoutMode === 'VERTICAL') {
+        // In vertical parent, height fill is layoutGrow = 1
+        if ('layoutGrow' in node && node.layoutGrow === 1) return true;
+      }
+    }
+    
+    // Special case for Text nodes (Auto Height)
+    if (node.type === 'TEXT') {
+        if (node.textAutoResize === 'WIDTH_AND_HEIGHT' || node.textAutoResize === 'HEIGHT') {
+            return true;
+        }
+    }
+
+    return false;
   }
 }
