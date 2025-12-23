@@ -7071,6 +7071,7 @@ ${Object.keys(cssProperties).map((property) => {
             issue.count++;
             issue.nodeIds.push(node.id);
             issue.nodeNames.push(node.name);
+            issue.nodeNameOccurrences = this.calculateNodeNameOccurrences(issue.nodeNames);
           } else {
             issuesMap.set(key, {
               property,
@@ -7078,9 +7079,21 @@ ${Object.keys(cssProperties).map((property) => {
               count: 1,
               nodeIds: [node.id],
               nodeNames: [node.name],
+              nodeNameOccurrences: [{ name: node.name, count: 1 }],
               category
             });
           }
+        }
+        /**
+         * Calculates consolidated node name occurrences from a list of node names
+         * Returns array of {name, count} sorted by count (descending)
+         */
+        static calculateNodeNameOccurrences(nodeNames) {
+          const occurrenceMap = /* @__PURE__ */ new Map();
+          for (const name of nodeNames) {
+            occurrenceMap.set(name, (occurrenceMap.get(name) || 0) + 1);
+          }
+          return Array.from(occurrenceMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
         }
       };
       exports.TokenCoverageService = TokenCoverageService;

@@ -3137,14 +3137,18 @@
                   <div style="max-height: 400px; overflow-y: auto;">
             `;
 
-            // Show ALL node names with their properties
-            issue.nodeNames.forEach((nodeName, idx) => {
+            // Show consolidated node name occurrences grouped by component
+            issue.nodeNameOccurrences.forEach((occurrence) => {
+              const displayText = occurrence.count > 1
+                ? `${SecurityUtils.escapeHTML(occurrence.name)} (${occurrence.count})`
+                : SecurityUtils.escapeHTML(occurrence.name);
+
               html += `
                 <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; margin-bottom: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.8);">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                   </svg>
-                  ${SecurityUtils.escapeHTML(nodeName)}
+                  <span>${displayText}</span>
                 </div>
               `;
             });

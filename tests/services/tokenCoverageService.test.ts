@@ -106,6 +106,60 @@ describe('TokenCoverageService', () => {
       expect(issue.property).toBe('Gap');
       expect(issue.value).toBe('16px');
     });
+
+    it('should consolidate multiple occurrences of same issue into single entry', () => {
+      const service = TokenCoverageService as any;
+      const issuesMap = new Map();
+
+      // Simulate 5 instances of "test-component" with height=30px
+      for (let i = 0; i < 5; i++) {
+        const node: any = {
+          type: 'INSTANCE',
+          id: `test-component-${i}`,
+          name: 'test-component',
+          width: 0,
+          height: 30,
+          minWidth: null,
+          maxWidth: null,
+          minHeight: null,
+          maxHeight: null,
+          boundVariables: {}
+        };
+        service.checkLayoutProperties(node, issuesMap);
+      }
+
+      // Simulate 2 instances of "button" with height=30px
+      for (let i = 0; i < 2; i++) {
+        const node: any = {
+          type: 'INSTANCE',
+          id: `button-${i}`,
+          name: 'button',
+          width: 0,
+          height: 30,
+          minWidth: null,
+          maxWidth: null,
+          minHeight: null,
+          maxHeight: null,
+          boundVariables: {}
+        };
+        service.checkLayoutProperties(node, issuesMap);
+      }
+
+      // Should have ONE issue entry for Height=30px (not separate entries)
+      expect(issuesMap.size).toBe(1);
+
+      const [[key, issue]] = Array.from(issuesMap.entries());
+      expect(key).toBe('Layout:Height:30px');
+      expect(issue.property).toBe('Height');
+      expect(issue.value).toBe('30px');
+      expect(issue.count).toBe(7); // 5 test-component + 2 button
+      expect(issue.nodeNames).toHaveLength(7);
+
+      // nodeNameOccurrences should show consolidated counts
+      expect(issue.nodeNameOccurrences).toHaveLength(2);
+      expect(issue.nodeNameOccurrences[0]).toEqual({ name: 'test-component', count: 5 });
+      expect(issue.nodeNameOccurrences[1]).toEqual({ name: 'button', count: 2 });
+    });
   });
 
   describe('TokenCoverageResult structure', () => {
@@ -136,6 +190,7 @@ describe('TokenCoverageService', () => {
         count: 5,
         nodeIds: ['node1', 'node2'],
         nodeNames: ['Frame 1', 'Frame 2'],
+        nodeNameOccurrences: [{ name: 'Frame 1', count: 1 }, { name: 'Frame 2', count: 1 }],
         category: 'Layout' as const
       };
       
@@ -143,6 +198,19 @@ describe('TokenCoverageService', () => {
       expect(exampleIssue.value).toBe('16px');
       expect(exampleIssue.count).toBe(5);
       expect(exampleIssue.category).toBe('Layout');
+      expect(exampleIssue.nodeNameOccurrences).toBeDefined();
+      expect(Array.isArray(exampleIssue.nodeNameOccurrences)).toBe(true);
+    });
+
+    it('should consolidate node name occurrences correctly', () => {
+      const service = TokenCoverageService as any;
+      const nodeNames = ['test-component', 'test-component', 'button', 'test-component', 'button'];
+      const occurrences = service.calculateNodeNameOccurrences(nodeNames);
+
+      expect(occurrences).toHaveLength(2);
+      // Should be sorted by count descending
+      expect(occurrences[0]).toEqual({ name: 'test-component', count: 3 });
+      expect(occurrences[1]).toEqual({ name: 'button', count: 2 });
     });
   });
 });

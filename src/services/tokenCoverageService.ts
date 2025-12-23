@@ -9,6 +9,8 @@ export interface TokenCoverageIssue {
   count: number;
   nodeIds: string[];
   nodeNames: string[];
+  // Consolidated occurrence summary: e.g., [{name: "test-component", count: 5}, {name: "button", count: 2}]
+  nodeNameOccurrences: Array<{ name: string; count: number }>;
   category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance';
 }
 
@@ -377,6 +379,8 @@ export class TokenCoverageService {
     node: SceneNode,
     category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
   ): void {
+    // Key only includes category:property:value, NOT the node name
+    // This ensures all occurrences of the same issue are consolidated
     const key = `${category}:${property}:${value}`;
     
     if (issuesMap.has(key)) {
@@ -384,6 +388,8 @@ export class TokenCoverageService {
       issue.count++;
       issue.nodeIds.push(node.id);
       issue.nodeNames.push(node.name);
+      // Recalculate consolidated occurrences
+      issue.nodeNameOccurrences = this.calculateNodeNameOccurrences(issue.nodeNames);
     } else {
       issuesMap.set(key, {
         property,
@@ -391,8 +397,25 @@ export class TokenCoverageService {
         count: 1,
         nodeIds: [node.id],
         nodeNames: [node.name],
+        nodeNameOccurrences: [{ name: node.name, count: 1 }],
         category
       });
     }
+  }
+
+  /**
+   * Calculates consolidated node name occurrences from a list of node names
+   * Returns array of {name, count} sorted by count (descending)
+   */
+  private static calculateNodeNameOccurrences(nodeNames: string[]): Array<{ name: string; count: number }> {
+    const occurrenceMap = new Map<string, number>();
+
+    for (const name of nodeNames) {
+      occurrenceMap.set(name, (occurrenceMap.get(name) || 0) + 1);
+    }
+
+    return Array.from(occurrenceMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
   }
 }
