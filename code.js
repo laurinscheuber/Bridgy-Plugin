@@ -6899,11 +6899,11 @@ ${Object.keys(cssProperties).map((property) => {
           if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
             this.addIssue(issuesMap, "Max Width", `${layoutNode.maxWidth}px`, node, "Layout");
           }
-          if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width")) {
-            this.addIssue(issuesMap, "Width", `${layoutNode.width}px`, node, "Layout");
+          if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
+            this.addIssue(issuesMap, "Width", `${Math.round(layoutNode.width * 100) / 100}px`, node, "Layout");
           }
-          if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height")) {
-            this.addIssue(issuesMap, "Height", `${layoutNode.height}px`, node, "Layout");
+          if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
+            this.addIssue(issuesMap, "Height", `${Math.round(layoutNode.height * 100) / 100}px`, node, "Layout");
           }
           if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
             this.addIssue(issuesMap, "Min Height", `${layoutNode.minHeight}px`, node, "Layout");
@@ -7040,6 +7040,64 @@ ${Object.keys(cssProperties).map((property) => {
               category
             });
           }
+        }
+        /**
+         * Checks if width is dynamic (Hug or Fill)
+         */
+        static isWidthDynamic(node) {
+          if ("layoutMode" in node && node.layoutMode !== "NONE") {
+            if (node.layoutMode === "HORIZONTAL") {
+              if (node.primaryAxisSizingMode === "AUTO")
+                return true;
+            } else if (node.layoutMode === "VERTICAL") {
+              if (node.counterAxisSizingMode === "AUTO")
+                return true;
+            }
+          }
+          const parent = node.parent;
+          if (parent && "layoutMode" in parent && parent.layoutMode !== "NONE") {
+            if (parent.layoutMode === "HORIZONTAL") {
+              if ("layoutGrow" in node && node.layoutGrow === 1)
+                return true;
+            } else if (parent.layoutMode === "VERTICAL") {
+              if ("layoutAlign" in node && node.layoutAlign === "STRETCH")
+                return true;
+            }
+          }
+          if (node.type === "TEXT" && node.textAutoResize === "WIDTH_AND_HEIGHT") {
+            return true;
+          }
+          return false;
+        }
+        /**
+         * Checks if height is dynamic (Hug or Fill)
+         */
+        static isHeightDynamic(node) {
+          if ("layoutMode" in node && node.layoutMode !== "NONE") {
+            if (node.layoutMode === "HORIZONTAL") {
+              if (node.counterAxisSizingMode === "AUTO")
+                return true;
+            } else if (node.layoutMode === "VERTICAL") {
+              if (node.primaryAxisSizingMode === "AUTO")
+                return true;
+            }
+          }
+          const parent = node.parent;
+          if (parent && "layoutMode" in parent && parent.layoutMode !== "NONE") {
+            if (parent.layoutMode === "HORIZONTAL") {
+              if ("layoutAlign" in node && node.layoutAlign === "STRETCH")
+                return true;
+            } else if (parent.layoutMode === "VERTICAL") {
+              if ("layoutGrow" in node && node.layoutGrow === 1)
+                return true;
+            }
+          }
+          if (node.type === "TEXT") {
+            if (node.textAutoResize === "WIDTH_AND_HEIGHT" || node.textAutoResize === "HEIGHT") {
+              return true;
+            }
+          }
+          return false;
         }
       };
       exports.TokenCoverageService = TokenCoverageService;
@@ -8430,10 +8488,48 @@ ${Object.keys(cssProperties).map((property) => {
             if (!componentsData || componentsData.length === 0) {
               console.warn("No components found in document");
             }
+            const referencedIds = /* @__PURE__ */ new Set();
+            const collectAliasIds = (val) => {
+              if (val && typeof val === "object" && val.type === "VARIABLE_ALIAS" && val.id) {
+                referencedIds.add(val.id);
+              }
+            };
+            variablesData.forEach((collection) => {
+              collection.variables.forEach((variable) => {
+                variable.valuesByMode.forEach((item) => {
+                  collectAliasIds(item.value);
+                });
+              });
+            });
+            const variableReferences = {};
+            const referencePromises = Array.from(referencedIds).map((id) => __awaiter(this, void 0, void 0, function* () {
+              try {
+                let foundLocal = false;
+                for (const col of variablesData) {
+                  const local = col.variables.find((v) => v.id === id);
+                  if (local) {
+                    variableReferences[id] = local.name;
+                    foundLocal = true;
+                    break;
+                  }
+                }
+                if (!foundLocal) {
+                  const v = yield figma.variables.getVariableByIdAsync(id);
+                  if (v) {
+                    variableReferences[id] = v.name;
+                  }
+                }
+              } catch (e) {
+                console.warn(`Could not resolve referenced variable: ${id}`);
+              }
+            }));
+            yield Promise.all(referencePromises);
             const feedbackDismissed = yield figma.clientStorage.getAsync("feedback_dismissed");
             figma.ui.postMessage({
               type: "document-data",
               variablesData,
+              variableReferences,
+              // Send the lookup map
               stylesData,
               componentsData: componentsData || [],
               feedbackDismissed: !!feedbackDismissed
@@ -9124,6 +9220,53 @@ ${Object.keys(cssProperties).map((property) => {
               if (storageMsg.key) {
                 yield figma.clientStorage.setAsync(storageMsg.key, storageMsg.value);
                 console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
+              }
+              break;
+            case "focus-node":
+              try {
+                const focusMsg = msg;
+                if (focusMsg.nodeId) {
+                  const node = yield figma.getNodeByIdAsync(focusMsg.nodeId);
+                  if (node) {
+                    figma.currentPage.selection = [node];
+                    figma.viewport.scrollAndZoomIntoView([node]);
+                    console.log(`Focused on node: ${node.name}`);
+                  } else {
+                    console.warn(`Node not found for focusing: ${focusMsg.nodeId}`);
+                  }
+                }
+              } catch (focusError) {
+                console.error("Error focusing node:", focusError);
+              }
+              break;
+            case "get-guide-state":
+              try {
+                const fileId = figma.root.id;
+                const key = `bridgy-guide-state-${fileId}`;
+                const savedData = figma.root.getSharedPluginData("Bridgy", key);
+                figma.ui.postMessage({
+                  type: "guide-state-loaded",
+                  state: savedData ? JSON.parse(savedData) : null
+                });
+              } catch (e) {
+                console.error("Error loading guide state:", e);
+                figma.ui.postMessage({
+                  type: "guide-state-loaded",
+                  state: null
+                });
+              }
+              break;
+            case "save-guide-state":
+              try {
+                const saveMsg = msg;
+                if (saveMsg.state) {
+                  const fileId = figma.root.id;
+                  const key = `bridgy-guide-state-${fileId}`;
+                  figma.root.setSharedPluginData("Bridgy", key, JSON.stringify(saveMsg.state));
+                  figma.ui.postMessage({ type: "guide-state-saved" });
+                }
+              } catch (e) {
+                console.error("Error saving guide state:", e);
               }
               break;
             default:

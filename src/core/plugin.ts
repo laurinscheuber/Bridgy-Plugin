@@ -114,6 +114,53 @@ async function collectDocumentData() {
       console.warn('No components found in document');
     }
 
+    // Collect referenced variables (for aliases)
+    const referencedIds = new Set<string>();
+    
+    // Helper to extract alias IDs from values
+    const collectAliasIds = (val: any) => {
+      if (val && typeof val === 'object' && val.type === 'VARIABLE_ALIAS' && val.id) {
+        referencedIds.add(val.id);
+      }
+    };
+
+    // Scan all collected variables for aliases
+    variablesData.forEach(collection => {
+      collection.variables.forEach(variable => {
+        variable.valuesByMode.forEach((item: any) => {
+          collectAliasIds(item.value);
+        });
+      });
+    });
+
+    // Resolve names for all referenced variables
+    const variableReferences: Record<string, string> = {};
+    const referencePromises = Array.from(referencedIds).map(async (id) => {
+        try {
+            // Check if we already have it in local variables to save an API call/lookup
+            let foundLocal = false;
+            for(const col of variablesData) {
+                const local = col.variables.find(v => v.id === id);
+                if(local) {
+                    variableReferences[id] = local.name;
+                    foundLocal = true;
+                    break;
+                }
+            }
+            
+            if (!foundLocal) {
+                const v = await figma.variables.getVariableByIdAsync(id);
+                if (v) {
+                    variableReferences[id] = v.name;
+                }
+            }
+        } catch (e) {
+            console.warn(`Could not resolve referenced variable: ${id}`);
+        }
+    });
+    
+    await Promise.all(referencePromises);
+
     // Check for feedback dismissal status
     const feedbackDismissed = await figma.clientStorage.getAsync('feedback_dismissed');
 
@@ -121,6 +168,7 @@ async function collectDocumentData() {
     figma.ui.postMessage({
       type: "document-data",
       variablesData,
+      variableReferences, // Send the lookup map
       stylesData,
       componentsData: componentsData || [],
       feedbackDismissed: !!feedbackDismissed
@@ -986,6 +1034,30 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
         }
         break;
+
+      case "focus-node":
+        try {
+          const focusMsg = msg as any;
+          if (focusMsg.nodeId) {
+            // Use async variant for modern Figma environments (dynamic-page access)
+            const node = await figma.getNodeByIdAsync(focusMsg.nodeId) as SceneNode;
+            
+            if (node) {
+              // Select the node
+              figma.currentPage.selection = [node];
+              // Zoom to fit the node in viewport
+              figma.viewport.scrollAndZoomIntoView([node]);
+              console.log(`Focused on node: ${node.name}`);
+            } else {
+              console.warn(`Node not found for focusing: ${focusMsg.nodeId}`);
+            }
+          }
+        } catch (focusError) {
+          console.error("Error focusing node:", focusError);
+        }
+        break;
+
+
 
       default:
     }

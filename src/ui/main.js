@@ -14,7 +14,7 @@
               // Allow onclick for specific safe functions
               if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(') || match.includes('dismissFeedback(') || match.includes('closeNotification(') || 
-                  match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(')) {
+                  match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(') || match.includes('scrollToVariable(')) {
                 return match;
               }
               return '';
@@ -25,7 +25,7 @@
                   match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(') || match.includes('dismissFeedback(') || match.includes('closeNotification(') || 
                   match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(') ||
                   match.includes('expandAllVariables(') || match.includes('collapseAllVariables(') || match.includes('toggleSearchBar(') ||
-                  match.includes('expandAllComponents(') || match.includes('collapseAllComponents(') || match.includes('toggleFeedback(')) {
+                  match.includes('expandAllComponents(') || match.includes('collapseAllComponents(') || match.includes('toggleFeedback(') || match.includes('scrollToVariable(')) {
                 return match;
               }
               return '';
@@ -194,6 +194,36 @@
         }
       }
 
+      // ===== UI HELPERS =====
+      class UIHelper {
+        static createBadge(text, type = 'default') {
+          return `<span class="badge badge-${type}">${text}</span>`;
+        }
+
+        static createNavIcon(id, title = 'Navigate', icon = 'filter_center_focus') {
+          return `
+            <button class="nav-icon" data-component-id="${id}" title="${title}">
+              <span class="material-symbols-outlined">${icon}</span>
+            </button>
+          `;
+        }
+
+        static createActionBtn(icon, title, dataAttrs = {}, wide = false) {
+            const btnClass = wide ? 'icon-btn-wide' : 'compact-action-btn'; // Legacy support or new wide style
+            const attributes = Object.entries(dataAttrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+            return `
+              <button class="${btnClass} ${dataAttrs.class || ''}" ${attributes} title="${title}">
+                <span class="material-symbols-outlined">${icon}</span>
+                <span class="action-btn-label">${title}</span>
+              </button>
+            `;
+        }
+
+        static renderEmptyState(message) {
+          return `<div class="no-items">${message}</div>`;
+        }
+      }
+
       // ===== GITLAB URL HELPERS =====
       function buildGitLabApiUrl(gitlabUrl) {
         if (!gitlabUrl) return "https://gitlab.com/api/v4";
@@ -334,6 +364,12 @@
 
       function showButtonLoading(button, loadingText) {
         if (button && !button.classList.contains('loading')) {
+          // If this is a generate button and not for commit, mark as exported test
+          if ((button.classList.contains('generate-all-variants-button') || loadingText.includes('Generating')) && !loadingText.includes('Committing')) {
+               localStorage.setItem('bridgy_last_export_test', 'true');
+               if (typeof refreshUserGuide === 'function') refreshUserGuide();
+          }
+
           button.dataset.originalText = button.textContent;
           button.textContent = loadingText;
           button.classList.add('loading');
@@ -365,6 +401,11 @@
           variablesContainer: !!document.getElementById('variables-container')
         });
         updatePluginLoadingProgress(loadingSteps[0], 10);
+        
+        // Initialize Search Listeners
+        if (typeof setupQualitySearch === 'function') {
+            setupQualitySearch();
+        }
       });
 
       // ===== COMPONENT NAVIGATION =====
@@ -958,6 +999,7 @@
       // Sub-tab switching logic removed - now using modals for Import and Units
 
       let variablesData = [];
+      let variableReferences = {}; // Map of ID -> Name for aliases
       let componentsData = [];
       let currentCSSData = null;
       window.gitlabSettings = null;
@@ -986,6 +1028,12 @@
       ];
 
       function findVariableNameById(variableId) {
+        // Fast lookup from references map (includes external vars)
+        if (variableReferences && variableReferences[variableId]) {
+            return variableReferences[variableId];
+        }
+
+        // Fallback: check local variables
         for (const collection of variablesData) {
           for (const variable of collection.variables) {
             if (variable.id === variableId) {
@@ -1166,6 +1214,7 @@
         } else if (message.type === "document-data") {
           updatePluginLoadingProgress(loadingSteps[3], 75);
           variablesData = message.variablesData;
+          variableReferences = message.variableReferences || {};
           componentsData = message.componentsData;
           
           // Request Tailwind v4 validation
@@ -1370,6 +1419,17 @@
                 }
               }
             });
+          }
+
+        } else if (message.type === 'collections-loaded') {
+          // Handle existing collections data
+          const collections = message.collections || [];
+          console.log('Received existing collections:', collections);
+          // Helper function to update dropdown
+          if (typeof updateExistingCollectionsDropdown === 'function') {
+            updateExistingCollectionsDropdown(collections);
+          } else {
+             console.warn('updateExistingCollectionsDropdown function not found');
           }
         } else if (message.type === "commit-progress") {
           const progressBar = document.getElementById("commit-progress");
@@ -1825,15 +1885,15 @@
         // Show simplified warning if there are any validation issues
         if (validationIssues.length > 0) {
           html += `
-            <div class="validation-alert validation-alert-error">
+            <div class="validation-alert validation-alert-warning">
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="font-size: 24px;">⚠️</span>
                 <div>
-                  <strong style="color: #e74c3c; display: block; margin-bottom: 4px;">Warnings detected</strong>
+                  <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
                   <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
                 </div>
               </div>
-              <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-error">
+              <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
                 Go to warnings
               </button>
             </div>
@@ -1874,13 +1934,39 @@
                 <div class="collection-content" id="${collectionId}-content">
             `;
 
-            // Render standalone variables first
+            // Render standalone variables as "Ungrouped" group
             if (standaloneVars.length > 0) {
+              const ungroupedName = "Ungrouped";
+              // We'll treat this like any other group, but insert it at the start or end?
+              // Standard behavior is usually mixed, but we can prepend it to the map or render it first using the group template.
+              // To reuse the group rendering logic, we can just add it to groupedVars if it's a Map, but Map order is insertion order.
+              // So we can render it explicitly using the group template here.
+              
+              const groupId = `group-${collectionId}-ungrouped`;
+              
+              // Standardize this group rendering to match the loop below
+              html += `
+                <div class="variable-subgroup">
+                  <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="material-symbols-outlined" style="opacity: 0.5;">dataset</span>
+                      <span class="subgroup-title">${ungroupedName}</span>
+                      <span class="subgroup-stats">${standaloneVars.length}</span>
+                    </div>
+                    <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                  </div>
+                  <div class="subgroup-content collapsed" id="${groupId}-content">
+              `;
+              
               const varsWithCollection = standaloneVars.map((v) => ({
                 ...v,
                 collection: collection.name,
               }));
               html += renderVariableTable(varsWithCollection);
+              html += `
+                  </div>
+                </div>
+              `;
             }
 
             // Render grouped variables
@@ -1994,8 +2080,8 @@
             .toLowerCase();
           html += `
             <tr id="var-${sanitizedId}">
-              <td>${variable.name}</td>
-              <td>${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</td>
+              <td style="font-weight: 500; color: #fff;">${variable.name}</td>
+              <td style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</td>
               <td>
           `;
 
@@ -2013,8 +2099,8 @@
                 : null;
               html += `
                 <div>
-                  ${showModeName ? mode.modeName + ": " : ""}<span 
-                    style="color: #c4b5fd; font-weight: 500; cursor: pointer; text-decoration: underline;" 
+                  ${showModeName ? `<span style="opacity:0.5; font-size:11px;">${mode.modeName}:</span> ` : ""}<span 
+                    style="color: rgba(255,255,255,0.9); cursor: pointer; border-bottom: 1px dashed rgba(255,255,255,0.4);" 
                     onclick="scrollToVariable('${sanitizedName}')"
                     title="Click to jump to ${referencedVariableName}"
                   >${referencedVariableName || value.id}</span>
@@ -2429,10 +2515,8 @@
 
         if (!data || data.length === 0) {
           container.innerHTML = '';
-          const noItemsDiv = document.createElement('div');
-          noItemsDiv.className = 'no-items';
-          noItemsDiv.textContent = 'No components found in this document.';
-          container.appendChild(noItemsDiv);
+
+          container.appendChild(document.createRange().createContextualFragment(UIHelper.renderEmptyState('No components found in this document.')));
           return;
         }
 
@@ -2445,22 +2529,30 @@
             html += `
             <div class="component-set">
               <div class="component-set-header" data-index="${index}">
-                <div class="component-header-content">
-                  <div class="component-set-toggle">
-                    <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
+                  <div class="component-header-content">
+                    <div class="component-set-toggle">
+                      <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
+                    </div>
+                    ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
+                    <div class="component-meta">
+                      <span class="component-name">${parsedName.name}</span>
+                      ${UIHelper.createBadge('Component Set', 'component-set')}
+                    </div>
                   </div>
-                  <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component">
-                    <span class="material-symbols-outlined">filter_center_focus</span>
-                  </button>
-                  <div class="component-meta">
-                    <span class="component-name">${parsedName.name}</span>
-                    <span class="badge badge-component-set">Component Set</span>
+                  <div class="component-actions">
+                    ${UIHelper.createActionBtn('download', 'Generate', {
+                        'data-component-id': component.id,
+                        'data-component-name': component.name,
+                        'data-action': 'generate',
+                        'class': 'generate-all-variants-button'
+                    })}
+                    ${UIHelper.createActionBtn('commit', 'Commit', {
+                        'data-component-id': component.id,
+                        'data-component-name': component.name,
+                        'data-action': 'commit',
+                        'class': 'commit-all-variants-button'
+                    })}
                   </div>
-                </div>
-                <div class="component-actions">
-                  <button class="compact-action-btn generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate" title="Generate"><span class="material-symbols-outlined">download</span></button>
-                  <button class="compact-action-btn commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit" title="Commit"><span class="material-symbols-outlined">commit</span></button>
-                </div>
               </div>
               <div class="component-set-children" id="children-${index}">
             `;
@@ -2472,17 +2564,15 @@
                 html += `
                 <div class="child-component">
                   <div class="child-header">
-                    <button class="nav-icon" data-component-id="${child.id}" title="Navigate to variant">
-                      <span class="material-symbols-outlined">filter_center_focus</span>
-                    </button>
+                    ${UIHelper.createNavIcon(child.id, 'Navigate to variant')}
                     <div class="component-meta">
                       <span class="component-name">${childParsed.name}</span>
                       ${
                         childParsed.variants.length > 0
                           ? childParsed.variants.map(variant => 
-                              `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                              UIHelper.createBadge(`${variant.property}=${variant.value}`, 'variant')
                             ).join('')
-                          : '<span class="badge badge-component">Variant</span>'
+                          : UIHelper.createBadge('Variant', 'component')
                       }
                     </div>
                   </div>
@@ -2502,22 +2592,30 @@
             html += `
             <div class="component-regular">
               <div class="component-header-content">
-                <button class="nav-icon" data-component-id="${component.id}" title="Navigate to component">
-                  <span class="material-symbols-outlined">target</span>
-                </button>
+                ${UIHelper.createNavIcon(component.id, 'Navigate to component', 'target')}
                 <div class="component-meta">
                   <span class="component-name">${parsedName.name}</span>
                   ${
                     parsedName.variants.length > 0
                       ? parsedName.variants.map(variant => 
-                          `<span class="badge badge-variant">${variant.property}=${variant.value}</span>`
+                          UIHelper.createBadge(`${variant.property}=${variant.value}`, 'variant')
                         ).join('')
-                      : '<span class="badge badge-component">Component</span>'
+                      : UIHelper.createBadge('Component', 'component')
                   }
                 </div>
                 <div class="component-actions">
-                  <button class="compact-action-btn generate-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="generate" title="Generate"><span class="material-symbols-outlined">download</span></button>
-                  <button class="compact-action-btn commit-all-variants-button" data-component-id="${component.id}" data-component-name="${component.name}" data-action="commit" title="Commit"><span class="material-symbols-outlined">commit</span></button>
+                  ${UIHelper.createActionBtn('download', 'Generate', {
+                      'data-component-id': component.id,
+                      'data-component-name': component.name,
+                      'data-action': 'generate',
+                      'class': 'generate-all-variants-button'
+                  })}
+                  ${UIHelper.createActionBtn('commit', 'Commit', {
+                      'data-component-id': component.id,
+                      'data-component-name': component.name,
+                      'data-action': 'commit',
+                      'class': 'commit-all-variants-button'
+                  })}
                 </div>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
@@ -2581,6 +2679,22 @@
             headerEl.classList.add("expanded");
           }
         };
+
+        window.expandAllComponents = function() {
+          const headers = document.querySelectorAll('.component-set-header:not(.expanded)');
+          headers.forEach(header => {
+             const index = header.getAttribute('data-index');
+             if (index !== null) window.toggleComponentSet(index);
+          });
+        }
+
+        window.collapseAllComponents = function() {
+          const headers = document.querySelectorAll('.component-set-header.expanded');
+          headers.forEach(header => {
+             const index = header.getAttribute('data-index');
+             if (index !== null) window.toggleComponentSet(index);
+          });
+        }
 
         window.toggleStyles = function (element) {
           const isExpanding = !element.classList.contains("expanded");
@@ -2690,6 +2804,14 @@
               "*"
             );
 
+            // TRACKING: Mark variables as exported for User Guide
+            // Update shared state instead of localStorage
+            if (userGuideState) {
+                userGuideState.lastExportVars = true;
+                saveUserGuideState(); // Save to backend
+            }
+            if (typeof refreshUserGuide === 'function') refreshUserGuide();
+
             // Re-enable button after a delay (will be handled by response message)
             setTimeout(() => {
               if (exportCssButton.disabled) {
@@ -2768,7 +2890,11 @@
           // Store timeout ID for potential cleanup
           button.dataset.timeoutId = timeoutId;
 
-          if (forCommit) {
+           if (forCommit) {
+             // TRACKING: Mark test as committed/exported for User Guide
+             localStorage.setItem('bridgy_last_export_test', 'true');
+             if (typeof refreshUserGuide === 'function') refreshUserGuide();
+
              // For commits, we need to pass all the context needed for the backend to commit
              parent.postMessage({
               pluginMessage: {
@@ -3179,16 +3305,16 @@
         const issuesByCategory = result.issuesByCategory;
 
         let html = `
-          <div style="margin-bottom: 24px; padding: 20px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px;">
-            <h3 style="color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; font-size: 18px;">Summary</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
-              <div style="background: rgba(0, 0, 0, 0.2); padding: 16px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #a855f7; margin-bottom: 4px;">${result.totalNodes}</div>
-                <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Nodes Analyzed</div>
+          <div style="margin-bottom: 16px; padding: 12px; background: rgba(139, 92, 246, 0.08); border-radius: 10px;">
+            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Summary</div>
+            <div style="display: flex; gap: 16px;">
+              <div style="flex: 1; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold; color: #a855f7;">${result.totalNodes}</div>
+                <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase;">Nodes</div>
               </div>
-              <div style="background: rgba(0, 0, 0, 0.2); padding: 16px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #f59e0b; margin-bottom: 4px;">${result.totalIssues}</div>
-                <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); text-transform: uppercase;">Unique Issues</div>
+              <div style="flex: 1; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold; color: #f59e0b;">${result.totalIssues}</div>
+                <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase;">Issues</div>
               </div>
             </div>
           </div>
@@ -3200,10 +3326,10 @@
           if (issues.length === 0) return;
 
           const categoryIcons = {
-            'Layout': '📐',
-            'Fill': '🎨',
-            'Stroke': '✏️',
-            'Appearance': '✨'
+            'Layout': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">design_services</span>',
+            'Fill': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">palette</span>',
+            'Stroke': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">edit</span>',
+            'Appearance': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">auto_awesome</span>'
           };
 
           const groupId = `coverage-${category}`;
@@ -3212,7 +3338,7 @@
             <div class="variable-subgroup" style="margin-bottom: 12px;">
               <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                 <div class="subgroup-title">
-                  ${categoryIcons[category]} ${category}
+                  <span style="display: flex; align-items: center;">${categoryIcons[category]} ${category}</span>
                   <span class="subgroup-stats">${issues.length} issues</span>
                 </div>
                 <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
@@ -3224,29 +3350,62 @@
           // Display each issue as a card
           issues.forEach(issue => {
             html += `
-              <div class="quality-issue-card" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+              <div class="quality-issue-card" style="background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 4px;">${issue.property}</div>
-                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 14px;">${SecurityUtils.escapeHTML(issue.value)}</div>
+                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px;">${issue.property}</div>
+                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px;">${SecurityUtils.escapeHTML(issue.value)}</div>
                   </div>
-                  <div style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); color: #fbbf24; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 14px; white-space: nowrap; margin-left: 16px;">
-                    ${issue.count} occurrence${issue.count > 1 ? 's' : ''}
+                  <div style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; padding: 3px 10px; border-radius: 4px; font-weight: 600; font-size: 12px; white-space: nowrap; margin-left: 12px;">
+                    ${issue.count}×
                   </div>
                 </div>
-                <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px; margin-top: 12px;">
-                  <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; font-weight: 600;">Found in:</div>
-                  <div style="max-height: 400px; overflow-y: auto;">
+                <div style="border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; margin-top: 8px;">
+                  <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-bottom: 6px; font-weight: 500; text-transform: uppercase;">Found in:</div>
+                  <div class="quality-nodes-list">
             `;
 
-            // Show ALL node names with their properties
+            // Group nodes by name and count occurrences
+            const nodeGroups = {};
             issue.nodeNames.forEach((nodeName, idx) => {
+              if (!nodeGroups[nodeName]) {
+                nodeGroups[nodeName] = { count: 0, ids: [] };
+              }
+              nodeGroups[nodeName].count++;
+              nodeGroups[nodeName].ids.push(issue.nodeIds[idx]);
+            });
+
+            // Render grouped nodes
+            Object.entries(nodeGroups).forEach(([nodeName, data], groupIdx) => {
+              const groupId = `node-group-${category}-${issues.indexOf(issue)}-${groupIdx}`;
+              const hasMultiple = data.count > 1;
+              
               html += `
-                <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; margin-bottom: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.8);">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                  </svg>
-                  ${SecurityUtils.escapeHTML(nodeName)}
+                <div class="quality-node-item">
+                  <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''}>
+                    <span class="material-symbols-outlined node-icon">layers</span>
+                    <span class="node-name" title="${SecurityUtils.escapeHTML(nodeName)}">${SecurityUtils.escapeHTML(nodeName)}</span>
+                    ${hasMultiple ? `
+                      <span class="node-count">${data.count}</span>
+                      <span class="material-symbols-outlined node-toggle-icon" id="${groupId}-toggle">expand_more</span>
+                    ` : `
+                      <button class="node-focus-btn" data-tooltip="Focus" onclick="event.stopPropagation(); window.focusOnNode('${data.ids[0]}')">
+                        <span class="material-symbols-outlined">zoom_in</span>
+                      </button>
+                    `}
+                  </div>
+                  ${hasMultiple ? `
+                    <div id="${groupId}" class="node-instances" style="display: none;">
+                      ${data.ids.map((id, i) => `
+                        <div class="instance-row">
+                          <span class="instance-label">Instance ${i + 1}</span>
+                          <button class="node-focus-btn" data-tooltip="Focus" onclick="window.focusOnNode('${id}')">
+                            <span class="material-symbols-outlined">zoom_in</span>
+                          </button>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
                 </div>
               `;
             });
@@ -3265,7 +3424,7 @@
           `;
         });
 
-        resultsContainer.innerHTML = SecurityUtils.sanitizeHTML(html);
+        resultsContainer.innerHTML = html;
       }
 
       // Function to open user guide modal
@@ -3427,8 +3586,53 @@ ${checkboxes}
       }
 
       // Provider change handler
+      // ===== NEW REDESIGN HELPERS =====
+      function selectProvider(provider) {
+        // Set hidden input
+        const providerInput = document.getElementById('config-provider');
+        if(providerInput) providerInput.value = provider;
+        
+        // Visual selection
+        document.querySelectorAll('.provider-card').forEach(card => card.classList.remove('selected'));
+        const card = document.getElementById(`card-${provider}`);
+        if(card) card.classList.add('selected');
+        
+        // Show sections
+        const accordion = document.getElementById('settings-accordion');
+        if(accordion) {
+            accordion.classList.add('visible');
+            // Auto open first section if none open
+            if(!accordion.querySelector('.accordion-item.expanded')) {
+                toggleAccordion('section-connection');
+            }
+        }
+        
+        // Trigger field updates
+        onProviderChange();
+      }
+      // Expose to window for HTML onclick
+      window.selectProvider = selectProvider;
+      
+      function toggleAccordion(id) {
+        const item = document.getElementById(id);
+        if(item) {
+            const wasExpanded = item.classList.contains('expanded');
+            
+            if(wasExpanded) {
+                item.classList.remove('expanded');
+            } else {
+                item.classList.add('expanded');
+            }
+        }
+      }
+      window.toggleAccordion = toggleAccordion;
+
+      // Provider change handler (Logic Only)
       function onProviderChange() {
-        const provider = document.getElementById("config-provider").value;
+        // Use hidden input or fallback
+        const input = document.getElementById("config-provider");
+        const provider = input ? input.value : 'gitlab';
+        
         const gitlabUrlGroup = document.getElementById("gitlab-url-group");
         const githubUrlGroup = document.getElementById("github-url-group");
         const projectIdLabel = document.getElementById("project-id-label");
@@ -3444,37 +3648,36 @@ ${checkboxes}
         const tokenInput = document.getElementById("config-token");
         
         if (provider === 'gitlab') {
-          gitlabUrlGroup.style.display = 'block';
-          githubUrlGroup.style.display = 'none';
-          projectIdLabel.textContent = 'Project ID';
-          projectIdHelp.textContent = 'For GitLab: Use numeric ID or namespace/project format';
-          projectIdInput.placeholder = 'e.g. 24267 or namespace/project';
-          browseButton.style.display = 'none';
-          if (browseBranchesButton) browseBranchesButton.style.display = 'none';
+          if (gitlabUrlGroup) gitlabUrlGroup.style.display = 'block';
+          if (githubUrlGroup) githubUrlGroup.style.display = 'none';
+          if (projectIdLabel) projectIdLabel.textContent = 'Project ID';
+          // Help text might be static in new UI? Let's keep dynamic for now
+          // projectIdInput.placeholder updated in selectProvider? No, here.
+          if (projectIdInput) projectIdInput.placeholder = 'e.g. 24267 or namespace/project';
+          if (browseButton) browseButton.style.display = 'none';
+          
+          if (browseBranchesButton) browseBranchesButton.style.display = 'block'; // GitLab supports browsing too if implemented? Original code said 'none' for GitLab browse branches?
+          // Checking original code: browseBranchesButton.style.display = 'none' for GitLab. 
+          // Wait, standard GitLab supports browsing branches? The original plugin might not have implemented it.
+          // Let's stick to original behavior:
+          if (browseBranchesButton) browseBranchesButton.style.display = 'none'; 
+
           if (oauthLoginButton) oauthLoginButton.style.display = 'none';
           if (oauthStatus) oauthStatus.style.display = 'none';
           if (tokenLabel) tokenLabel.textContent = 'Project Access Token';
-          if (tokenHelp) tokenHelp.textContent = 'For GitLab: Use project access token';
           if (tokenInput) tokenInput.placeholder = 'Enter your GitLab private token';
         } else {
-          gitlabUrlGroup.style.display = 'none';
-          githubUrlGroup.style.display = 'block';
-          projectIdLabel.textContent = 'Repository';
-          projectIdHelp.textContent = 'For GitHub: Use owner/repository format (e.g., microsoft/vscode)';
-          projectIdInput.placeholder = 'e.g. owner/repository';
-          browseButton.style.display = 'block';
-          if (browseBranchesButton) browseBranchesButton.style.display = 'block';
+          if (gitlabUrlGroup) gitlabUrlGroup.style.display = 'none';
+          if (githubUrlGroup) githubUrlGroup.style.display = 'block';
+          if (projectIdLabel) projectIdLabel.textContent = 'Repository';
+          if (projectIdInput) projectIdInput.placeholder = 'e.g. owner/repository';
+          if (browseButton) browseButton.style.display = 'block'; // GitHub supports repo browse
+          if (browseBranchesButton) browseBranchesButton.style.display = 'block'; // GitHub supports branch browse
           if (tokenLabel) tokenLabel.textContent = 'GitHub Access Token';
-          if (tokenHelp) tokenHelp.textContent = 'For GitHub: Use personal access token or OAuth';
           if (tokenInput) tokenInput.placeholder = 'Enter your GitHub token';
           
           // Check OAuth availability
-          checkOAuthAvailability();
-          
-          // Show hint if OAuth button is hidden (checked async, but we can show a general help link/text if needed)
-           if (oauthLoginButton && oauthLoginButton.style.display === 'none') {
-             // We wait for checkOAuthAvailability response, but we can also set a default state
-           }
+          if (typeof checkOAuthAvailability === 'function') checkOAuthAvailability();
         }
       }
 
@@ -4198,21 +4401,9 @@ ${checkboxes}
         try {
           const settings = window.gitSettings || window.gitlabSettings;
           
-          // Always call onProviderChange to set initial state
-          setTimeout(() => {
-            onProviderChange();
-          }, 100);
-          
           if (settings) {
             // Determine provider
             const provider = settings.provider || 'gitlab';
-            const providerElement = document.getElementById("config-provider");
-            if (providerElement) {
-              providerElement.value = provider;
-              setTimeout(() => {
-                onProviderChange(); // Update UI based on provider
-              }, 150);
-            }
             
             // Validate all elements exist before setting values
             const elements = {
@@ -4278,7 +4469,19 @@ ${checkboxes}
             displayConfigMetadata();
             updateExportButtonText();
             updateRepositoryLink();
+            
+            // Trigger visual update (card selection + accordion logic)
+            setTimeout(() => {
+                selectProvider(provider);
+                if(!settings.token) {
+                    toggleAccordion('section-connection');
+                } else {
+                   toggleAccordion('section-connection');
+                }
+            }, 100);
+            
           } else {
+            // No settings found, set defaults
             // Set defaults for new users
             const saveTokenElement = document.getElementById("config-save-token");
             const shareTeamElement = document.getElementById("config-share-team");
@@ -6264,36 +6467,29 @@ window.clearInput = function() {
                 </h3>
             </div>
             
-            <div class="toolbar" style="margin-bottom: 16px;">
-              <div class="toolbar-group">
-                <button class="compact-action-btn" onclick="expandAllImportGroups()" title="Expand All">
-                  <span class="material-symbols-outlined">unfold_more</span>
-                  <span class="toolbar-btn-text">Expand All</span>
-                </button>
-                <button class="compact-action-btn" onclick="collapseAllImportGroups()" title="Collapse All">
-                  <span class="material-symbols-outlined">unfold_less</span>
-                  <span class="toolbar-btn-text">Collapse All</span>
-                </button>
-              </div>
-              <div class="toolbar-group">
-                <button class="compact-action-btn" onclick="selectAllVariables(true)" title="Select All">
-                  <span class="material-symbols-outlined">select_all</span>
-                  <span class="toolbar-btn-text">Select All</span>
-                </button>
-                <button class="compact-action-btn" onclick="selectAllVariables(false)" title="Deselect All">
-                  <span class="material-symbols-outlined">deselect</span>
-                  <span class="toolbar-btn-text">Deselect All</span>
-                </button>
-              </div>
+            <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; gap: 2px;">
+              <button class="compact-action-btn" onclick="expandAllImportGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">unfold_more</span>
+              </button>
+              <button class="compact-action-btn" onclick="collapseAllImportGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">unfold_less</span>
+              </button>
+              <div style="width: 1px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
+              <button class="compact-action-btn" onclick="selectAllVariables(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">select_all</span>
+              </button>
+              <button class="compact-action-btn" onclick="selectAllVariables(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">deselect</span>
+              </button>
             </div>
 
             <div class="variables-preview">
               <div class="variable-collection">
                 <div class="collection-header">
-                  <div class="collection-info">
+                  <div class="collection-info" style="display: flex; align-items: center;">
                     <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">folder</span>
-                    <h3 class="collection-name-title">Design Tokens</h3>
-                    <span class="subgroup-stats">(Collection)</span>
+                    <h3 class="collection-name-title" style="margin: 0 8px;">Design Tokens</h3>
+                    <span class="subgroup-stats" style="margin: 0;">(Collection)</span>
                   </div>
                 </div>
                 
@@ -6339,10 +6535,10 @@ window.clearInput = function() {
                               <div class="variable-row ${isDuplicate ? 'duplicate-row' : ''}">
                                 <label class="checkbox-label">
                                   <input type="checkbox" id="${tokenId}" checked class="variable-checkbox" data-token-name="${token.name}">
-                                  <span class="variable-name">${token.name}</span>
+                                  <span class="variable-name" style="font-size: 11px;">${token.name}</span>
                                 </label>
-                                <span class="variable-type">${category}</span>
-                                <span class="variable-value">${valueDisplay}</span>
+                                <span class="variable-type" style="font-size: 11px;">${category}</span>
+                                <span class="variable-value" style="font-size: 11px;">${valueDisplay}</span>
                                 ${duplicateBadge}
                                 ${token.isAlias ? '<span class="alias-badge">ref</span>' : ''}
                               </div>
@@ -6356,10 +6552,10 @@ window.clearInput = function() {
                 </div>
               </div>
             </div>
-            <div class="summary-stats" style="margin-top: 16px; color: var(--text-secondary); font-size: 11px;">
-              <span class="summary-item">📁 1 collection</span>
-              <span class="summary-item"> • 📂 ${groupNames.length} groups</span>
-              <span class="summary-item"> • 🎯 ${variableTokens.length} variables</span>
+            <div class="summary-stats" style="margin-top: 16px; color: var(--text-secondary); font-size: 11px; display: flex; gap: 8px; align-items: center;">
+              <span class="summary-item" style="display: flex; align-items: center; gap: 4px;"><span class="material-symbols-outlined" style="font-size: 14px;">folder</span> 1 collection</span>
+              <span class="summary-item" style="display: flex; align-items: center; gap: 4px;"><span class="material-symbols-outlined" style="font-size: 14px;">folder_open</span> ${groupNames.length} groups</span>
+              <span class="summary-item" style="display: flex; align-items: center; gap: 4px;"><span class="material-symbols-outlined" style="font-size: 14px;">data_object</span> ${variableTokens.length} variables</span>
             </div>
           </div>
           
@@ -6372,27 +6568,20 @@ window.clearInput = function() {
                 </h3>
             </div>
             
-            <div class="toolbar" style="margin-bottom: 16px;">
-              <div class="toolbar-group">
-                <button class="compact-action-btn" onclick="expandAllStyleGroups()" title="Expand All">
-                  <span class="material-symbols-outlined">unfold_more</span>
-                  <span class="toolbar-btn-text">Expand All</span>
-                </button>
-                <button class="compact-action-btn" onclick="collapseAllStyleGroups()" title="Collapse All">
-                  <span class="material-symbols-outlined">unfold_less</span>
-                  <span class="toolbar-btn-text">Collapse All</span>
-                </button>
-              </div>
-              <div class="toolbar-group">
-                <button class="compact-action-btn" onclick="selectAllStyles(true)" title="Select All">
-                  <span class="material-symbols-outlined">select_all</span>
-                  <span class="toolbar-btn-text">Select All</span>
-                </button>
-                <button class="compact-action-btn" onclick="selectAllStyles(false)" title="Deselect All">
-                  <span class="material-symbols-outlined">deselect</span>
-                  <span class="toolbar-btn-text">Deselect All</span>
-                </button>
-              </div>
+            <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; gap: 8px;">
+              <button class="compact-action-btn" onclick="expandAllStyleGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">unfold_more</span>
+              </button>
+              <button class="compact-action-btn" onclick="collapseAllStyleGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">unfold_less</span>
+              </button>
+              <div style="width: 1px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
+              <button class="compact-action-btn" onclick="selectAllStyles(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">select_all</span>
+              </button>
+              <button class="compact-action-btn" onclick="selectAllStyles(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center;">
+                <span class="material-symbols-outlined">deselect</span>
+              </button>
             </div>
 
             <div class="styles-preview">
@@ -6424,10 +6613,10 @@ window.clearInput = function() {
                             <div class="variable-row">
                               <label class="checkbox-label">
                                 <input type="checkbox" id="${tokenId}" checked class="style-checkbox" data-token-name="${token.name}">
-                                <span class="variable-name">${token.name}</span>
+                                <span class="variable-name" style="font-size: 11px;">${token.name}</span>
                               </label>
-                              <span class="variable-type">${category}</span>
-                              <span class="variable-value">${token.value}</span>
+                              <span class="variable-type" style="font-size: 11px;">${category}</span>
+                              <span class="variable-value" style="font-size: 11px;">${token.value}</span>
                             </div>
                           `;
                         }).join('')}
@@ -6472,16 +6661,21 @@ window.clearInput = function() {
               <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
 
               <h4>Settings</h4>
-              <label class="checkbox-label">
-                <input type="checkbox" id="organize-by-categories" checked>
-                Organize by categories
-                <span class="material-symbols-outlined help-icon" data-tooltip="Group variables into folders (e.g. colors/primary) based on their name path">help</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="overwrite-existing">
-                Overwrite existing variables
-                <span class="material-symbols-outlined help-icon" data-tooltip="If checked, variables with the same name will differ overwritten. If unchecked, they will be skipped.">help</span>
-              </label>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="toggle-switch">
+                  <input type="checkbox" class="toggle-input" id="organize-by-categories" checked>
+                  <div class="toggle-slider"></div>
+                  <span class="settings-label" style="margin-bottom: 0;">Organize by categories</span>
+                  <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Auto-group variables using slashes (e.g. 'color/blue')">help</span>
+                </label>
+
+                <label class="toggle-switch">
+                  <input type="checkbox" class="toggle-input" id="overwrite-existing">
+                  <div class="toggle-slider"></div>
+                  <span class="settings-label" style="margin-bottom: 0;">Overwrite existing variables</span>
+                  <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Overwrite variables with same name">help</span>
+                </label>
+              </div>
             </div>
           </div>
           
@@ -6772,7 +6966,7 @@ window.clearInput = function() {
       };
 
       function showImportComplete(result = {}) {
-        const importContent = document.getElementById('import-content');
+        const importContent = document.getElementById('variable-import-container');
         
         // Use the correct property names from the backend result
         const variablesCreated = result.importedCount || 0;
@@ -6801,7 +6995,7 @@ window.clearInput = function() {
       function resetImportView() {
         console.log('[UI] Resetting import view');
         try {
-            const importContent = document.getElementById('import-content');
+            const importContent = document.getElementById('variable-import-container');
             if (!importContent) {
                 console.error('[UI] Import content container not found');
                 return;
@@ -6856,35 +7050,44 @@ window.clearInput = function() {
                     </div>
                   </div>
 
-                  <div class="preview-toolbar" style="display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-md);">
-                    <button class="compact-action-btn" id="select-all-import" title="Select All" style="display: flex; align-items: center; gap: 4px; width: auto; padding: 4px 8px;">
-                      <span class="material-symbols-outlined" style="font-size: 16px;">select_all</span>
-                      <span style="font-size: 11px;">All</span>
+                  <div class="preview-toolbar" style="display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-md); align-items: center;">
+                    <button class="compact-action-btn" id="select-all-import" data-tooltip="Select All" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">select_all</span>
                     </button>
-                    <button class="compact-action-btn" id="deselect-all-import" title="Deselect All" style="display: flex; align-items: center; gap: 4px; width: auto; padding: 4px 8px;">
-                      <span class="material-symbols-outlined" style="font-size: 16px;">deselect</span>
-                      <span style="font-size: 11px;">None</span>
+                    <button class="compact-action-btn" id="deselect-all-import" data-tooltip="Deselect All" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">deselect</span>
                     </button>
-                    <div style="border-left: 1px solid rgba(255,255,255,0.2); margin: 0 4px;"></div>
-                    <button class="compact-action-btn" id="expand-all-import" title="Expand All" style="width: 28px; height: 28px;">
+                    <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 16px; margin: 0 4px;"></div>
+                    <button class="compact-action-btn" id="expand-all-import" data-tooltip="Expand All Groups" style="width: 28px; height: 28px;">
                       <span class="material-symbols-outlined" style="font-size: 18px;">unfold_more</span>
                     </button>
-                    <button class="compact-action-btn" id="collapse-all-import" title="Collapse All" style="width: 28px; height: 28px;">
+                    <button class="compact-action-btn" id="collapse-all-import" data-tooltip="Collapse All Groups" style="width: 28px; height: 28px;">
                       <span class="material-symbols-outlined" style="font-size: 18px;">unfold_less</span>
                     </button>
                   </div>
 
-                  <div class="import-strategy-selector" style="padding: 8px 12px; margin-bottom: 12px;">
-                    <label style="font-size: 12px; color: rgba(255,255,255,0.7);">On Conflict:</label>
-                    <div class="radio-group" style="gap: 16px;">
-                      <label style="font-size: 12px;">
-                        <input type="radio" name="import-strategy" value="merge" checked>
-                        <span>Skip</span>
+                  <div class="import-settings" style="margin-bottom: 16px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
+                    <h5 style="margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; font-weight: 600;">Settings</h5>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" id="organize-by-categories" checked>
+                        <div class="toggle-slider"></div>
+                        <span class="settings-label" style="margin-bottom: 0;">Organize by categories</span>
+                        <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Group variables into categories based on their names (e.g. 'color/primary' -> 'color' group)">help</span>
                       </label>
-                      <label style="font-size: 12px;">
-                        <input type="radio" name="import-strategy" value="overwrite">
-                        <span>Overwrite</span>
+
+                      <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" id="overwrite-existing" onchange="document.getElementById('overwrite-warning').style.display = this.checked ? 'flex' : 'none'">
+                        <div class="toggle-slider"></div>
+                        <span class="settings-label" style="margin-bottom: 0;">Overwrite existing variables</span>
+                        <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="If checked, existing variables with the same name will be overwritten.">help</span>
                       </label>
+                    </div>
+                    
+                    <div id="overwrite-warning" class="info-banner warning" style="margin-top: 12px; display: none; font-size: 11px; padding: 8px 12px; border-radius: 6px; background: rgba(234, 179, 8, 0.1); color: #facc15; align-items: flex-start; gap: 8px; line-height: 1.4;">
+                      <span class="material-symbols-outlined" style="font-size: 16px;">warning</span>
+                      <span>Existing variables with the exact same name will be updated with new values.</span>
                     </div>
                   </div>
 
@@ -7001,7 +7204,7 @@ window.clearInput = function() {
       window.resetImportView = resetImportView;
 
       function showImportError(error) {
-        const importContent = document.getElementById('import-content');
+        const importContent = document.getElementById('variable-import-container');
         importContent.innerHTML = `
           <div class="import-result">
             <div class="result-summary error">
@@ -7059,7 +7262,13 @@ window.clearInput = function() {
           const option = document.createElement('option');
           option.value = collection.id;
           option.textContent = collection.name;
-          existingCollectionSelect.appendChild(option);
+          // Try to update both potential select IDs
+          if (existingCollectionSelect) existingCollectionSelect.appendChild(option.cloneNode(true));
+          
+          const importSelect = document.getElementById('import-collection-select');
+          if (importSelect && importSelect !== existingCollectionSelect) {
+             importSelect.appendChild(option.cloneNode(true));
+          }
         });
         
         // If we have parsed tokens and the preview is visible, re-render to show duplicate badges
@@ -7127,15 +7336,10 @@ window.clearInput = function() {
         select.innerHTML = '<option value="">New Collection...</option>';
 
         // Populate with existing collections if available
-        if (variablesData) {
-          variablesData.forEach(collection => {
-            const option = document.createElement('option');
-            option.value = collection.id;
-            // Use dataset to store name for later use
-            option.textContent = collection.name; 
-            option.dataset.name = collection.name;
-            select.appendChild(option);
-          });
+        // Populate with existing collections if available logic moved to updateExistingCollectionsDropdown
+        if (window.existingCollections && window.existingCollections.length > 0) {
+             // Re-trigger update to ensure import-collection-select is populated
+             updateExistingCollectionsDropdown(window.existingCollections);
         }
       }
 
@@ -7176,7 +7380,11 @@ window.clearInput = function() {
       document.getElementById('confirm-import-btn')?.addEventListener('click', function() {
         if (!currentImportPreview) return;
 
-        const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
+        const overwriteCheckbox = document.getElementById('overwrite-existing');
+        const organizeCheckbox = document.getElementById('organize-by-categories');
+        
+        const strategy = (overwriteCheckbox && overwriteCheckbox.checked) ? 'overwrite' : 'merge';
+        const organizeByCategories = (organizeCheckbox && organizeCheckbox.checked) || false;
         const collectionSelect = document.getElementById('import-collection-select');
         const collectionId = collectionSelect.value;
         const collectionName = collectionId ? 
@@ -7211,7 +7419,8 @@ window.clearInput = function() {
             options: {
               collectionId: collectionId,
               collectionName: collectionName,
-              strategy: strategy
+              strategy: strategy,
+              organizeByCategories: organizeByCategories
             }
           }
         }, '*');
@@ -7429,6 +7638,7 @@ window.clearInput = function() {
       };
 
       window.toggleFeedback = function() {
+        console.log('Toggling feedback section');
         const feedbackSection = document.getElementById('feedback-section');
         if (feedbackSection) {
           const isHidden = feedbackSection.style.display === 'none' || !feedbackSection.style.display;
@@ -7437,8 +7647,20 @@ window.clearInput = function() {
           if (!isHidden) {
             parent.postMessage({ pluginMessage: { type: 'set-client-storage', key: 'feedbackDismissed', value: true }}, '*');
           }
+        } else {
+            console.error('Feedback section not found HTML element');
         }
       };
+      
+      // Explicitly bind to be sure
+      // Use event delegation or wait for DOM? DOMContentLoaded is usually safe in UI logic start
+      setTimeout(() => {
+          const betaBadge = document.querySelector('.beta-badge');
+          if(betaBadge) {
+              betaBadge.onclick = window.toggleFeedback;
+              console.log('Beta badge listener attached');
+          }
+      }, 500);
 
       // Function to update Variables summary
       function updateVariablesSummary(variablesCount, collectionsCount) {
@@ -7476,4 +7698,194 @@ window.clearInput = function() {
           summaryDiv.style.display = 'flex';
         }
       }
-      window.updateComponentsSummary = updateComponentsSummary;
+             window.updateComponentsSummary = updateComponentsSummary;
+
+      // Static User Guide - No logic required
+
+
+// Quality Tab Search Logic
+
+// Quality Tab Search Logic
+
+function setupQualitySearch() {
+  console.log('✅ Setting up Quality Search (Event Delegation)');
+  // We don't need to grab the element here anymore
+  // Delegation is handled by the global listeners below
+}
+
+// Add global delegation listeners for Quality Search
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.id === 'quality-search') {
+    console.log('🔍 Quality search input:', e.target.value);
+    filterQualityResults(e.target.value);
+  }
+});
+
+// Handle clear button via delegation as well
+document.addEventListener('click', function(e) {
+  const clearBtn = e.target.closest('#clear-quality-search');
+  if (clearBtn) {
+    console.log('🧹 Quality search cleared');
+    const searchInput = document.getElementById('quality-search');
+    if (searchInput) {
+        searchInput.value = '';
+        filterQualityResults('');
+    }
+    // Also call generic clearSearch if available
+    if (typeof clearSearch === 'function') clearSearch('quality-search');
+  }
+});
+
+function filterQualityResults(query) {
+  const container = document.getElementById('token-coverage-results');
+  if (!container) {
+      console.warn('⚠️ Token coverage results container not found');
+      return;
+  }
+
+  console.log(`Filtering quality results for: "${query}"`);
+  
+  const normalizedQuery = query.toLowerCase().trim();
+  const subgroups = container.querySelectorAll('.variable-subgroup');
+  let totalVisible = 0;
+  let totalIssues = 0;
+
+  subgroups.forEach(group => {
+    const issues = group.querySelectorAll('.quality-issue-card');
+    let groupHasVisibleIssues = false;
+    
+    // Auto-expand/collapse helpers
+    const content = group.querySelector('.subgroup-content');
+    const header = group.querySelector('.subgroup-header');
+
+    issues.forEach(issue => {
+      totalIssues++;
+      
+      // Get issue text (Property + Value)
+      // The issue card structure has property/value in the top part
+      // We can grab the whole text, but let's be more specific if possible to be cleaner
+      const issueHeader = issue.firstElementChild; // Contains property, value, count
+      const issueHeaderText = issueHeader ? issueHeader.textContent.toLowerCase() : '';
+      const isIssueMatch = issueHeaderText.includes(normalizedQuery);
+      
+      // Get all node items
+      const nodeItems = issue.querySelectorAll('.quality-node-item');
+      let hasVisibleNodes = false;
+      
+      // Filter logic:
+      // 1. If issue header matches (e.g. search "Height"), show the card AND all nodes (context).
+      // 2. If issue header doesn't match, check nodes. Show card if any node matches, but HIDE non-matching nodes.
+      
+      if (isIssueMatch) {
+          // Case 1: Issue matches - show everything
+          issue.style.display = 'block';
+          groupHasVisibleIssues = true;
+          // Ensure all nodes are visible
+          nodeItems.forEach(node => node.style.display = 'flex');
+      } else {
+          // Case 2: Check nodes individually
+          nodeItems.forEach(node => {
+              const nodeText = node.textContent.toLowerCase();
+              const isNodeMatch = nodeText.includes(normalizedQuery);
+              if (isNodeMatch) {
+                  node.style.display = 'flex';
+                  hasVisibleNodes = true;
+              } else {
+                  node.style.display = 'none';
+              }
+          });
+          
+          if (hasVisibleNodes) {
+              issue.style.display = 'block';
+              groupHasVisibleIssues = true;
+          } else {
+              issue.style.display = 'none';
+          }
+      }
+    });
+
+    // Toggle group visibility
+    group.style.display = groupHasVisibleIssues ? 'block' : 'none';
+    
+    if (normalizedQuery.length > 0) {
+        if (groupHasVisibleIssues) {
+            // Expand groups with matches
+            if (content) content.classList.remove('collapsed');
+            if (header) header.classList.remove('collapsed');
+            totalVisible++;
+        }
+    } else {
+        // Reset to collapsed state when clearing search to keep UI clean?
+        // Or keep current state. Let's keep current state but ensure groups are shown.
+         if (content) content.classList.add('collapsed');
+         if (header) header.classList.add('collapsed');
+    }
+  });
+  
+  console.log(`Search complete. Visible groups: ${totalVisible}, Total issues scanned: ${totalIssues}`);
+
+  // Show "no results" message if query exists but nothing found
+  let noResultsMsg = container.querySelector('.no-results-message');
+  
+  if (normalizedQuery.length > 0 && totalVisible === 0) {
+      if (!noResultsMsg) {
+          noResultsMsg = document.createElement('div');
+          noResultsMsg.className = 'no-results-message';
+          noResultsMsg.style.padding = '40px 20px';
+          noResultsMsg.style.textAlign = 'center';
+          noResultsMsg.style.color = 'var(--text-secondary)';
+          noResultsMsg.innerHTML = `
+            <span class="material-symbols-outlined" style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;">search_off</span>
+            <div style="font-size: 14px;">No displayable issues found matching "${SecurityUtils.escapeHTML(query)}"</div>
+          `;
+          container.appendChild(noResultsMsg);
+      }
+      noResultsMsg.style.display = 'block';
+      // Update message if it already exists
+      noResultsMsg.querySelector('div').innerText = `No displayable issues found matching "${query}"`;
+  } else if (noResultsMsg) {
+      noResultsMsg.style.display = 'none';
+  }
+}
+
+// Toggle quality node group dropdown
+function toggleQualityNodeGroup(groupId) {
+  console.log('toggleQualityNodeGroup called with:', groupId);
+  const container = document.getElementById(groupId);
+  const toggle = document.getElementById(groupId + '-toggle');
+  
+  console.log('Container found:', !!container, 'Toggle found:', !!toggle);
+  
+  if (container) {
+    const isExpanded = container.style.display !== 'none';
+    container.style.display = isExpanded ? 'none' : 'block';
+    
+    if (toggle) {
+      toggle.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+  }
+}
+
+// Focus on a node in Figma
+function focusOnNode(nodeId) {
+  console.log('focusOnNode called with:', nodeId);
+  if (!nodeId) {
+    console.warn('focusOnNode: No nodeId provided');
+    return;
+  }
+  
+  // Send message to plugin to select and zoom to the node
+  console.log('Sending focus-node message to plugin');
+  parent.postMessage({
+    pluginMessage: {
+      type: 'focus-node',
+      nodeId: nodeId
+    }
+  }, '*');
+}
+
+// Ensure functions are global
+window.setupQualitySearch = setupQualitySearch;
+window.filterQualityResults = filterQualityResults;
+window.toggleQualityNodeGroup = toggleQualityNodeGroup;
+window.focusOnNode = focusOnNode;

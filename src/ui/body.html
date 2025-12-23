@@ -33,7 +33,7 @@
             <button
               id="units-icon-btn"
               onclick="openUnitsModal()"
-              class="settings-icon"
+              class="icon-btn-square"
               data-tooltip="Units Configuration"
             >
               <span class="material-symbols-outlined">straighten</span>
@@ -41,7 +41,7 @@
             <button
               id="help-icon-btn"
               onclick="openUserGuide()"
-              class="settings-icon"
+              class="icon-btn-square"
               data-tooltip="User Guide"
             >
               <span class="material-symbols-outlined">help</span>
@@ -49,7 +49,7 @@
             <button
               id="settings-icon-btn"
               onclick="openSettingsModal()"
-              class="settings-icon"
+              class="icon-btn-square"
               data-tooltip="Settings"
             >
               <span class="material-symbols-outlined">settings</span>
@@ -59,7 +59,6 @@
               class="repo-link-button"
               href="#"
               target="_blank"
-              data-tooltip="Open Repository"
               style="display: none;"
             >
               <span class="material-symbols-outlined repo-link-icon">link</span>
@@ -131,15 +130,15 @@
 
           <div class="toolbar">
             <div class="toolbar-group">
-              <button id="export-css-button" class="compact-action-btn" disabled title="Download CSS" style="width: auto; padding: 0 8px;">
+              <button id="export-css-button" class="primary-action-btn" disabled title="Download CSS">
                 <span class="material-symbols-outlined">download</span>
                 <span class="toolbar-btn-text">Download</span>
               </button>
-              <button id="commit-repo-button" class="compact-action-btn" disabled title="Commit to repository" style="width: auto; padding: 0 8px;">
+              <button id="commit-repo-button" class="primary-action-btn" disabled title="Commit to repository">
                 <span class="material-symbols-outlined">commit</span>
                 <span class="toolbar-btn-text">Commit</span>
               </button>
-              <button id="import-icon-button" class="compact-action-btn" onclick="openImportModal()" title="Import variables" style="width: auto; padding: 0 8px;">
+              <button id="import-icon-button" class="primary-action-btn" onclick="openImportModal()" title="Import variables">
                 <span class="material-symbols-outlined">input</span>
                 <span class="toolbar-btn-text">Import</span>
               </button>
@@ -160,13 +159,13 @@
             </div>
 
             <div class="toolbar-group">
-              <button class="compact-action-btn" onclick="toggleSearchBar('variable-search-wrapper')" title="Toggle Search">
+              <button class="icon-btn-square" onclick="toggleSearchBar('variable-search-wrapper')" data-tooltip="Search variables">
                 <span class="material-symbols-outlined">search</span>
               </button>
-              <button class="compact-action-btn" onclick="expandAllVariables()" title="Expand all collections">
+              <button class="icon-btn-square" onclick="expandAllVariables()" data-tooltip="Expand all">
                 <span class="material-symbols-outlined">unfold_more</span>
               </button>
-              <button class="compact-action-btn" onclick="collapseAllVariables()" title="Collapse all collections">
+              <button class="icon-btn-square" onclick="collapseAllVariables()" data-tooltip="Collapse all">
                 <span class="material-symbols-outlined">unfold_less</span>
               </button>
             </div>
@@ -197,7 +196,7 @@
 
           <div class="toolbar">
             <div class="toolbar-group">
-              <button id="analyze-token-coverage-btn" class="compact-action-btn" onclick="analyzeTokenCoverage()" title="Analyze Current Page" style="width: auto; padding: 0 8px;">
+              <button id="analyze-token-coverage-btn" class="primary-action-btn btn-gradient-primary" onclick="analyzeTokenCoverage()" title="Analyze Current Page">
                 <span class="material-symbols-outlined">refresh</span>
                 <span class="toolbar-btn-text">Analyze</span>
               </button>
@@ -218,13 +217,13 @@
             </div>
 
             <div class="toolbar-group">
-              <button class="compact-action-btn" onclick="toggleSearchBar('quality-search-wrapper')" title="Toggle Search">
+              <button class="icon-btn-wide" onclick="toggleSearchBar('quality-search-wrapper')" title="Toggle Search" data-tooltip="Search">
                 <span class="material-symbols-outlined">search</span>
               </button>
-              <button class="compact-action-btn" onclick="expandAllQuality()" title="Expand all issues">
+              <button class="icon-btn-wide" onclick="expandAllQuality()" title="Expand all issues" data-tooltip="Expand all">
                 <span class="material-symbols-outlined">unfold_more</span>
               </button>
-              <button class="compact-action-btn" onclick="collapseAllQuality()" title="Collapse all issues">
+              <button class="icon-btn-wide" onclick="collapseAllQuality()" title="Collapse all issues" data-tooltip="Collapse all">
                 <span class="material-symbols-outlined">unfold_less</span>
               </button>
             </div>
@@ -277,13 +276,13 @@
             </div>
 
             <div class="toolbar-group">
-              <button class="compact-action-btn" onclick="toggleSearchBar('component-search-wrapper')" title="Toggle Search">
+              <button class="icon-btn-wide" onclick="toggleSearchBar('component-search-wrapper')" data-tooltip="Toggle Search">
                 <span class="material-symbols-outlined">search</span>
               </button>
-              <button class="compact-action-btn" onclick="expandAllComponents()" title="Expand all component sets">
+              <button class="icon-btn-wide" onclick="expandAllComponents()" data-tooltip="Expand all component sets">
                 <span class="material-symbols-outlined">unfold_more</span>
               </button>
-              <button class="compact-action-btn" onclick="collapseAllComponents()" title="Collapse all component sets">
+              <button class="icon-btn-wide" onclick="collapseAllComponents()" data-tooltip="Collapse all component sets">
                 <span class="material-symbols-outlined">unfold_less</span>
               </button>
             </div>
@@ -348,284 +347,223 @@
         </div>
         <div class="modal-body">
           <h4>Repository Configuration</h4>
-          <p>
-            Configure your repository settings. This configuration will
-            be shared with your team.
-          </p>
-
-          <div class="form-group">
-            <label for="config-provider">Git Provider</label>
-            <select id="config-provider" onchange="onProviderChange()">
-              <option value="gitlab">GitLab</option>
-              <option value="github">GitHub</option>
-            </select>
-          </div>
-
-          <div class="form-group" id="gitlab-url-group">
-            <label for="config-gitlab-url">GitLab Instance URL</label>
-            <input
-              type="text"
-              id="config-gitlab-url"
-              placeholder="https://gitlab.company.com (leave empty for GitLab.com)"
-            />
-            <small style="color: rgba(255, 255, 255, 0.8); font-size: 12px; display: block; margin-top: 4px;">
-              Enter your GitLab instance URL (e.g., gitlab.company.com, git.organization.edu). Supports most enterprise and self-hosted GitLab instances. Leave empty to use GitLab.com.
-            </small>
-          </div>
-
-          <div class="form-group" id="github-url-group" style="display: none;">
-            <label for="config-github-url">GitHub Instance URL</label>
-            <input
-              type="text"
-              id="config-github-url"
-              placeholder="https://github.com (or your GitHub Enterprise URL)"
-            />
-            <small style="color: rgba(255, 255, 255, 0.8); font-size: 12px; display: block; margin-top: 4px;">
-              Leave empty for GitHub.com or enter your GitHub Enterprise URL.
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label for="config-project-id">
-              <span id="project-id-label">Project ID</span>
-            </label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input
-                type="text"
-                id="config-project-id"
-                placeholder="e.g. 24267"
-                style="flex: 1;"
-              />
-              <button 
-                id="browse-repos-button" 
-                onclick="browseRepositories()" 
-                style="display: none; padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer; border-radius: 6px; white-space: nowrap;"
-                title="Browse repositories"
-              >
-                Browse
-              </button>
-            </div>
-            <small id="project-id-help" style="color: rgba(255, 255, 255, 0.8); font-size: 12px; display: block; margin-top: 4px;">
-              For GitLab: Use numeric ID or namespace/project format
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label for="config-file-path">Variables File Path</label>
-            <input
-              type="text"
-              id="config-file-path"
-              placeholder="src/variables.css"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="config-export-format">Export Format</label>
-            <select id="config-export-format">
-              <option value="css">CSS (variables.css)</option>
-              <option value="scss">SCSS (variables.scss)</option>
-              <option value="tailwind-v4">Tailwind v4 (@theme)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="config-test-file-path"
-              >Component Test File Path Template</label
-            >
-            <input
-              type="text"
-              id="config-test-file-path"
-              placeholder="components/{componentName}/{componentName}.spec.ts"
-            />
-            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.8); margin-top: 4px">
-              <i>Use {componentName} as a placeholder for the component name</i>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="config-token">
-              <span id="token-label">Project Access Token</span>
-            </label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input
-                type="password"
-                id="config-token"
-                placeholder="Enter your GitLab private token"
-                style="flex: 1;"
-              />
-              <button 
-                id="oauth-login-button" 
-                onclick="startOAuthFlow()" 
-                style="display: none; padding: 8px 12px; font-size: 12px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; cursor: pointer; border-radius: 6px; white-space: nowrap;"
-                title="Login with GitHub OAuth (opens in your browser)"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
-                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/>
-                </svg>
-                OAuth
-              </button>
-            </div>
-            <div id="oauth-status" style="margin-top: 4px; display: none;">
-              <small style="color: rgba(34, 197, 94, 0.8); font-size: 12px;">
-                ✓ OAuth login available for better security
-              </small>
-            </div>
-            <small id="token-help" style="color: rgba(255, 255, 255, 0.8); font-size: 12px; display: block; margin-top: 4px;">
-              For GitLab: Use project access token
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label for="config-strategy">Strategy</label>
-            <select id="config-strategy">
-              <option value="direct">Direct Commit</option>
-              <option value="merge-request" selected>Merge Request</option>
-            </select>
-          </div>
-
-          <div id="config-branch-section" class="form-group">
-            <label for="config-branch">CSS Variables Branch Name</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input
-                type="text"
-                id="config-branch"
-                placeholder="feature/variables"
-                style="flex: 1;"
-              />
-              <button 
-                id="browse-branches-button" 
-                onclick="browseBranches()" 
-                style="display: none; padding: 8px 12px; font-size: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer; border-radius: 6px; white-space: nowrap;"
-                title="Browse branches"
-              >
-                Browse
-              </button>
-            </div>
-          </div>
-
-          <div id="config-test-branch-section" class="form-group">
-            <label for="config-test-branch">Component Tests Branch Name</label>
-            <input
-              type="text"
-              id="config-test-branch"
-              placeholder="feature/component-tests"
-            />
-            <p class="help-text">
-              Each component will create a separate branch:
-              {branch-name}-{component-name}
-            </p>
-          </div>
-
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="config-save-token" checked />
-            <label for="config-save-token"
-              >Save token (recommended for convenience)</label
-            >
-          </div>
-
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="config-share-team" checked />
-            <label for="config-share-team">Share settings with team</label>
-          </div>
-
-          <div
-            style="
-              background: rgba(139, 92, 246, 0.1);
-              border: 1px solid rgba(139, 92, 246, 0.3);
-              border-radius: 12px;
-              padding: 12px 16px;
-              margin: 16px 0;
-              font-size: 13px;
-              color: #c4b5fd;
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              backdrop-filter: blur(10px);
-            "
-          >
-            <div style="
-              background: rgba(139, 92, 246, 0.2);
-              width: 24px;
-              height: 24px;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-              font-size: 12px;
-            ">ℹ️</div>
-            <p style="margin: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9)">Can only be changed by Dev Team</p>
-          </div>
-
-          <!-- Configuration Metadata -->
-          <div
-            id="config-metadata"
-            style="
-              background: rgba(255, 255, 255, 0.05);
-              border: 1px solid rgba(255, 255, 255, 0.1);
-              border-radius: 12px;
-              padding: 12px 16px;
-              margin: 16px 0;
-              font-size: 13px;
-              color: rgba(255, 255, 255, 0.8);
-              display: none;
-              backdrop-filter: blur(10px);
-            "
-          >
-            <div style="display: flex; align-items: center; gap: 10px">
-              <div style="
-                background: rgba(255, 255, 255, 0.1);
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex-shrink: 0;
-              ">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="rgba(196, 181, 253, 0.8)"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
+          <!-- New UX: 1. Provider Selection -->
+          <div class="provider-cards">
+            <div class="provider-card" id="card-gitlab" onclick="selectProvider('gitlab')">
+              <div class="provider-icon" style="color: #FC6D26;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .41.26l2.47 7.6h8.6l2.47-7.6a.43.43 0 0 1 .41-.26.42.42 0 0 1 .11.02l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.94z"/></svg>
               </div>
-              <span id="config-metadata-text" style="font-weight: 400; line-height: 1.5;">Last saved: Loading...</span>
+              <div style="font-weight: 600; color: #fff;">GitLab</div>
+            </div>
+            
+            <div class="provider-card" id="card-github" onclick="selectProvider('github')">
+               <div class="provider-icon" style="color: #fff;">
+                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/></svg>
+               </div>
+               <div style="font-weight: 600; color: #fff;">GitHub</div>
             </div>
           </div>
+          
+          <input type="hidden" id="config-provider" value="">
 
-          <!-- Feedback Section -->
-          <div id="settings-feedback-section" style="border-top: 1px solid rgba(139, 92, 246, 0.2); padding-top: var(--space-4); margin-top: var(--space-4);">
-            <h4 style="margin-bottom: var(--space-2);">Feedback & Support</h4>
-            <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-bottom: var(--space-3);">
-              We're actively improving Bridgy based on your feedback!
-            </p>
-            <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-              <button class="feedback-button" onclick="openGitHubFeedback('bug')" style="flex: 1; min-width: 100px;">
-                <span class="feedback-button-icon">🐛</span>
-                <span>Report Bug</span>
-              </button>
-              <button class="feedback-button" onclick="openGitHubFeedback('feature')" style="flex: 1; min-width: 100px;">
-                <span class="feedback-button-icon">💡</span>
-                <span>Request Feature</span>
-              </button>
-              <button class="feedback-button" onclick="openGitHubFeedback('general')" style="flex: 1; min-width: 100px;">
-                <span class="feedback-button-icon">💭</span>
-                <span>General Feedback</span>
-              </button>
+          <!-- New UX: 2. Staged Disclosure Accordion -->
+          <div class="settings-accordion" id="settings-accordion">
+            
+            <!-- SECTION 1: CONNECTION -->
+            <div class="accordion-item" id="section-connection">
+              <div class="accordion-header" onclick="toggleAccordion('section-connection')">
+                <div class="accordion-title">
+                  <span class="material-symbols-outlined accordion-icon">link</span>
+                  Connection & Access
+                </div>
+                <span class="material-symbols-outlined accordion-arrow">expand_more</span>
+              </div>
+              <div class="accordion-content">
+                <!-- GitLab URL -->
+                <div class="settings-input-group" id="gitlab-url-group">
+                  <label class="settings-label" for="config-gitlab-url">GitLab Instance URL</label>
+                  <input type="text" id="config-gitlab-url" placeholder="https://gitlab.company.com (leave empty for GitLab.com)"/>
+                  <div class="settings-helper">Supports Enterprise/Self-Hosted. Leave empty for GitLab.com</div>
+                </div>
+
+                <!-- GitHub URL -->
+                <div class="settings-input-group" id="github-url-group" style="display: none;">
+                  <label class="settings-label" for="config-github-url">GitHub Enterprise URL</label>
+                  <input type="text" id="config-github-url" placeholder="https://github.com (leave empty for Cloud)"/>
+                  <div class="settings-helper">Enter custom URL for Enterprise, or leave empty for GitHub.com</div>
+                </div>
+
+                <!-- Project ID -->
+                <div class="settings-input-group">
+                  <label class="settings-label" for="config-project-id" id="project-id-label">Project ID / Repository</label>
+                  <div style="display: flex; gap: 8px;">
+                     <input type="text" id="config-project-id" style="flex: 1;" placeholder="e.g. 24267 or owner/repo"/>
+                     <button id="browse-repos-button" onclick="browseRepositories()" class="compact-action-btn" title="Browse Repositories" style="width: auto; padding: 0 12px; gap: 4px;">
+                       <span class="material-symbols-outlined" style="font-size: 16px;">search</span>
+                       Browse
+                     </button>
+                  </div>
+                </div>
+
+                <!-- Auth Token -->
+                <div class="settings-input-group">
+                  <label class="settings-label" for="config-token" id="token-label">Access Token</label>
+                  <div style="display: flex; gap: 8px;">
+                     <input type="password" id="config-token" style="flex: 1;" placeholder="Enter Personal/Project Access Token"/>
+                     <button id="oauth-login-button" onclick="startOAuthFlow()" class="compact-action-btn" style="width: auto; padding: 0 12px; gap: 4px; display: none; background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3); color: #4ade80;">
+                       <span class="material-symbols-outlined" style="font-size: 16px;">security</span>
+                       OAuth
+                     </button>
+                  </div>
+                  <div class="settings-helper">Recommended: Use a scoped project access token.</div>
+                  <div id="oauth-status" style="margin-top: 4px; display: none; color: #4ade80; font-size: 11px;">✓ OAuth login available</div>
+                </div>
+              </div>
             </div>
-            <a href="https://bridgy-plugin.com/" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; margin-top: var(--space-3); color: #c4b5fd; font-size: 13px; text-decoration: none;">
-              Visit our website
-              <span class="material-symbols-outlined" style="font-size: 14px;">open_in_new</span>
-            </a>
+
+            <!-- SECTION 2: PROJECT STRUCTURE -->
+            <div class="accordion-item" id="section-structure">
+              <div class="accordion-header" onclick="toggleAccordion('section-structure')">
+                 <div class="accordion-title">
+                   <span class="material-symbols-outlined accordion-icon">folder_open</span>
+                   Project Structure
+                 </div>
+                 <span class="material-symbols-outlined accordion-arrow">expand_more</span>
+              </div>
+              <div class="accordion-content">
+                 <div class="settings-input-group">
+                   <label class="settings-label" for="config-file-path">Variables File Path</label>
+                   <input type="text" id="config-file-path" placeholder="src/styles/variables.css"/>
+                   <div class="settings-helper">Where should we write the CSS variables?</div>
+                 </div>
+
+                 <div class="settings-input-group">
+                    <label class="settings-label" for="config-test-file-path">Component Test Template</label>
+                    <input type="text" id="config-test-file-path" placeholder="components/{componentName}/{componentName}.spec.ts"/>
+                    <div class="settings-helper">Use {componentName} as placeholder.</div>
+                 </div>
+              </div>
+            </div>
+
+            <!-- SECTION 3: WORKFLOW -->
+            <div class="accordion-item" id="section-workflow">
+              <div class="accordion-header" onclick="toggleAccordion('section-workflow')">
+                 <div class="accordion-title">
+                   <span class="material-symbols-outlined accordion-icon">call_split</span>
+                   Workflow & Export
+                 </div>
+                 <span class="material-symbols-outlined accordion-arrow">expand_more</span>
+              </div>
+              <div class="accordion-content">
+                 <div class="settings-input-group">
+                   <label class="settings-label" for="config-export-format">Export Format</label>
+                   <select id="config-export-format" style="width: 100%;">
+                     <option value="css">CSS Variables (Standard)</option>
+                     <option value="scss">SCSS Variables</option>
+                     <option value="tailwind-v4">Tailwind v4 (@theme)</option>
+                   </select>
+                 </div>
+
+                 <div class="settings-input-group">
+                   <label class="settings-label" for="config-strategy">Commit Strategy</label>
+                   <select id="config-strategy" style="width: 100%;">
+                     <option value="merge-request" selected>Create Merge Request / Pull Request</option>
+                     <option value="direct">Commit Directly to Branch</option>
+                   </select>
+                 </div>
+
+                 <div class="settings-input-group" id="config-branch-section">
+                   <label class="settings-label" for="config-branch">CSS Variables Branch</label>
+                   <div style="display: flex; gap: 8px;">
+                     <input type="text" id="config-branch" placeholder="feature/design-tokens" style="flex:1;"/>
+                     <button onclick="browseBranches()" class="compact-action-btn" title="Browse Branches" style="width: auto; padding: 0 10px;">
+                       <span class="material-symbols-outlined" style="font-size: 16px;">list</span>
+                     </button>
+                   </div>
+                 </div>
+
+                 <div class="settings-input-group" id="config-test-branch-section">
+                   <label class="settings-label" for="config-test-branch">Test Branch Prefix</label>
+                   <input type="text" id="config-test-branch" placeholder="feature/test-{component}"/>
+                 </div>
+              </div>
+            </div>
+
+            <!-- SECTION 4: TEAM & ADVANCED -->
+            <div class="accordion-item" id="section-advanced">
+               <div class="accordion-header" onclick="toggleAccordion('section-advanced')">
+                 <div class="accordion-title">
+                   <span class="material-symbols-outlined accordion-icon">settings_suggest</span>
+                   Team & Advanced
+                 </div>
+                 <span class="material-symbols-outlined accordion-arrow">expand_more</span>
+               </div>
+               <div class="accordion-content">
+                 <label class="toggle-switch">
+                   <input type="checkbox" id="config-save-token" class="toggle-input" checked>
+                   <div class="toggle-slider"></div>
+                   <span style="font-size: 13px; color: rgba(255,255,255,0.9);">Save Token locally (Recommended)</span>
+                 </label>
+                 
+                 <label class="toggle-switch">
+                    <input type="checkbox" id="config-share-team" class="toggle-input" checked>
+                    <div class="toggle-slider"></div>
+                    <span style="font-size: 13px; color: rgba(255,255,255,0.9);">Share configuration with team</span>
+                 </label>
+
+                 <!-- Config Metadata -->
+                 <div id="config-metadata" style="
+                    margin-top: 16px;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 8px;
+                    padding: 10px;
+                    font-size: 11px;
+                    color: rgba(255,255,255,0.6);
+                    display: none;
+                 ">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="material-symbols-outlined" style="font-size: 14px;">history</span>
+                      <span id="config-metadata-text">Last saved: Never</span>
+                    </div>
+                 </div>
+               </div>
+            </div>
+            
           </div>
+          
+          <!-- Feedback Section - ALWAYS VISIBLE (Outside Accordion) -->
+           <div id="settings-feedback-section" style="border-top: 1px solid rgba(139, 92, 246, 0.2); padding-top: var(--space-4); margin-top: var(--space-4);">
+             <h4 style="margin-bottom: var(--space-2);">Feedback & Support</h4>
+             <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-bottom: var(--space-3);">
+               We're actively improving Bridgy based on your feedback!
+             </p>
+             <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+               <button class="feedback-button" onclick="openGitHubFeedback('bug')" style="flex: 1; min-width: 100px;">
+                 <span class="feedback-button-icon">🐛</span>
+                 <span>Report Bug</span>
+               </button>
+               <button class="feedback-button" onclick="openGitHubFeedback('feature')" style="flex: 1; min-width: 100px;">
+                 <span class="feedback-button-icon">💡</span>
+                 <span>Request Feature</span>
+               </button>
+               <button class="feedback-button" onclick="openGitHubFeedback('general')" style="flex: 1; min-width: 100px;">
+                 <span class="feedback-button-icon">💭</span>
+                 <span>General Feedback</span>
+               </button>
+             </div>
+             
+             <!-- User Guide and Website Links -->
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-3);">
+                 <button onclick="openUserGuide()" style="background: transparent; border: 1px solid rgba(139, 92, 246, 0.3); color: #a78bfa; padding: 6px 12px; border-radius: 20px; font-size: 11px; cursor: pointer;">
+                   Open User Guide
+                 </button>
+                 
+                 <a href="https://bridgy-plugin.com/" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; color: #c4b5fd; font-size: 13px; text-decoration: none;">
+                   Visit Website
+                   <span class="material-symbols-outlined" style="font-size: 14px;">open_in_new</span>
+                 </a>
+             </div>
+           </div>
         </div>
         <div
           class="modal-footer"
@@ -685,338 +623,159 @@
         </button>
         <div class="modal-header">
           <h3>🎨 Bridgy - User Guide</h3>
-          <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 14px">
+          <p style="margin: 4px 0 0; color: rgba(255, 255, 255, 0.6); font-size: 13px">
             Bridging the gap between designers and developers
           </p>
         </div>
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto">
-          <!-- Introduction -->
-          <div
-            style="
-              background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
-              color: white;
-              padding: 20px;
-              border-radius: 15px;
-              margin-bottom: 24px;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            "
-          >
-            <h4 style="margin: 0 0 12px; font-size: 18px; color: white; font-weight: 600">
-              🚀 Welcome to Bridgy!
-            </h4>
-            <p style="margin: 0; line-height: 1.5; color: rgba(255, 255, 255, 0.95); font-size: 14px">
-              This plugin helps designers and developers work together
-              seamlessly. Export Figma variables as CSS, generate component
-              tests, and commit changes directly to your repository.
+        
+        <div class="modal-body" style="padding: 24px; max-height: 70vh; overflow-y: auto;">
+          
+          <!-- Welcome Banner -->
+          <div style="background: linear-gradient(135deg, rgba(88, 28, 135, 0.8), rgba(124, 58, 237, 0.6)); border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid rgba(139, 92, 246, 0.3);">
+            <h4 style="margin: 0 0 8px 0; font-size: 16px; color: white;">🚀 Welcome to Bridgy!</h4>
+            <p style="margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.9); line-height: 1.5;">
+              This plugin helps designers and developers work together seamlessly. Export Figma variables as CSS, generate component tests, and commit changes directly to your repository.
             </p>
           </div>
 
-          <!-- Process Overview -->
-          <div style="margin-bottom: 24px">
-            <h4 style="color: white; margin-bottom: 16px; font-weight: 600;">
-              📋 Collaboration Process
-            </h4>
+          <!-- Collaboration Process -->
+          <h4 style="margin: 0 0 16px 0; font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; color: rgba(255, 255, 255, 0.8);">assignment</span>
+            Collaboration Process
+          </h4>
 
+          <div class="collaboration-guide" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
+            
             <!-- Step 1 -->
-            <div
-              style="
-                display: flex;
-                margin-bottom: 16px;
-                padding: 16px;
-                background: rgba(255, 255, 255, 0.05);
-                backdrop-filter: blur(10px);
-                border-radius: 15px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-left: 4px solid #22c55e;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-              "
-            >
-              <div
-                style="
-                  background: #22c55e;
-                  color: white;
-                  border-radius: 50%;
-                  width: 24px;
-                  height: 24px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  margin-right: 16px;
-                  font-weight: bold;
-                  font-size: 12px;
-                  flex-shrink: 0;
-                "
-              >
-                1
+            <div class="guide-step-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="background: var(--purple-600); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px;">1</div>
+                <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">Initial Setup (One-time)</h4>
               </div>
-              <div>
-                <h5 style="margin: 0 0 8px; color: #22c55e; font-weight: 600;">
-                  Initial Setup (One-time)
-                </h5>
-                <p style="margin: 0; line-height: 1.5; color: rgba(255, 255, 255, 0.85);"
-                  <strong>👨‍💻 Developer:</strong> Sets up project configuration
-                  in the settings (⚙️ icon):<br />
-                  • GitLab Project ID and Access Token<br />
-                  • File path for CSS variables<br />
-                  • Branch naming strategy<br />
-                  • Commit vs. Merge Request workflow
-                </p>
+              <div style="margin-left: 36px; font-size: 13px; color: rgba(255, 255, 255, 0.8); line-height: 1.6;">
+                <p style="margin: 0 0 8px 0;"><strong style="color: #a78bfa;">👨‍💻 Developer:</strong> Sets up project configuration in the settings (⚙️ icon):</p>
+                <ul style="margin: 0; padding-left: 16px; list-style-type: disc; color: rgba(255, 255, 255, 0.7);">
+                  <li>GitLab Project ID and Access Token</li>
+                  <li>File path for CSS variables</li>
+                  <li>Branch naming strategy</li>
+                  <li>Commit vs. Merge Request workflow</li>
+                </ul>
               </div>
             </div>
 
             <!-- Step 2 -->
-            <div
-              style="
-                display: flex;
-                margin-bottom: 16px;
-                padding: 16px;
-                background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
-                border-radius: 15px;
-                border-left: 4px solid #007bff;
-              "
-            >
-              <div
-                style="
-                  background: #007bff;
-                  color: white;
-                  border-radius: 50%;
-                  width: 24px;
-                  height: 24px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  margin-right: 16px;
-                  font-weight: bold;
-                  font-size: 12px;
-                  flex-shrink: 0;
-                "
-              >
-                2
+            <div class="guide-step-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="background: var(--purple-600); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px;">2</div>
+                <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">Testing & Validation</h4>
               </div>
-              <div>
-                <h5 style="margin: 0 0 8px; color: #c4b5fd">
-                  Testing & Validation
-                </h5>
-                <p style="margin: 0; line-height: 1.5; color: rgba(255, 255, 255, 0.85)">
-                  <strong>🎨 Designer:</strong> Tests the setup by making a
-                  small change and committing it:<br />
-                  • Ensures variables sync correctly<br />
-                  • Verifies the commit process works<br />
-                  • Confirms the file appears in the repository
-                </p>
+              <div style="margin-left: 36px; font-size: 13px; color: rgba(255, 255, 255, 0.8); line-height: 1.6;">
+                <p style="margin: 0 0 8px 0;"><strong style="color: #a78bfa;">🎨 Designer:</strong> Tests the setup by making a small change and committing it:</p>
+                <ul style="margin: 0; padding-left: 16px; list-style-type: disc; color: rgba(255, 255, 255, 0.7);">
+                  <li>Ensures variables sync correctly</li>
+                  <li>Verifies the commit process works</li>
+                  <li>Confirms the file appears in the repository</li>
+                </ul>
               </div>
             </div>
 
-            <!-- Step 4 -->
-            <div
-              style="
-                display: flex;
-                margin-bottom: 16px;
-                padding: 16px;
-                background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
-                border-radius: 15px;
-                border-left: 4px solid #fd7e14;
-              "
-            >
-              <div
-                style="
-                  background: #fd7e14;
-                  color: white;
-                  border-radius: 50%;
-                  width: 24px;
-                  height: 24px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  margin-right: 16px;
-                  font-weight: bold;
-                  font-size: 12px;
-                  flex-shrink: 0;
-                "
-                              >
-                3
+            <!-- Step 3 -->
+            <div class="guide-step-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="background: var(--purple-600); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px;">3</div>
+                <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">Daily Workflow</h4>
               </div>
-              <div>
-                <h5 style="margin: 0 0 8px; color: #fd7e14">
-                  Daily Workflow
-                </h5>
+              <div style="margin-left: 36px; font-size: 13px; color: rgba(255, 255, 255, 0.8); line-height: 1.6;">
                 <div style="margin-bottom: 12px;">
-                  <p style="margin: 0 0 8px; line-height: 1.5; color: rgba(255, 255, 255, 0.85)">
-                    <strong>🎨 Designer – Update & Sync Designs</strong><br />
-                    • Make design changes in Figma (colors, spacing, typography, etc.)<br />
-                    • Open the Bridgy plugin<br />
-                    • Review changes in the Variables tab<br />
-                    • Commit to Repository with a clear, descriptive message
-                  </p>
+                  <p style="margin: 0 0 4px 0;"><strong style="color: #a78bfa;">🎨 Designer – Update & Sync Designs</strong></p>
+                  <ul style="margin: 0; padding-left: 16px; list-style-type: disc; color: rgba(255, 255, 255, 0.7);">
+                    <li>Make design changes in Figma (colors, spacing, typography, etc.)</li>
+                    <li>Open the Bridgy plugin</li>
+                    <li>Review changes in the Variables tab</li>
+                    <li>Commit to Repository with a clear, descriptive message</li>
+                  </ul>
                 </div>
                 <div>
-                  <p style="margin: 0; line-height: 1.5; color: rgba(255, 255, 255, 0.85)">
-                    <strong>👨‍💻 Developer – Generate Tests & Implement</strong><br />
-                    • Open the Bridgy plugin<br />
-                    • Generate comprehensive component tests from the Figma designs<br />
-                    • Commit tests to a dedicated feature branch<br />
-                    • Check out the branch & implement components using a test-driven development approach<br />
-                    • Review & integrate CSS variable changes from the designer
-                  </p>
+                  <p style="margin: 0 0 4px 0;"><strong style="color: #a78bfa;">👨‍💻 Developer – Generate Tests & Implement</strong></p>
+                  <ul style="margin: 0; padding-left: 16px; list-style-type: disc; color: rgba(255, 255, 255, 0.7);">
+                    <li>Open the Bridgy plugin</li>
+                    <li>Generate comprehensive component tests from the Figma designs</li>
+                    <li>Commit tests to a dedicated feature branch</li>
+                    <li>Check out the branch & implement components using a test-driven development approach</li>
+                    <li>Review & integrate CSS variable changes from the designer</li>
+                  </ul>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Key Features -->
-          <div style="margin-bottom: 24px">
-            <h4 style="color: white; margin-bottom: 16px">✨ Key Features</h4>
-            <div
-              style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
-            >
-              <div
-                style="
-                  padding: 16px;
-                  border: 1px solid #e0e0e0;
-                  border-radius: 15px;
-                "
-              >
-                <h5 style="margin: 0 0 8px; color: #c4b5fd">
-                  🎨 Variables Export
-                </h5>
-                <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.8)">
-                  Export Figma variables as CSS custom properties, ready for
-                  development use.
-                </p>
-              </div>
-              <div
-                style="
-                  padding: 16px;
-                  border: 1px solid #e0e0e0;
-                  border-radius: 15px;
-                "
-              >
-                <h5 style="margin: 0 0 8px; color: #22c55e">
-                  🧪 Test Generation
-                </h5>
-                <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.8)">
-                  Generate Angular component tests to ensure designs match
-                  implementation.
-                </p>
-              </div>
-              <div
-                style="
-                  padding: 16px;
-                  border: 1px solid #e0e0e0;
-                  border-radius: 15px;
-                "
-              >
-                <h5 style="margin: 0 0 8px; color: #dc3545">
-                  📡 GitLab Integration
-                </h5>
-                <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.8)">
-                  Commit changes directly to GitLab with automatic merge request
-                  creation.
-                </p>
-              </div>
-              <div
-                style="
-                  padding: 16px;
-                  border: 1px solid #e0e0e0;
-                  border-radius: 15px;
-                "
-              >
-                <h5 style="margin: 0 0 8px; color: #6f42c1">
-                  🔍 Search & Filter
-                </h5>
-                <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.8)">
-                  Easily find and review specific variables and components
-                  before export.
-                </p>
-              </div>
+          <h4 style="margin: 0 0 16px 0; font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; color: rgba(255, 255, 255, 0.8);">stars</span>
+            Key Features
+          </h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px;">
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+              <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa;">🎨 Variables Export</h5>
+              <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">Export Figma variables as CSS custom properties, ready for development use.</p>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+              <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa;">🧪 Test Generation</h5>
+              <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">Generate Angular component tests to ensure designs match implementation.</p>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+              <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa;">📡 GitLab Integration</h5>
+              <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">Commit changes directly to GitLab with automatic merge request creation.</p>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+              <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa;">🔍 Search & Filter</h5>
+              <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">Easily find and review specific variables and components before export.</p>
             </div>
           </div>
 
           <!-- Workflow Strategies -->
-          <div style="margin-bottom: 24px">
-            <h4 style="color: white; margin-bottom: 16px">
-              ⚙️ Workflow Strategies
-            </h4>
-
-            <div
-              style="
-                background: rgba(34, 197, 94, 0.1);
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(34, 197, 94, 0.3);
-                border-radius: 15px;
-                padding: 16px;
-                margin-bottom: 12px;
-                box-shadow: 0 8px 32px rgba(34, 197, 94, 0.1);
-              "
-            >
-              <h5 style="margin: 0 0 8px; color: #22c55e; font-weight: 600;">
-                🔄 Merge Request Strategy (Recommended)
-              </h5>
-              <p style="margin: 0; color: rgba(255, 255, 255, 0.85); line-height: 1.5">
-                Each commit creates a merge request. Multiple commits to the
-                same feature get added to the same MR. Perfect for collaborative
-                review and controlled integration.
+          <h4 style="margin: 0 0 16px 0; font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; color: rgba(255, 255, 255, 0.8);">settings</span>
+            Workflow Strategies
+          </h4>
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
+            <div style="background: rgba(255, 255, 255, 0.03); border-left: 3px solid #34d399; padding: 12px; border-radius: 0 8px 8px 0;">
+              <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #34d399;">🔄 Merge Request Strategy (Recommended)</h5>
+              <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.7); line-height: 1.5;">
+                Each commit creates a merge request. Multiple commits to the same feature get added to the same MR. Perfect for collaborative review and controlled integration.
               </p>
             </div>
-
-            <div
-              style="
-                background: rgba(251, 191, 36, 0.1);
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(251, 191, 36, 0.3);
-                border-radius: 15px;
-                padding: 16px;
-                box-shadow: 0 8px 32px rgba(251, 191, 36, 0.1);
-              "
-            >
-              <h5 style="margin: 0 0 8px; color: #fbbf24; font-weight: 600;">
-                ⚡ Direct Commit Strategy
-              </h5>
-              <p style="margin: 0; color: rgba(255, 255, 255, 0.85); line-height: 1.5">
-                Changes go directly to the main branch. Faster but requires more
-                trust in the design changes. Best for mature teams with
-                established processes.
+            <div style="background: rgba(255, 255, 255, 0.03); border-left: 3px solid #fbbf24; padding: 12px; border-radius: 0 8px 8px 0;">
+              <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #fbbf24;">⚡ Direct Commit Strategy</h5>
+              <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.7); line-height: 1.5;">
+                Changes go directly to the main branch. Faster but requires more trust in the design changes. Best for mature teams with established processes.
               </p>
             </div>
           </div>
 
-          <!-- Tips -->
-          <div
-            style="
-              background: rgba(139, 92, 246, 0.1);
-              backdrop-filter: blur(10px);
-              border: 1px solid rgba(139, 92, 246, 0.3);
-              border-radius: 15px;
-              padding: 16px;
-              box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
-            "
-          >
-            <h4 style="margin: 0 0 12px; color: #c4b5fd">💡 Pro Tips</h4>
-            <ul style="margin: 0; padding-left: 20px; color: rgba(255, 255, 255, 0.85)">
-              <li style="margin-bottom: 8px">
-                Use descriptive commit messages (e.g., "Update primary colors
-                for better accessibility")
-              </li>
-              <li style="margin-bottom: 8px">
-                Review variables before committing to catch any unintended
-                changes
-              </li>
-              <li style="margin-bottom: 8px">
-                Coordinate with developers for major design system changes
-              </li>
-              <li style="margin-bottom: 8px">
-                Test the setup with small changes before making large updates
-              </li>
+          <!-- Pro Tips -->
+          <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 16px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #c4b5fd; display: flex; align-items: center; gap: 8px;">
+              <span class="material-symbols-outlined" style="font-size: 18px;">lightbulb</span>
+              Pro Tips
+            </h4>
+            <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: rgba(255, 255, 255, 0.8); line-height: 1.6; list-style-type: circle;">
+              <li>Use descriptive commit messages (e.g., "Update primary colors for better accessibility")</li>
+              <li>Review variables before committing to catch any unintended changes</li>
+              <li>Coordinate with developers for major design system changes</li>
+              <li>Test the setup with small changes before making large updates</li>
               <li>Keep your Figma variable names consistent and descriptive</li>
             </ul>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button onclick="closeUserGuide()" class="btn-primary">
-            Got it!
-          </button>
+          
+          <div style="text-align: right; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <button onclick="closeUserGuide()" class="btn-primary" style="padding: 8px 24px;">
+              Got It!
+            </button>
+          </div>
         </div>
       </div>
+    </div>
     </div>
 
     <!-- Reset Confirmation Modal -->
@@ -1208,38 +967,79 @@
               <!-- Preview Section (Hidden by default) -->
               <div id="import-preview-section" class="import-preview-section hidden">
                 <div class="preview-header">
-                  <h4>Import Preview</h4>
+                  <h4 style="display: flex; align-items: center; gap: 8px;">
+                    <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">preview</span>
+                    Import Preview
+                  </h4>
                   <div class="preview-stats">
-                    <span id="preview-stat-total" class="badge">0 Total</span>
-                    <span id="preview-stat-new" class="badge badge-success">0 New</span>
-                    <span id="preview-stat-update" class="badge badge-warning">0 Updates</span>
-                    <span id="preview-stat-conflict" class="badge badge-danger">0 Conflicts</span>
+                    <span id="preview-stat-total" class="badge" style="display: flex; align-items: center; gap: 4px;">
+                      <span class="material-symbols-outlined" style="font-size: 14px;">functions</span>
+                      <span>0</span>
+                    </span>
+                    <span id="preview-stat-new" class="badge badge-success" style="display: flex; align-items: center; gap: 4px;">
+                      <span class="material-symbols-outlined" style="font-size: 14px;">add_circle</span>
+                      <span>0</span>
+                    </span>
+                    <span id="preview-stat-update" class="badge badge-warning" style="display: flex; align-items: center; gap: 4px;">
+                      <span class="material-symbols-outlined" style="font-size: 14px;">sync</span>
+                      <span>0</span>
+                    </span>
+                    <span id="preview-stat-conflict" class="badge badge-danger" style="display: flex; align-items: center; gap: 4px;">
+                      <span class="material-symbols-outlined" style="font-size: 14px;">warning</span>
+                      <span>0</span>
+                    </span>
                   </div>
                 </div>
 
-                <div class="import-strategy-selector">
-                  <label>Conflict Strategy:</label>
-                  <div class="radio-group">
-                    <label>
-                      <input type="radio" name="import-strategy" value="merge" checked>
-                      <span>Merge (Keep Existing)</span>
+                <div class="preview-toolbar" style="display: flex; gap: 2px; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-md); align-items: center;">
+                  <button class="compact-action-btn" id="select-all-import" data-tooltip="Select All" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">select_all</span>
+                  </button>
+                  <button class="compact-action-btn" id="deselect-all-import" data-tooltip="Deselect All" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">deselect</span>
+                  </button>
+                  <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 16px; margin: 0 4px;"></div>
+                  <button class="compact-action-btn" id="expand-all-import" data-tooltip="Expand All Groups" style="width: 32px; height: 32px; justify-content: center;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">unfold_more</span>
+                  </button>
+                  <button class="compact-action-btn" id="collapse-all-import" data-tooltip="Collapse All Groups" style="width: 32px; height: 32px; justify-content: center;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">unfold_less</span>
+                  </button>
+                </div>
+
+                <div class="import-settings" style="margin-bottom: 16px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
+                  <h5 style="margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; font-weight: 600;">Settings</h5>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label class="toggle-switch">
+                      <input type="checkbox" class="toggle-input" id="organize-by-categories" checked>
+                      <div class="toggle-slider"></div>
+                      <span class="settings-label" style="margin-bottom: 0;">Organize by categories</span>
+                      <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Group variables into categories based on their names (e.g. 'color/primary' -> 'color' group)">help</span>
                     </label>
-                    <label>
-                      <input type="radio" name="import-strategy" value="overwrite">
-                      <span>Overwrite Existing</span>
+
+                    <label class="toggle-switch">
+                      <input type="checkbox" class="toggle-input" id="overwrite-existing" onchange="document.getElementById('overwrite-warning').style.display = this.checked ? 'flex' : 'none'">
+                      <div class="toggle-slider"></div>
+                      <span class="settings-label" style="margin-bottom: 0;">Overwrite existing variables</span>
+                      <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="If checked, existing variables with the same name will be overwritten.">help</span>
                     </label>
+                  </div>
+                  
+                  <div id="overwrite-warning" class="info-banner warning" style="margin-top: 12px; display: none; font-size: 11px; padding: 8px 12px; border-radius: 6px; background: rgba(234, 179, 8, 0.1); color: #facc15; align-items: flex-start; gap: 8px; line-height: 1.4;">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">warning</span>
+                    <span>Existing variables with the exact same name will be updated with new values.</span>
                   </div>
                 </div>
 
-                <div class="preview-table-container">
+                <div class="preview-table-container" style="max-height: 250px;">
                   <table class="preview-table">
                     <thead>
                       <tr>
-                        <th>Variable Name</th>
-                        <th>Type</th>
-                        <th>New Value</th>
-                        <th>Status</th>
-                        <th>Action</th>
+                        <th style="width: 40%;">Variable</th>
+                        <th style="width: 15%;">Type</th>
+                        <th style="width: 30%;">Value</th>
+                        <th style="width: 15%;">Status</th>
                       </tr>
                     </thead>
                     <tbody id="preview-table-body">
@@ -1248,9 +1048,10 @@
                   </table>
                 </div>
 
-                <div class="import-confirmation-actions">
+                <div class="import-confirmation-actions" style="margin-top: 12px;">
                   <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
-                  <button id="confirm-import-btn" class="btn-primary">
+                  <button id="confirm-import-btn" class="btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">upload</span>
                     Import Variables
                   </button>
                 </div>
