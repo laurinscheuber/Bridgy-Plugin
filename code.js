@@ -6887,6 +6887,46 @@ ${Object.keys(cssProperties).map((property) => {
           });
         }
         /**
+         * Determines if width uses Hug contents or Fill container sizing
+         */
+        static isAutoOrFillWidth(node) {
+          if ("layoutSizingHorizontal" in node) {
+            const mode = node.layoutSizingHorizontal;
+            if (mode === "HUG" || mode === "FILL")
+              return true;
+          }
+          if ("layoutMode" in node && node.layoutMode !== "NONE") {
+            const layoutMode = node.layoutMode;
+            const primary = node.primaryAxisSizingMode;
+            const cross = node.counterAxisSizingMode;
+            if (layoutMode === "HORIZONTAL" && primary === "AUTO")
+              return true;
+            if (layoutMode === "VERTICAL" && cross === "AUTO")
+              return true;
+          }
+          return false;
+        }
+        /**
+         * Determines if height uses Hug contents or Fill container sizing
+         */
+        static isAutoOrFillHeight(node) {
+          if ("layoutSizingVertical" in node) {
+            const mode = node.layoutSizingVertical;
+            if (mode === "HUG" || mode === "FILL")
+              return true;
+          }
+          if ("layoutMode" in node && node.layoutMode !== "NONE") {
+            const layoutMode = node.layoutMode;
+            const primary = node.primaryAxisSizingMode;
+            const cross = node.counterAxisSizingMode;
+            if (layoutMode === "VERTICAL" && primary === "AUTO")
+              return true;
+            if (layoutMode === "HORIZONTAL" && cross === "AUTO")
+              return true;
+          }
+          return false;
+        }
+        /**
          * Checks layout properties (spacing, sizing)
          */
         static checkLayoutProperties(node, issuesMap) {
@@ -6899,10 +6939,10 @@ ${Object.keys(cssProperties).map((property) => {
           if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
             this.addIssue(issuesMap, "Max Width", `${layoutNode.maxWidth}px`, node, "Layout");
           }
-          if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width")) {
+          if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isAutoOrFillWidth(layoutNode)) {
             this.addIssue(issuesMap, "Width", `${layoutNode.width}px`, node, "Layout");
           }
-          if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height")) {
+          if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isAutoOrFillHeight(layoutNode)) {
             this.addIssue(issuesMap, "Height", `${layoutNode.height}px`, node, "Layout");
           }
           if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
@@ -6912,7 +6952,8 @@ ${Object.keys(cssProperties).map((property) => {
             this.addIssue(issuesMap, "Max Height", `${layoutNode.maxHeight}px`, node, "Layout");
           }
           if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
-            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, "itemSpacing")) {
+            const isAutoGap = layoutNode.itemSpacing === "AUTO";
+            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !isAutoGap && !this.isVariableBound(layoutNode, "itemSpacing")) {
               this.addIssue(issuesMap, "Gap", `${layoutNode.itemSpacing}px`, node, "Layout");
             }
             const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;

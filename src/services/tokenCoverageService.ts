@@ -122,6 +122,48 @@ export class TokenCoverageService {
   }
 
   /**
+   * Determines if width uses Hug contents or Fill container sizing
+   */
+  private static isAutoOrFillWidth(node: any): boolean {
+    // Newer API: explicit layout sizing on each axis
+    if ('layoutSizingHorizontal' in node) {
+      const mode = node.layoutSizingHorizontal;
+      if (mode === 'HUG' || mode === 'FILL') return true;
+    }
+
+    // Auto-layout frame sizing modes (hug = AUTO)
+    if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+      const layoutMode = node.layoutMode;
+      const primary = (node as any).primaryAxisSizingMode;
+      const cross = (node as any).counterAxisSizingMode;
+      if (layoutMode === 'HORIZONTAL' && primary === 'AUTO') return true; // width hugs
+      if (layoutMode === 'VERTICAL' && cross === 'AUTO') return true; // width hugs on cross-axis
+    }
+
+    return false;
+  }
+
+  /**
+   * Determines if height uses Hug contents or Fill container sizing
+   */
+  private static isAutoOrFillHeight(node: any): boolean {
+    if ('layoutSizingVertical' in node) {
+      const mode = node.layoutSizingVertical;
+      if (mode === 'HUG' || mode === 'FILL') return true;
+    }
+
+    if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+      const layoutMode = node.layoutMode;
+      const primary = (node as any).primaryAxisSizingMode;
+      const cross = (node as any).counterAxisSizingMode;
+      if (layoutMode === 'VERTICAL' && primary === 'AUTO') return true; // height hugs
+      if (layoutMode === 'HORIZONTAL' && cross === 'AUTO') return true; // height hugs on cross-axis
+    }
+
+    return false;
+  }
+
+  /**
    * Checks layout properties (spacing, sizing)
    */
   private static checkLayoutProperties(
@@ -143,13 +185,21 @@ export class TokenCoverageService {
       this.addIssue(issuesMap, 'Max Width', `${layoutNode.maxWidth}px`, node, 'Layout');
     }
 
-    // Check width (if not auto) - exclude zero values
-    if (layoutNode.width && typeof layoutNode.width === 'number' && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, 'width')) {
+    // Check width (if not auto/hug/fill) - exclude zero values
+    if (
+      layoutNode.width && typeof layoutNode.width === 'number' && layoutNode.width !== 0 &&
+      !this.isVariableBound(layoutNode, 'width') &&
+      !this.isAutoOrFillWidth(layoutNode)
+    ) {
       this.addIssue(issuesMap, 'Width', `${layoutNode.width}px`, node, 'Layout');
     }
 
-    // Check height (if not auto) - exclude zero values
-    if (layoutNode.height && typeof layoutNode.height === 'number' && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, 'height')) {
+    // Check height (if not auto/hug/fill) - exclude zero values
+    if (
+      layoutNode.height && typeof layoutNode.height === 'number' && layoutNode.height !== 0 &&
+      !this.isVariableBound(layoutNode, 'height') &&
+      !this.isAutoOrFillHeight(layoutNode)
+    ) {
       this.addIssue(issuesMap, 'Height', `${layoutNode.height}px`, node, 'Layout');
     }
 
@@ -165,9 +215,10 @@ export class TokenCoverageService {
 
     // Check auto-layout properties
     if ('layoutMode' in layoutNode && layoutNode.layoutMode !== 'NONE') {
-      // Check gap (itemSpacing) - exclude zero values
-      if (typeof layoutNode.itemSpacing === 'number' && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, 'itemSpacing')) {
-        this.addIssue(issuesMap, 'Gap', `${layoutNode.itemSpacing}px`, node, 'Layout');
+      // Check gap (itemSpacing) - ignore 'AUTO' and exclude zero values
+      const isAutoGap = (layoutNode as any).itemSpacing === 'AUTO';
+      if (typeof (layoutNode as any).itemSpacing === 'number' && (layoutNode as any).itemSpacing !== 0 && !isAutoGap && !this.isVariableBound(layoutNode, 'itemSpacing')) {
+        this.addIssue(issuesMap, 'Gap', `${(layoutNode as any).itemSpacing}px`, node, 'Layout');
       }
 
       // Check padding - consolidate if all values are the same, exclude zero values

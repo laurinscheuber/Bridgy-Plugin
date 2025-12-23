@@ -30,6 +30,82 @@ describe('TokenCoverageService', () => {
       expect(service.isVariableBound).toBeDefined();
       expect(service.addIssue).toBeDefined();
     });
+
+    it('should not report width/height when sizing is Hug/Fill', () => {
+      const service = TokenCoverageService as any;
+      const issuesMap = new Map();
+      const node: any = {
+        type: 'FRAME',
+        id: 'node-1',
+        name: 'Test Frame',
+        // layout sizing
+        layoutSizingHorizontal: 'HUG',
+        layoutSizingVertical: 'FILL',
+        layoutMode: 'NONE',
+        // dimensions
+        width: 120,
+        height: 80,
+        minWidth: null,
+        maxWidth: null,
+        minHeight: null,
+        maxHeight: null,
+        // variables
+        boundVariables: {}
+      };
+
+      service.checkLayoutProperties(node, issuesMap);
+      expect(issuesMap.size).toBe(0);
+    });
+
+    it('should ignore gap when itemSpacing is AUTO', () => {
+      const service = TokenCoverageService as any;
+      const issuesMap = new Map();
+      const node: any = {
+        type: 'FRAME',
+        id: 'node-2',
+        name: 'Auto Gap Frame',
+        layoutMode: 'HORIZONTAL',
+        itemSpacing: 'AUTO',
+        // ensure width/height not reported
+        width: 0,
+        height: 0,
+        minWidth: null,
+        maxWidth: null,
+        minHeight: null,
+        maxHeight: null,
+        boundVariables: {}
+      };
+
+      service.checkLayoutProperties(node, issuesMap);
+      expect(issuesMap.size).toBe(0);
+    });
+
+    it('should report gap when itemSpacing is numeric', () => {
+      const service = TokenCoverageService as any;
+      const issuesMap = new Map();
+      const node: any = {
+        type: 'FRAME',
+        id: 'node-3',
+        name: 'Fixed Gap Frame',
+        layoutMode: 'HORIZONTAL',
+        itemSpacing: 16,
+        width: 0,
+        height: 0,
+        minWidth: null,
+        maxWidth: null,
+        minHeight: null,
+        maxHeight: null,
+        boundVariables: {}
+      };
+
+      service.checkLayoutProperties(node, issuesMap);
+      // Expect one issue for Gap
+      expect(issuesMap.size).toBe(1);
+      const [[key, issue]] = Array.from(issuesMap.entries());
+      expect(key.includes('Layout:Gap:16px')).toBe(true);
+      expect(issue.property).toBe('Gap');
+      expect(issue.value).toBe('16px');
+    });
   });
 
   describe('TokenCoverageResult structure', () => {
