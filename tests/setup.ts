@@ -26,7 +26,11 @@ const mockFigma = {
   loadAllPagesAsync: vi.fn(() => Promise.resolve()),
   variables: {
     getLocalVariableCollectionsAsync: vi.fn(() => Promise.resolve([]))
-  }
+  },
+  getLocalPaintStylesAsync: vi.fn(() => Promise.resolve([])),
+  getLocalTextStylesAsync: vi.fn(() => Promise.resolve([])),
+  getLocalEffectStylesAsync: vi.fn(() => Promise.resolve([])),
+  getLocalGridStylesAsync: vi.fn(() => Promise.resolve([]))
 };
 
 // Create global figma object
