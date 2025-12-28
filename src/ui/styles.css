@@ -230,6 +230,11 @@
         overflow: hidden;
       }
 
+      /* Global Accent for Inputs */
+      input[type="checkbox"], input[type="radio"] {
+        accent-color: var(--primary-500);
+      }
+
       /* ===== CUSTOM SCROLLBAR STYLING ===== */
       /* Webkit browsers (Chrome, Safari, Edge) */
       ::-webkit-scrollbar {

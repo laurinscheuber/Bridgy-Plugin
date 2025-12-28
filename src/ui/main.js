@@ -366,11 +366,15 @@
         if (button && !button.classList.contains('loading')) {
           // If this is a generate button and not for commit, mark as exported test
           if ((button.classList.contains('generate-all-variants-button') || loadingText.includes('Generating')) && !loadingText.includes('Committing')) {
-               localStorage.setItem('bridgy_last_export_test', 'true');
+               try {
+                 localStorage.setItem('bridgy_last_export_test', 'true');
+               } catch (e) {
+                 console.warn('localStorage access failed:', e);
+               }
                if (typeof refreshUserGuide === 'function') refreshUserGuide();
           }
 
-          button.dataset.originalText = button.textContent;
+          button.dataset.originalHtml = button.innerHTML;
           button.textContent = loadingText;
           button.classList.add('loading');
           button.disabled = true;
@@ -379,7 +383,12 @@
 
       function hideButtonLoading(button) {
         if (button && button.classList.contains('loading')) {
-          button.textContent = button.dataset.originalText || button.textContent;
+          if (button.dataset.originalHtml) {
+            button.innerHTML = button.dataset.originalHtml;
+          } else {
+             // Fallback for legacy calls or if originalHtml missing
+             button.textContent = button.dataset.originalText || button.textContent;
+          }
           button.classList.remove('loading');
           button.disabled = false;
         }
@@ -999,6 +1008,7 @@
       // Sub-tab switching logic removed - now using modals for Import and Units
 
       let variablesData = [];
+      let stylesData = {};
       let variableReferences = {}; // Map of ID -> Name for aliases
       let componentsData = [];
       let currentCSSData = null;
@@ -1214,6 +1224,7 @@
         } else if (message.type === "document-data") {
           updatePluginLoadingProgress(loadingSteps[3], 75);
           variablesData = message.variablesData;
+          stylesData = message.stylesData;
           variableReferences = message.variableReferences || {};
           componentsData = message.componentsData;
           
@@ -1227,8 +1238,9 @@
             "*"
           );
           
-          renderVariables(variablesData);
+          renderVariables(variablesData, stylesData);
           renderComponents(componentsData);
+
 
           // Handle feedback dismissal state
           if (message.feedbackDismissed) {
@@ -1238,11 +1250,16 @@
             }
           }
           
-          // Enable the export button only if there are variables
-          if (
-            variablesData &&
-            variablesData.some((collection) => collection.variables.length > 0)
-          ) {
+          // Enable the export button if there are variables OR styles
+          const hasVariables = variablesData && variablesData.some((collection) => collection.variables.length > 0);
+          const hasStyles = stylesData && (
+            (stylesData.textStyles && stylesData.textStyles.length > 0) || 
+            (stylesData.paintStyles && stylesData.paintStyles.length > 0) || 
+            (stylesData.effectStyles && stylesData.effectStyles.length > 0) || 
+            (stylesData.gridStyles && stylesData.gridStyles.length > 0)
+          );
+
+          if (hasVariables || hasStyles) {
             exportButton.disabled = false;
           } else {
             exportButton.disabled = true;
@@ -1276,7 +1293,7 @@
           // Still try to render variables if they exist
           if (message.variablesData) {
             variablesData = message.variablesData;
-            renderVariables(variablesData);
+            renderVariables(variablesData, stylesData);
           }
           // setTimeout(() => {
           //   resizeForCurrentContent();
@@ -1331,7 +1348,7 @@
             if (exportButton) {
               hideButtonLoading(exportButton);
             }
-            renderVariables(variablesData); // Restore variables display
+            renderVariables(variablesData, stylesData); // Restore variables display
           }
         } else if (message.type === "angular-export-data") {
           // Trigger ZIP download with component data based on selected language
@@ -1458,7 +1475,7 @@
           exportButton.disabled = true;
           
           // Cleanup any content loading states on error
-          renderVariables(variablesData);
+          renderVariables(variablesData, stylesData);
           renderComponents(componentsData);
         } else if (message.type === "component-selected") {
           // Only show notification if page was switched or if user explicitly requested
@@ -1665,7 +1682,7 @@
           tailwindV4Validation = message.validation;
           // Re-render variables to show validation issues
           if (variablesData && variablesData.length > 0) {
-            renderVariables(variablesData);
+            renderVariables(variablesData, stylesData);
           }
           // Update button states based on validation
           updateCommitButtonStates();
@@ -1739,7 +1756,22 @@
       };
 
       // Render variables
-      function renderVariables(data) {
+      function renderVariables(data, stylesData = null) {
+        console.log('DEBUG: renderVariables called', { 
+            dataLength: data ? data.length : 0, 
+            hasStylesData: !!stylesData,
+            stylesKeys: stylesData ? Object.keys(stylesData) : [] 
+        });
+
+        if (stylesData) {
+             console.log('DEBUG: stylesData counts:', {
+                 paint: stylesData.paintStyles ? stylesData.paintStyles.length : 0,
+                 text: stylesData.textStyles ? stylesData.textStyles.length : 0,
+                 effect: stylesData.effectStyles ? stylesData.effectStyles.length : 0,
+                 grid: stylesData.gridStyles ? stylesData.gridStyles.length : 0
+             });
+        }
+        
         // Calculate totals for summary
         let totalVariables = 0;
         const collectionsCount = data.length;
@@ -1754,19 +1786,28 @@
           window.updateVariablesSummary(totalVariables, collectionsCount);
         }
 
-        if (data.length === 0) {
-          const container = document.getElementById("variables-container");
+        const container = document.getElementById("variables-container");
+        
+        // Check if both variables and styles are empty
+        const hasStyles = stylesData && (
+             (stylesData.textStyles && stylesData.textStyles.length > 0) || 
+             (stylesData.paintStyles && stylesData.paintStyles.length > 0) || 
+             (stylesData.effectStyles && stylesData.effectStyles.length > 0) || 
+             (stylesData.gridStyles && stylesData.gridStyles.length > 0)
+        );
+
+        if (data.length === 0 && !hasStyles) {
           container.innerHTML = '';
           const noItemsDiv = document.createElement('div');
           noItemsDiv.className = 'no-items';
-          noItemsDiv.textContent = 'No variables found in this document.';
+          noItemsDiv.textContent = 'No variables or styles found.';
           container.appendChild(noItemsDiv);
           return;
         }
 
-        const container = document.getElementById("variables-container");
         let html = "";
 
+        // ... existing validation logic ...
         // Analyze data for validation issues
         const validationIssues = [];
 
@@ -1827,7 +1868,8 @@
 
         // Add Tailwind v4 validation issues if present
         if (tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.length > 0) {
-          const tailwindIssues = [];
+          // ... (keep existing tailwind logic)
+           const tailwindIssues = [];
           
           // Build list of invalid groups with their sanitized IDs
           data.forEach((collection) => {
@@ -1937,14 +1979,8 @@
             // Render standalone variables as "Ungrouped" group
             if (standaloneVars.length > 0) {
               const ungroupedName = "Ungrouped";
-              // We'll treat this like any other group, but insert it at the start or end?
-              // Standard behavior is usually mixed, but we can prepend it to the map or render it first using the group template.
-              // To reuse the group rendering logic, we can just add it to groupedVars if it's a Map, but Map order is insertion order.
-              // So we can render it explicitly using the group template here.
-              
               const groupId = `group-${collectionId}-ungrouped`;
               
-              // Standardize this group rendering to match the loop below
               html += `
                 <div class="variable-subgroup">
                   <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
@@ -1993,15 +2029,8 @@
               });
 
               const hasMixedValues = hasDirectValues && hasLinks;
-              
-              // Check if this group is invalid for Tailwind v4
-              const isTailwindInvalid = tailwindV4Validation && 
-                !tailwindV4Validation.isValid && 
-                tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
-              
-              // Check if this group is valid for Tailwind v4
-              const isTailwindValid = tailwindV4Validation && 
-                tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
+              const isTailwindInvalid = tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
+              const isTailwindValid = tailwindV4Validation && tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
               
               const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
@@ -2013,21 +2042,9 @@
                     <div class="subgroup-title">
                       ${displayName}
                       <span class="subgroup-stats">${variables.length}</span>
-                      ${
-                        isTailwindValid
-                          ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #38bdf8; margin-left: 4px;" title="Valid Tailwind v4 namespace">verified</span>'
-                          : ""
-                      }
-                      ${
-                        hasMixedValues
-                          ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #fbbf24; margin-left: 4px;" title="Mixed values and links">warning</span>'
-                          : ""
-                      }
-                      ${
-                        isTailwindInvalid
-                          ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #f87171; margin-left: 4px;" title="Invalid Tailwind namespace">error</span>'
-                          : ""
-                      }
+                      ${isTailwindValid ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #38bdf8; margin-left: 4px;" title="Valid Tailwind v4 namespace">verified</span>' : ""}
+                      ${hasMixedValues ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #fbbf24; margin-left: 4px;" title="Mixed values and links">warning</span>' : ""}
+                      ${isTailwindInvalid ? '<span class="material-symbols-outlined" style="font-size: 14px; color: #f87171; margin-left: 4px;" title="Invalid Tailwind namespace">error</span>' : ""}
                     </div>
                     <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                   </div>
@@ -2050,6 +2067,11 @@
             `;
           }
         });
+        
+        // Render Styles as a Virtual Collection
+        if (stylesData) {
+            html += renderStylesAsCollection(stylesData);
+        }
 
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
         
@@ -2057,6 +2079,209 @@
         if (window.collapseAllVariables) {
           window.collapseAllVariables();
         }
+      }
+
+      function renderStylesAsCollection(data) {
+        if (!data || (data.textStyles.length === 0 && data.paintStyles.length === 0 && data.effectStyles.length === 0 && (!data.gridStyles || data.gridStyles.length === 0))) {
+            return '';
+        }
+
+        const totalStyles = (data.textStyles?.length || 0) + (data.paintStyles?.length || 0) + (data.effectStyles?.length || 0) + (data.gridStyles?.length || 0);
+        const collectionId = 'collection-figma-styles';
+        
+        // Define Styles Collection HTML
+        let html = `
+            <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
+                <div class="collection-header" onclick="toggleCollection('${collectionId}')">
+                    <div class="collection-info">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">style</span>
+                        <h3 class="collection-name-title">Styles</h3>
+                        <span class="subgroup-stats">${totalStyles} total</span>
+                    </div>
+                    <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+                </div>
+                <div class="collection-content" id="${collectionId}-content">
+        `;
+
+        // Render groups
+        if (data.paintStyles && data.paintStyles.length > 0) {
+            html += renderStyleGroup('Colors', data.paintStyles, 'paint', collectionId);
+        }
+        if (data.textStyles && data.textStyles.length > 0) {
+            html += renderStyleGroup('Typography', data.textStyles, 'text', collectionId);
+        }
+        if (data.effectStyles && data.effectStyles.length > 0) {
+            html += renderStyleGroup('Effects', data.effectStyles, 'effect', collectionId);
+        }
+        if (data.gridStyles && data.gridStyles.length > 0) {
+            html += renderStyleGroup('Grids', data.gridStyles, 'grid', collectionId);
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+        return html;
+      }
+
+      function formatDecimal(num) {
+        if (typeof num !== 'number') return num;
+        // Round to max 2 decimal places and remove trailing zeros
+        return parseFloat(num.toFixed(2));
+      }
+
+      function renderStyleGroup(name, styles, type, collectionId) {
+        const categoryId = `${collectionId}-group-${type}`;
+        const count = styles.length;
+        const icon = type === 'text' ? 'text_fields' : type === 'paint' ? 'palette' : type === 'effect' ? 'blur_on' : 'grid_4x4';
+        
+        // Group styles by prefix
+        const groups = {};
+        const ungrouped = [];
+        
+        styles.forEach(style => {
+            const parts = style.name.split('/');
+            if (parts.length > 1) {
+                const groupName = parts[0].trim();
+                // Store with original name, but maybe we want to display just the leaf name in the table? 
+                // For now, let's keep full name in table or just relative name?
+                // Variables usually show full name in table but grouped. 
+                // Let's stick to full name for clarity or maybe relative. Relative is cleaner.
+                // Let's use relative name for display in the table row if grouped.
+                if (!groups[groupName]) groups[groupName] = [];
+                groups[groupName].push(style);
+            } else {
+                ungrouped.push(style);
+            }
+        });
+        
+        const sortedGroupNames = Object.keys(groups).sort();
+        
+        let html = `
+            <div class="variable-subgroup">
+                <div class="subgroup-header collapsed" onclick="toggleSubgroup('${categoryId}')">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined" style="opacity: 0.5;">${icon}</span>
+                        <span class="subgroup-title">${name}</span>
+                        <span class="subgroup-stats">${count}</span>
+                    </div>
+                    <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                </div>
+                <div class="subgroup-content collapsed" id="${categoryId}-content">
+        `;
+        
+        // Render Groups
+        sortedGroupNames.forEach(groupName => {
+            const groupStyles = groups[groupName];
+            const groupId = `${categoryId}-${groupName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            
+            html += `
+                <div class="variable-subgroup" style="margin-left: 12px; border-left: 1px solid rgba(255,255,255,0.1);">
+                    <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')" style="padding-left: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.7;">folder</span>
+                            <span class="subgroup-title" style="font-size: 12px;">${groupName}</span>
+                            <span class="subgroup-stats">${groupStyles.length}</span>
+                        </div>
+                        <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                    </div>
+                    <div class="subgroup-content collapsed" id="${groupId}-content">
+                        ${renderStyleTable(groupStyles, type, true)} 
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Render Ungrouped
+        if (ungrouped.length > 0) {
+            // If we have other groups, put ungrouped in its own "Ungrouped" folder for consistency, 
+            // OR just render them flat if that's preferred. Variables puts them in "Ungrouped" if there are other groups.
+            if (sortedGroupNames.length > 0) {
+                 const groupId = `${categoryId}-ungrouped`;
+                 html += `
+                    <div class="variable-subgroup" style="margin-left: 12px; border-left: 1px solid rgba(255,255,255,0.1);">
+                        <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')" style="padding-left: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.7;">dataset</span>
+                                <span class="subgroup-title" style="font-size: 12px;">Ungrouped</span>
+                                <span class="subgroup-stats">${ungrouped.length}</span>
+                            </div>
+                            <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                        </div>
+                        <div class="subgroup-content collapsed" id="${groupId}-content">
+                            ${renderStyleTable(ungrouped, type, true)}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // No groups, just render flat table
+                html += renderStyleTable(ungrouped, type, false);
+            }
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+        return html;
+      }
+
+      function renderStyleTable(styles, type, isGrouped = false) {
+        let html = `
+            <table class="variable-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="width: 40%; text-align: left; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-weight: 500;">Name</th>
+                        <th style="width: 15%; text-align: left; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-weight: 500;">Type</th>
+                        <th style="text-align: left; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-weight: 500;">Values</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        styles.forEach(style => {
+            const sanitizedId = style.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+            
+            // Calculate display name (strip group prefix if grouped)
+            let displayName = style.name;
+            if (isGrouped) {
+                const slashIndex = displayName.indexOf('/');
+                if (slashIndex !== -1) {
+                    displayName = displayName.substring(slashIndex + 1);
+                }
+            }
+            if (type === 'paint') {
+                const paint = style.paints[0];
+                if (paint && paint.type === 'SOLID') {
+                    const { r, g, b } = paint.color;
+                    const a = paint.opacity !== undefined ? paint.opacity : 1;
+                    valuePreview = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="color-preview" style="background-color: rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a})"></span>
+                            rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${formatDecimal(a)})
+                        </div>`;
+                } else {
+                    valuePreview = `<div>${paint ? paint.type : 'Unknown'}</div>`;
+                }
+            } else if (type === 'text') {
+                valuePreview = `<div>${style.fontName.family} ${style.fontName.style} / ${formatDecimal(style.fontSize)}px</div>`;
+            } else if (type === 'effect') {
+                 valuePreview = `<div>${style.effects.length} effect(s)</div>`;
+            } else if (type === 'grid') {
+                 valuePreview = `<div>${style.layoutGrids.length} grid(s)</div>`;
+            }
+
+            html += `
+                <tr id="style-${sanitizedId}">
+                    <td style="font-weight: 500; color: #fff; padding: 4px 8px; font-size: 11px;">${displayName}</td>
+                    <td style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 8px;">${type}</td>
+                    <td style="padding: 4px 8px; font-size: 11px;">${valuePreview}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        return html;
       }
 
       // Render a group of variables with a title
@@ -2123,13 +2348,14 @@
                   <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
                   ${
                     showModeName ? mode.modeName + ": " : ""
-                  }rgba(${r},${g},${b},${a})
+                  }rgba(${r},${g},${b},${formatDecimal(a)})
                 </div>
               `;
             } else {
+              const displayValue = typeof value === 'number' ? formatDecimal(value) : JSON.stringify(value);
               html += `<div>${
                 showModeName ? mode.modeName + ": " : ""
-              }${JSON.stringify(value)}</div>`;
+              }${displayValue}</div>`;
             }
           });
 
@@ -2892,7 +3118,11 @@
 
            if (forCommit) {
              // TRACKING: Mark test as committed/exported for User Guide
-             localStorage.setItem('bridgy_last_export_test', 'true');
+             try {
+               localStorage.setItem('bridgy_last_export_test', 'true');
+             } catch (e) {
+               console.warn('localStorage access failed:', e);
+             }
              if (typeof refreshUserGuide === 'function') refreshUserGuide();
 
              // For commits, we need to pass all the context needed for the backend to commit
@@ -3133,7 +3363,18 @@
             })
             .filter((collection) => collection.variables.length > 0);
 
-          renderVariables(filteredData);
+          // Filter Styles
+          let filteredStyles = null;
+          if (stylesData) {
+              filteredStyles = {
+                  paintStyles: stylesData.paintStyles ? stylesData.paintStyles.filter(s => s.name.toLowerCase().includes(searchTerm)) : [],
+                  textStyles: stylesData.textStyles ? stylesData.textStyles.filter(s => s.name.toLowerCase().includes(searchTerm)) : [],
+                  effectStyles: stylesData.effectStyles ? stylesData.effectStyles.filter(s => s.name.toLowerCase().includes(searchTerm)) : [],
+                  gridStyles: stylesData.gridStyles ? stylesData.gridStyles.filter(s => s.name.toLowerCase().includes(searchTerm)) : []
+              };
+          }
+
+          renderVariables(filteredData, filteredStyles);
           
           // Auto-expand if searching
           if (searchTerm && typeof expandAllVariables === 'function') {
@@ -3365,26 +3606,40 @@
                   <div class="quality-nodes-list">
             `;
 
-            // Group nodes by name and count occurrences
+            // Group nodes by name only
             const nodeGroups = {};
             issue.nodeNames.forEach((nodeName, idx) => {
+              const frameName = issue.nodeFrames ? issue.nodeFrames[idx] : 'Unknown';
+              
               if (!nodeGroups[nodeName]) {
-                nodeGroups[nodeName] = { count: 0, ids: [] };
+                nodeGroups[nodeName] = { 
+                    count: 0, 
+                    ids: [], 
+                    name: nodeName,
+                    frames: [] // Store frames for each instance
+                };
               }
               nodeGroups[nodeName].count++;
               nodeGroups[nodeName].ids.push(issue.nodeIds[idx]);
+              nodeGroups[nodeName].frames.push(frameName);
             });
 
             // Render grouped nodes
-            Object.entries(nodeGroups).forEach(([nodeName, data], groupIdx) => {
+            Object.values(nodeGroups).forEach((data, groupIdx) => {
               const groupId = `node-group-${category}-${issues.indexOf(issue)}-${groupIdx}`;
               const hasMultiple = data.count > 1;
+              
+              // Only show frame in header if single instance
+              const headerFrameInfo = !hasMultiple ? 
+                `<span style="opacity: 0.5; font-weight: normal; margin-left: 4px; font-size: 10px;">in ${data.frames[0]}</span>` : 
+                '';
+              const displayName = `${data.name} ${headerFrameInfo}`;
               
               html += `
                 <div class="quality-node-item">
                   <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''}>
                     <span class="material-symbols-outlined node-icon">layers</span>
-                    <span class="node-name" title="${SecurityUtils.escapeHTML(nodeName)}">${SecurityUtils.escapeHTML(nodeName)}</span>
+                    <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}">${displayName}</span>
                     ${hasMultiple ? `
                       <span class="node-count">${data.count}</span>
                       <span class="material-symbols-outlined node-toggle-icon" id="${groupId}-toggle">expand_more</span>
@@ -3398,7 +3653,10 @@
                     <div id="${groupId}" class="node-instances" style="display: none;">
                       ${data.ids.map((id, i) => `
                         <div class="instance-row">
-                          <span class="instance-label">Instance ${i + 1}</span>
+                          <span class="instance-label">
+                            Instance ${i + 1} 
+                            <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span>
+                          </span>
                           <button class="node-focus-btn" data-tooltip="Focus" onclick="window.focusOnNode('${id}')">
                             <span class="material-symbols-outlined">zoom_in</span>
                           </button>
@@ -6467,20 +6725,26 @@ window.clearInput = function() {
                 </h3>
             </div>
             
-            <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; gap: 2px;">
-              <button class="compact-action-btn" onclick="expandAllImportGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">unfold_more</span>
-              </button>
-              <button class="compact-action-btn" onclick="collapseAllImportGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">unfold_less</span>
-              </button>
-              <div style="width: 1px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
-              <button class="compact-action-btn" onclick="selectAllVariables(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">select_all</span>
-              </button>
-              <button class="compact-action-btn" onclick="selectAllVariables(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">deselect</span>
-              </button>
+            <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
+              <!-- Left: Selection Actions -->
+              <div style="display: flex; gap: 4px;">
+                <button class="compact-action-btn" onclick="selectAllVariables(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">select_all</span>
+                </button>
+                <button class="compact-action-btn" onclick="selectAllVariables(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">deselect</span>
+                </button>
+              </div>
+
+              <!-- Right: View Actions -->
+              <div style="display: flex; gap: 4px;">
+                <button class="compact-action-btn" onclick="expandAllImportGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">unfold_more</span>
+                </button>
+                <button class="compact-action-btn" onclick="collapseAllImportGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">unfold_less</span>
+                </button>
+              </div>
             </div>
 
             <div class="variables-preview">
@@ -6568,20 +6832,26 @@ window.clearInput = function() {
                 </h3>
             </div>
             
-            <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; gap: 8px;">
-              <button class="compact-action-btn" onclick="expandAllStyleGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">unfold_more</span>
-              </button>
-              <button class="compact-action-btn" onclick="collapseAllStyleGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">unfold_less</span>
-              </button>
-              <div style="width: 1px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
-              <button class="compact-action-btn" onclick="selectAllStyles(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">select_all</span>
-              </button>
-              <button class="compact-action-btn" onclick="selectAllStyles(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center;">
-                <span class="material-symbols-outlined">deselect</span>
-              </button>
+            <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
+              <!-- Left: Selection Actions -->
+              <div style="display: flex; gap: 4px;">
+                <button class="compact-action-btn" onclick="selectAllStyles(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">select_all</span>
+                </button>
+                <button class="compact-action-btn" onclick="selectAllStyles(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">deselect</span>
+                </button>
+              </div>
+
+              <!-- Right: View Actions -->
+              <div style="display: flex; gap: 4px;">
+                <button class="compact-action-btn" onclick="expandAllStyleGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">unfold_more</span>
+                </button>
+                <button class="compact-action-btn" onclick="collapseAllStyleGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">unfold_less</span>
+                </button>
+              </div>
             </div>
 
             <div class="styles-preview">
@@ -6724,73 +6994,9 @@ window.clearInput = function() {
         }
       }
 
-      window.expandAllImportGroups = function() {
-        // Expand all subgroups in the variables preview
-        const subgroups = document.querySelectorAll('.variables-preview .variable-subgroup');
-        subgroups.forEach(group => {
-           const header = group.querySelector('.subgroup-header');
-           const content = group.querySelector('.subgroup-content');
-           if (header) header.classList.remove('collapsed');
-           if (content) {
-             content.classList.remove('collapsed');
-             content.classList.add('expanded');
-           }
-        });
-      };
 
-      window.collapseAllImportGroups = function() {
-        // Collapse all subgroups in the variables preview
-        const subgroups = document.querySelectorAll('.variables-preview .variable-subgroup');
-        subgroups.forEach(group => {
-           const header = group.querySelector('.subgroup-header');
-           const content = group.querySelector('.subgroup-content');
-           if (header) header.classList.add('collapsed');
-           if (content) {
-             content.classList.add('collapsed');
-             content.classList.remove('expanded');
-           }
-        });
-      };
 
-      window.expandAllStyleGroups = function() {
-        // Expand all subgroups in the styles preview
-        const subgroups = document.querySelectorAll('.styles-preview .variable-subgroup');
-        subgroups.forEach(group => {
-           const header = group.querySelector('.subgroup-header');
-           const content = group.querySelector('.subgroup-content');
-           if (header) header.classList.remove('collapsed');
-           if (content) {
-             content.classList.remove('collapsed');
-             content.classList.add('expanded');
-           }
-        });
-      };
 
-      window.collapseAllStyleGroups = function() {
-        // Collapse all subgroups in the styles preview
-        const subgroups = document.querySelectorAll('.styles-preview .variable-subgroup');
-        subgroups.forEach(group => {
-           const header = group.querySelector('.subgroup-header');
-           const content = group.querySelector('.subgroup-content');
-           if (header) header.classList.add('collapsed');
-           if (content) {
-             content.classList.add('collapsed');
-             content.classList.remove('expanded');
-           }
-        });
-      };
-
-      window.selectAllVariables = function(checked) {
-        document.querySelectorAll('.variable-checkbox').forEach(checkbox => {
-          checkbox.checked = checked;
-        });
-      };
-
-      window.selectAllStyles = function(checked) {
-        document.querySelectorAll('.style-checkbox').forEach(checkbox => {
-          checkbox.checked = checked;
-        });
-      };
 
       window.toggleImportDestination = function(mode) {
         const collectionNameGroup = document.getElementById('new-collection-group');
@@ -7298,6 +7504,25 @@ window.clearInput = function() {
       window.scrollToVariable = scrollToVariable;
       window.toggleImportGroup = toggleImportGroup;
       window.expandAllImportGroups = expandAllImportGroups;
+      
+      // Styles Functions
+      window.toggleStyles = toggleStyles;
+      window.expandAllStyles = () => {
+         document.querySelectorAll('#styles-container .collection-content').forEach(el => {
+             el.classList.add('expanded');
+             const icon = document.getElementById(`icon-${el.id}`);
+             if (icon) icon.textContent = 'expand_more';
+         });
+      };
+      window.collapseAllStyles = () => {
+         document.querySelectorAll('#styles-container .collection-content').forEach(el => {
+             el.classList.remove('expanded');
+             const icon = document.getElementById(`icon-${el.id}`);
+             if (icon) icon.textContent = 'chevron_right';
+         });
+      };
+
+// Obsolete styles functions removed
       window.collapseAllImportGroups = collapseAllImportGroups;
       window.expandAllStyleGroups = expandAllStyleGroups;
       window.collapseAllStyleGroups = collapseAllStyleGroups;
@@ -7530,11 +7755,10 @@ window.clearInput = function() {
           } else if (message.type === 'import-error' && window.importProgressControl) {
              window.importProgressControl.error(message.error);
              delete window.importProgressControl;
-          } else if (message.type === 'existing-collections') {
-             updateExistingCollectionsDropdown(message.collections);
-          }
+
         }
-      });
+      }
+    });
 
       // Initialize tab logic globally to catch tab switches
       document.addEventListener('click', function(e) {
@@ -7889,3 +8113,95 @@ window.setupQualitySearch = setupQualitySearch;
 window.filterQualityResults = filterQualityResults;
 window.toggleQualityNodeGroup = toggleQualityNodeGroup;
 window.focusOnNode = focusOnNode;
+
+
+// ===== IMPORT PREVIEW HELPERS =====
+
+function toggleSubgroup(groupId) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  
+  const header = group.querySelector('.subgroup-header');
+  const content = document.getElementById(groupId + '-content');
+  const icon = header.querySelector('.subgroup-toggle-icon');
+  
+  if (header && content) {
+    header.classList.toggle('collapsed');
+    content.classList.toggle('collapsed');
+    
+    if (icon) {
+      icon.innerHTML = header.classList.contains('collapsed') ? 'expand_more' : 'expand_less';
+    }
+  }
+}
+
+function expandAllImportGroups() {
+  const groups = document.querySelectorAll('.variables-preview .variable-subgroup');
+  groups.forEach(group => {
+    const header = group.querySelector('.subgroup-header');
+    const content = group.querySelector('.subgroup-content');
+    const icon = group.querySelector('.subgroup-toggle-icon');
+    
+    if (header) header.classList.remove('collapsed');
+    if (content) content.classList.remove('collapsed');
+    if (icon) icon.innerHTML = 'expand_less';
+  });
+}
+
+function collapseAllImportGroups() {
+  const groups = document.querySelectorAll('.variables-preview .variable-subgroup');
+  groups.forEach(group => {
+    const header = group.querySelector('.subgroup-header');
+    const content = group.querySelector('.subgroup-content');
+    const icon = group.querySelector('.subgroup-toggle-icon');
+    
+    if (header) header.classList.add('collapsed');
+    if (content) content.classList.add('collapsed');
+    if (icon) icon.innerHTML = 'expand_more';
+  });
+}
+
+function selectAllVariables(select) {
+  const checkboxes = document.querySelectorAll('.variables-preview .variable-checkbox');
+  checkboxes.forEach(cb => cb.checked = select);
+}
+
+function expandAllStyleGroups() {
+  const groups = document.querySelectorAll('.styles-preview .variable-subgroup');
+  groups.forEach(group => {
+    const header = group.querySelector('.subgroup-header');
+    const content = group.querySelector('.subgroup-content');
+    const icon = group.querySelector('.subgroup-toggle-icon');
+    
+    if (header) header.classList.remove('collapsed');
+    if (content) content.classList.remove('collapsed');
+    if (icon) icon.innerHTML = 'expand_less';
+  });
+}
+
+function collapseAllStyleGroups() {
+  const groups = document.querySelectorAll('.styles-preview .variable-subgroup');
+  groups.forEach(group => {
+    const header = group.querySelector('.subgroup-header');
+    const content = group.querySelector('.subgroup-content');
+    const icon = group.querySelector('.subgroup-toggle-icon');
+    
+    if (header) header.classList.add('collapsed');
+    if (content) content.classList.add('collapsed');
+    if (icon) icon.innerHTML = 'expand_more';
+  });
+}
+
+function selectAllStyles(select) {
+  const checkboxes = document.querySelectorAll('.styles-preview .style-checkbox');
+  checkboxes.forEach(cb => cb.checked = select);
+}
+
+// Expose to window
+window.toggleSubgroup = toggleSubgroup;
+window.expandAllImportGroups = expandAllImportGroups;
+window.collapseAllImportGroups = collapseAllImportGroups;
+window.selectAllVariables = selectAllVariables;
+window.expandAllStyleGroups = expandAllStyleGroups;
+window.collapseAllStyleGroups = collapseAllStyleGroups;
+window.selectAllStyles = selectAllStyles;

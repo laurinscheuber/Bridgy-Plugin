@@ -107,6 +107,21 @@ async function collectDocumentData() {
       });
     }
 
+    // Collect grid/layout styles
+    const gridStyles = await figma.getLocalGridStylesAsync();
+    // Initialize array if it doesn't exist (though strictly it should satisfy the interface first)
+    // We'll add it to the stylesData object
+    (stylesData as any).gridStyles = [];
+    
+    for (const gridStyle of gridStyles) {
+      (stylesData as any).gridStyles.push({
+        id: gridStyle.id,
+        name: gridStyle.name,
+        description: gridStyle.description,
+        layoutGrids: gridStyle.layoutGrids,
+      });
+    }
+
     // Collect components
     const componentsData = await ComponentService.collectComponents();
     

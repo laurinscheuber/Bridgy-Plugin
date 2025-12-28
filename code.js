@@ -4428,11 +4428,19 @@
                 }
               }
               yield this.initialize();
+              yield this.initialize();
               const collections = yield this.getProcessedCollections();
-              if (!collections || collections.length === 0) {
-                throw new Error("No variables found to export. Please ensure you have created variables in your Figma file.");
+              let css = "";
+              if (collections && collections.length > 0) {
+                css += this.buildExportContent(collections, format);
               }
-              return this.buildExportContent(collections, format);
+              if (format !== "tailwind-v4") {
+                css += yield this.buildStylesContent(format);
+              }
+              if (!css) {
+                throw new Error("No variables or styles found to export.");
+              }
+              return css;
             }), {
               operation: "export_variables",
               component: "CSSExportService",
@@ -4586,11 +4594,45 @@
           const referencedName = this.formatVariableName(referencedVariable.name);
           return `var(${CSS_VARIABLE_PREFIX}${referencedName})`;
         }
+        // Helper: Round to max 2 decimal places to avoid excessive precision
+        static round(value) {
+          return Math.round(value * 100) / 100;
+        }
+        // Helper: Map Figma font style to CSS font-weight
+        static mapFontWeight(style) {
+          const lowerStyle = style.toLowerCase();
+          if (lowerStyle.includes("thin") || lowerStyle.includes("hairline"))
+            return 100;
+          if (lowerStyle.includes("extra light") || lowerStyle.includes("extralight"))
+            return 200;
+          if (lowerStyle.includes("light"))
+            return 300;
+          if (lowerStyle.includes("normal") || lowerStyle.includes("regular"))
+            return 400;
+          if (lowerStyle.includes("medium"))
+            return 500;
+          if (lowerStyle.includes("semi bold") || lowerStyle.includes("semibold"))
+            return 600;
+          if (lowerStyle.includes("bold"))
+            return 700;
+          if (lowerStyle.includes("extra bold") || lowerStyle.includes("extrabold"))
+            return 800;
+          if (lowerStyle.includes("black") || lowerStyle.includes("heavy"))
+            return 900;
+          return 400;
+        }
+        // Helper: Sanitize variable names
+        static sanitizeName(name) {
+          let cleanName = name.replace(/^(www\.|https?:\/\/)?(figma\.com\/)?/, "");
+          cleanName = cleanName.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
+          cleanName = cleanName.replace(/-+/g, "-");
+          return cleanName.replace(/^-+|-+$/g, "");
+        }
         /**
          * Format variable name to valid CSS custom property name
          */
         static formatVariableName(name) {
-          return name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+          return this.sanitizeName(name);
         }
         /**
          * Build the final export content from processed collections
@@ -4624,6 +4666,125 @@
             });
           }
           return contentParts.join("\n");
+        }
+        /**
+         * Build content for styles (Paint, Text, Effect, Grid)
+         */
+        static buildStylesContent(format) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const parts = [];
+            const commentPrefix = format === "scss" ? "//" : "  /*";
+            const commentSuffix = format === "scss" ? "" : " */";
+            parts.push(`
+${commentPrefix} ===== STYLES =====${commentSuffix}`);
+            if (format === "css")
+              parts.push(":root {");
+            const usedNames = /* @__PURE__ */ new Set();
+            const paintStyles = yield figma.getLocalPaintStylesAsync();
+            if (paintStyles.length > 0) {
+              parts.push(`
+${commentPrefix} Colors${commentSuffix}`);
+              paintStyles.forEach((style) => {
+                const baseName = this.formatVariableName(style.name);
+                let name = baseName;
+                let i = 1;
+                while (usedNames.has(name)) {
+                  name = `${baseName}-${i++}`;
+                }
+                usedNames.add(name);
+                const paint = style.paints[0];
+                if (paint) {
+                  const val = this.formatPaintValue(paint);
+                  if (val)
+                    parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
+                }
+              });
+            }
+            const textStyles = yield figma.getLocalTextStylesAsync();
+            if (textStyles.length > 0) {
+              parts.push(`
+${commentPrefix} Typography${commentSuffix}`);
+              textStyles.forEach((style) => {
+                const baseName = this.formatVariableName(style.name);
+                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: "${style.fontName.family}";`);
+                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${this.round(style.fontSize)}px;`);
+                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${this.mapFontWeight(style.fontName.style)};`);
+                if (style.lineHeight && style.lineHeight.unit !== "AUTO") {
+                  const lh = style.lineHeight.unit === "PIXELS" ? `${this.round(style.lineHeight.value)}px` : this.round(style.lineHeight.value);
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lh};`);
+                }
+                if (style.letterSpacing && style.letterSpacing.unit === "PIXELS") {
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${this.round(style.letterSpacing.value)}px;`);
+                }
+              });
+            }
+            const effectStyles = yield figma.getLocalEffectStylesAsync();
+            if (effectStyles.length > 0) {
+              parts.push(`
+${commentPrefix} Effects${commentSuffix}`);
+              effectStyles.forEach((style) => {
+                const name = this.formatVariableName(style.name);
+                const val = this.formatEffectsValue(style.effects);
+                if (val)
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}effect-${name}: ${val};`);
+              });
+            }
+            const gridStyles = yield figma.getLocalGridStylesAsync();
+            if (gridStyles.length > 0) {
+              parts.push(`
+${commentPrefix} Grids${commentSuffix}`);
+              gridStyles.forEach((style) => {
+                const name = this.formatVariableName(style.name);
+                const val = this.formatGridsValue(style.layoutGrids);
+                if (val)
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}grid-${name}: ${val};`);
+              });
+            }
+            if (format === "css")
+              parts.push("}");
+            return parts.join("\n");
+          });
+        }
+        static formatPaintValue(paint) {
+          if (paint.type === "SOLID") {
+            const { r, g, b } = paint.color;
+            const a = paint.opacity !== void 0 ? paint.opacity : 1;
+            if (a >= 1) {
+              return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+            }
+            return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${this.round(a)})`;
+          } else if (paint.type === "GRADIENT_LINEAR") {
+            return "linear-gradient(...)";
+          }
+          return null;
+        }
+        static formatEffectsValue(effects) {
+          return effects.map((effect) => {
+            if (effect.type === "DROP_SHADOW" || effect.type === "INNER_SHADOW") {
+              const { r, g, b, a } = effect.color;
+              const inset = effect.type === "INNER_SHADOW" ? "inset " : "";
+              const blur = this.round(effect.radius);
+              const spread = effect.spread ? this.round(effect.spread) : 0;
+              const x = this.round(effect.offset.x);
+              const y = this.round(effect.offset.y);
+              return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${this.round(a)})`;
+            } else if (effect.type === "LAYER_BLUR") {
+              return `blur(${this.round(effect.radius)}px)`;
+            }
+            return null;
+          }).filter(Boolean).join(", ");
+        }
+        static formatGridsValue(grids) {
+          return grids.map((grid) => {
+            if (grid.pattern === "COLUMNS") {
+              return `columns(${grid.count}, ${this.round(grid.gutterSize)}px)`;
+            } else if (grid.pattern === "ROWS") {
+              return `rows(${grid.count}, ${this.round(grid.gutterSize)}px)`;
+            } else if (grid.pattern === "GRID") {
+              return `grid(${this.round(grid.sectionSize)}px)`;
+            }
+            return null;
+          }).filter(Boolean).join(", ");
         }
         /**
          * Build content for a single collection
@@ -4772,7 +4933,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
           const g = Math.round(color.g * 255);
           const b = Math.round(color.b * 255);
           if (typeof color.a === "number" && color.a < 1) {
-            return `rgba(${r}, ${g}, ${b}, ${color.a.toFixed(2)})`;
+            return `rgba(${r}, ${g}, ${b}, ${this.round(color.a)})`;
           }
           return `rgb(${r}, ${g}, ${b})`;
         }
@@ -4784,7 +4945,8 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
             return null;
           }
           const unit = unitsService_1.UnitsService.getUnitForVariable(name, collectionName, groupName);
-          return unitsService_1.UnitsService.formatValueWithUnit(value, unit);
+          const formattedVal = this.round(value);
+          return unitsService_1.UnitsService.formatValueWithUnit(formattedVal, unit);
         }
         /**
          * Format string values with proper quoting
@@ -4793,7 +4955,8 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
           if (typeof value !== "string") {
             return null;
           }
-          return `"${value}"`;
+          const cleanValue = value.replace(/^['"]|['"]$/g, "");
+          return `"${cleanValue}"`;
         }
         /**
          * Format boolean values
@@ -4820,7 +4983,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
               yield Promise.all(sortedCollections.map((collection) => __awaiter(this, void 0, void 0, function* () {
                 try {
                   const hasCollectionSetting = unitSettings.collections[collection.name] !== void 0;
-                  const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : "Smart defaults";
+                  const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : unitsService_1.UnitsService.getDefaultUnit(collection.name);
                   const currentUnit = unitSettings.collections[collection.name] || "";
                   collectionsData.push({
                     name: collection.name,
@@ -4856,7 +5019,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                       } else if (hasCollectionSetting2) {
                         defaultUnit2 = `Inherits: ${unitSettings.collections[collection.name]}`;
                       } else {
-                        defaultUnit2 = "Smart defaults";
+                        defaultUnit2 = unitsService_1.UnitsService.getDefaultUnit(groupName);
                       }
                       const groupCurrentUnit = unitSettings.groups[groupKey] || "";
                       groupsData.push({
@@ -7025,11 +7188,29 @@ ${Object.keys(cssProperties).map((property) => {
          */
         static addIssue(issuesMap, property, value, node, category) {
           const key = `${category}:${property}:${value}`;
+          let frameName = "Unknown Frame";
+          let parent = node.parent;
+          while (parent) {
+            if (parent.type === "FRAME" || parent.type === "SECTION" || parent.type === "COMPONENT" || parent.type === "COMPONENT_SET") {
+              frameName = parent.name;
+              break;
+            }
+            if (parent.type === "PAGE" || parent.type === "DOCUMENT") {
+              frameName = "Page: " + parent.name;
+              break;
+            }
+            parent = parent.parent;
+          }
           if (issuesMap.has(key)) {
             const issue = issuesMap.get(key);
             issue.count++;
             issue.nodeIds.push(node.id);
             issue.nodeNames.push(node.name);
+            if (issue.nodeFrames) {
+              issue.nodeFrames.push(frameName);
+            } else {
+              issue.nodeFrames = [frameName];
+            }
           } else {
             issuesMap.set(key, {
               property,
@@ -7037,6 +7218,7 @@ ${Object.keys(cssProperties).map((property) => {
               count: 1,
               nodeIds: [node.id],
               nodeNames: [node.name],
+              nodeFrames: [frameName],
               category
             });
           }
@@ -8484,6 +8666,16 @@ ${Object.keys(cssProperties).map((property) => {
                 effects: effectStyle.effects
               });
             }
+            const gridStyles = yield figma.getLocalGridStylesAsync();
+            stylesData.gridStyles = [];
+            for (const gridStyle of gridStyles) {
+              stylesData.gridStyles.push({
+                id: gridStyle.id,
+                name: gridStyle.name,
+                description: gridStyle.description,
+                layoutGrids: gridStyle.layoutGrids
+              });
+            }
             const componentsData = yield componentService_1.ComponentService.collectComponents();
             if (!componentsData || componentsData.length === 0) {
               console.warn("No components found in document");
@@ -9237,36 +9429,6 @@ ${Object.keys(cssProperties).map((property) => {
                 }
               } catch (focusError) {
                 console.error("Error focusing node:", focusError);
-              }
-              break;
-            case "get-guide-state":
-              try {
-                const fileId = figma.root.id;
-                const key = `bridgy-guide-state-${fileId}`;
-                const savedData = figma.root.getSharedPluginData("Bridgy", key);
-                figma.ui.postMessage({
-                  type: "guide-state-loaded",
-                  state: savedData ? JSON.parse(savedData) : null
-                });
-              } catch (e) {
-                console.error("Error loading guide state:", e);
-                figma.ui.postMessage({
-                  type: "guide-state-loaded",
-                  state: null
-                });
-              }
-              break;
-            case "save-guide-state":
-              try {
-                const saveMsg = msg;
-                if (saveMsg.state) {
-                  const fileId = figma.root.id;
-                  const key = `bridgy-guide-state-${fileId}`;
-                  figma.root.setSharedPluginData("Bridgy", key, JSON.stringify(saveMsg.state));
-                  figma.ui.postMessage({ type: "guide-state-saved" });
-                }
-              } catch (e) {
-                console.error("Error saving guide state:", e);
               }
               break;
             default:
