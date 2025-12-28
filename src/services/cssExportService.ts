@@ -55,13 +55,26 @@ export class CSSExportService {
       }
 
       await this.initialize();
+      await this.initialize();
       const collections = await this.getProcessedCollections();
       
-      if (!collections || collections.length === 0) {
-        throw new Error('No variables found to export. Please ensure you have created variables in your Figma file.');
+      let css = '';
+      
+      // Export Variables
+      if (collections && collections.length > 0) {
+        css += this.buildExportContent(collections, format);
+      }
+      
+      // Export Styles (Text, Paint, Effect, Grid)
+      if (format !== 'tailwind-v4') { // Skip styles for tailwind-v4 for now or implement later
+         css += await this.buildStylesContent(format);
+      }
+      
+      if (!css) {
+        throw new Error('No variables or styles found to export.');
       }
 
-      return this.buildExportContent(collections, format);
+      return css;
     }, {
       operation: 'export_variables',
       component: 'CSSExportService',
@@ -230,11 +243,46 @@ export class CSSExportService {
     return `var(${CSS_VARIABLE_PREFIX}${referencedName})`;
   }
 
+  // Helper: Round to max 2 decimal places to avoid excessive precision
+  private static round(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  // Helper: Map Figma font style to CSS font-weight
+  private static mapFontWeight(style: string): string | number {
+    const lowerStyle = style.toLowerCase();
+    if (lowerStyle.includes('thin') || lowerStyle.includes('hairline')) return 100;
+    if (lowerStyle.includes('extra light') || lowerStyle.includes('extralight')) return 200;
+    if (lowerStyle.includes('light')) return 300;
+    if (lowerStyle.includes('normal') || lowerStyle.includes('regular')) return 400;
+    if (lowerStyle.includes('medium')) return 500;
+    if (lowerStyle.includes('semi bold') || lowerStyle.includes('semibold')) return 600;
+    if (lowerStyle.includes('bold')) return 700;
+    if (lowerStyle.includes('extra bold') || lowerStyle.includes('extrabold')) return 800;
+    if (lowerStyle.includes('black') || lowerStyle.includes('heavy')) return 900;
+    return 400; // Default
+  }
+  
+  // Helper: Sanitize variable names
+  private static sanitizeName(name: string): string {
+    // Remove common URL prefixes that might appear in import names
+    let cleanName = name.replace(/^(www\.|https?:\/\/)?(figma\.com\/)?/, '');
+    
+    // Replace invalid characters with hyphens
+    cleanName = cleanName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    
+    // Remove duplicate hyphens
+    cleanName = cleanName.replace(/-+/g, '-');
+    
+    // Remove leading/trailing hyphens
+    return cleanName.replace(/^-+|-+$/g, '');
+  }
+
   /**
    * Format variable name to valid CSS custom property name
    */
   private static formatVariableName(name: string): string {
-    return name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+    return this.sanitizeName(name);
   }
 
   /**
@@ -283,6 +331,138 @@ export class CSSExportService {
     
     return contentParts.join('\n');
   }
+
+  /**
+   * Build content for styles (Paint, Text, Effect, Grid)
+   */
+  private static async buildStylesContent(format: CSSFormat): Promise<string> {
+      const parts: string[] = [];
+      const commentPrefix = format === 'scss' ? '//' : '  /*';
+      const commentSuffix = format === 'scss' ? '' : ' */';
+      
+      parts.push(`\n${commentPrefix} ===== STYLES =====${commentSuffix}`);
+      if (format === 'css') parts.push(':root {');
+
+      // Track used names to prevent duplicates
+      const usedNames = new Set<string>();
+
+      // Paint Styles
+      const paintStyles = await figma.getLocalPaintStylesAsync();
+      if (paintStyles.length > 0) {
+          parts.push(`\n${commentPrefix} Colors${commentSuffix}`);
+          paintStyles.forEach(style => {
+              const baseName = this.formatVariableName(style.name);
+              // Handle duplicates
+              let name = baseName;
+              let i = 1;
+              while(usedNames.has(name)) {
+                  name = `${baseName}-${i++}`;
+              }
+              usedNames.add(name);
+
+              const paint = style.paints[0];
+              if (paint) {
+                  const val = this.formatPaintValue(paint);
+                  if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
+              }
+          });
+      }
+
+      // Text Styles
+      const textStyles = await figma.getLocalTextStylesAsync();
+      if (textStyles.length > 0) {
+          parts.push(`\n${commentPrefix} Typography${commentSuffix}`);
+          textStyles.forEach(style => {
+             const baseName = this.formatVariableName(style.name);
+             // Unique names for text styles are tricky because they generate multiple variables.
+             // We'll rely on baseName being reasonably unique or just overwrite.
+             
+             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: "${style.fontName.family}";`);
+             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${this.round(style.fontSize)}px;`);
+             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${this.mapFontWeight(style.fontName.style)};`);
+             if (style.lineHeight && style.lineHeight.unit !== 'AUTO') {
+                 const lh = style.lineHeight.unit === 'PIXELS' 
+                    ? `${this.round(style.lineHeight.value)}px` 
+                    : this.round(style.lineHeight.value);
+                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lh};`);
+             }
+             if (style.letterSpacing && style.letterSpacing.unit === 'PIXELS') {
+                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${this.round(style.letterSpacing.value)}px;`);
+             }
+          });
+      }
+
+      // Effect Styles
+      const effectStyles = await figma.getLocalEffectStylesAsync();
+      if (effectStyles.length > 0) {
+          parts.push(`\n${commentPrefix} Effects${commentSuffix}`);
+          effectStyles.forEach(style => {
+              const name = this.formatVariableName(style.name);
+              const val = this.formatEffectsValue(style.effects);
+              if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}effect-${name}: ${val};`);
+          });
+      }
+      
+      // Grid Styles
+      const gridStyles = await figma.getLocalGridStylesAsync();
+      if (gridStyles.length > 0) {
+          parts.push(`\n${commentPrefix} Grids${commentSuffix}`);
+          gridStyles.forEach(style => {
+              const name = this.formatVariableName(style.name);
+              const val = this.formatGridsValue(style.layoutGrids);
+              if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}grid-${name}: ${val};`);
+          });
+      }
+
+      if (format === 'css') parts.push('}');
+      return parts.join('\n');
+  }
+
+  private static formatPaintValue(paint: Paint): string | null {
+      if (paint.type === 'SOLID') {
+          const { r, g, b } = paint.color;
+           const a = paint.opacity !== undefined ? paint.opacity : 1;
+           if (a >= 1) {
+             return `rgb(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)})`;
+           }
+           return `rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${this.round(a)})`;
+      } else if (paint.type === 'GRADIENT_LINEAR') {
+          // TODO: Implement cleaner gradient export
+          return 'linear-gradient(...)'; 
+      }
+      return null;
+  }
+  
+  private static formatEffectsValue(effects: readonly Effect[]): string | null {
+      return effects.map(effect => {
+          if (effect.type === 'DROP_SHADOW' || effect.type === 'INNER_SHADOW') {
+              const { r, g, b, a } = effect.color;
+              const inset = effect.type === 'INNER_SHADOW' ? 'inset ' : '';
+              const blur = this.round(effect.radius);
+              const spread = effect.spread ? this.round(effect.spread) : 0;
+              const x = this.round(effect.offset.x);
+              const y = this.round(effect.offset.y);
+              return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${this.round(a)})`;
+          } else if (effect.type === 'LAYER_BLUR') {
+              return `blur(${this.round(effect.radius)}px)`;
+          }
+          return null;
+      }).filter(Boolean).join(', ');
+  }
+  
+  private static formatGridsValue(grids: readonly LayoutGrid[]): string | null {
+      return grids.map(grid => {
+         if (grid.pattern === 'COLUMNS') {
+             return `columns(${grid.count}, ${this.round(grid.gutterSize)}px)`;
+         } else if (grid.pattern === 'ROWS') {
+             return `rows(${grid.count}, ${this.round(grid.gutterSize)}px)`; 
+         } else if (grid.pattern === 'GRID') {
+             return `grid(${this.round(grid.sectionSize)}px)`;
+         }
+         return null;
+      }).filter(Boolean).join(', ');
+  }
+
 
   /**
    * Build content for a single collection
@@ -456,7 +636,7 @@ export class CSSExportService {
     
     // Check if the color has an alpha channel and it's less than 1
     if (typeof color.a === "number" && color.a < 1) {
-      return `rgba(${r}, ${g}, ${b}, ${color.a.toFixed(2)})`;
+      return `rgba(${r}, ${g}, ${b}, ${this.round(color.a)})`;
     }
     
     return `rgb(${r}, ${g}, ${b})`;
@@ -471,7 +651,8 @@ export class CSSExportService {
     }
 
     const unit = UnitsService.getUnitForVariable(name, collectionName, groupName);
-    return UnitsService.formatValueWithUnit(value, unit);
+    const formattedVal = this.round(value);
+    return UnitsService.formatValueWithUnit(formattedVal, unit);
   }
 
   /**
@@ -481,7 +662,9 @@ export class CSSExportService {
     if (typeof value !== "string") {
       return null;
     }
-    return `"${value}"`;
+    // Remove extra quotes if they exist in the value already
+    const cleanValue = value.replace(/^['"]|['"]$/g, '');
+    return `"${cleanValue}"`;
   }
 
   /**
@@ -517,7 +700,7 @@ export class CSSExportService {
         try {
           // Collection data - show actual smart default if no setting exists
           const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
-          const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : 'Smart defaults';
+          const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : UnitsService.getDefaultUnit(collection.name);
           const currentUnit = unitSettings.collections[collection.name] || '';
           collectionsData.push({
             name: collection.name,
@@ -559,7 +742,7 @@ export class CSSExportService {
               } else if (hasCollectionSetting) {
                 defaultUnit = `Inherits: ${unitSettings.collections[collection.name]}`;
               } else {
-                defaultUnit = 'Smart defaults';
+                defaultUnit = UnitsService.getDefaultUnit(groupName);
               }
               
               const groupCurrentUnit: string = unitSettings.groups[groupKey] || '';
