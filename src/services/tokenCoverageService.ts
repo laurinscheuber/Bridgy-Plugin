@@ -9,6 +9,7 @@ export interface TokenCoverageIssue {
   count: number;
   nodeIds: string[];
   nodeNames: string[];
+  nodeFrames: string[];
   category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance';
 }
 
@@ -332,11 +333,31 @@ export class TokenCoverageService {
   ): void {
     const key = `${category}:${property}:${value}`;
     
+    // Find parent frame name
+    let frameName = 'Unknown Frame';
+    let parent = node.parent;
+    while (parent) {
+      if (parent.type === 'FRAME' || parent.type === 'SECTION' || parent.type === 'COMPONENT' || parent.type === 'COMPONENT_SET') {
+        frameName = parent.name;
+        break;
+      }
+      if (parent.type === 'PAGE' || parent.type === 'DOCUMENT') {
+        frameName = 'Page: ' + parent.name; // Fallback to page name
+        break;
+      }
+      parent = parent.parent;
+    }
+    
     if (issuesMap.has(key)) {
       const issue = issuesMap.get(key)!;
       issue.count++;
       issue.nodeIds.push(node.id);
       issue.nodeNames.push(node.name);
+      if (issue.nodeFrames) {
+        issue.nodeFrames.push(frameName);
+      } else {
+        issue.nodeFrames = [frameName];
+      }
     } else {
       issuesMap.set(key, {
         property,
@@ -344,6 +365,7 @@ export class TokenCoverageService {
         count: 1,
         nodeIds: [node.id],
         nodeNames: [node.name],
+        nodeFrames: [frameName],
         category
       });
     }
