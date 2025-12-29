@@ -9534,6 +9534,19 @@ ${Object.keys(cssProperties).map((property) => {
                 if (focusMsg.nodeId) {
                   const node = yield figma.getNodeByIdAsync(focusMsg.nodeId);
                   if (node) {
+                    if (node.parent && node.parent.type === "PAGE") {
+                      if (figma.currentPage.id !== node.parent.id) {
+                        yield figma.setCurrentPageAsync(node.parent);
+                      }
+                    } else {
+                      let p = node.parent;
+                      while (p && p.type !== "PAGE" && p.type !== "DOCUMENT") {
+                        p = p.parent;
+                      }
+                      if (p && p.type === "PAGE" && figma.currentPage.id !== p.id) {
+                        yield figma.setCurrentPageAsync(p);
+                      }
+                    }
                     figma.currentPage.selection = [node];
                     figma.viewport.scrollAndZoomIntoView([node]);
                     console.log(`Focused on node: ${node.name}`);
