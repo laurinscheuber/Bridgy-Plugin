@@ -7217,7 +7217,7 @@ ${Object.keys(cssProperties).map((property) => {
           const fills = node.fills;
           if (!Array.isArray(fills) || fills.length === 0)
             return;
-          if (!this.isVariableBound(node, "fills")) {
+          if (!this.isPaintColorVariableBound(fills)) {
             const solidFill = fills.find((fill) => fill.type === "SOLID" && fill.visible !== false);
             if (solidFill && solidFill.type === "SOLID") {
               const color = solidFill.color;
@@ -7235,7 +7235,7 @@ ${Object.keys(cssProperties).map((property) => {
           const strokes = node.strokes;
           if (!Array.isArray(strokes) || strokes.length === 0)
             return;
-          if (!this.isVariableBound(node, "strokes")) {
+          if (!this.isPaintColorVariableBound(strokes)) {
             const solidStroke = strokes.find((stroke) => stroke.type === "SOLID" && stroke.visible !== false);
             if (solidStroke && solidStroke.type === "SOLID") {
               const color = solidStroke.color;
@@ -7243,8 +7243,11 @@ ${Object.keys(cssProperties).map((property) => {
               this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke");
             }
           }
-          if ("strokeWeight" in node && typeof node.strokeWeight === "number" && node.strokeWeight !== 0 && !this.isVariableBound(node, "strokeWeight")) {
-            this.addIssue(issuesMap, "Stroke Weight", `${node.strokeWeight}px`, node, "Stroke");
+          const hasNumericStrokeWeight = "strokeWeight" in node && typeof node.strokeWeight === "number";
+          const strokeWeightValue = hasNumericStrokeWeight ? node.strokeWeight : 0;
+          const anyStrokeWeightBound = this.isVariableBound(node, "strokeWeight") || this.isVariableBound(node, "strokeTopWeight") || this.isVariableBound(node, "strokeRightWeight") || this.isVariableBound(node, "strokeBottomWeight") || this.isVariableBound(node, "strokeLeftWeight");
+          if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
+            this.addIssue(issuesMap, "Stroke Weight", `${strokeWeightValue}px`, node, "Stroke");
           }
         }
         /**
@@ -7279,6 +7282,21 @@ ${Object.keys(cssProperties).map((property) => {
               }
             }
           }
+        }
+        /**
+         * Utility to check whether any SOLID paint has a color variable bound at paint-level
+         */
+        static isPaintColorVariableBound(paints) {
+          if (!Array.isArray(paints))
+            return false;
+          for (const p of paints) {
+            if (p && p.type === "SOLID" && p.visible !== false) {
+              const bv = p.boundVariables;
+              if (bv && bv.color)
+                return true;
+            }
+          }
+          return false;
         }
         /**
          * Checks if a property is bound to a variable (design token)
@@ -7424,10 +7442,14 @@ ${Object.keys(cssProperties).map((property) => {
         }
         /**
          * Check if variable type matches the issue category
+         * Note: Stroke category includes both COLOR (stroke color) and FLOAT (stroke weight)
          */
         static isVariableTypeMatch(varType, category) {
-          if (category === "Fill" || category === "Stroke") {
+          if (category === "Fill") {
             return varType === "COLOR";
+          }
+          if (category === "Stroke") {
+            return varType === "COLOR" || varType === "FLOAT";
           }
           if (category === "Layout") {
             return varType === "FLOAT";
@@ -9041,6 +9063,40 @@ ${Object.keys(cssProperties).map((property) => {
                 radiusNode.setBoundVariable("topRightRadius", variable);
                 radiusNode.setBoundVariable("bottomLeftRadius", variable);
                 radiusNode.setBoundVariable("bottomRightRadius", variable);
+              }
+            } else if (property === "Fill Color") {
+              const fillNode = node;
+              if ("fills" in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
+                const fills = [...fillNode.fills];
+                const solidFillIndex = fills.findIndex((fill) => fill && fill.type === "SOLID" && fill.visible !== false);
+                if (solidFillIndex !== -1) {
+                  const targetPaint = fills[solidFillIndex];
+                  const alias = figma.variables.createVariableAlias(variable);
+                  const nextBound = Object.assign(Object.assign({}, targetPaint.boundVariables || {}), { color: alias });
+                  fills[solidFillIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
+                  try {
+                    fillNode.fills = fills;
+                  } catch (err) {
+                    console.warn(`Failed to set fills on node ${fillNode.id}:`, err);
+                  }
+                }
+              }
+            } else if (property === "Stroke Color") {
+              const strokeNode = node;
+              if ("strokes" in strokeNode && Array.isArray(strokeNode.strokes) && strokeNode.strokes.length > 0) {
+                const strokes = [...strokeNode.strokes];
+                const solidStrokeIndex = strokes.findIndex((stroke) => stroke && stroke.type === "SOLID" && stroke.visible !== false);
+                if (solidStrokeIndex !== -1) {
+                  const targetPaint = strokes[solidStrokeIndex];
+                  const alias = figma.variables.createVariableAlias(variable);
+                  const nextBound = Object.assign(Object.assign({}, targetPaint.boundVariables || {}), { color: alias });
+                  strokes[solidStrokeIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
+                  try {
+                    strokeNode.strokes = strokes;
+                  } catch (err) {
+                    console.warn(`Failed to set strokes on node ${strokeNode.id}:`, err);
+                  }
+                }
               }
             } else {
               const bindableNode = node;

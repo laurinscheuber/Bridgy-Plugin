@@ -311,8 +311,8 @@ export class TokenCoverageService {
     const fills = node.fills;
     if (!Array.isArray(fills) || fills.length === 0) return;
 
-    // Check if fills are bound to variables
-    if (!this.isVariableBound(node, 'fills')) {
+    // Check if any paint has a color variable bound
+    if (!this.isPaintColorVariableBound(fills)) {
       // Get the first solid fill
       const solidFill = fills.find(fill => fill.type === 'SOLID' && fill.visible !== false);
       if (solidFill && solidFill.type === 'SOLID') {
@@ -335,8 +335,8 @@ export class TokenCoverageService {
     const strokes = node.strokes;
     if (!Array.isArray(strokes) || strokes.length === 0) return;
 
-    // Check stroke color
-    if (!this.isVariableBound(node, 'strokes')) {
+    // Check stroke color (paint-level binding)
+    if (!this.isPaintColorVariableBound(strokes)) {
       const solidStroke = strokes.find(stroke => stroke.type === 'SOLID' && stroke.visible !== false);
       if (solidStroke && solidStroke.type === 'SOLID') {
         const color = solidStroke.color;
@@ -346,8 +346,18 @@ export class TokenCoverageService {
     }
 
     // Check stroke weight - exclude zero values
-    if ('strokeWeight' in node && typeof node.strokeWeight === 'number' && node.strokeWeight !== 0 && !this.isVariableBound(node, 'strokeWeight')) {
-      this.addIssue(issuesMap, 'Stroke Weight', `${node.strokeWeight}px`, node, 'Stroke');
+    const hasNumericStrokeWeight = 'strokeWeight' in node && typeof (node as any).strokeWeight === 'number';
+    const strokeWeightValue = hasNumericStrokeWeight ? (node as any).strokeWeight : 0;
+
+    // Consider any of the individual stroke weights as a valid variable binding as well
+    const anyStrokeWeightBound = this.isVariableBound(node as any, 'strokeWeight') ||
+                                 this.isVariableBound(node as any, 'strokeTopWeight') ||
+                                 this.isVariableBound(node as any, 'strokeRightWeight') ||
+                                 this.isVariableBound(node as any, 'strokeBottomWeight') ||
+                                 this.isVariableBound(node as any, 'strokeLeftWeight');
+
+    if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
+      this.addIssue(issuesMap, 'Stroke Weight', `${strokeWeightValue}px`, node, 'Stroke');
     }
   }
 
@@ -402,11 +412,24 @@ export class TokenCoverageService {
   }
 
   /**
+   * Utility to check whether any SOLID paint has a color variable bound at paint-level
+   */
+  private static isPaintColorVariableBound(paints: ReadonlyArray<Paint>): boolean {
+    if (!Array.isArray(paints)) return false;
+    for (const p of paints) {
+      if (p && p.type === 'SOLID' && (p as any).visible !== false) {
+        const bv = (p as any).boundVariables;
+        if (bv && bv.color) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Checks if a property is bound to a variable (design token)
    */
   private static isVariableBound(node: any, property: string): boolean {
     if (!node.boundVariables) return false;
-    
     const boundVariable = node.boundVariables[property];
     return boundVariable !== undefined && boundVariable !== null;
   }
