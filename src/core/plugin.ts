@@ -325,8 +325,9 @@ async function applyVariableToNode(
     // Special handling for consolidated properties (Padding, Corner Radius)
     if (property === 'Padding') {
       // Apply to all padding properties
+      // Using 'as any' here is safe because we check for property existence first
       const paddingNode = node as any;
-      if ('paddingLeft' in paddingNode) {
+      if ('paddingLeft' in paddingNode && typeof paddingNode.setBoundVariable === 'function') {
         paddingNode.setBoundVariable('paddingLeft', variable);
         paddingNode.setBoundVariable('paddingTop', variable);
         paddingNode.setBoundVariable('paddingRight', variable);
@@ -334,8 +335,9 @@ async function applyVariableToNode(
       }
     } else if (property === 'Corner Radius') {
       // Apply to all corner radius properties
+      // Using 'as any' here is safe because we check for property existence first
       const radiusNode = node as any;
-      if ('topLeftRadius' in radiusNode) {
+      if ('topLeftRadius' in radiusNode && typeof radiusNode.setBoundVariable === 'function') {
         radiusNode.setBoundVariable('topLeftRadius', variable);
         radiusNode.setBoundVariable('topRightRadius', variable);
         radiusNode.setBoundVariable('bottomLeftRadius', variable);
@@ -343,8 +345,11 @@ async function applyVariableToNode(
       }
     } else {
       // Apply to single property
+      // Using 'as any' here is safe because we checked property existence above
       const bindableNode = node as any;
-      bindableNode.setBoundVariable(figmaProperty, variable);
+      if (typeof bindableNode.setBoundVariable === 'function') {
+        bindableNode.setBoundVariable(figmaProperty, variable);
+      }
     }
 
     return true;

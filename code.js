@@ -7438,6 +7438,7 @@ ${Object.keys(cssProperties).map((property) => {
         }
         /**
          * Check if variable value matches the hard-coded value
+         * Note: Color matching only supports rgb() format as that's how colors are stored by tokenCoverageService
          */
         static valuesMatch(varValue, hardValue, varType) {
           if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
@@ -9027,7 +9028,7 @@ ${Object.keys(cssProperties).map((property) => {
             }
             if (property === "Padding") {
               const paddingNode = node;
-              if ("paddingLeft" in paddingNode) {
+              if ("paddingLeft" in paddingNode && typeof paddingNode.setBoundVariable === "function") {
                 paddingNode.setBoundVariable("paddingLeft", variable);
                 paddingNode.setBoundVariable("paddingTop", variable);
                 paddingNode.setBoundVariable("paddingRight", variable);
@@ -9035,7 +9036,7 @@ ${Object.keys(cssProperties).map((property) => {
               }
             } else if (property === "Corner Radius") {
               const radiusNode = node;
-              if ("topLeftRadius" in radiusNode) {
+              if ("topLeftRadius" in radiusNode && typeof radiusNode.setBoundVariable === "function") {
                 radiusNode.setBoundVariable("topLeftRadius", variable);
                 radiusNode.setBoundVariable("topRightRadius", variable);
                 radiusNode.setBoundVariable("bottomLeftRadius", variable);
@@ -9043,7 +9044,9 @@ ${Object.keys(cssProperties).map((property) => {
               }
             } else {
               const bindableNode = node;
-              bindableNode.setBoundVariable(figmaProperty, variable);
+              if (typeof bindableNode.setBoundVariable === "function") {
+                bindableNode.setBoundVariable(figmaProperty, variable);
+              }
             }
             return true;
           } catch (error) {

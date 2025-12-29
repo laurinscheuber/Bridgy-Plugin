@@ -592,6 +592,7 @@ export class TokenCoverageService {
 
   /**
    * Check if variable value matches the hard-coded value
+   * Note: Color matching only supports rgb() format as that's how colors are stored by tokenCoverageService
    */
   private static valuesMatch(
     varValue: VariableValue,
@@ -599,7 +600,7 @@ export class TokenCoverageService {
     varType: VariableResolvedDataType
   ): boolean {
     if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
-      // Parse color from rgb(r, g, b) format
+      // Parse color from rgb(r, g, b) format (this is how we store colors in addIssue)
       const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
       if (!colorMatch) return false;
       
@@ -607,7 +608,9 @@ export class TokenCoverageService {
       const g = parseInt(colorMatch[2]) / 255;
       const b = parseInt(colorMatch[3]) / 255;
       
-      // Compare with tolerance for floating point
+      // Compare with tolerance for floating point precision
+      // Tolerance of 0.01 allows for ~2.5 difference in RGB values (0.01 * 255 = 2.55)
+      // This is acceptable for visual matching while being strict enough to avoid false matches
       const tolerance = 0.01;
       return Math.abs(varValue.r - r) < tolerance &&
              Math.abs(varValue.g - g) < tolerance &&
@@ -620,7 +623,7 @@ export class TokenCoverageService {
       if (!numMatch) return false;
       
       const hardNum = parseFloat(numMatch[1]);
-      // Compare with small tolerance for floating point
+      // Compare with small tolerance for floating point precision (0.01px is imperceptible)
       return Math.abs(varValue - hardNum) < 0.01;
     }
     
