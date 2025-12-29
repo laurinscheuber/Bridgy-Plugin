@@ -415,6 +415,35 @@
         if (typeof setupQualitySearch === 'function') {
             setupQualitySearch();
         }
+
+        // Initialize Quality Tab Actions
+        const expandBtn = document.getElementById('expand-all-quality-btn');
+        if (expandBtn) {
+            expandBtn.onclick = function() {
+                console.log('Expand All Quality clicked via ID');
+                if (typeof window.expandAllQuality === 'function') {
+                    window.expandAllQuality();
+                } else if (typeof expandAllQuality === 'function') {
+                    expandAllQuality();
+                } else {
+                    console.error('expandAllQuality function not found');
+                }
+            };
+        }
+
+        const collapseBtn = document.getElementById('collapse-all-quality-btn');
+        if (collapseBtn) {
+            collapseBtn.onclick = function() {
+                console.log('Collapse All Quality clicked via ID');
+                 if (typeof window.collapseAllQuality === 'function') {
+                    window.collapseAllQuality();
+                } else if (typeof collapseAllQuality === 'function') {
+                    collapseAllQuality();
+                } else {
+                    console.error('collapseAllQuality function not found');
+                }
+            };
+        }
       });
 
       // ===== COMPONENT NAVIGATION =====
@@ -3803,7 +3832,7 @@
                     <span class="status-badge existing" style="margin-left: 8px;">${issues.length} issues</span>
                   </div>
                 </div>
-                <i class="icon icon--chevron-down collection-toggle-icon"></i>
+                <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
               </div>
               <div id="${groupId}-content" class="collection-content collapsed">
                 <div style="padding: 12px;">
@@ -3905,6 +3934,29 @@
 
         resultsContainer.innerHTML = html;
       }
+
+      function expandAllQuality() {
+        console.log('Expanding all quality groups');
+        const headers = document.querySelectorAll('.quality-collection .collection-header.collapsed');
+        headers.forEach(header => {
+          const collection = header.closest('.quality-collection');
+          if (collection && collection.id) {
+            toggleCollection(collection.id);
+          }
+        });
+      }
+
+      function collapseAllQuality() {
+        console.log('Collapsing all quality groups');
+        const headers = document.querySelectorAll('.quality-collection .collection-header:not(.collapsed)');
+        headers.forEach(header => {
+          const collection = header.closest('.quality-collection');
+          if (collection && collection.id) {
+            toggleCollection(collection.id);
+          }
+        });
+      }
+
 
       // Function to open user guide modal
       function openUserGuide() {
@@ -5700,19 +5752,9 @@ ${checkboxes}
         }
       }
 
-      window.expandAllQuality = function() {
-        const headers = document.querySelectorAll('#token-coverage-results .subgroup-header.collapsed');
-        headers.forEach(header => {
-           header.click();
-        });
-      }
 
-      window.collapseAllQuality = function() {
-         const headers = document.querySelectorAll('#token-coverage-results .subgroup-header:not(.collapsed)');
-         headers.forEach(header => {
-            header.click();
-         });
-      }
+
+
 
       // Initialize Quality Search
       document.addEventListener('DOMContentLoaded', () => {
@@ -8334,6 +8376,8 @@ window.setupQualitySearch = setupQualitySearch;
 window.filterQualityResults = filterQualityResults;
 window.toggleQualityNodeGroup = toggleQualityNodeGroup;
 window.focusOnNode = focusOnNode;
+window.expandAllQuality = expandAllQuality;
+window.collapseAllQuality = collapseAllQuality;
 
 
 // ===== IMPORT PREVIEW HELPERS =====
