@@ -580,13 +580,18 @@ export class TokenCoverageService {
 
   /**
    * Check if variable type matches the issue category
+   * Note: Stroke category includes both COLOR (stroke color) and FLOAT (stroke weight)
    */
   private static isVariableTypeMatch(
     varType: VariableResolvedDataType,
     category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
   ): boolean {
-    if (category === 'Fill' || category === 'Stroke') {
+    if (category === 'Fill') {
       return varType === 'COLOR';
+    }
+    if (category === 'Stroke') {
+      // Stroke category includes both stroke color (COLOR) and stroke weight (FLOAT)
+      return varType === 'COLOR' || varType === 'FLOAT';
     }
     if (category === 'Layout') {
       return varType === 'FLOAT';

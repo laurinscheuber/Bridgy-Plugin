@@ -343,6 +343,30 @@ async function applyVariableToNode(
         radiusNode.setBoundVariable('bottomLeftRadius', variable);
         radiusNode.setBoundVariable('bottomRightRadius', variable);
       }
+    } else if (property === 'Fill Color') {
+      // Special handling for fills - must bind to paint object, not fills array
+      const fillNode = node as any;
+      if ('fills' in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
+        // Clone the fills array to modify it
+        const fills = JSON.parse(JSON.stringify(fillNode.fills));
+        // Find the first solid fill
+        const solidFillIndex = fills.findIndex((fill: any) => fill.type === 'SOLID' && fill.visible !== false);
+        if (solidFillIndex !== -1) {
+          // Create bound variable for the fill
+          fillNode.setBoundVariable('fills', variable, solidFillIndex);
+        }
+      }
+    } else if (property === 'Stroke Color') {
+      // Special handling for strokes - must bind to paint object, not strokes array
+      const strokeNode = node as any;
+      if ('strokes' in strokeNode && Array.isArray(strokeNode.strokes) && strokeNode.strokes.length > 0) {
+        // Find the first solid stroke
+        const solidStrokeIndex = strokeNode.strokes.findIndex((stroke: any) => stroke.type === 'SOLID' && stroke.visible !== false);
+        if (solidStrokeIndex !== -1) {
+          // Create bound variable for the stroke
+          strokeNode.setBoundVariable('strokes', variable, solidStrokeIndex);
+        }
+      }
     } else {
       // Apply to single property
       // Using 'as any' here is safe because we checked property existence above
