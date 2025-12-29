@@ -117,4 +117,5 @@ export interface PluginMessage {
     organizeByCategories?: boolean;
     overwriteExisting?: boolean;
   };
+  scope?: 'PAGE' | 'ALL' | 'SMART_SCAN';
 } 

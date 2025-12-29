@@ -998,6 +998,16 @@
           const tabContent = document.getElementById(tab.dataset.tab + "-content");
           tabContent.classList.add("active");
           
+          // Auto-scan when Quality tab is opened
+          if (tab.dataset.tab === "quality") {
+            // Use SMART_SCAN for auto-trigger to find issues across pages if current is clean
+            // Add small delay to ensure UI handles update
+            setTimeout(() => {
+              console.log("Auto-triggering Smart Scan...");
+              analyzeTokenCoverage('SMART_SCAN');
+            }, 100);
+          }
+          
           // Auto-resize disabled to maintain consistent plugin size
           // setTimeout(() => {
           //   resizeForCurrentContent();
@@ -1012,9 +1022,10 @@
       let variableReferences = {}; // Map of ID -> Name for aliases
       let componentsData = [];
       let currentCSSData = null;
-      window.gitlabSettings = null;
-      let unitsData = null;
+      let componentSetsData = [];
+      let selectionData = null;
       let tailwindV4Validation = null;
+      let analysisScope = 'PAGE';
 
       const AVAILABLE_UNITS = [
         "",
@@ -1237,8 +1248,10 @@
             },
             "*"
           );
+          // Store globally for validation logic
+          window.globalVariablesData = message.variablesData;
           
-          renderVariables(variablesData, stylesData);
+          renderVariables(message.variablesData, stylesData);
           renderComponents(componentsData);
 
 
@@ -1810,6 +1823,7 @@
         // ... existing validation logic ...
         // Analyze data for validation issues
         const validationIssues = [];
+        let tailwindIssues = [];
 
         // Render each collection as it comes from Figma
         data.forEach((collection) => {
@@ -1868,8 +1882,8 @@
 
         // Add Tailwind v4 validation issues if present
         if (tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.length > 0) {
-          // ... (keep existing tailwind logic)
-           const tailwindIssues = [];
+           // ... (keep existing tailwind logic)
+           tailwindIssues = [];
           
           // Build list of invalid groups with their sanitized IDs
           data.forEach((collection) => {
@@ -1904,43 +1918,52 @@
               }
             });
           });
+        }
           
-          // Show simplified warning if there are any Tailwind issues
-          if (tailwindIssues.length > 0) {
-            html += `
-              <div class="validation-alert validation-alert-warning">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <span style="font-size: 24px;">⚠️</span>
-                  <div>
-                    <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
-                    <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
-                  </div>
-                </div>
-                <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
-                  Go to warnings
-                </button>
-              </div>
-            `;
-          }
-        }
+          // Render warnings to separate container
+          const warningContainer = document.getElementById('variables-warning-container');
+          if (warningContainer) {
+            warningContainer.innerHTML = '';
+            let warningHtml = '';
 
-        // Show simplified warning if there are any validation issues
-        if (validationIssues.length > 0) {
-          html += `
-            <div class="validation-alert validation-alert-warning">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 24px;">⚠️</span>
-                <div>
-                  <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
-                  <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+            // Show simplified warning if there are any Tailwind issues
+            if (tailwindIssues.length > 0) {
+              warningHtml += `
+                <div class="validation-alert validation-alert-warning">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <div>
+                      <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
+                      <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+                    </div>
+                  </div>
+                  <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
+                    Go to warnings
+                  </button>
                 </div>
-              </div>
-              <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
-                Go to warnings
-              </button>
-            </div>
-          `;
-        }
+              `;
+            }
+
+            // Show simplified warning if there are any validation issues
+            if (validationIssues.length > 0) {
+              warningHtml += `
+                <div class="validation-alert validation-alert-warning">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <div>
+                      <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
+                      <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+                    </div>
+                  </div>
+                  <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
+                    Go to warnings
+                  </button>
+                </div>
+              `;
+            }
+            
+            warningContainer.innerHTML = warningHtml;
+          }
 
         // Render each collection as it comes from Figma
         data.forEach((collection) => {
@@ -2070,7 +2093,47 @@
         
         // Render Styles as a Virtual Collection
         if (stylesData) {
-            html += renderStylesAsCollection(stylesData);
+            // Check if we have any styles
+             const hasStyles = (stylesData.textStyles?.length > 0) || 
+                              (stylesData.paintStyles?.length > 0) || 
+                              (stylesData.effectStyles?.length > 0) || 
+                              (stylesData.gridStyles?.length > 0);
+            
+            if (hasStyles) {
+                // Calculate detailed stats
+                const totalStyles = (stylesData.textStyles?.length || 0) + 
+                                  (stylesData.paintStyles?.length || 0) + 
+                                  (stylesData.effectStyles?.length || 0) + 
+                                  (stylesData.gridStyles?.length || 0);
+                
+                let categories = 0;
+                if (stylesData.paintStyles?.length) categories++;
+                if (stylesData.textStyles?.length) categories++;
+                if (stylesData.effectStyles?.length) categories++;
+                if (stylesData.gridStyles?.length) categories++;
+
+                html += `
+                    <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
+                            <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                                <span class="material-symbols-outlined" style="font-size: 22px; color: #c4b5fd;">style</span>
+                                Styles
+                            </h2>
+                            <div class="header-summary">
+                                <div class="summary-badge" data-tooltip="Total Styles">
+                                   <span class="material-symbols-outlined">style</span>
+                                   <span>${totalStyles} Styles</span>
+                                </div>
+                                <div class="summary-badge" data-tooltip="Categories">
+                                   <span class="material-symbols-outlined">category</span>
+                                   <span>${categories} Categories</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                html += renderStylesAsCollection(stylesData);
+            }
         }
 
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
@@ -2086,41 +2149,22 @@
             return '';
         }
 
-        const totalStyles = (data.textStyles?.length || 0) + (data.paintStyles?.length || 0) + (data.effectStyles?.length || 0) + (data.gridStyles?.length || 0);
-        const collectionId = 'collection-figma-styles';
-        
-        // Define Styles Collection HTML
-        let html = `
-            <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
-                <div class="collection-header" onclick="toggleCollection('${collectionId}')">
-                    <div class="collection-info">
-                        <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">style</span>
-                        <h3 class="collection-name-title">Styles</h3>
-                        <span class="subgroup-stats">${totalStyles} total</span>
-                    </div>
-                    <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
-                </div>
-                <div class="collection-content" id="${collectionId}-content">
-        `;
+        let html = '';
 
-        // Render groups
+        // Render groups directly as "collections" (visually)
         if (data.paintStyles && data.paintStyles.length > 0) {
-            html += renderStyleGroup('Colors', data.paintStyles, 'paint', collectionId);
+            html += renderStyleGroup('Color', data.paintStyles, 'paint', 'collection-figma-styles-paint');
         }
         if (data.textStyles && data.textStyles.length > 0) {
-            html += renderStyleGroup('Typography', data.textStyles, 'text', collectionId);
+            html += renderStyleGroup('Text', data.textStyles, 'text', 'collection-figma-styles-text');
         }
         if (data.effectStyles && data.effectStyles.length > 0) {
-            html += renderStyleGroup('Effects', data.effectStyles, 'effect', collectionId);
+            html += renderStyleGroup('Effect', data.effectStyles, 'effect', 'collection-figma-styles-effect');
         }
         if (data.gridStyles && data.gridStyles.length > 0) {
-            html += renderStyleGroup('Grids', data.gridStyles, 'grid', collectionId);
+            html += renderStyleGroup('Layout guide', data.gridStyles, 'grid', 'collection-figma-styles-grid');
         }
 
-        html += `
-                </div>
-            </div>
-        `;
         return html;
       }
 
@@ -2131,9 +2175,8 @@
       }
 
       function renderStyleGroup(name, styles, type, collectionId) {
-        const categoryId = `${collectionId}-group-${type}`;
         const count = styles.length;
-        const icon = type === 'text' ? 'text_fields' : type === 'paint' ? 'palette' : type === 'effect' ? 'blur_on' : 'grid_4x4';
+        const icon = type === 'text' ? 'text_fields' : type === 'paint' ? 'colorize' : type === 'effect' ? 'bolt' : 'grid_on';
         
         // Group styles by prefix
         const groups = {};
@@ -2143,11 +2186,6 @@
             const parts = style.name.split('/');
             if (parts.length > 1) {
                 const groupName = parts[0].trim();
-                // Store with original name, but maybe we want to display just the leaf name in the table? 
-                // For now, let's keep full name in table or just relative name?
-                // Variables usually show full name in table but grouped. 
-                // Let's stick to full name for clarity or maybe relative. Relative is cleaner.
-                // Let's use relative name for display in the table row if grouped.
                 if (!groups[groupName]) groups[groupName] = [];
                 groups[groupName].push(style);
             } else {
@@ -2157,30 +2195,32 @@
         
         const sortedGroupNames = Object.keys(groups).sort();
         
+        // Render as a Variable Collection (top level look)
         let html = `
-            <div class="variable-subgroup">
-                <div class="subgroup-header collapsed" onclick="toggleSubgroup('${categoryId}')">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="material-symbols-outlined" style="opacity: 0.5;">${icon}</span>
-                        <span class="subgroup-title">${name}</span>
+            <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
+                <div class="collection-header" onclick="toggleCollection('${collectionId}')">
+                    <div class="collection-info">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">${icon}</span>
+                        <h3 class="collection-name-title">${name}</h3>
                         <span class="subgroup-stats">${count}</span>
                     </div>
-                    <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                    <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
                 </div>
-                <div class="subgroup-content collapsed" id="${categoryId}-content">
+                <div class="collection-content" id="${collectionId}-content">
         `;
         
-        // Render Groups
+        // Render Subgroups
         sortedGroupNames.forEach(groupName => {
             const groupStyles = groups[groupName];
-            const groupId = `${categoryId}-${groupName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const groupId = `${collectionId}-group-${groupName.replace(/[^a-zA-Z0-9]/g, '-')}`;
             
+            // Render as variable-subgroup
             html += `
-                <div class="variable-subgroup" style="margin-left: 12px; border-left: 1px solid rgba(255,255,255,0.1);">
-                    <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')" style="padding-left: 8px;">
+                <div class="variable-subgroup">
+                    <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.7;">folder</span>
-                            <span class="subgroup-title" style="font-size: 12px;">${groupName}</span>
+                             <span class="material-symbols-outlined" style="opacity: 0.5;">folder</span>
+                            <span class="subgroup-title">${groupName}</span>
                             <span class="subgroup-stats">${groupStyles.length}</span>
                         </div>
                         <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
@@ -2194,16 +2234,14 @@
         
         // Render Ungrouped
         if (ungrouped.length > 0) {
-            // If we have other groups, put ungrouped in its own "Ungrouped" folder for consistency, 
-            // OR just render them flat if that's preferred. Variables puts them in "Ungrouped" if there are other groups.
             if (sortedGroupNames.length > 0) {
-                 const groupId = `${categoryId}-ungrouped`;
+                 const groupId = `${collectionId}-ungrouped`;
                  html += `
-                    <div class="variable-subgroup" style="margin-left: 12px; border-left: 1px solid rgba(255,255,255,0.1);">
-                        <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')" style="padding-left: 8px;">
+                    <div class="variable-subgroup">
+                        <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.7;">dataset</span>
-                                <span class="subgroup-title" style="font-size: 12px;">Ungrouped</span>
+                                <span class="material-symbols-outlined" style="opacity: 0.5;">dataset</span>
+                                <span class="subgroup-title">Ungrouped</span>
                                 <span class="subgroup-stats">${ungrouped.length}</span>
                             </div>
                             <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
@@ -2214,7 +2252,6 @@
                     </div>
                 `;
             } else {
-                // No groups, just render flat table
                 html += renderStyleTable(ungrouped, type, false);
             }
         }
@@ -2250,23 +2287,129 @@
                     displayName = displayName.substring(slashIndex + 1);
                 }
             }
+            
+            let valuePreview = '';
+            
             if (type === 'paint') {
                 const paint = style.paints[0];
-                if (paint && paint.type === 'SOLID') {
-                    const { r, g, b } = paint.color;
-                    const a = paint.opacity !== undefined ? paint.opacity : 1;
-                    valuePreview = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="color-preview" style="background-color: rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a})"></span>
-                            rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${formatDecimal(a)})
-                        </div>`;
+                if (paint) {
+                    if (paint.type === 'SOLID') {
+                        const { r, g, b } = paint.color;
+                        const a = paint.opacity !== undefined ? paint.opacity : 1;
+                        
+                        let validationWarning = '';
+                        // Check if bound
+                        const isBound = style.boundVariables && style.boundVariables['paints'] && style.boundVariables['paints'][0];
+                        if (!isBound) {
+                             const matchingVar = findVariableMatchingValue(paint.color, 'paint');
+                             if (matchingVar) {
+                                 validationWarning = `
+                                 <span class="material-symbols-outlined" 
+                                       style="font-size: 14px; color: #fbbf24; cursor: help; margin-left: 6px;" 
+                                       title="Value matches variable '${matchingVar.name}'">link_off</span>`;
+                             }
+                        }
+
+                        valuePreview = `
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="color-preview" style="background-color: rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a})"></span>
+                                <span style="font-family: monospace; font-size: 10px;">rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${formatDecimal(a)})</span>
+                                ${validationWarning}
+                            </div>`;
+                    } else if (['GRADIENT_LINEAR', 'GRADIENT_RADIAL', 'GRADIENT_ANGULAR', 'GRADIENT_DIAMOND'].includes(paint.type)) {
+                        // Generate CSS Gradient
+                        let gradientCss = '';
+                        if (paint.gradientStops && paint.gradientStops.length > 0) {
+                            const stops = paint.gradientStops.map(stop => {
+                                const { r, g, b, a } = stop.color;
+                                return `rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${a}) ${Math.round(stop.position * 100)}%`;
+                            }).join(', ');
+                            
+                            // Approximate direction for linear (default to to bottom right if not calc-able easily without transform math)
+                            // Ideally we parse gradientTransform, but for preview '135deg' is usually sufficient to show it's a gradient
+                            gradientCss = `linear-gradient(135deg, ${stops})`; 
+                            // TODO: radial/angular look different but linear-gradient is a decent fallback for a tiny preview
+                            if (paint.type === 'GRADIENT_RADIAL') gradientCss = `radial-gradient(circle, ${stops})`;
+                        }
+                        
+                        valuePreview = `
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="color-preview" style="background: ${gradientCss}"></span>
+                                <span style="font-size: 11px; opacity: 0.8;">${paint.type.replace('GRADIENT_', '')}</span>
+                            </div>`;
+                    } else if (paint.type === 'IMAGE') {
+                         valuePreview = `
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="color-preview" style="background: #555; display: flex; align-items: center; justify-content: center;">
+                                    <span class="material-symbols-outlined" style="font-size: 12px; color: #fff;">image</span>
+                                </span>
+                                <span style="font-size: 11px; opacity: 0.8;">Image</span>
+                            </div>`;
+                    } else {
+                        valuePreview = `<div>${paint.type}</div>`;
+                    }
                 } else {
-                    valuePreview = `<div>${paint ? paint.type : 'Unknown'}</div>`;
+                    valuePreview = `<div style="opacity: 0.5;">No Paint</div>`;
                 }
             } else if (type === 'text') {
-                valuePreview = `<div>${style.fontName.family} ${style.fontName.style} / ${formatDecimal(style.fontSize)}px</div>`;
+                 // Check binding for Font Size
+                 let fsWarning = '';
+                 const bound = style.boundVariables || {};
+                 if (!bound['fontSize']) {
+                     const matchingVar = findVariableMatchingValue(style.fontSize, 'number');
+                     if (matchingVar) fsWarning = '⚠️'; // Simplified for text row
+                 }
+                valuePreview = `<div>${style.fontName.family} ${style.fontName.style} / ${formatDecimal(style.fontSize)}px ${fsWarning ? `<span title="Font Size matches a variable" style="cursor:help; font-size: 12px;">${fsWarning}</span>` : ''}</div>`;
             } else if (type === 'effect') {
-                 valuePreview = `<div>${style.effects.length} effect(s)</div>`;
+                if (style.effects && style.effects.length > 0) {
+                    const firstEffect = style.effects[0];
+                    if (['DROP_SHADOW', 'INNER_SHADOW'].includes(firstEffect.type)) {
+                       const { r, g, b, a } = firstEffect.color;
+                       const colorCss = `rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${a})`;
+                       const offset = firstEffect.offset;
+                       const blur = firstEffect.radius;
+                       const spread = firstEffect.spread || 0;
+                       
+                       // Check binding for Effect Color
+                       let validationWarning = '';
+                       const boundEffect = style.boundVariables && style.boundVariables['effects'] && style.boundVariables['effects'][0];
+                       const boundColor = boundEffect && boundEffect['color'];
+                       
+                       if (!boundColor) {
+                           // Try to find a matching variable for the color
+                           const matchingVar = findVariableMatchingValue(firstEffect.color, 'paint');
+                           if (matchingVar) {
+                               validationWarning = `
+                               <span class="material-symbols-outlined" 
+                                     style="font-size: 14px; color: #fbbf24; cursor: help; margin-left: 6px;" 
+                                     title="Value matches variable '${matchingVar.name}'">link_off</span>`;
+                           }
+                       }
+                       
+                       // Create a box-shadow preview
+                       const shadowType = firstEffect.type === 'INNER_SHADOW' ? 'inset ' : '';
+                       // We can't easily show the exact shadow, but we can show a small box with it
+                       const shadowCss = `${shadowType}${offset.x}px ${offset.y}px ${blur}px ${spread}px ${colorCss}`;
+                       
+                       valuePreview = `
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="width: 16px; height: 16px; background: #fff; border-radius: 4px; box-shadow: ${shadowCss}; border: 1px solid rgba(255,255,255,0.1);"></div>
+                                <span style="font-size: 11px; opacity: 0.8;">${firstEffect.type.replace('_',' ')}</span>
+                                ${validationWarning}
+                            </div>
+                       `;
+                    } else if (firstEffect.type === 'LAYER_BLUR' || firstEffect.type === 'BACKGROUND_BLUR') {
+                         valuePreview = `
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.7;">blur_on</span>
+                                <span style="font-size: 11px; opacity: 0.8;">${firstEffect.type.replace('_',' ')}: ${firstEffect.radius}px</span>
+                            </div>`;
+                    } else {
+                        valuePreview = `<div>${style.effects.length} effect(s)</div>`;
+                    }
+                } else {
+                     valuePreview = `<div style="opacity: 0.5;">No Effects</div>`;
+                }
             } else if (type === 'grid') {
                  valuePreview = `<div>${style.layoutGrids.length} grid(s)</div>`;
             }
@@ -2274,7 +2417,12 @@
             html += `
                 <tr id="style-${sanitizedId}">
                     <td style="font-weight: 500; color: #fff; padding: 4px 8px; font-size: 11px;">${displayName}</td>
-                    <td style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 8px;">${type}</td>
+                    <td style="color: rgba(255, 255, 255, 0.4); font-size: 11px; letter-spacing: 0.5px; padding: 4px 8px;">${
+                        type === 'paint' ? 'Color' : 
+                        type === 'text' ? 'Text' : 
+                        type === 'effect' ? 'Effect' : 
+                        type === 'grid' ? 'Layout guide' : type
+                    }</td>
                     <td style="padding: 4px 8px; font-size: 11px;">${valuePreview}</td>
                 </tr>
             `;
@@ -2282,6 +2430,61 @@
 
         html += `</tbody></table>`;
         return html;
+      }
+
+      function findVariableMatchingValue(valueToMatch, type) {
+          if (!window.globalVariablesData || !valueToMatch) return null;
+          
+          // Helper to check equality
+          const isMatch = (v1, v2, type) => {
+              if (type === 'paint' || type === 'color') {
+                  if (typeof v1 !== 'object' || typeof v2 !== 'object') return false;
+                  // Handle RGB/RGBA objects
+                  // Check if v1 looks like {r, g, b, a?}
+                  if (v1.r !== undefined && v2.r !== undefined) {
+                      // Compare r, g, b with slight tolerance
+                      const sameR = Math.abs(v1.r - v2.r) < 0.001;
+                      const sameG = Math.abs(v1.g - v2.g) < 0.001;
+                      const sameB = Math.abs(v1.b - v2.b) < 0.001;
+                      const a1 = v1.a !== undefined ? v1.a : 1;
+                      const a2 = v2.a !== undefined ? v2.a : 1;
+                      const sameA = Math.abs(a1 - a2) < 0.001;
+                      return sameR && sameG && sameB && sameA;
+                  }
+                  return false;
+              } else if (type === 'number' || typeof valueToMatch === 'number') {
+                  // Number comparison with tolerance
+                   if (typeof v1 === 'number' && typeof v2 === 'number') {
+                       return Math.abs(v1 - v2) < 0.01;
+                   }
+                   return v1 === v2;
+              } else {
+                  // String comparison
+                  return v1 === v2;
+              }
+          };
+
+          for (const collection of window.globalVariablesData) {
+              for (const variable of collection.variables) {
+                  // Check if resolvedType matches expected type
+                  let typeMatch = false;
+                  if (type === 'paint' && variable.resolvedType === 'COLOR') typeMatch = true;
+                  if (type === 'number' && variable.resolvedType === 'FLOAT') typeMatch = true;
+                  if (type === 'string' && variable.resolvedType === 'STRING') typeMatch = true;
+                  
+                  if (!typeMatch) continue;
+
+                  // Check values in all modes
+                  for (const modeVal of variable.valuesByMode) {
+                       if (modeVal.value && typeof modeVal.value !== 'object' || (modeVal.value && modeVal.value.type !== 'VARIABLE_ALIAS')) {
+                           if (isMatch(valueToMatch, modeVal.value, type)) {
+                               return variable;
+                           }
+                       }
+                  }
+              }
+          }
+          return null;
       }
 
       // Render a group of variables with a title
@@ -2352,7 +2555,8 @@
                 </div>
               `;
             } else {
-              const displayValue = typeof value === 'number' ? formatDecimal(value) : JSON.stringify(value);
+               // Fix for string formatting: don't stringify strings
+              const displayValue = typeof value === 'string' ? value : (typeof value === 'number' ? formatDecimal(value) : JSON.stringify(value));
               html += `<div>${
                 showModeName ? mode.modeName + ": " : ""
               }${displayValue}</div>`;
@@ -3032,9 +3236,12 @@
 
             // TRACKING: Mark variables as exported for User Guide
             // Update shared state instead of localStorage
-            if (userGuideState) {
+            // Updated to handle undefined state safely
+            if (typeof userGuideState !== 'undefined' && userGuideState) {
                 userGuideState.lastExportVars = true;
-                saveUserGuideState(); // Save to backend
+                if (typeof saveUserGuideState === 'function') {
+                  saveUserGuideState(); // Save to backend
+                }
             }
             if (typeof refreshUserGuide === 'function') refreshUserGuide();
 
@@ -3503,7 +3710,11 @@
       }
 
       // Function to analyze token coverage
-      function analyzeTokenCoverage() {
+      /**
+       * Analyzes token coverage for the current page or all pages
+       * @param {string} [scopeOverride] - Optional scope to override the global setting (e.g. 'SMART_SCAN')
+       */
+      function analyzeTokenCoverage(scopeOverride) {
         const resultsContainer = document.getElementById("token-coverage-results");
         const loadingDiv = resultsContainer.querySelector(".content-loading");
 
@@ -3517,9 +3728,17 @@
         // Send message to plugin backend
         parent.postMessage({
           pluginMessage: {
-            type: "analyze-token-coverage"
+            type: "analyze-token-coverage",
+            scope: scopeOverride || analysisScope
           }
         }, "*");
+      }
+
+      // Update analysis scope
+      function updateAnalysisScope(scope) {
+        analysisScope = scope;
+        // Re-run analysis when scope changes
+        analyzeTokenCoverage();
       }
 
       // Function to display token coverage results

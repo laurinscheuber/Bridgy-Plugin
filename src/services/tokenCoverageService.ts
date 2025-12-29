@@ -63,19 +63,89 @@ export class TokenCoverageService {
    */
   static async analyzeCurrentPage(): Promise<TokenCoverageResult> {
     const currentPage = figma.currentPage;
-    const allFrames = currentPage.findAll(node => 
+    const allNodes = currentPage.findAll(node => 
       node.type === 'FRAME' || 
       node.type === 'COMPONENT' || 
       node.type === 'COMPONENT_SET' ||
       node.type === 'INSTANCE'
     );
+    
+    return this.analyzeNodes(allNodes as SceneNode[]);
+  }
 
+  /**
+   * Analyzes the entire document for token coverage
+   */
+  static async analyzeDocument(): Promise<TokenCoverageResult> {
+    const allPages = figma.root.children;
+    let allNodes: SceneNode[] = [];
+    
+    // Iterate through all pages
+    for (const page of allPages) {
+      const pageNodes = page.findAll(node => 
+        node.type === 'FRAME' || 
+        node.type === 'COMPONENT' || 
+        node.type === 'COMPONENT_SET' ||
+        node.type === 'INSTANCE'
+      );
+      allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
+    }
+    
+    return this.analyzeNodes(allNodes);
+  }
+
+  /**
+   * Smart analysis: Checks current page first using analyzeNodes logic directly to avoid redundant calls.
+   * If current page has 0 issues, it searches other pages.
+   * If another page has issues, it switches to that page and returns its results.
+   */
+  static async analyzeSmart(): Promise<TokenCoverageResult> {
+    // 1. Analyze current page
+    const currentPageResult = await this.analyzeCurrentPage();
+
+    // 2. If issues found, stick with current page
+    if (currentPageResult.totalIssues > 0) {
+      return currentPageResult;
+    }
+
+    // 3. If no issues, look for a page that DOES have issues
+    const allPages = figma.root.children;
+    const currentPageId = figma.currentPage.id;
+
+    for (const page of allPages) {
+      // Skip the page we just checked
+      if (page.id === currentPageId) continue;
+
+      const pageNodes = page.findAll(node => 
+        node.type === 'FRAME' || 
+        node.type === 'COMPONENT' || 
+        node.type === 'COMPONENT_SET' ||
+        node.type === 'INSTANCE'
+      );
+      
+      const pageResult = await this.analyzeNodes(pageNodes as SceneNode[]);
+
+      if (pageResult.totalIssues > 0) {
+        // Found a page with issues! Switch to it.
+        await figma.setCurrentPageAsync(page);
+        return pageResult;
+      }
+    }
+
+    // 4. If no issues found anywhere, return the original clean result
+    return currentPageResult;
+  }
+
+  /**
+   * Helper to analyze a list of nodes
+   */
+  private static async analyzeNodes(nodes: SceneNode[]): Promise<TokenCoverageResult> {
     const issuesMap: Map<string, TokenCoverageIssue> = new Map();
     let totalNodes = 0;
 
-    for (const node of allFrames) {
+    for (const node of nodes) {
       totalNodes++;
-      await this.analyzeNode(node as SceneNode, issuesMap);
+      await this.analyzeNode(node, issuesMap);
     }
 
     // Group issues by category

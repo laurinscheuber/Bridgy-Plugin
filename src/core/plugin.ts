@@ -82,6 +82,7 @@ async function collectDocumentData() {
         letterSpacing: textStyle.letterSpacing,
         textCase: textStyle.textCase,
         textDecoration: textStyle.textDecoration,
+        boundVariables: textStyle.boundVariables,
       });
     }
 
@@ -93,6 +94,7 @@ async function collectDocumentData() {
         name: paintStyle.name,
         description: paintStyle.description,
         paints: paintStyle.paints,
+        boundVariables: paintStyle.boundVariables,
       });
     }
 
@@ -104,6 +106,7 @@ async function collectDocumentData() {
         name: effectStyle.name,
         description: effectStyle.description,
         effects: effectStyle.effects,
+        boundVariables: effectStyle.boundVariables,
       });
     }
 
@@ -119,6 +122,7 @@ async function collectDocumentData() {
         name: gridStyle.name,
         description: gridStyle.description,
         layoutGrids: gridStyle.layoutGrids,
+        boundVariables: gridStyle.boundVariables,
       });
     }
 
@@ -1023,10 +1027,18 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case "analyze-token-coverage":
         try {
-          console.log("Analyzing token coverage...");
+          const scope = msg.scope || 'PAGE';
+          console.log(`Analyzing token coverage (Scope: ${scope})...`);
 
-          // Analyze current page for token coverage
-          const coverageResult = await TokenCoverageService.analyzeCurrentPage();
+          let coverageResult;
+          
+          if (scope === 'ALL') {
+            coverageResult = await TokenCoverageService.analyzeDocument();
+          } else if (scope === 'SMART_SCAN') {
+            coverageResult = await TokenCoverageService.analyzeSmart();
+          } else {
+            coverageResult = await TokenCoverageService.analyzeCurrentPage();
+          }
 
           figma.ui.postMessage({
             type: "token-coverage-result",
