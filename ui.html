@@ -2923,6 +2923,15 @@
             </div>
           `;
           showNotification('error', 'Analysis Failed', message.error || 'Failed to analyze token coverage');
+        } else if (message.type === "apply-token-result") {
+          // Handle token application result
+          if (message.success) {
+            showNotification('success', 'Token Applied', `Successfully applied token to ${message.successCount} node${message.successCount !== 1 ? 's' : ''}`);
+            // Re-run analysis to update the UI
+            analyzeTokenCoverage();
+          } else {
+            showNotification('error', 'Application Failed', message.error || 'Failed to apply token');
+          }
         }
         } catch (error) {
           console.error('Error handling plugin message:', error);
@@ -4984,7 +4993,10 @@
           `;
 
           // Display each issue as a card
-          issues.forEach(issue => {
+          issues.forEach((issue, issueIdx) => {
+            const issueId = `issue-${category}-${issueIdx}`;
+            const hasMatchingVars = issue.matchingVariables && issue.matchingVariables.length > 0;
+            
             html += `
               <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
@@ -4996,8 +5008,49 @@
                     ${issue.count}×
                   </div>
                 </div>
+            `;
+
+            // Add fix section if matching variables exist
+            if (hasMatchingVars) {
+              html += `
+                <div style="border-top: 1px solid rgba(139, 92, 246, 0.2); padding-top: 8px; margin-top: 8px; margin-bottom: 8px; background: rgba(139, 92, 246, 0.05); padding: 8px; border-radius: 6px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <span class="material-symbols-outlined" style="font-size: 16px; color: #a78bfa;">auto_fix_high</span>
+                    <span style="font-size: 11px; color: rgba(255, 255, 255, 0.7); font-weight: 500; text-transform: uppercase;">Fix Available</span>
+                  </div>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="${issueId}-var-select" class="token-fix-select" style="flex: 1; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;">
+                      <option value="">Select a token...</option>
+                      ${issue.matchingVariables.map(v => `
+                        <option value="${v.id}">${v.collectionName} / ${v.name}</option>
+                      `).join('')}
+                    </select>
+                    <button 
+                      id="${issueId}-apply-btn" 
+                      class="token-fix-apply-btn" 
+                      onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
+                      style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                      disabled
+                    >
+                      <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span>
+                      Apply to selection
+                    </button>
+                  </div>
+                </div>
+              `;
+            }
+
+            html += `
                 <div style="border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; margin-top: 8px;">
-                  <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-bottom: 6px; font-weight: 500; text-transform: uppercase;">Found in:</div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 500; text-transform: uppercase;">Found in:</div>
+                    ${hasMatchingVars ? `
+                      <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+                        <input type="checkbox" id="${issueId}-select-all" onchange="toggleAllOccurrences('${issueId}')" style="cursor: pointer;">
+                        Select all
+                      </label>
+                    ` : ''}
+                  </div>
                   <div class="quality-nodes-list">
             `;
 
@@ -5021,7 +5074,7 @@
 
             // Render grouped nodes
             Object.values(nodeGroups).forEach((data, groupIdx) => {
-              const groupId = `node-group-${category}-${issues.indexOf(issue)}-${groupIdx}`;
+              const groupId = `node-group-${category}-${issueIdx}-${groupIdx}`;
               const hasMultiple = data.count > 1;
               
               // Only show frame in header if single instance
@@ -5031,8 +5084,11 @@
               const displayName = `${data.name} ${headerFrameInfo}`;
               
               html += `
-                <div class="quality-node-item">
+                <div class="quality-node-item" data-issue-id="${issueId}">
                   <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''}>
+                    ${hasMatchingVars ? `
+                      <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${JSON.stringify(data.ids)}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
+                    ` : ''}
                     <span class="material-symbols-outlined node-icon">layers</span>
                     <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}">${displayName}</span>
                     ${hasMultiple ? `
@@ -5078,6 +5134,21 @@
         });
 
         resultsContainer.innerHTML = html;
+        
+        // Add event listeners for variable dropdowns
+        categories.forEach(category => {
+          const categoryIssues = issuesByCategory[category] || [];
+          categoryIssues.forEach((issue, issueIdx) => {
+            const issueId = `issue-${category}-${issueIdx}`;
+            const varSelect = document.getElementById(`${issueId}-var-select`);
+            
+            if (varSelect) {
+              varSelect.addEventListener('change', () => {
+                updateApplyButtonState(issueId);
+              });
+            }
+          });
+        });
       }
 
       function expandAllQuality() {
@@ -9615,6 +9686,115 @@ window.selectAllVariables = selectAllVariables;
 window.expandAllStyleGroups = expandAllStyleGroups;
 window.collapseAllStyleGroups = collapseAllStyleGroups;
 window.selectAllStyles = selectAllStyles;
+
+// ===== TOKEN FIX FUNCTIONS =====
+
+/**
+ * Toggle all occurrences for an issue
+ */
+function toggleAllOccurrences(issueId) {
+  const selectAllCheckbox = document.getElementById(`${issueId}-select-all`);
+  const occurrenceCheckboxes = document.querySelectorAll(`.occurrence-checkbox[data-issue-id="${issueId}"]`);
+  
+  occurrenceCheckboxes.forEach(cb => {
+    cb.checked = selectAllCheckbox.checked;
+  });
+  
+  updateApplyButtonState(issueId);
+}
+
+/**
+ * Update the apply button state based on selection
+ */
+function updateApplyButtonState(issueId) {
+  const applyBtn = document.getElementById(`${issueId}-apply-btn`);
+  const varSelect = document.getElementById(`${issueId}-var-select`);
+  const occurrenceCheckboxes = document.querySelectorAll(`.occurrence-checkbox[data-issue-id="${issueId}"]`);
+  
+  // Check if any occurrence is selected
+  const hasSelection = Array.from(occurrenceCheckboxes).some(cb => cb.checked);
+  
+  // Check if a variable is selected
+  const hasVariable = varSelect && varSelect.value !== '';
+  
+  // Enable button only if both conditions are met
+  if (hasSelection && hasVariable) {
+    applyBtn.disabled = false;
+    applyBtn.style.opacity = '1';
+    applyBtn.style.pointerEvents = 'auto';
+  } else {
+    applyBtn.disabled = true;
+    applyBtn.style.opacity = '0.5';
+    applyBtn.style.pointerEvents = 'none';
+  }
+  
+  // Update select-all checkbox state
+  const selectAllCheckbox = document.getElementById(`${issueId}-select-all`);
+  if (selectAllCheckbox) {
+    const allChecked = Array.from(occurrenceCheckboxes).every(cb => cb.checked);
+    const someChecked = Array.from(occurrenceCheckboxes).some(cb => cb.checked);
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = someChecked && !allChecked;
+  }
+}
+
+/**
+ * Apply token to selected occurrences
+ */
+function applyTokenToSelection(issueId, property, category) {
+  const varSelect = document.getElementById(`${issueId}-var-select`);
+  const variableId = varSelect.value;
+  
+  if (!variableId) {
+    console.warn('No variable selected');
+    return;
+  }
+  
+  // Get all selected node IDs
+  const occurrenceCheckboxes = document.querySelectorAll(`.occurrence-checkbox[data-issue-id="${issueId}"]:checked`);
+  const nodeIds = [];
+  
+  occurrenceCheckboxes.forEach(cb => {
+    const ids = JSON.parse(cb.dataset.nodeIds || '[]');
+    nodeIds.push(...ids);
+  });
+  
+  if (nodeIds.length === 0) {
+    console.warn('No nodes selected');
+    return;
+  }
+  
+  console.log('Applying token:', { variableId, property, category, nodeIds });
+  
+  // Disable button during operation
+  const applyBtn = document.getElementById(`${issueId}-apply-btn`);
+  const originalText = applyBtn.innerHTML;
+  applyBtn.disabled = true;
+  applyBtn.style.opacity = '0.5';
+  applyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Applying...';
+  
+  // Send message to plugin
+  parent.postMessage({
+    pluginMessage: {
+      type: 'apply-token-to-nodes',
+      nodeIds,
+      variableId,
+      property,
+      category
+    }
+  }, '*');
+  
+  // Reset button after a delay (will be updated when we receive response)
+  setTimeout(() => {
+    applyBtn.innerHTML = originalText;
+    updateApplyButtonState(issueId);
+  }, 2000);
+}
+
+// Expose to window
+window.toggleAllOccurrences = toggleAllOccurrences;
+window.updateApplyButtonState = updateApplyButtonState;
+window.applyTokenToSelection = applyTokenToSelection;
 
     </script>
   </body>

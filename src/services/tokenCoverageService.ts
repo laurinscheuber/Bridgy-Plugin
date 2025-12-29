@@ -3,6 +3,13 @@
  * Identifies elements that use hard-coded values instead of design tokens
  */
 
+export interface MatchingVariable {
+  id: string;
+  name: string;
+  collectionName: string;
+  resolvedValue: string;
+}
+
 export interface TokenCoverageIssue {
   property: string;
   value: string;
@@ -11,6 +18,7 @@ export interface TokenCoverageIssue {
   nodeNames: string[];
   nodeFrames: string[];
   category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance';
+  matchingVariables?: MatchingVariable[];
 }
 
 export interface TokenCoverageResult {
@@ -146,6 +154,11 @@ export class TokenCoverageService {
     for (const node of nodes) {
       totalNodes++;
       await this.analyzeNode(node, issuesMap);
+    }
+
+    // Find matching variables for each issue
+    for (const issue of issuesMap.values()) {
+      issue.matchingVariables = await this.findMatchingVariables(issue.value, issue.category);
     }
 
     // Group issues by category
@@ -509,5 +522,124 @@ export class TokenCoverageService {
     }
 
     return false;
+  }
+
+  /**
+   * Finds design variables that match the given value exactly
+   */
+  private static async findMatchingVariables(
+    value: string,
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+  ): Promise<MatchingVariable[]> {
+    const matchingVars: MatchingVariable[] = [];
+    
+    try {
+      // Get all variable collections
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      
+      for (const collection of collections) {
+        // Get all variables in this collection
+        const variableIds = collection.variableIds;
+        
+        for (const varId of variableIds) {
+          const variable = await figma.variables.getVariableByIdAsync(varId);
+          if (!variable) continue;
+          
+          // Check if variable type matches the category
+          const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
+          if (!isTypeMatch) continue;
+          
+          // Get the resolved value for the current mode
+          const modeId = collection.defaultModeId;
+          const varValue = variable.valuesByMode[modeId];
+          
+          // Compare values based on type
+          if (this.valuesMatch(varValue, value, variable.resolvedType)) {
+            matchingVars.push({
+              id: variable.id,
+              name: variable.name,
+              collectionName: collection.name,
+              resolvedValue: this.formatVariableValue(varValue, variable.resolvedType)
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error finding matching variables:', error);
+    }
+    
+    return matchingVars;
+  }
+
+  /**
+   * Check if variable type matches the issue category
+   */
+  private static isVariableTypeMatch(
+    varType: VariableResolvedDataType,
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+  ): boolean {
+    if (category === 'Fill' || category === 'Stroke') {
+      return varType === 'COLOR';
+    }
+    if (category === 'Layout') {
+      return varType === 'FLOAT';
+    }
+    if (category === 'Appearance') {
+      return varType === 'FLOAT'; // opacity, radius
+    }
+    return false;
+  }
+
+  /**
+   * Check if variable value matches the hard-coded value
+   */
+  private static valuesMatch(
+    varValue: VariableValue,
+    hardValue: string,
+    varType: VariableResolvedDataType
+  ): boolean {
+    if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
+      // Parse color from rgb(r, g, b) format
+      const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!colorMatch) return false;
+      
+      const r = parseInt(colorMatch[1]) / 255;
+      const g = parseInt(colorMatch[2]) / 255;
+      const b = parseInt(colorMatch[3]) / 255;
+      
+      // Compare with tolerance for floating point
+      const tolerance = 0.01;
+      return Math.abs(varValue.r - r) < tolerance &&
+             Math.abs(varValue.g - g) < tolerance &&
+             Math.abs(varValue.b - b) < tolerance;
+    }
+    
+    if (varType === 'FLOAT' && typeof varValue === 'number') {
+      // Parse numeric value from strings like "18px", "0.5"
+      const numMatch = hardValue.match(/^([\d.]+)/);
+      if (!numMatch) return false;
+      
+      const hardNum = parseFloat(numMatch[1]);
+      // Compare with small tolerance for floating point
+      return Math.abs(varValue - hardNum) < 0.01;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Format variable value for display
+   */
+  private static formatVariableValue(
+    varValue: VariableValue,
+    varType: VariableResolvedDataType
+  ): string {
+    if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
+      return `rgb(${Math.round(varValue.r * 255)}, ${Math.round(varValue.g * 255)}, ${Math.round(varValue.b * 255)})`;
+    }
+    if (varType === 'FLOAT' && typeof varValue === 'number') {
+      return `${varValue}`;
+    }
+    return String(varValue);
   }
 }

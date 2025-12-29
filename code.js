@@ -7121,6 +7121,9 @@ ${Object.keys(cssProperties).map((property) => {
               totalNodes++;
               yield this.analyzeNode(node, issuesMap);
             }
+            for (const issue of issuesMap.values()) {
+              issue.matchingVariables = yield this.findMatchingVariables(issue.value, issue.category);
+            }
             const issuesByCategory = {
               Layout: [],
               Fill: [],
@@ -7382,6 +7385,91 @@ ${Object.keys(cssProperties).map((property) => {
             }
           }
           return false;
+        }
+        /**
+         * Finds design variables that match the given value exactly
+         */
+        static findMatchingVariables(value, category) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const matchingVars = [];
+            try {
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              for (const collection of collections) {
+                const variableIds = collection.variableIds;
+                for (const varId of variableIds) {
+                  const variable = yield figma.variables.getVariableByIdAsync(varId);
+                  if (!variable)
+                    continue;
+                  const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
+                  if (!isTypeMatch)
+                    continue;
+                  const modeId = collection.defaultModeId;
+                  const varValue = variable.valuesByMode[modeId];
+                  if (this.valuesMatch(varValue, value, variable.resolvedType)) {
+                    matchingVars.push({
+                      id: variable.id,
+                      name: variable.name,
+                      collectionName: collection.name,
+                      resolvedValue: this.formatVariableValue(varValue, variable.resolvedType)
+                    });
+                  }
+                }
+              }
+            } catch (error) {
+              console.error("Error finding matching variables:", error);
+            }
+            return matchingVars;
+          });
+        }
+        /**
+         * Check if variable type matches the issue category
+         */
+        static isVariableTypeMatch(varType, category) {
+          if (category === "Fill" || category === "Stroke") {
+            return varType === "COLOR";
+          }
+          if (category === "Layout") {
+            return varType === "FLOAT";
+          }
+          if (category === "Appearance") {
+            return varType === "FLOAT";
+          }
+          return false;
+        }
+        /**
+         * Check if variable value matches the hard-coded value
+         */
+        static valuesMatch(varValue, hardValue, varType) {
+          if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+            const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!colorMatch)
+              return false;
+            const r = parseInt(colorMatch[1]) / 255;
+            const g = parseInt(colorMatch[2]) / 255;
+            const b = parseInt(colorMatch[3]) / 255;
+            const tolerance = 0.01;
+            return Math.abs(varValue.r - r) < tolerance && Math.abs(varValue.g - g) < tolerance && Math.abs(varValue.b - b) < tolerance;
+          }
+          if (varType === "FLOAT" && typeof varValue === "number") {
+            const numMatch = hardValue.match(/^([\d.]+)/);
+            if (!numMatch)
+              return false;
+            const hardNum = parseFloat(numMatch[1]);
+            return Math.abs(varValue - hardNum) < 0.01;
+          }
+          return false;
+        }
+        /**
+         * Format variable value for display
+         */
+        static formatVariableValue(varValue, varType) {
+          if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+            return `rgb(${Math.round(varValue.r * 255)}, ${Math.round(varValue.g * 255)}, ${Math.round(varValue.b * 255)})`;
+          }
+          if (varType === "FLOAT" && typeof varValue === "number") {
+            return `${varValue}`;
+          }
+          return String(varValue);
         }
       };
       exports.TokenCoverageService = TokenCoverageService;
@@ -8900,6 +8988,70 @@ ${Object.keys(cssProperties).map((property) => {
           ];
         }
       });
+      function applyVariableToNode(node, variable, property, category) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const propertyMap = {
+              "Width": "width",
+              "Height": "height",
+              "Min Width": "minWidth",
+              "Max Width": "maxWidth",
+              "Min Height": "minHeight",
+              "Max Height": "maxHeight",
+              "Gap": "itemSpacing",
+              "Padding": "paddingLeft",
+              // Will also set other padding properties
+              "Padding Left": "paddingLeft",
+              "Padding Top": "paddingTop",
+              "Padding Right": "paddingRight",
+              "Padding Bottom": "paddingBottom",
+              "Fill Color": "fills",
+              "Stroke Color": "strokes",
+              "Stroke Weight": "strokeWeight",
+              "Opacity": "opacity",
+              "Corner Radius": "topLeftRadius",
+              // Will also set other corner radii
+              "Corner Radius (Top Left)": "topLeftRadius",
+              "Corner Radius (Top Right)": "topRightRadius",
+              "Corner Radius (Bottom Left)": "bottomLeftRadius",
+              "Corner Radius (Bottom Right)": "bottomRightRadius"
+            };
+            const figmaProperty = propertyMap[property];
+            if (!figmaProperty) {
+              console.warn(`Unknown property: ${property}`);
+              return false;
+            }
+            if (!(figmaProperty in node)) {
+              console.warn(`Node does not support property: ${figmaProperty}`);
+              return false;
+            }
+            if (property === "Padding") {
+              const paddingNode = node;
+              if ("paddingLeft" in paddingNode) {
+                paddingNode.setBoundVariable("paddingLeft", variable);
+                paddingNode.setBoundVariable("paddingTop", variable);
+                paddingNode.setBoundVariable("paddingRight", variable);
+                paddingNode.setBoundVariable("paddingBottom", variable);
+              }
+            } else if (property === "Corner Radius") {
+              const radiusNode = node;
+              if ("topLeftRadius" in radiusNode) {
+                radiusNode.setBoundVariable("topLeftRadius", variable);
+                radiusNode.setBoundVariable("topRightRadius", variable);
+                radiusNode.setBoundVariable("bottomLeftRadius", variable);
+                radiusNode.setBoundVariable("bottomRightRadius", variable);
+              }
+            } else {
+              const bindableNode = node;
+              bindableNode.setBoundVariable(figmaProperty, variable);
+            }
+            return true;
+          } catch (error) {
+            console.error("Error applying variable to node:", error);
+            return false;
+          }
+        });
+      }
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
         var _a;
         console.log("DEBUG: Received ANY message:", msg.type, msg);
@@ -9556,6 +9708,65 @@ ${Object.keys(cssProperties).map((property) => {
                 }
               } catch (focusError) {
                 console.error("Error focusing node:", focusError);
+              }
+              break;
+            case "apply-token-to-nodes":
+              try {
+                const applyMsg = msg;
+                const { nodeIds, variableId, property, category } = applyMsg;
+                if (!nodeIds || !variableId || !property || !category) {
+                  throw new Error("Missing required parameters for applying token");
+                }
+                const variable = yield figma.variables.getVariableByIdAsync(variableId);
+                if (!variable) {
+                  throw new Error("Variable not found");
+                }
+                let successCount = 0;
+                let failCount = 0;
+                for (const nodeId of nodeIds) {
+                  try {
+                    const node = yield figma.getNodeByIdAsync(nodeId);
+                    if (!node) {
+                      console.warn(`Node not found: ${nodeId}`);
+                      failCount++;
+                      continue;
+                    }
+                    if (node.type === "DOCUMENT" || node.type === "PAGE") {
+                      console.warn(`Cannot apply variable to ${node.type}: ${nodeId}`);
+                      failCount++;
+                      continue;
+                    }
+                    const applied = yield applyVariableToNode(node, variable, property, category);
+                    if (applied) {
+                      successCount++;
+                    } else {
+                      failCount++;
+                    }
+                  } catch (nodeError) {
+                    console.error(`Error applying variable to node ${nodeId}:`, nodeError);
+                    failCount++;
+                  }
+                }
+                figma.ui.postMessage({
+                  type: "apply-token-result",
+                  success: true,
+                  successCount,
+                  failCount
+                });
+                if (successCount > 0) {
+                  figma.notify(`\u2713 Applied token to ${successCount} node${successCount !== 1 ? "s" : ""}`);
+                }
+                if (failCount > 0) {
+                  figma.notify(`\u26A0 Failed to apply token to ${failCount} node${failCount !== 1 ? "s" : ""}`, { error: true });
+                }
+              } catch (applyError) {
+                console.error("Error applying token:", applyError);
+                figma.ui.postMessage({
+                  type: "apply-token-result",
+                  success: false,
+                  error: applyError.message || "Failed to apply token"
+                });
+                figma.notify(`\u2717 Error: ${applyError.message || "Failed to apply token"}`, { error: true });
               }
               break;
             default:

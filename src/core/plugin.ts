@@ -275,6 +275,85 @@ figma.codegen.on("generate", (_event) => {
   }
 });
 
+/**
+ * Helper function to apply a variable to a node property
+ */
+async function applyVariableToNode(
+  node: SceneNode,
+  variable: Variable,
+  property: string,
+  category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+): Promise<boolean> {
+  try {
+    // Map property names to Figma bindable properties
+    const propertyMap: Record<string, string> = {
+      'Width': 'width',
+      'Height': 'height',
+      'Min Width': 'minWidth',
+      'Max Width': 'maxWidth',
+      'Min Height': 'minHeight',
+      'Max Height': 'maxHeight',
+      'Gap': 'itemSpacing',
+      'Padding': 'paddingLeft', // Will also set other padding properties
+      'Padding Left': 'paddingLeft',
+      'Padding Top': 'paddingTop',
+      'Padding Right': 'paddingRight',
+      'Padding Bottom': 'paddingBottom',
+      'Fill Color': 'fills',
+      'Stroke Color': 'strokes',
+      'Stroke Weight': 'strokeWeight',
+      'Opacity': 'opacity',
+      'Corner Radius': 'topLeftRadius', // Will also set other corner radii
+      'Corner Radius (Top Left)': 'topLeftRadius',
+      'Corner Radius (Top Right)': 'topRightRadius',
+      'Corner Radius (Bottom Left)': 'bottomLeftRadius',
+      'Corner Radius (Bottom Right)': 'bottomRightRadius'
+    };
+
+    const figmaProperty = propertyMap[property];
+    if (!figmaProperty) {
+      console.warn(`Unknown property: ${property}`);
+      return false;
+    }
+
+    // Check if node supports this property
+    if (!(figmaProperty in node)) {
+      console.warn(`Node does not support property: ${figmaProperty}`);
+      return false;
+    }
+
+    // Special handling for consolidated properties (Padding, Corner Radius)
+    if (property === 'Padding') {
+      // Apply to all padding properties
+      const paddingNode = node as any;
+      if ('paddingLeft' in paddingNode) {
+        paddingNode.setBoundVariable('paddingLeft', variable);
+        paddingNode.setBoundVariable('paddingTop', variable);
+        paddingNode.setBoundVariable('paddingRight', variable);
+        paddingNode.setBoundVariable('paddingBottom', variable);
+      }
+    } else if (property === 'Corner Radius') {
+      // Apply to all corner radius properties
+      const radiusNode = node as any;
+      if ('topLeftRadius' in radiusNode) {
+        radiusNode.setBoundVariable('topLeftRadius', variable);
+        radiusNode.setBoundVariable('topRightRadius', variable);
+        radiusNode.setBoundVariable('bottomLeftRadius', variable);
+        radiusNode.setBoundVariable('bottomRightRadius', variable);
+      }
+    } else {
+      // Apply to single property
+      const bindableNode = node as any;
+      bindableNode.setBoundVariable(figmaProperty, variable);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error applying variable to node:', error);
+    return false;
+  }
+}
+
 // Handle messages from the UI
 figma.ui.onmessage = async (msg: PluginMessage) => {
   console.log("DEBUG: Received ANY message:", msg.type, msg);
@@ -1097,6 +1176,81 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
         } catch (focusError) {
           console.error("Error focusing node:", focusError);
+        }
+        break;
+
+      case "apply-token-to-nodes":
+        try {
+          const applyMsg = msg as any;
+          const { nodeIds, variableId, property, category } = applyMsg;
+          
+          if (!nodeIds || !variableId || !property || !category) {
+            throw new Error('Missing required parameters for applying token');
+          }
+
+          // Get the variable
+          const variable = await figma.variables.getVariableByIdAsync(variableId);
+          if (!variable) {
+            throw new Error('Variable not found');
+          }
+
+          let successCount = 0;
+          let failCount = 0;
+          
+          // Apply variable to each node
+          for (const nodeId of nodeIds) {
+            try {
+              const node = await figma.getNodeByIdAsync(nodeId);
+              if (!node) {
+                console.warn(`Node not found: ${nodeId}`);
+                failCount++;
+                continue;
+              }
+
+              // Check if node is a SceneNode
+              if (node.type === 'DOCUMENT' || node.type === 'PAGE') {
+                console.warn(`Cannot apply variable to ${node.type}: ${nodeId}`);
+                failCount++;
+                continue;
+              }
+
+              // Apply variable based on property and category
+              const applied = await applyVariableToNode(node as SceneNode, variable, property, category);
+              if (applied) {
+                successCount++;
+              } else {
+                failCount++;
+              }
+            } catch (nodeError) {
+              console.error(`Error applying variable to node ${nodeId}:`, nodeError);
+              failCount++;
+            }
+          }
+
+          // Send result back to UI
+          figma.ui.postMessage({
+            type: 'apply-token-result',
+            success: true,
+            successCount,
+            failCount
+          });
+
+          // Show notification
+          if (successCount > 0) {
+            figma.notify(`✓ Applied token to ${successCount} node${successCount !== 1 ? 's' : ''}`);
+          }
+          if (failCount > 0) {
+            figma.notify(`⚠ Failed to apply token to ${failCount} node${failCount !== 1 ? 's' : ''}`, { error: true });
+          }
+
+        } catch (applyError: any) {
+          console.error('Error applying token:', applyError);
+          figma.ui.postMessage({
+            type: 'apply-token-result',
+            success: false,
+            error: applyError.message || 'Failed to apply token'
+          });
+          figma.notify(`✗ Error: ${applyError.message || 'Failed to apply token'}`, { error: true });
         }
         break;
 
