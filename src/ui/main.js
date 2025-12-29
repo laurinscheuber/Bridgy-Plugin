@@ -3795,22 +3795,24 @@
           const groupId = `coverage-${category}`;
 
           html += `
-            <div class="variable-subgroup" style="margin-bottom: 12px;">
-              <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
-                <div class="subgroup-title">
-                  <span style="display: flex; align-items: center;">${categoryIcons[category]} ${category}</span>
-                  <span class="subgroup-stats">${issues.length} issues</span>
+            <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
+              <div class="collection-header header collapsed" onclick="toggleCollection('${groupId}')">
+                <div class="collection-info">
+                  <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                    ${categoryIcons[category]} ${category}
+                    <span class="status-badge existing" style="margin-left: 8px;">${issues.length} issues</span>
+                  </div>
                 </div>
-                <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                <i class="icon icon--chevron-down collection-toggle-icon"></i>
               </div>
-              <div id="${groupId}-content" class="subgroup-content collapsed">
+              <div id="${groupId}-content" class="collection-content collapsed">
                 <div style="padding: 12px;">
           `;
 
           // Display each issue as a card
           issues.forEach(issue => {
             html += `
-              <div class="quality-issue-card" style="background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+              <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                   <div style="flex: 1;">
                     <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px;">${issue.property}</div>
@@ -3863,7 +3865,7 @@
                       <span class="node-count">${data.count}</span>
                       <span class="material-symbols-outlined node-toggle-icon" id="${groupId}-toggle">expand_more</span>
                     ` : `
-                      <button class="node-focus-btn" data-tooltip="Focus" onclick="event.stopPropagation(); window.focusOnNode('${data.ids[0]}')">
+                      <button class="node-focus-btn" onclick="event.stopPropagation(); window.focusOnNode('${data.ids[0]}')">
                         <span class="material-symbols-outlined">zoom_in</span>
                       </button>
                     `}
@@ -3876,7 +3878,7 @@
                             Instance ${i + 1} 
                             <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span>
                           </span>
-                          <button class="node-focus-btn" data-tooltip="Focus" onclick="window.focusOnNode('${id}')">
+                          <button class="node-focus-btn" onclick="window.focusOnNode('${id}')">
                             <span class="material-symbols-outlined">zoom_in</span>
                           </button>
                         </div>
