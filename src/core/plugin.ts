@@ -1070,6 +1070,22 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             const node = await figma.getNodeByIdAsync(focusMsg.nodeId) as SceneNode;
             
             if (node) {
+              // Ensure we are on the correct page
+              if (node.parent && node.parent.type === 'PAGE') {
+                  if (figma.currentPage.id !== node.parent.id) {
+                      await figma.setCurrentPageAsync(node.parent as PageNode);
+                  }
+              } else {
+                  // Fallback: traverse up to find page (though for SceneNode, parent chain should lead to Page)
+                  let p = node.parent;
+                  while (p && p.type !== 'PAGE' && p.type !== 'DOCUMENT') {
+                      p = p.parent;
+                  }
+                  if (p && p.type === 'PAGE' && figma.currentPage.id !== p.id) {
+                      await figma.setCurrentPageAsync(p as PageNode);
+                  }
+              }
+
               // Select the node
               figma.currentPage.selection = [node];
               // Zoom to fit the node in viewport
