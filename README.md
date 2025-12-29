@@ -6,6 +6,8 @@ A high-performance Figma plugin for synchronizing design tokens and components w
 
 - **Export Figma Variables** - Export design tokens as CSS/SCSS variables or Tailwind v4 format
 - **Tailwind v4 Support** - Export variables with @theme directive and automatic namespace validation
+- **Token Coverage Analysis** - Identify elements using hard-coded values instead of design tokens
+- **Token Auto-Fix** - Automatically apply matching design tokens to elements with hard-coded values
 - **Generate Component Tests** - Auto-generate Angular component tests from Figma designs
 - **GitHub OAuth** - One-click authentication with GitHub (no manual token creation needed)
 - **GitLab Integration** - Commit changes directly to GitLab with merge request support
@@ -140,6 +142,71 @@ The plugin provides helpful suggestions for common variations:
 - `space`, `padding`, `margin` → `spacing`
 - `border-radius`, `rounded` → `radius`
 - `fonts` → `font-family`
+
+## Token Coverage & Auto-Fix (Quality Tab)
+
+The Quality tab helps you maintain design system consistency by identifying elements with hard-coded values and automatically applying matching design tokens.
+
+### How It Works
+
+1. **Analyze Token Coverage:**
+   - Navigate to the Quality tab
+   - Click "Analyze" to scan the current page for token coverage issues
+   - The plugin identifies elements using hard-coded values (e.g., `18px`, `rgb(139, 92, 246)`)
+
+2. **Review Issues:**
+   - Issues are grouped by category: Layout, Fill, Stroke, Appearance
+   - Each issue shows:
+     - Property name (e.g., "Width", "Fill Color")
+     - Hard-coded value
+     - Number of occurrences
+     - List of affected elements
+
+3. **Auto-Fix with Matching Tokens:**
+   - For each issue, the plugin searches for design variables with exact matching values
+   - If matches are found, you'll see:
+     - A dropdown listing all matching tokens (e.g., "Spacing / sm")
+     - Checkboxes next to each affected element
+     - "Select all" checkbox for quick selection
+     - "Apply to selection" button
+
+4. **Apply Tokens:**
+   - Check the elements you want to fix
+   - Select the appropriate token from the dropdown
+   - Click "Apply to selection"
+   - The plugin automatically binds the selected token to all checked elements
+
+### Key Features
+
+- **Exact Match Only:** Only tokens with exact value matches are suggested, ensuring correctness
+- **Bulk Operations:** Apply tokens to multiple elements at once with "Select all"
+- **Visual Feedback:** Disabled state when no token is selected or no elements are checked
+- **Smart Analysis:** Excludes zero values and dynamic sizing to reduce noise
+- **Re-scan:** After applying tokens, re-analyze to verify the fix
+
+### Supported Properties
+
+**Layout:**
+- Width, Height, Min/Max Width/Height
+- Padding, Gap (auto-layout spacing)
+
+**Fill & Stroke:**
+- Fill Color, Stroke Color, Stroke Weight
+
+**Appearance:**
+- Opacity, Corner Radius
+
+### Example Workflow
+
+1. Designer creates frames with `18px` width
+2. Run token coverage analysis
+3. Plugin finds "Width: 18px" used 10 times
+4. Plugin detects matching token: "Spacing / sm" = 18
+5. Designer selects all 10 occurrences
+6. Designer chooses "Spacing / sm" from dropdown
+7. Click "Apply to selection"
+8. All 10 frames now use the token instead of hard-coded value
+9. Future changes to "Spacing / sm" will update all 10 frames automatically
 
 ## New Modular Architecture
 
