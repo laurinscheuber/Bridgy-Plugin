@@ -282,7 +282,7 @@
         // Variables tab commit button
         const commitButton = document.getElementById("commit-repo-button");
         if (commitButton) {
-          const shouldEnable = hasVariables && isConfigured && !hasTailwindIssues;
+          const shouldEnable = hasVariables && isConfigured;
           commitButton.disabled = !shouldEnable;
           
           if (!isConfigured) {
@@ -290,7 +290,7 @@
           } else if (!hasVariables) {
             commitButton.title = "No variables available to commit";
           } else if (hasTailwindIssues) {
-            commitButton.title = "Cannot commit: Fix Tailwind v4 namespace issues first";
+            commitButton.title = "Commit variables (Warning: Tailwind v4 namespace issues detected)";
           } else {
             commitButton.title = "Commit variables to GitLab repository";
           }
@@ -298,12 +298,13 @@
         
         // Export button
         const exportButton = document.getElementById("export-css-button");
-        if (exportButton && hasTailwindIssues) {
-          exportButton.disabled = true;
-          exportButton.title = "Cannot export: Fix Tailwind v4 namespace issues first";
-        } else if (exportButton && hasVariables) {
+        if (exportButton && hasVariables) {
           exportButton.disabled = false;
-          exportButton.title = "Export variables to CSS file";
+          if (hasTailwindIssues) {
+            exportButton.title = "Export variables (Warning: Tailwind v4 namespace issues detected)";
+          } else {
+            exportButton.title = "Export variables to CSS file";
+          }
         }
         
         // Components tab commit buttons
@@ -1955,26 +1956,9 @@
             warningContainer.innerHTML = '';
             let warningHtml = '';
 
-            // Show simplified warning if there are any Tailwind issues
-            if (tailwindIssues.length > 0) {
-              warningHtml += `
-                <div class="validation-alert validation-alert-warning">
-                  <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 24px;">⚠️</span>
-                    <div>
-                      <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
-                      <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
-                    </div>
-                  </div>
-                  <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
-                    Go to warnings
-                  </button>
-                </div>
-              `;
-            }
-
-            // Show simplified warning if there are any validation issues
-            if (validationIssues.length > 0) {
+            // Show a single combined warning if there are any issues
+            const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
+            if (hasAnyIssues) {
               warningHtml += `
                 <div class="validation-alert validation-alert-warning">
                   <div style="display: flex; align-items: center; gap: 12px;">
@@ -2019,9 +2003,9 @@
               <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
                 <div class="collection-header" onclick="toggleCollection('${collectionId}')">
                   <div class="collection-info">
-                    <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">folder</span>
+                    <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">folder</span>
                     <h3 class="collection-name-title">${collection.name}</h3>
-                    <span class="subgroup-stats">${collection.variables.length} total</span>
+                    <span class="subgroup-stats">${collection.variables.length}</span>
                   </div>
                   <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
                 </div>
@@ -2037,7 +2021,7 @@
                 <div class="variable-subgroup">
                   <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      <span class="material-symbols-outlined" style="opacity: 0.5;">dataset</span>
+                      <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">dataset</span>
                       <span class="subgroup-title">${ungroupedName}</span>
                       <span class="subgroup-stats">${standaloneVars.length}</span>
                     </div>
@@ -2229,7 +2213,7 @@
             <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
                 <div class="collection-header" onclick="toggleCollection('${collectionId}')">
                     <div class="collection-info">
-                        <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">${icon}</span>
+                        <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">${icon}</span>
                         <h3 class="collection-name-title">${name}</h3>
                         <span class="subgroup-stats">${count}</span>
                     </div>
@@ -2248,7 +2232,7 @@
                 <div class="variable-subgroup">
                     <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                             <span class="material-symbols-outlined" style="opacity: 0.5;">folder</span>
+                             <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">folder</span>
                             <span class="subgroup-title">${groupName}</span>
                             <span class="subgroup-stats">${groupStyles.length}</span>
                         </div>
@@ -2269,7 +2253,7 @@
                     <div class="variable-subgroup">
                         <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="material-symbols-outlined" style="opacity: 0.5;">dataset</span>
+                                <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">dataset</span>
                                 <span class="subgroup-title">Ungrouped</span>
                                 <span class="subgroup-stats">${ungrouped.length}</span>
                             </div>
@@ -2989,28 +2973,30 @@
             <div class="component-set">
               <div class="component-set-header" data-index="${index}">
                   <div class="component-header-content">
-                    <div class="component-set-toggle">
-                      <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
-                    </div>
-                    ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
                     <div class="component-meta">
                       <span class="component-name">${parsedName.name}</span>
                       ${UIHelper.createBadge('Component Set', 'component-set')}
                     </div>
                   </div>
                   <div class="component-actions">
-                    ${UIHelper.createActionBtn('download', 'Generate', {
+                    ${UIHelper.createActionBtn('download', '', {
                         'data-component-id': component.id,
                         'data-component-name': component.name,
                         'data-action': 'generate',
-                        'class': 'generate-all-variants-button'
+                        'class': 'generate-all-variants-button btn-icon-only',
+                        'data-tooltip': 'Generate variants'
                     })}
-                    ${UIHelper.createActionBtn('commit', 'Commit', {
+                    ${UIHelper.createActionBtn('commit', '', {
                         'data-component-id': component.id,
                         'data-component-name': component.name,
                         'data-action': 'commit',
-                        'class': 'commit-all-variants-button'
+                        'class': 'commit-all-variants-button btn-icon-only',
+                        'data-tooltip': 'Commit variants'
                     })}
+                    ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
+                    <div class="component-set-toggle">
+                      <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
+                    </div>
                   </div>
               </div>
               <div class="component-set-children" id="children-${index}">
@@ -3815,10 +3801,10 @@
           if (issues.length === 0) return;
 
           const categoryIcons = {
-            'Layout': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">design_services</span>',
-            'Fill': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">palette</span>',
-            'Stroke': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">edit</span>',
-            'Appearance': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">auto_awesome</span>'
+            'Layout': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">design_services</span>',
+            'Fill': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">palette</span>',
+            'Stroke': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">edit</span>',
+            'Appearance': '<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">auto_awesome</span>'
           };
 
           const groupId = `coverage-${category}`;
@@ -3829,7 +3815,7 @@
                 <div class="collection-info">
                   <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
                     ${categoryIcons[category]} ${category}
-                    <span class="status-badge existing" style="margin-left: 8px;">${issues.length} issues</span>
+                    <span class="subgroup-stats">${issues.length}</span>
                   </div>
                 </div>
                 <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
@@ -7014,7 +7000,7 @@ window.clearInput = function() {
               <div class="variable-collection">
                 <div class="collection-header">
                   <div class="collection-info" style="display: flex; align-items: center;">
-                    <span class="material-symbols-outlined" style="font-size: 20px; color: #c4b5fd;">folder</span>
+                    <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">folder</span>
                     <h3 class="collection-name-title" style="margin: 0 8px;">Design Tokens</h3>
                     <span class="subgroup-stats" style="margin: 0;">(Collection)</span>
                   </div>
