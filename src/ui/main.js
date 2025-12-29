@@ -3942,7 +3942,7 @@
                 <div class="quality-node-item" data-issue-id="${issueId}">
                   <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''}>
                     ${hasMatchingVars ? `
-                      <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${JSON.stringify(data.ids)}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
+                      <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
                     ` : ''}
                     <span class="material-symbols-outlined node-icon">layers</span>
                     <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}">${displayName}</span>
@@ -8610,8 +8610,14 @@ function applyTokenToSelection(issueId, property, category) {
   const nodeIds = [];
   
   occurrenceCheckboxes.forEach(cb => {
-    const ids = JSON.parse(cb.dataset.nodeIds || '[]');
-    nodeIds.push(...ids);
+    try {
+      const ids = JSON.parse(cb.dataset.nodeIds || '[]');
+      if (Array.isArray(ids)) {
+        nodeIds.push(...ids);
+      }
+    } catch (error) {
+      console.error('Failed to parse node IDs:', error);
+    }
   });
   
   if (nodeIds.length === 0) {

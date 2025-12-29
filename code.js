@@ -7059,6 +7059,7 @@ ${Object.keys(cssProperties).map((property) => {
       };
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TokenCoverageService = void 0;
+      var VALUE_MATCH_TOLERANCE = 0.01;
       var TokenCoverageService = class {
         /**
          * Analyzes the current page for token coverage
@@ -7448,15 +7449,14 @@ ${Object.keys(cssProperties).map((property) => {
             const r = parseInt(colorMatch[1]) / 255;
             const g = parseInt(colorMatch[2]) / 255;
             const b = parseInt(colorMatch[3]) / 255;
-            const tolerance = 0.01;
-            return Math.abs(varValue.r - r) < tolerance && Math.abs(varValue.g - g) < tolerance && Math.abs(varValue.b - b) < tolerance;
+            return Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE;
           }
           if (varType === "FLOAT" && typeof varValue === "number") {
             const numMatch = hardValue.match(/^([\d.]+)/);
             if (!numMatch)
               return false;
             const hardNum = parseFloat(numMatch[1]);
-            return Math.abs(varValue - hardNum) < 0.01;
+            return Math.abs(varValue - hardNum) < VALUE_MATCH_TOLERANCE;
           }
           return false;
         }

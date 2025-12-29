@@ -3,6 +3,13 @@
  * Identifies elements that use hard-coded values instead of design tokens
  */
 
+/**
+ * Tolerance for floating point comparison
+ * Color: 0.01 allows ~2.5 difference in RGB values (imperceptible to human eye)
+ * Float: 0.01px is imperceptible in UI
+ */
+const VALUE_MATCH_TOLERANCE = 0.01;
+
 export interface MatchingVariable {
   id: string;
   name: string;
@@ -611,10 +618,9 @@ export class TokenCoverageService {
       // Compare with tolerance for floating point precision
       // Tolerance of 0.01 allows for ~2.5 difference in RGB values (0.01 * 255 = 2.55)
       // This is acceptable for visual matching while being strict enough to avoid false matches
-      const tolerance = 0.01;
-      return Math.abs(varValue.r - r) < tolerance &&
-             Math.abs(varValue.g - g) < tolerance &&
-             Math.abs(varValue.b - b) < tolerance;
+      return Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
+             Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
+             Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE;
     }
     
     if (varType === 'FLOAT' && typeof varValue === 'number') {
@@ -624,7 +630,7 @@ export class TokenCoverageService {
       
       const hardNum = parseFloat(numMatch[1]);
       // Compare with small tolerance for floating point precision (0.01px is imperceptible)
-      return Math.abs(varValue - hardNum) < 0.01;
+      return Math.abs(varValue - hardNum) < VALUE_MATCH_TOLERANCE;
     }
     
     return false;
