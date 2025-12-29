@@ -4692,12 +4692,20 @@ ${commentPrefix} Colors${commentSuffix}`);
                   name = `${baseName}-${i++}`;
                 }
                 usedNames.add(name);
-                const paint = style.paints[0];
-                if (paint) {
-                  const val = this.formatPaintValue(paint);
-                  if (val)
-                    parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
+                const boundVariables = style.boundVariables;
+                let val = null;
+                if (boundVariables && boundVariables["paints"] && boundVariables["paints"][0]) {
+                  const alias = boundVariables["paints"][0];
+                  val = this.resolveVariableAlias(alias.id);
                 }
+                if (!val) {
+                  const paint = style.paints[0];
+                  if (paint) {
+                    val = this.formatPaintValue(paint);
+                  }
+                }
+                if (val)
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
               });
             }
             const textStyles = yield figma.getLocalTextStylesAsync();
@@ -4706,15 +4714,53 @@ ${commentPrefix} Colors${commentSuffix}`);
 ${commentPrefix} Typography${commentSuffix}`);
               textStyles.forEach((style) => {
                 const baseName = this.formatVariableName(style.name);
-                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: "${style.fontName.family}";`);
-                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${this.round(style.fontSize)}px;`);
-                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${this.mapFontWeight(style.fontName.style)};`);
-                if (style.lineHeight && style.lineHeight.unit !== "AUTO") {
-                  const lh = style.lineHeight.unit === "PIXELS" ? `${this.round(style.lineHeight.value)}px` : this.round(style.lineHeight.value);
-                  parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lh};`);
+                const bound = style.boundVariables || {};
+                let fontFamily = null;
+                if (bound["fontFamily"]) {
+                  fontFamily = this.resolveVariableAlias(bound["fontFamily"].id);
                 }
-                if (style.letterSpacing && style.letterSpacing.unit === "PIXELS") {
-                  parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${this.round(style.letterSpacing.value)}px;`);
+                if (!fontFamily) {
+                  fontFamily = `"${style.fontName.family}"`;
+                }
+                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: ${fontFamily};`);
+                let fontSize = null;
+                if (bound["fontSize"]) {
+                  fontSize = this.resolveVariableAlias(bound["fontSize"].id);
+                }
+                if (!fontSize) {
+                  fontSize = `${this.round(style.fontSize)}px`;
+                }
+                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${fontSize};`);
+                let fontWeight = null;
+                if (bound["fontStyle"]) {
+                  fontWeight = this.resolveVariableAlias(bound["fontStyle"].id);
+                }
+                if (!fontWeight && bound["fontWeight"]) {
+                  fontWeight = this.resolveVariableAlias(bound["fontWeight"].id);
+                }
+                if (!fontWeight) {
+                  fontWeight = `${this.mapFontWeight(style.fontName.style)}`;
+                }
+                parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${fontWeight};`);
+                let lineHeight = null;
+                if (bound["lineHeight"]) {
+                  lineHeight = this.resolveVariableAlias(bound["lineHeight"].id);
+                }
+                if (!lineHeight && style.lineHeight && style.lineHeight.unit !== "AUTO") {
+                  lineHeight = style.lineHeight.unit === "PIXELS" ? `${this.round(style.lineHeight.value)}px` : `${this.round(style.lineHeight.value)}`;
+                }
+                if (lineHeight) {
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lineHeight};`);
+                }
+                let letterSpacing = null;
+                if (bound["letterSpacing"]) {
+                  letterSpacing = this.resolveVariableAlias(bound["letterSpacing"].id);
+                }
+                if (!letterSpacing && style.letterSpacing && style.letterSpacing.unit === "PIXELS") {
+                  letterSpacing = `${this.round(style.letterSpacing.value)}px`;
+                }
+                if (letterSpacing) {
+                  parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${letterSpacing};`);
                 }
               });
             }
@@ -4723,8 +4769,9 @@ ${commentPrefix} Typography${commentSuffix}`);
               parts.push(`
 ${commentPrefix} Effects${commentSuffix}`);
               effectStyles.forEach((style) => {
+                var _a;
                 const name = this.formatVariableName(style.name);
-                const val = this.formatEffectsValue(style.effects);
+                const val = this.formatEffectsValue(style.effects, (_a = style.boundVariables) === null || _a === void 0 ? void 0 : _a["effects"]);
                 if (val)
                   parts.push(`  ${CSS_VARIABLE_PREFIX}effect-${name}: ${val};`);
               });
@@ -4758,16 +4805,23 @@ ${commentPrefix} Grids${commentSuffix}`);
           }
           return null;
         }
-        static formatEffectsValue(effects) {
-          return effects.map((effect) => {
+        static formatEffectsValue(effects, boundEffects) {
+          return effects.map((effect, index) => {
             if (effect.type === "DROP_SHADOW" || effect.type === "INNER_SHADOW") {
               const { r, g, b, a } = effect.color;
+              let colorPart = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${this.round(a)})`;
+              if (boundEffects && boundEffects[index] && boundEffects[index]["color"]) {
+                const alias = boundEffects[index]["color"];
+                const ref = this.resolveVariableAlias(alias.id);
+                if (ref)
+                  colorPart = ref;
+              }
               const inset = effect.type === "INNER_SHADOW" ? "inset " : "";
               const blur = this.round(effect.radius);
               const spread = effect.spread ? this.round(effect.spread) : 0;
               const x = this.round(effect.offset.x);
               const y = this.round(effect.offset.y);
-              return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${this.round(a)})`;
+              return `${inset}${x}px ${y}px ${blur}px ${spread}px ${colorPart}`;
             } else if (effect.type === "LAYER_BLUR") {
               return `blur(${this.round(effect.radius)}px)`;
             }
@@ -7012,10 +7066,58 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, void 0, void 0, function* () {
             const currentPage = figma.currentPage;
-            const allFrames = currentPage.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            const allNodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            return this.analyzeNodes(allNodes);
+          });
+        }
+        /**
+         * Analyzes the entire document for token coverage
+         */
+        static analyzeDocument() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const allPages = figma.root.children;
+            let allNodes = [];
+            for (const page of allPages) {
+              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              allNodes = [...allNodes, ...pageNodes];
+            }
+            return this.analyzeNodes(allNodes);
+          });
+        }
+        /**
+         * Smart analysis: Checks current page first using analyzeNodes logic directly to avoid redundant calls.
+         * If current page has 0 issues, it searches other pages.
+         * If another page has issues, it switches to that page and returns its results.
+         */
+        static analyzeSmart() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const currentPageResult = yield this.analyzeCurrentPage();
+            if (currentPageResult.totalIssues > 0) {
+              return currentPageResult;
+            }
+            const allPages = figma.root.children;
+            const currentPageId = figma.currentPage.id;
+            for (const page of allPages) {
+              if (page.id === currentPageId)
+                continue;
+              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageResult = yield this.analyzeNodes(pageNodes);
+              if (pageResult.totalIssues > 0) {
+                yield figma.setCurrentPageAsync(page);
+                return pageResult;
+              }
+            }
+            return currentPageResult;
+          });
+        }
+        /**
+         * Helper to analyze a list of nodes
+         */
+        static analyzeNodes(nodes) {
+          return __awaiter(this, void 0, void 0, function* () {
             const issuesMap = /* @__PURE__ */ new Map();
             let totalNodes = 0;
-            for (const node of allFrames) {
+            for (const node of nodes) {
               totalNodes++;
               yield this.analyzeNode(node, issuesMap);
             }
@@ -8645,7 +8747,8 @@ ${Object.keys(cssProperties).map((property) => {
                 lineHeight: textStyle.lineHeight,
                 letterSpacing: textStyle.letterSpacing,
                 textCase: textStyle.textCase,
-                textDecoration: textStyle.textDecoration
+                textDecoration: textStyle.textDecoration,
+                boundVariables: textStyle.boundVariables
               });
             }
             const paintStyles = yield figma.getLocalPaintStylesAsync();
@@ -8654,7 +8757,8 @@ ${Object.keys(cssProperties).map((property) => {
                 id: paintStyle.id,
                 name: paintStyle.name,
                 description: paintStyle.description,
-                paints: paintStyle.paints
+                paints: paintStyle.paints,
+                boundVariables: paintStyle.boundVariables
               });
             }
             const effectStyles = yield figma.getLocalEffectStylesAsync();
@@ -8663,7 +8767,8 @@ ${Object.keys(cssProperties).map((property) => {
                 id: effectStyle.id,
                 name: effectStyle.name,
                 description: effectStyle.description,
-                effects: effectStyle.effects
+                effects: effectStyle.effects,
+                boundVariables: effectStyle.boundVariables
               });
             }
             const gridStyles = yield figma.getLocalGridStylesAsync();
@@ -8673,7 +8778,8 @@ ${Object.keys(cssProperties).map((property) => {
                 id: gridStyle.id,
                 name: gridStyle.name,
                 description: gridStyle.description,
-                layoutGrids: gridStyle.layoutGrids
+                layoutGrids: gridStyle.layoutGrids,
+                boundVariables: gridStyle.boundVariables
               });
             }
             const componentsData = yield componentService_1.ComponentService.collectComponents();
@@ -9393,8 +9499,16 @@ ${Object.keys(cssProperties).map((property) => {
               break;
             case "analyze-token-coverage":
               try {
-                console.log("Analyzing token coverage...");
-                const coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage();
+                const scope = msg.scope || "PAGE";
+                console.log(`Analyzing token coverage (Scope: ${scope})...`);
+                let coverageResult;
+                if (scope === "ALL") {
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument();
+                } else if (scope === "SMART_SCAN") {
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart();
+                } else {
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage();
+                }
                 figma.ui.postMessage({
                   type: "token-coverage-result",
                   result: coverageResult
