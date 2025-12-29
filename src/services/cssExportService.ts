@@ -360,11 +360,24 @@ export class CSSExportService {
               }
               usedNames.add(name);
 
-              const paint = style.paints[0];
-              if (paint) {
-                  const val = this.formatPaintValue(paint);
-                  if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
+              // Check for bound variable on the first paint
+              const boundVariables = style.boundVariables;
+              let val: string | null = null;
+
+              if (boundVariables && boundVariables['paints'] && boundVariables['paints'][0]) {
+                  const alias = boundVariables['paints'][0];
+                  // If resolvedType is COLOR, we can use the variable directly
+                  val = this.resolveVariableAlias(alias.id);
               }
+
+              if (!val) {
+                  const paint = style.paints[0];
+                  if (paint) {
+                      val = this.formatPaintValue(paint);
+                  }
+              }
+
+              if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
           });
       }
 
@@ -374,20 +387,66 @@ export class CSSExportService {
           parts.push(`\n${commentPrefix} Typography${commentSuffix}`);
           textStyles.forEach(style => {
              const baseName = this.formatVariableName(style.name);
-             // Unique names for text styles are tricky because they generate multiple variables.
-             // We'll rely on baseName being reasonably unique or just overwrite.
+             const bound = style.boundVariables || {};
              
-             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: "${style.fontName.family}";`);
-             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${this.round(style.fontSize)}px;`);
-             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${this.mapFontWeight(style.fontName.style)};`);
-             if (style.lineHeight && style.lineHeight.unit !== 'AUTO') {
-                 const lh = style.lineHeight.unit === 'PIXELS' 
-                    ? `${this.round(style.lineHeight.value)}px` 
-                    : this.round(style.lineHeight.value);
-                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lh};`);
+             // Font Family
+             let fontFamily: string | null = null;
+             if (bound['fontFamily']) {
+                 fontFamily = this.resolveVariableAlias(bound['fontFamily'].id);
+             } 
+             if (!fontFamily) {
+                 fontFamily = `"${style.fontName.family}"`;
              }
-             if (style.letterSpacing && style.letterSpacing.unit === 'PIXELS') {
-                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${this.round(style.letterSpacing.value)}px;`);
+             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: ${fontFamily};`);
+
+             // Font Size
+             let fontSize: string | null = null;
+             if (bound['fontSize']) {
+                 fontSize = this.resolveVariableAlias(bound['fontSize'].id);
+             }
+             if (!fontSize) {
+                 fontSize = `${this.round(style.fontSize)}px`;
+             }
+             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${fontSize};`);
+
+             // Font Weight (Style)
+             let fontWeight: string | null = null;
+             if (bound['fontStyle']) { // Figma uses 'fontStyle' key for weight/style binding often, but check definition
+                 fontWeight = this.resolveVariableAlias(bound['fontStyle'].id);
+             }
+             // Fallback for font weight is tricky if it's bound to "style" property which maps to weight
+             if (!fontWeight && bound['fontWeight']) {
+                  fontWeight = this.resolveVariableAlias(bound['fontWeight'].id);
+             }
+             if (!fontWeight) {
+                 fontWeight = `${this.mapFontWeight(style.fontName.style)}`;
+             }
+             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${fontWeight};`);
+
+             // Line Height
+             let lineHeight: string | null = null;
+             if (bound['lineHeight']) {
+                 lineHeight = this.resolveVariableAlias(bound['lineHeight'].id);
+             }
+             if (!lineHeight && style.lineHeight && style.lineHeight.unit !== 'AUTO') {
+                 lineHeight = style.lineHeight.unit === 'PIXELS' 
+                    ? `${this.round(style.lineHeight.value)}px` 
+                    : `${this.round(style.lineHeight.value)}`;
+             }
+             if (lineHeight) {
+                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lineHeight};`);
+             }
+
+             // Letter Spacing
+             let letterSpacing: string | null = null;
+             if (bound['letterSpacing']) {
+                 letterSpacing = this.resolveVariableAlias(bound['letterSpacing'].id);
+             }
+             if (!letterSpacing && style.letterSpacing && style.letterSpacing.unit === 'PIXELS') {
+                 letterSpacing = `${this.round(style.letterSpacing.value)}px`;
+             }
+             if (letterSpacing) {
+                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${letterSpacing};`);
              }
           });
       }
@@ -398,7 +457,16 @@ export class CSSExportService {
           parts.push(`\n${commentPrefix} Effects${commentSuffix}`);
           effectStyles.forEach(style => {
               const name = this.formatVariableName(style.name);
-              const val = this.formatEffectsValue(style.effects);
+              // Effects binding is typically on individual properties like 'color' or 'spread' of an effect, 
+              // NOT the whole effect stack. Figma does not support binding "Effects" as a whole array to a variable yet.
+              // However, check if we can simulate binding if the user asks for it, but standard Figma API binds sub-props.
+              // Since CSS variables for effects usually represent the whole boxShadow/filter string,
+              // we probably can't easily resolving a single "variable" for the whole effect unless we manually reconstruct it with variables.
+              
+              // For now, let's stick to standard formatting but keep an eye on full-effect variables if they become a thing.
+              // Actually, wait, if the user binds the COLOR of a shadow, we CAN return `drop-shadow(..., var(--color), ...)`
+              
+              const val = this.formatEffectsValue(style.effects, style.boundVariables?.['effects']);
               if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}effect-${name}: ${val};`);
           });
       }
@@ -433,16 +501,26 @@ export class CSSExportService {
       return null;
   }
   
-  private static formatEffectsValue(effects: readonly Effect[]): string | null {
-      return effects.map(effect => {
+  private static formatEffectsValue(effects: readonly Effect[], boundEffects?: any[]): string | null {
+      return effects.map((effect, index) => {
           if (effect.type === 'DROP_SHADOW' || effect.type === 'INNER_SHADOW') {
               const { r, g, b, a } = effect.color;
+              
+              let colorPart = `rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${this.round(a)})`;
+              
+              // Check if color is bound
+              if (boundEffects && boundEffects[index] && boundEffects[index]['color']) {
+                  const alias = boundEffects[index]['color'];
+                  const ref = this.resolveVariableAlias(alias.id);
+                  if (ref) colorPart = ref;
+              }
+
               const inset = effect.type === 'INNER_SHADOW' ? 'inset ' : '';
               const blur = this.round(effect.radius);
               const spread = effect.spread ? this.round(effect.spread) : 0;
               const x = this.round(effect.offset.x);
               const y = this.round(effect.offset.y);
-              return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${this.round(a)})`;
+              return `${inset}${x}px ${y}px ${blur}px ${spread}px ${colorPart}`;
           } else if (effect.type === 'LAYER_BLUR') {
               return `blur(${this.round(effect.radius)}px)`;
           }
