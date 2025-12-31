@@ -223,8 +223,6 @@
           return `<div class="no-items">${message}</div>`;
         }
 
-        static createSkeletonLoader() {
-          return `
             <div class="quality-skeleton-loader">
               <div class="skeleton-group">
                 <div class="skeleton-header">
@@ -256,9 +254,9 @@
                   <div class="skeleton-row"></div>
                 </div>
               </div>
-              <div class="scanning-text">
-                <span class="loading-spinner small"></span>
-                Analyzing token coverage...
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 32px;">
+                <div class="plugin-loading-spinner"></div>
+                <div class="plugin-loading-status" style="margin-top: 0; font-size: 13px; opacity: 0.8;">Analyzing token coverage...</div>
               </div>
             </div>
           `;
@@ -1071,6 +1069,12 @@
           
           // Auto-scan when Quality tab is opened
           if (tab.dataset.tab === "quality") {
+            // Show loader immediately
+            const resultsContainer = document.getElementById("token-coverage-results");
+            if (resultsContainer) {
+              resultsContainer.innerHTML = UIHelper.createSkeletonLoader();
+            }
+
             // Use SMART_SCAN for auto-trigger to find issues across pages if current is clean
             // Add small delay to ensure UI handles update
             setTimeout(() => {
