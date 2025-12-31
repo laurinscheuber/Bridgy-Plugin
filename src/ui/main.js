@@ -223,6 +223,8 @@
           return `<div class="no-items">${message}</div>`;
         }
 
+        static createSkeletonLoader() {
+          return `
             <div class="quality-skeleton-loader">
               <div class="skeleton-group">
                 <div class="skeleton-header">
