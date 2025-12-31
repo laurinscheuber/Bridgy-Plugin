@@ -68,5 +68,71 @@ describe('TokenCoverageService', () => {
       expect(exampleIssue.count).toBe(5);
       expect(exampleIssue.category).toBe('Layout');
     });
+
+    it('should support optional matchingVariables field', () => {
+      const issueWithMatches = {
+        property: 'Width',
+        value: '18px',
+        count: 3,
+        nodeIds: ['node1', 'node2', 'node3'],
+        nodeNames: ['Frame 1', 'Frame 2', 'Frame 3'],
+        nodeFrames: ['Page 1', 'Page 1', 'Page 2'],
+        category: 'Layout' as const,
+        matchingVariables: [
+          {
+            id: 'var1',
+            name: 'spacing-sm',
+            collectionName: 'Primitives',
+            resolvedValue: '18'
+          }
+        ]
+      };
+      
+      expect(issueWithMatches.matchingVariables).toBeDefined();
+      expect(issueWithMatches.matchingVariables?.length).toBe(1);
+      expect(issueWithMatches.matchingVariables?.[0].name).toBe('spacing-sm');
+    });
+  });
+
+  describe('MatchingVariable structure', () => {
+    it('should have correct structure for matching variables', () => {
+      const exampleVariable = {
+        id: 'var-123',
+        name: 'color-primary',
+        collectionName: 'Brand Colors',
+        resolvedValue: 'rgb(139, 92, 246)'
+      };
+      
+      expect(exampleVariable.id).toBe('var-123');
+      expect(exampleVariable.name).toBe('color-primary');
+      expect(exampleVariable.collectionName).toBe('Brand Colors');
+      expect(exampleVariable.resolvedValue).toBe('rgb(139, 92, 246)');
+    });
+  });
+
+  describe('Helper methods', () => {
+    it('should have findMatchingVariables method', () => {
+      const service = TokenCoverageService as any;
+      expect(service.findMatchingVariables).toBeDefined();
+      expect(typeof service.findMatchingVariables).toBe('function');
+    });
+
+    it('should have isVariableTypeMatch method', () => {
+      const service = TokenCoverageService as any;
+      expect(service.isVariableTypeMatch).toBeDefined();
+      expect(typeof service.isVariableTypeMatch).toBe('function');
+    });
+
+    it('should have valuesMatch method', () => {
+      const service = TokenCoverageService as any;
+      expect(service.valuesMatch).toBeDefined();
+      expect(typeof service.valuesMatch).toBe('function');
+    });
+
+    it('should have formatVariableValue method', () => {
+      const service = TokenCoverageService as any;
+      expect(service.formatVariableValue).toBeDefined();
+      expect(typeof service.formatVariableValue).toBe('function');
+    });
   });
 });

@@ -3,6 +3,20 @@
  * Identifies elements that use hard-coded values instead of design tokens
  */
 
+/**
+ * Tolerance for floating point comparison
+ * Color: 0.01 allows ~2.5 difference in RGB values (imperceptible to human eye)
+ * Float: 0.01px is imperceptible in UI
+ */
+const VALUE_MATCH_TOLERANCE = 0.01;
+
+export interface MatchingVariable {
+  id: string;
+  name: string;
+  collectionName: string;
+  resolvedValue: string;
+}
+
 export interface TokenCoverageIssue {
   property: string;
   value: string;
@@ -11,6 +25,7 @@ export interface TokenCoverageIssue {
   nodeNames: string[];
   nodeFrames: string[];
   category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance';
+  matchingVariables?: MatchingVariable[];
 }
 
 export interface TokenCoverageResult {
@@ -146,6 +161,11 @@ export class TokenCoverageService {
     for (const node of nodes) {
       totalNodes++;
       await this.analyzeNode(node, issuesMap);
+    }
+
+    // Find matching variables for each issue
+    for (const issue of issuesMap.values()) {
+      issue.matchingVariables = await this.findMatchingVariables(issue.value, issue.category);
     }
 
     // Group issues by category
@@ -291,8 +311,8 @@ export class TokenCoverageService {
     const fills = node.fills;
     if (!Array.isArray(fills) || fills.length === 0) return;
 
-    // Check if fills are bound to variables
-    if (!this.isVariableBound(node, 'fills')) {
+    // Check if any paint has a color variable bound
+    if (!this.isPaintColorVariableBound(fills)) {
       // Get the first solid fill
       const solidFill = fills.find(fill => fill.type === 'SOLID' && fill.visible !== false);
       if (solidFill && solidFill.type === 'SOLID') {
@@ -315,8 +335,8 @@ export class TokenCoverageService {
     const strokes = node.strokes;
     if (!Array.isArray(strokes) || strokes.length === 0) return;
 
-    // Check stroke color
-    if (!this.isVariableBound(node, 'strokes')) {
+    // Check stroke color (paint-level binding)
+    if (!this.isPaintColorVariableBound(strokes)) {
       const solidStroke = strokes.find(stroke => stroke.type === 'SOLID' && stroke.visible !== false);
       if (solidStroke && solidStroke.type === 'SOLID') {
         const color = solidStroke.color;
@@ -326,8 +346,18 @@ export class TokenCoverageService {
     }
 
     // Check stroke weight - exclude zero values
-    if ('strokeWeight' in node && typeof node.strokeWeight === 'number' && node.strokeWeight !== 0 && !this.isVariableBound(node, 'strokeWeight')) {
-      this.addIssue(issuesMap, 'Stroke Weight', `${node.strokeWeight}px`, node, 'Stroke');
+    const hasNumericStrokeWeight = 'strokeWeight' in node && typeof (node as any).strokeWeight === 'number';
+    const strokeWeightValue = hasNumericStrokeWeight ? (node as any).strokeWeight : 0;
+
+    // Consider any of the individual stroke weights as a valid variable binding as well
+    const anyStrokeWeightBound = this.isVariableBound(node as any, 'strokeWeight') ||
+                                 this.isVariableBound(node as any, 'strokeTopWeight') ||
+                                 this.isVariableBound(node as any, 'strokeRightWeight') ||
+                                 this.isVariableBound(node as any, 'strokeBottomWeight') ||
+                                 this.isVariableBound(node as any, 'strokeLeftWeight');
+
+    if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
+      this.addIssue(issuesMap, 'Stroke Weight', `${strokeWeightValue}px`, node, 'Stroke');
     }
   }
 
@@ -382,11 +412,24 @@ export class TokenCoverageService {
   }
 
   /**
+   * Utility to check whether any SOLID paint has a color variable bound at paint-level
+   */
+  private static isPaintColorVariableBound(paints: ReadonlyArray<Paint>): boolean {
+    if (!Array.isArray(paints)) return false;
+    for (const p of paints) {
+      if (p && p.type === 'SOLID' && (p as any).visible !== false) {
+        const bv = (p as any).boundVariables;
+        if (bv && bv.color) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Checks if a property is bound to a variable (design token)
    */
   private static isVariableBound(node: any, property: string): boolean {
     if (!node.boundVariables) return false;
-    
     const boundVariable = node.boundVariables[property];
     return boundVariable !== undefined && boundVariable !== null;
   }
@@ -509,5 +552,131 @@ export class TokenCoverageService {
     }
 
     return false;
+  }
+
+  /**
+   * Finds design variables that match the given value exactly
+   */
+  private static async findMatchingVariables(
+    value: string,
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+  ): Promise<MatchingVariable[]> {
+    const matchingVars: MatchingVariable[] = [];
+    
+    try {
+      // Get all variable collections
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      
+      for (const collection of collections) {
+        // Get all variables in this collection
+        const variableIds = collection.variableIds;
+        
+        for (const varId of variableIds) {
+          const variable = await figma.variables.getVariableByIdAsync(varId);
+          if (!variable) continue;
+          
+          // Check if variable type matches the category
+          const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
+          if (!isTypeMatch) continue;
+          
+          // Get the resolved value for the current mode
+          const modeId = collection.defaultModeId;
+          const varValue = variable.valuesByMode[modeId];
+          
+          // Compare values based on type
+          if (this.valuesMatch(varValue, value, variable.resolvedType)) {
+            matchingVars.push({
+              id: variable.id,
+              name: variable.name,
+              collectionName: collection.name,
+              resolvedValue: this.formatVariableValue(varValue, variable.resolvedType)
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error finding matching variables:', error);
+    }
+    
+    return matchingVars;
+  }
+
+  /**
+   * Check if variable type matches the issue category
+   * Note: Stroke category includes both COLOR (stroke color) and FLOAT (stroke weight)
+   */
+  private static isVariableTypeMatch(
+    varType: VariableResolvedDataType,
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+  ): boolean {
+    if (category === 'Fill') {
+      return varType === 'COLOR';
+    }
+    if (category === 'Stroke') {
+      // Stroke category includes both stroke color (COLOR) and stroke weight (FLOAT)
+      return varType === 'COLOR' || varType === 'FLOAT';
+    }
+    if (category === 'Layout') {
+      return varType === 'FLOAT';
+    }
+    if (category === 'Appearance') {
+      return varType === 'FLOAT'; // opacity, radius
+    }
+    return false;
+  }
+
+  /**
+   * Check if variable value matches the hard-coded value
+   * Note: Color matching only supports rgb() format as that's how colors are stored by tokenCoverageService
+   */
+  private static valuesMatch(
+    varValue: VariableValue,
+    hardValue: string,
+    varType: VariableResolvedDataType
+  ): boolean {
+    if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
+      // Parse color from rgb(r, g, b) format (this is how we store colors in addIssue)
+      const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!colorMatch) return false;
+      
+      const r = parseInt(colorMatch[1]) / 255;
+      const g = parseInt(colorMatch[2]) / 255;
+      const b = parseInt(colorMatch[3]) / 255;
+      
+      // Compare with tolerance for floating point precision
+      // Tolerance of 0.01 allows for ~2.5 difference in RGB values (0.01 * 255 = 2.55)
+      // This is acceptable for visual matching while being strict enough to avoid false matches
+      return Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
+             Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
+             Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE;
+    }
+    
+    if (varType === 'FLOAT' && typeof varValue === 'number') {
+      // Parse numeric value from strings like "18px", "0.5"
+      const numMatch = hardValue.match(/^([\d.]+)/);
+      if (!numMatch) return false;
+      
+      const hardNum = parseFloat(numMatch[1]);
+      // Compare with small tolerance for floating point precision (0.01px is imperceptible)
+      return Math.abs(varValue - hardNum) < VALUE_MATCH_TOLERANCE;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Format variable value for display
+   */
+  private static formatVariableValue(
+    varValue: VariableValue,
+    varType: VariableResolvedDataType
+  ): string {
+    if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
+      return `rgb(${Math.round(varValue.r * 255)}, ${Math.round(varValue.g * 255)}, ${Math.round(varValue.b * 255)})`;
+    }
+    if (varType === 'FLOAT' && typeof varValue === 'number') {
+      return `${varValue}`;
+    }
+    return String(varValue);
   }
 }
