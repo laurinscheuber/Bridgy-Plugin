@@ -222,6 +222,47 @@
         static renderEmptyState(message) {
           return `<div class="no-items">${message}</div>`;
         }
+
+        static createSkeletonLoader() {
+          return `
+            <div class="quality-skeleton-loader">
+              <div class="skeleton-group">
+                <div class="skeleton-header">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-title"></div>
+                </div>
+                <div class="skeleton-content">
+                  <div class="skeleton-row"></div>
+                  <div class="skeleton-row"></div>
+                  <div class="skeleton-row short"></div>
+                </div>
+              </div>
+              <div class="skeleton-group">
+                <div class="skeleton-header">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-title"></div>
+                </div>
+                <div class="skeleton-content">
+                  <div class="skeleton-row"></div>
+                  <div class="skeleton-row"></div>
+                </div>
+              </div>
+               <div class="skeleton-group">
+                <div class="skeleton-header">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-title"></div>
+                </div>
+                <div class="skeleton-content">
+                  <div class="skeleton-row"></div>
+                </div>
+              </div>
+              <div class="scanning-text">
+                <span class="loading-spinner small"></span>
+                Analyzing token coverage...
+              </div>
+            </div>
+          `;
+        }
       }
 
       // ===== GITLAB URL HELPERS =====
@@ -3754,13 +3795,9 @@
        */
       function analyzeTokenCoverage(scopeOverride) {
         const resultsContainer = document.getElementById("token-coverage-results");
-        const loadingDiv = resultsContainer.querySelector(".content-loading");
-
-        if (resultsContainer && loadingDiv) {
-          // Show loading state
-          loadingDiv.style.display = "flex";
-          resultsContainer.innerHTML = "";
-          resultsContainer.appendChild(loadingDiv);
+        
+        if (resultsContainer) {
+          resultsContainer.innerHTML = UIHelper.createSkeletonLoader();
         }
 
         // Send message to plugin backend
@@ -7836,7 +7873,7 @@ window.clearInput = function() {
       window.collapseAllSubgroups = collapseAllSubgroups;
       window.deleteVariable = deleteVariable;
       window.scrollToVariable = scrollToVariable;
-      window.toggleImportGroup = toggleImportGroup;
+
       window.expandAllImportGroups = expandAllImportGroups;
       
       // Styles Functions
