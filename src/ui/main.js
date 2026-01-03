@@ -3856,6 +3856,16 @@
         if (qualityTab && qualityContent) {
           qualityTab.classList.add("active");
           qualityContent.classList.add("active");
+          
+          // Auto-trigger scan, same as clicking the tab
+          setTimeout(() => {
+              console.log("Auto-triggering Smart Scan from warning button...");
+              if (typeof analyzeTokenCoverage === 'function') {
+                  analyzeTokenCoverage('SMART_SCAN');
+              } else {
+                  console.warn('analyzeTokenCoverage function not found');
+              }
+          }, 100);
         }
       }
 
