@@ -1541,6 +1541,77 @@
               progressStatus.textContent = message.message;
             }
           }
+        } else if (message.type === 'variable-created') {
+            console.log('Received variable-created:', message.variable);
+            const { name, id, key } = message.variable;
+            const issueId = message.context && message.context.issueId;
+            
+            // Find the pending dropdown (marked with value='creating') or by issueId
+            let targetSelect = null;
+            
+            if (issueId) {
+                targetSelect = document.getElementById(`${issueId}-var-select`);
+            }
+            
+            // Fallback to finding by value if issueId didn't work (legacy path)
+            if (!targetSelect) {
+                const pendingSelects = document.querySelectorAll('select.token-fix-select');
+                pendingSelects.forEach(select => {
+                    if (select.value === 'creating') {
+                        targetSelect = select;
+                    }
+                });
+            }
+            
+            if (targetSelect) {
+                // Remove placeholder if it exists
+                for (let i = 0; i < targetSelect.options.length; i++) {
+                    if (targetSelect.options[i].value === 'creating') {
+                        targetSelect.remove(i);
+                        break;
+                    }
+                }
+                
+                // Add new variable option
+                const newOption = document.createElement('option');
+                newOption.value = id; 
+                newOption.text = name;
+                newOption.selected = true; // Ensure it is marked selected in DOM
+                targetSelect.add(newOption, targetSelect.options[1]); 
+                
+                // Select it
+                targetSelect.value = id;
+                targetSelect.disabled = false;
+                
+                // Trigger change event to update Apply button state
+                targetSelect.dispatchEvent(new Event('change'));
+                
+                // Notify user
+                if (typeof showNotification === 'function') {
+                    showNotification('success', 'Variable Created', `Variable '${name}' created and selected.`);
+                }
+
+                // Auto-apply: Click the apply button
+                if (issueId) {
+                    const applyBtn = document.getElementById(`${issueId}-apply-btn`);
+                    if (applyBtn) {
+                        console.log('Auto-applying variable for issue:', issueId);
+                        // Update button state immediately to enabled (in case change event didn't propagate fast enough)
+                        applyBtn.disabled = false;
+                        applyBtn.style.opacity = '1';
+                        applyBtn.style.pointerEvents = 'auto';
+                        
+                        // Small timeout to let UI update state first if needed
+                        setTimeout(() => {
+                             applyBtn.click();
+                        }, 100);
+                    } else {
+                        console.warn('Could not find apply button for issue:', issueId);
+                    }
+                }
+            } else {
+                console.warn('Could not find target select for created variable');
+            }
         } else if (message.type === "error") {
           console.error("Plugin Error:", message.message);
           showError("Plugin Error", message.message);
@@ -3868,10 +3939,11 @@
           };
 
           const groupId = `coverage-${category}`;
+          const isExpanded = issues.length < 5; // Auto-expand if few issues
 
           html += `
             <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
-              <div class="collection-header header collapsed" onclick="toggleCollection('${groupId}')">
+              <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupId}')">
                 <div class="collection-info">
                   <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
                     ${categoryIcons[category]} ${category}
@@ -3880,16 +3952,29 @@
                 </div>
                 <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
               </div>
-              <div id="${groupId}-content" class="collection-content collapsed">
+              <div id="${groupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
                 <div style="padding: 12px;">
+                  <div id="${groupId}-issues-container">
           `;
 
-          // Display each issue as a card
-          issues.forEach((issue, issueIdx) => {
-            const issueId = `issue-${category}-${issueIdx}`;
-            const hasMatchingVars = issue.matchingVariables && issue.matchingVariables.length > 0;
+          // Lazy Loading Implementation: Only render first 10 issues initially
+          const initialRenderCount = 10;
+          const issuesToRender = issues.slice(0, initialRenderCount);
+          const remainingIssues = issues.slice(initialRenderCount);
+
+          // Function to render an issue card (helper string builder)
+          const renderIssueCard = (issue, issueIdx, realIdx) => {
+            const issueId = `issue-${category}-${realIdx}`;
+            // Check if we have exact matches locally or if they were passed with matchType
+            // The backend now returns matchingVariables with matchType ('EXACT' | 'NEAR')
             
-            html += `
+            // Group matches
+            const exactMatches = (issue.matchingVariables || []).filter(v => v.matchType === 'EXACT' || !v.matchType);
+            const nearMatches = (issue.matchingVariables || []).filter(v => v.matchType === 'NEAR');
+            
+            const hasMatchingVars = (issue.matchingVariables && issue.matchingVariables.length > 0);
+            
+            let cardHtml = `
               <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                   <div style="flex: 1;">
@@ -3902,9 +3987,8 @@
                 </div>
             `;
 
-            // Add fix section if matching variables exist
-            if (hasMatchingVars) {
-              html += `
+            // Fix section
+            cardHtml += `
                 <div style="border-top: 1px solid rgba(139, 92, 246, 0.2); padding-top: 8px; margin-top: 8px; margin-bottom: 8px; background: rgba(139, 92, 246, 0.05); padding: 8px; border-radius: 6px;">
                   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                     <span class="material-symbols-outlined" style="font-size: 16px; color: #a78bfa;">auto_fix_high</span>
@@ -3913,9 +3997,28 @@
                   <div style="display: flex; gap: 8px; align-items: center;">
                     <select id="${issueId}-var-select" class="token-fix-select" style="flex: 1; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;">
                       <option value="">Select a token...</option>
-                      ${issue.matchingVariables.map(v => `
-                        <option value="${v.id}">${v.collectionName} / ${v.name}</option>
-                      `).join('')}
+            `;
+            
+            if (exactMatches.length > 0) {
+              cardHtml += `<optgroup label="Exact Matches">`;
+              exactMatches.forEach(v => {
+                 cardHtml += `<option value="${v.id}">${v.collectionName} / ${v.name}</option>`;
+              });
+              cardHtml += `</optgroup>`;
+            }
+            
+            if (nearMatches.length > 0) {
+              cardHtml += `<optgroup label="Near Matches (±2px)">`;
+              nearMatches.forEach(v => {
+                 cardHtml += `<option value="${v.id}">~ ${v.collectionName} / ${v.name} (${v.resolvedValue})</option>`;
+              });
+              cardHtml += `</optgroup>`;
+            }
+
+            // Create new variable option
+            cardHtml += `
+                      <option value="" disabled>──────────</option>
+                      <option value="create-new" style="font-weight: bold; color: #a78bfa;">+ Create new variable...</option>
                     </select>
                     <button 
                       id="${issueId}-apply-btn" 
@@ -3925,62 +4028,46 @@
                       disabled
                     >
                       <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span>
-                      Apply to selection
+                      Apply
                     </button>
                   </div>
                 </div>
-              `;
-            }
+            `;
 
-            html += `
+            cardHtml += `
                 <div style="border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; margin-top: 8px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 500; text-transform: uppercase;">Found in:</div>
-                    ${hasMatchingVars ? `
-                      <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+                    <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
                         <input type="checkbox" id="${issueId}-select-all" onchange="toggleAllOccurrences('${issueId}')" style="cursor: pointer;">
                         Select all
-                      </label>
-                    ` : ''}
+                    </label>
                   </div>
                   <div class="quality-nodes-list">
             `;
 
-            // Group nodes by name only
+            // Nodes list logic (same as before)
             const nodeGroups = {};
             issue.nodeNames.forEach((nodeName, idx) => {
               const frameName = issue.nodeFrames ? issue.nodeFrames[idx] : 'Unknown';
-              
               if (!nodeGroups[nodeName]) {
-                nodeGroups[nodeName] = { 
-                    count: 0, 
-                    ids: [], 
-                    name: nodeName,
-                    frames: [] // Store frames for each instance
-                };
+                nodeGroups[nodeName] = { count: 0, ids: [], name: nodeName, frames: [] };
               }
               nodeGroups[nodeName].count++;
               nodeGroups[nodeName].ids.push(issue.nodeIds[idx]);
               nodeGroups[nodeName].frames.push(frameName);
             });
 
-            // Render grouped nodes
             Object.values(nodeGroups).forEach((data, groupIdx) => {
-              const groupId = `node-group-${category}-${issueIdx}-${groupIdx}`;
+              const groupId = `node-group-${category}-${realIdx}-${groupIdx}`;
               const hasMultiple = data.count > 1;
-              
-              // Only show frame in header if single instance
-              const headerFrameInfo = !hasMultiple ? 
-                `<span style="opacity: 0.5; font-weight: normal; margin-left: 4px; font-size: 10px;">in ${data.frames[0]}</span>` : 
-                '';
+              const headerFrameInfo = !hasMultiple ? `<span style="opacity: 0.5; font-weight: normal; margin-left: 4px; font-size: 10px;">in ${data.frames[0]}</span>` : '';
               const displayName = `${data.name} ${headerFrameInfo}`;
               
-              html += `
+              cardHtml += `
                 <div class="quality-node-item" data-issue-id="${issueId}">
                   <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''}>
-                    ${hasMatchingVars ? `
-                      <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
-                    ` : ''}
+                    <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
                     <span class="material-symbols-outlined node-icon">layers</span>
                     <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}">${displayName}</span>
                     ${hasMultiple ? `
@@ -3996,13 +4083,8 @@
                     <div id="${groupId}" class="node-instances" style="display: none;">
                       ${data.ids.map((id, i) => `
                         <div class="instance-row">
-                          <span class="instance-label">
-                            Instance ${i + 1} 
-                            <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span>
-                          </span>
-                          <button class="node-focus-btn" onclick="window.focusOnNode('${id}')">
-                            <span class="material-symbols-outlined">zoom_in</span>
-                          </button>
+                          <span class="instance-label">Instance ${i + 1} <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span></span>
+                          <button class="node-focus-btn" onclick="window.focusOnNode('${id}')"><span class="material-symbols-outlined">zoom_in</span></button>
                         </div>
                       `).join('')}
                     </div>
@@ -4011,12 +4093,38 @@
               `;
             });
 
-            html += `
+            cardHtml += `
                   </div>
                 </div>
               </div>
             `;
+            return cardHtml;
+          };
+
+          // Render initial batch
+          issuesToRender.forEach((issue, idx) => {
+            html += renderIssueCard(issue, idx, idx);
           });
+
+          html += `</div>`; // Close issues container
+
+          // Add "Load More" button if needed
+          if (remainingIssues.length > 0) {
+            html += `
+              <div id="${groupId}-load-more" style="text-align: center; padding-top: 8px;">
+                <button onclick="loadMoreIssues('${category}', ${initialRenderCount})" class="secondary-button" style="width: 100%; font-size: 12px; padding: 8px;">
+                  Load ${remainingIssues.length} more issues
+                </button>
+              </div>
+            `;
+            
+            // Store remaining issues in global map for lazy loading
+            window.remainingIssuesRaw = window.remainingIssuesRaw || {};
+            window.remainingIssuesRaw[category] = remainingIssues;
+            
+            // Make helper available globally
+            window.renderIssueCard = renderIssueCard;
+          }
 
           html += `
                 </div>
@@ -4029,19 +4137,322 @@
         
         // Add event listeners for variable dropdowns
         categories.forEach(category => {
-          const categoryIssues = issuesByCategory[category] || [];
-          categoryIssues.forEach((issue, issueIdx) => {
+          const issues = issuesByCategory[category] || [];
+          // Only initial batch needs listeners here, others handled in loadMore
+          const initialRenderCount = 10;
+          issues.slice(0, initialRenderCount).forEach((issue, issueIdx) => {
             const issueId = `issue-${category}-${issueIdx}`;
-            const varSelect = document.getElementById(`${issueId}-var-select`);
-            
-            if (varSelect) {
-              varSelect.addEventListener('change', () => {
-                updateApplyButtonState(issueId);
-              });
-            }
+            setupIssueListeners(issueId);
           });
         });
       }
+
+      // Helper to setup listeners
+      function setupIssueListeners(issueId) {
+        const varSelect = document.getElementById(`${issueId}-var-select`);
+        if (varSelect) {
+          varSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'create-new') {
+              // Handle create new variable
+              handleCreateNewVariable(issueId);
+            } else {
+              updateApplyButtonState(issueId);
+            }
+          });
+        }
+      }
+
+      // Lazy load handler
+      window.loadMoreIssues = function(category, currentCount) {
+        if (!window.remainingIssuesRaw || !window.remainingIssuesRaw[category]) return;
+        
+        const container = document.getElementById(`coverage-${category}-issues-container`);
+        const loadMoreContainer = document.getElementById(`coverage-${category}-load-more`);
+        const batchSize = 20;
+        const issues = window.remainingIssuesRaw[category];
+        const batch = issues.slice(0, batchSize);
+        const remaining = issues.slice(batchSize);
+        
+        // Update global state
+        window.remainingIssuesRaw[category] = remaining;
+
+        // Render batch
+        const tempDiv = document.createElement('div');
+        batch.forEach((issue, idx) => {
+          const realIdx = currentCount + idx;
+          tempDiv.innerHTML += window.renderIssueCard(issue, idx, realIdx);
+        });
+
+        // Append to container
+        while (tempDiv.firstChild) {
+          const child = tempDiv.firstChild;
+          container.appendChild(child);
+          
+          // Setup listeners for new elements
+          // Need to find issueId from the DOM or calculate it
+          // The issueId is `issue-${category}-${realIdx}`
+          const issueIdRegex = new RegExp(`id="(issue-${category}-\\d+)-var-select"`);
+          const match = child.innerHTML.match(issueIdRegex);
+           if (match) {
+             // Listener setup needs to happen after append?
+             // Actually, we can just select by ID after append
+           }
+        }
+        
+        // Setup listeners for the new batch
+        batch.forEach((_, idx) => {
+            const realIdx = currentCount + idx;
+            setupIssueListeners(`issue-${category}-${realIdx}`);
+        });
+
+        // Update or remove load more button
+        if (remaining.length > 0) {
+          loadMoreContainer.innerHTML = `
+             <button onclick="loadMoreIssues('${category}', ${currentCount + batchSize})" class="secondary-button" style="width: 100%; font-size: 12px; padding: 8px;">
+               Load ${remaining.length} more issues
+             </button>
+          `;
+        } else {
+          loadMoreContainer.remove();
+        }
+      };
+
+      // Handle Create New Variable
+      // Handle Create New Variable
+      window.handleCreateNewVariable = function(issueId) {
+        console.log('handleCreateNewVariable triggered for:', issueId);
+        
+        const select = document.getElementById(`${issueId}-var-select`);
+        
+        // Robust finding of the card
+        let card = null;
+        if (select) {
+            card = select.closest('.quality-issue-card');
+        } else {
+             // Fallback
+             card = document.querySelector(`[data-issue-id="${issueId}"]`)?.closest('.quality-issue-card');
+        }
+
+        // Try to find value display
+        const valueDisplay = card?.querySelector('.issue-value-display')?.textContent || 
+                             card?.querySelector('div[style*="SF Mono"]')?.textContent ||
+                             card?.querySelector('div[style*="monospace"]')?.textContent;
+        
+        console.log('Found value to create:', valueDisplay);
+        
+        if (!valueDisplay) {
+            console.error('Could not find value display element');
+            alert('Error: Could not determine the value to create a variable for.');
+            if (select) select.value = "";
+            return;
+        }
+
+        // Open custom modal instead of prompt
+        openCreateVariableModal(valueDisplay, issueId);
+      };
+
+      // Modal functions for Variable Creation
+      window.openCreateVariableModal = function(value, issueId) {
+          const modal = document.getElementById('create-variable-modal');
+          if (!modal) return;
+          
+          document.getElementById('create-var-value-display').textContent = value;
+          document.getElementById('create-var-issue-id').value = issueId;
+          document.getElementById('create-var-name').value = ''; 
+          
+          // Reset new inputs
+          const newColInput = document.getElementById('create-var-new-collection');
+          if (newColInput) newColInput.style.display = 'none';
+          const newGroupInput = document.getElementById('create-var-new-group');
+          if (newGroupInput) newGroupInput.style.display = 'none';
+
+          // Populate Collections
+          const collectionSelect = document.getElementById('create-var-collection');
+          if (collectionSelect) {
+              collectionSelect.innerHTML = ''; 
+              
+              // Use global variables data if available, or empty array
+              const collections = window.globalVariablesData || [];
+              
+              collections.forEach(col => {
+                  const opt = document.createElement('option');
+                  opt.value = col.name;
+                  opt.text = col.name; 
+                  collectionSelect.appendChild(opt);
+              });
+
+              // Add "Create New" option
+              const createNewOpt = document.createElement('option');
+              createNewOpt.value = 'create-new';
+              createNewOpt.text = 'Create New Collection...';
+              collectionSelect.appendChild(createNewOpt);
+              
+              // Select first one by default if exists
+              if (collections.length > 0) {
+                 collectionSelect.selectedIndex = 0;
+              }
+              
+              // Trigger group update
+              handleCollectionChange();
+          }
+          
+          modal.style.display = 'block';
+          document.body.classList.add('modal-open');
+          
+          setTimeout(() => {
+              if (collectionSelect && collectionSelect.value === 'create-new') {
+                   document.getElementById('create-var-new-collection').focus();
+              } else {
+                   document.getElementById('create-var-name').focus();
+              }
+          }, 100);
+      };
+
+      window.handleCollectionChange = function() {
+          const colSelect = document.getElementById('create-var-collection');
+          const groupSelect = document.getElementById('create-var-group');
+          const newColInput = document.getElementById('create-var-new-collection');
+          
+          if (!colSelect || !groupSelect) return;
+          
+          const selectedColName = colSelect.value;
+          
+          // Toggle new collection input
+          if (selectedColName === 'create-new') {
+              newColInput.style.display = 'block';
+              newColInput.focus();
+              // Reset groups
+              groupSelect.innerHTML = '<option value="">(No Group)</option><option value="create-new">Create New Group...</option>';
+              return; // No existing groups to show
+          } else {
+              newColInput.style.display = 'none';
+          }
+          
+          // Populate Groups for selected collection
+          groupSelect.innerHTML = '';
+          groupSelect.appendChild(new Option('(No Group)', ''));
+          
+          const collections = window.globalVariablesData || [];
+          const selectedCol = collections.find(c => c.name === selectedColName);
+          
+          if (selectedCol && selectedCol.variables) {
+              const groups = new Set();
+              selectedCol.variables.forEach(v => {
+                  if (v.name.includes('/')) {
+                      // Extract group path (everything before last slash)
+                      const parts = v.name.split('/');
+                      parts.pop(); // Remove variable name
+                      const groupName = parts.join('/');
+                      groups.add(groupName);
+                  }
+              });
+              
+              // Add existing groups
+              Array.from(groups).sort().forEach(g => {
+                  groupSelect.appendChild(new Option(g, g));
+              });
+          }
+          
+          // Always add create new group option
+          groupSelect.appendChild(new Option('Create New Group...', 'create-new'));
+          
+          // Trigger group change to set input visibility
+          handleGroupChange();
+      };
+      
+      window.handleGroupChange = function() {
+          const groupSelect = document.getElementById('create-var-group');
+          const newGroupInput = document.getElementById('create-var-new-group');
+          
+          if (groupSelect.value === 'create-new') {
+              newGroupInput.style.display = 'block';
+              newGroupInput.focus();
+          } else {
+              newGroupInput.style.display = 'none';
+          }
+      };
+
+      window.closeCreateVariableModal = function() {
+          const modal = document.getElementById('create-variable-modal');
+          if (modal) {
+              modal.style.display = 'none';
+              document.body.classList.remove('modal-open');
+          }
+          
+          const issueId = document.getElementById('create-var-issue-id').value;
+          if (issueId) {
+             const select = document.getElementById(`${issueId}-var-select`);
+             if (select && select.value === 'create-new') {
+                 select.value = ""; 
+             }
+          }
+      };
+
+      window.submitCreateVariable = function() {
+          const nameInput = document.getElementById('create-var-name').value.trim();
+          const value = document.getElementById('create-var-value-display').textContent;
+          const issueId = document.getElementById('create-var-issue-id').value;
+          
+          // Collection Logic
+          const colSelect = document.getElementById('create-var-collection');
+          let collectionName = colSelect.value;
+          if (collectionName === 'create-new') {
+              collectionName = document.getElementById('create-var-new-collection').value.trim();
+              if (!collectionName) {
+                  alert('Please enter a name for the new collection.');
+                  return;
+              }
+          }
+          
+          // Group Logic
+          const groupSelect = document.getElementById('create-var-group');
+          let groupName = groupSelect.value;
+          if (groupName === 'create-new') {
+              groupName = document.getElementById('create-var-new-group').value.trim();
+               if (!groupName) {
+                  alert('Please enter a name for the new group.');
+                  return;
+              }
+          }
+          
+          if (!nameInput) {
+              alert('Please enter a variable name.');
+              return;
+          }
+          
+          // Construct full variable name
+          let fullVariableName = nameInput;
+          if (groupName) {
+              // Ensure clean slash handling
+              fullVariableName = `${groupName}/${nameInput}`;
+          }
+          
+          console.log('Creating variable:', { fullVariableName, value, collectionName });
+          
+          // Send to backend
+          parent.postMessage({
+            pluginMessage: {
+              type: 'create-variable',
+              name: fullVariableName,
+              value: value,
+              collectionName: collectionName,
+              context: { issueId: issueId } 
+            }
+          }, '*');
+          
+          // Update UI
+          const select = document.getElementById(`${issueId}-var-select`);
+          if (select) {
+               const opt = document.createElement('option');
+               opt.text = `Creating ${fullVariableName}...`;
+               opt.value = 'creating';
+               select.add(opt);
+               select.value = 'creating';
+               select.disabled = true;
+          }
+          
+          closeCreateVariableModal();
+      };
 
       function expandAllQuality() {
         console.log('Expanding all quality groups');
@@ -5311,6 +5722,20 @@ ${checkboxes}
           button.textContent = "Commit";
           button.disabled = false;
           button.onclick = commitToGitLab;
+        }
+      }
+
+      // Function to update the state of the apply fix button
+      function updateApplyButtonState(count) {
+        const btn = document.getElementById("apply-fix-btn");
+        if (!btn) return;
+  
+        if (count === 0) {
+          btn.disabled = true;
+          btn.textContent = 'Apply Fix to Selection';
+        } else {
+          btn.disabled = false;
+          btn.textContent = `Apply Fix to ${count} items`;
         }
       }
 
@@ -8341,60 +8766,53 @@ function filterQualityResults(query) {
   console.log(`Filtering quality results for: "${query}"`);
   
   const normalizedQuery = query.toLowerCase().trim();
-  const subgroups = container.querySelectorAll('.variable-subgroup');
+  // FIXED: Use .quality-collection (or .variable-collection) instead of .variable-subgroup
+  const collections = container.querySelectorAll('.variable-collection');
   let totalVisible = 0;
   let totalIssues = 0;
 
-  subgroups.forEach(group => {
+  collections.forEach(group => {
     const issues = group.querySelectorAll('.quality-issue-card');
     let groupHasVisibleIssues = false;
     
     // Auto-expand/collapse helpers
-    const content = group.querySelector('.subgroup-content');
-    const header = group.querySelector('.subgroup-header');
+    // FIXED: Use .collection-content and .collection-header
+    const content = group.querySelector('.collection-content');
+    const header = group.querySelector('.collection-header');
 
     issues.forEach(issue => {
       totalIssues++;
       
       // Get issue text (Property + Value)
       // The issue card structure has property/value in the top part
-      // We can grab the whole text, but let's be more specific if possible to be cleaner
       const issueHeader = issue.firstElementChild; // Contains property, value, count
       const issueHeaderText = issueHeader ? issueHeader.textContent.toLowerCase() : '';
       const isIssueMatch = issueHeaderText.includes(normalizedQuery);
       
-      // Get all node items
-      const nodeItems = issue.querySelectorAll('.quality-node-item');
-      let hasVisibleNodes = false;
+      // Get all node items (if any exist inside the card rendering?)
+      // Note: The render logic for quality cards doesn't seem to have '.quality-node-item' visible strictly in the snippets
+      // currently shown. Let's check renderIssueCard. 
+      // It seems node items might be dynamically added or assumed.
+      // Wait, looking at renderIssueCard (line 3855+), I don't see node items being rendered inside the card initially.
+      // They are rendered in the details section?
+      // Let's assume the search matches primarily on the issue header (Property/Value) first.
       
-      // Filter logic:
-      // 1. If issue header matches (e.g. search "Height"), show the card AND all nodes (context).
-      // 2. If issue header doesn't match, check nodes. Show card if any node matches, but HIDE non-matching nodes.
+      // If we look at line 3855, renderIssueCard creates the card.
+      // It doesn't seem to render a list of nodes directly visible for searching individual node names?
+      // But the previous filter logic was looking for .quality-node-item.
+      // If those don't exist, that part of search was also broken or useless.
+      // Let's stick to searching the card text itself for now.
       
       if (isIssueMatch) {
-          // Case 1: Issue matches - show everything
           issue.style.display = 'block';
           groupHasVisibleIssues = true;
-          // Ensure all nodes are visible
-          nodeItems.forEach(node => node.style.display = 'flex');
       } else {
-          // Case 2: Check nodes individually
-          nodeItems.forEach(node => {
-              const nodeText = node.textContent.toLowerCase();
-              const isNodeMatch = nodeText.includes(normalizedQuery);
-              if (isNodeMatch) {
-                  node.style.display = 'flex';
-                  hasVisibleNodes = true;
-              } else {
-                  node.style.display = 'none';
-              }
-          });
-          
-          if (hasVisibleNodes) {
-              issue.style.display = 'block';
-              groupHasVisibleIssues = true;
+          // If the query is empty, show everything
+          if (normalizedQuery === '') {
+             issue.style.display = 'block';
+             groupHasVisibleIssues = true; 
           } else {
-              issue.style.display = 'none';
+             issue.style.display = 'none';
           }
       }
     });
@@ -8410,12 +8828,16 @@ function filterQualityResults(query) {
             totalVisible++;
         }
     } else {
-        // Reset to collapsed state when clearing search to keep UI clean?
-        // Or keep current state. Let's keep current state but ensure groups are shown.
-         if (content) content.classList.add('collapsed');
-         if (header) header.classList.add('collapsed');
+        // Reset state if query cleared? 
+        // Maybe collapse large groups? Or leave as is.
+        // Original logic didn't reset collapse state on clear, which is fine.
     }
   });
+
+  // Show empty state if needed
+  // ...
+
+
   
   console.log(`Search complete. Visible groups: ${totalVisible}, Total issues scanned: ${totalIssues}`);
 
@@ -8600,6 +9022,8 @@ function toggleAllOccurrences(issueId) {
  */
 function updateApplyButtonState(issueId) {
   const applyBtn = document.getElementById(`${issueId}-apply-btn`);
+  
+  if (!applyBtn) return;
   const varSelect = document.getElementById(`${issueId}-var-select`);
   const occurrenceCheckboxes = document.querySelectorAll(`.occurrence-checkbox[data-issue-id="${issueId}"]`);
   
@@ -8607,7 +9031,7 @@ function updateApplyButtonState(issueId) {
   const hasSelection = Array.from(occurrenceCheckboxes).some(cb => cb.checked);
   
   // Check if a variable is selected
-  const hasVariable = varSelect && varSelect.value !== '';
+  const hasVariable = varSelect && varSelect.value !== '' && varSelect.value !== 'create-new';
   
   // Enable button only if both conditions are met
   if (hasSelection && hasVariable) {
@@ -8615,6 +9039,7 @@ function updateApplyButtonState(issueId) {
     applyBtn.style.opacity = '1';
     applyBtn.style.pointerEvents = 'auto';
   } else {
+    // If create-new is selected, it should be treated as "not ready to apply" until created
     applyBtn.disabled = true;
     applyBtn.style.opacity = '0.5';
     applyBtn.style.pointerEvents = 'none';

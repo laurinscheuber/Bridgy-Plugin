@@ -1115,4 +1115,53 @@
       <p class="error-help">Please check your credentials and try again.</p>
     </div>
 
+    <!-- Create Variable Modal -->
+    <div id="create-variable-modal" class="modal">
+      <div class="modal-content">
+        <button class="close-modal" onclick="closeCreateVariableModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+        <div class="modal-header">
+          <h3>Create New Variable</h3>
+        </div>
+        <div class="modal-body">
+          <p>Create a new variable for value: <strong id="create-var-value-display" style="color: var(--purple-light); font-family: monospace;"></strong></p>
+          
+          <!-- Collection Section -->
+          <div class="form-group">
+            <label for="create-var-collection">Collection</label>
+            <select id="create-var-collection" onchange="handleCollectionChange()" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: var(--radius-sm); color: var(--text-primary); margin-bottom: 8px;">
+                 <!-- Populated by JS -->
+            </select>
+            <input type="text" id="create-var-new-collection" placeholder="New Collection Name" style="display: none; width: 100%; margin-top: 4px;" />
+            <div class="settings-helper">Select target collection</div>
+          </div>
+
+          <!-- Group Section -->
+          <div class="form-group">
+            <label for="create-var-group">Group</label>
+            <select id="create-var-group" onchange="handleGroupChange()" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: var(--radius-sm); color: var(--text-primary); margin-bottom: 8px;">
+                 <option value="">(No Group)</option>
+                 <option value="create-new">Create New Group...</option>
+            </select>
+             <input type="text" id="create-var-new-group" placeholder="New Group Name (e.g. colors/primary)" style="display: none; width: 100%; margin-top: 4px;" />
+            <div class="settings-helper">Select existing group or create new</div>
+          </div>
+
+          <!-- Variable Name Section -->
+          <div class="form-group">
+            <label for="create-var-name">Variable Name</label>
+            <input type="text" id="create-var-name" placeholder="Name (e.g. 500 or md)" />
+            <div class="settings-helper">Final variable name (will be combined with group)</div>
+          </div>
+          
+          <input type="hidden" id="create-var-issue-id" />
+        </div>
+        <div class="modal-footer">
+          <button onclick="closeCreateVariableModal()" class="btn-secondary">Cancel</button>
+          <button onclick="submitCreateVariable()" class="primary-action-btn">Create Variable</button>
+        </div>
+      </div>
+    </div>
+
 
