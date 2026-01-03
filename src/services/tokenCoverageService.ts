@@ -15,6 +15,7 @@ export interface MatchingVariable {
   name: string;
   collectionName: string;
   resolvedValue: string;
+  matchType: 'EXACT' | 'NEAR';
 }
 
 export interface TokenCoverageIssue {
@@ -158,6 +159,11 @@ export class TokenCoverageService {
     const issuesMap: Map<string, TokenCoverageIssue> = new Map();
     let totalNodes = 0;
 
+    // Optimization: Fetch all variables once
+    console.log('Fetching variables for analysis...');
+    const allVariables = await this.getAllVariables();
+    console.log(`Fetched ${allVariables.length} variables for analysis`);
+
     for (const node of nodes) {
       totalNodes++;
       await this.analyzeNode(node, issuesMap);
@@ -165,7 +171,7 @@ export class TokenCoverageService {
 
     // Find matching variables for each issue
     for (const issue of issuesMap.values()) {
-      issue.matchingVariables = await this.findMatchingVariables(issue.value, issue.category);
+      issue.matchingVariables = await this.findMatchingVariables(issue.value, issue.category, allVariables);
     }
 
     // Group issues by category
@@ -193,12 +199,31 @@ export class TokenCoverageService {
   }
 
   /**
+   * Helper to check if a node is inside an InstanceNode
+   */
+  private static isInsideInstance(node: SceneNode): boolean {
+    let parent = node.parent;
+    while (parent && parent.type !== 'PAGE' && parent.type !== 'DOCUMENT') {
+      if (parent.type === 'INSTANCE') {
+        return true;
+      }
+      parent = parent.parent;
+    }
+    return false;
+  }
+
+  /**
    * Analyzes a single node for token coverage issues
    */
   private static async analyzeNode(
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>
   ): Promise<void> {
+    // Skip if node is inside an instance (we only care about the instance itself or non-instance nodes)
+    if (this.isInsideInstance(node)) {
+      return;
+    }
+
     // Check Layout properties
     this.checkLayoutProperties(node, issuesMap);
 
@@ -431,6 +456,7 @@ export class TokenCoverageService {
   private static isVariableBound(node: any, property: string): boolean {
     if (!node.boundVariables) return false;
     const boundVariable = node.boundVariables[property];
+    // console.log(`Checking bound var for ${node.name} on ${property}:`, boundVariable);
     return boundVariable !== undefined && boundVariable !== null;
   }
 
@@ -485,20 +511,26 @@ export class TokenCoverageService {
   }
 
   /**
-   * Checks if width is dynamic (Hug or Fill)
+   * Checks if width is dynamic (Hug or Fill) or if usage implies dynamic behavior (Auto Layout)
    */
   private static isWidthDynamic(node: SceneNode): boolean {
-    // 1. Check for "Hug contents"
-    // Available on Frame, Component, ComponentSet, Instance
+    // 1. Auto Layout Containers:
+    // User request: "only show fixed values without auto layout"
+    // If the node itself is an Auto Layout frame, we treat it as dynamic/handled
+    // and skip forcing width tokens, unless the user specifically wants to tokenize card widths.
     if ('layoutMode' in node && node.layoutMode !== 'NONE') {
-      if (node.layoutMode === 'HORIZONTAL') {
-        if (node.primaryAxisSizingMode === 'AUTO') return true;
-      } else if (node.layoutMode === 'VERTICAL') {
-        if (node.counterAxisSizingMode === 'AUTO') return true;
-      }
+      return true;
     }
 
-    // 2. Check for "Fill container"
+    // 2. Modern API Check: layoutSizingHorizontal
+    // This handles FIXED vs HUG vs FILL more reliably if available
+    if ('layoutSizingHorizontal' in node) {
+        const sizing = (node as any).layoutSizingHorizontal;
+        // If it's anything other than FIXED (e.g. HUG, FILL), treat as dynamic
+        if (sizing && sizing !== 'FIXED') return true;
+    }
+
+    // 3. Check for "Fill container" (Legacy/Fallback)
     // Depends on parent's auto layout settings
     const parent = node.parent;
     if (parent && 'layoutMode' in parent && parent.layoutMode !== 'NONE') {
@@ -520,19 +552,23 @@ export class TokenCoverageService {
   }
 
   /**
-   * Checks if height is dynamic (Hug or Fill)
+   * Checks if height is dynamic (Hug or Fill) or if usage implies dynamic behavior (Auto Layout)
    */
   private static isHeightDynamic(node: SceneNode): boolean {
-    // 1. Check for "Hug contents"
+    // 1. Auto Layout Containers:
+    // If the node itself is an Auto Layout frame, we treat it as dynamic/handled
     if ('layoutMode' in node && node.layoutMode !== 'NONE') {
-      if (node.layoutMode === 'HORIZONTAL') {
-        if (node.counterAxisSizingMode === 'AUTO') return true;
-      } else if (node.layoutMode === 'VERTICAL') {
-        if (node.primaryAxisSizingMode === 'AUTO') return true;
-      }
+      return true;
     }
 
-    // 2. Check for "Fill container"
+    // 2. Modern API Check: layoutSizingVertical
+    if ('layoutSizingVertical' in node) {
+        const sizing = (node as any).layoutSizingVertical;
+        // If it's anything other than FIXED (e.g. HUG, FILL), treat as dynamic
+        if (sizing && sizing !== 'FIXED') return true;
+    }
+
+    // 3. Check for "Fill container" (Legacy/Fallback)
     const parent = node.parent;
     if (parent && 'layoutMode' in parent && parent.layoutMode !== 'NONE') {
       if (parent.layoutMode === 'HORIZONTAL') {
@@ -555,50 +591,70 @@ export class TokenCoverageService {
   }
 
   /**
-   * Finds design variables that match the given value exactly
+   * Helper to get all variables with their resolved values
    */
-  private static async findMatchingVariables(
-    value: string,
-    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
-  ): Promise<MatchingVariable[]> {
-    const matchingVars: MatchingVariable[] = [];
-    
+  private static async getAllVariables(): Promise<any[]> {
+    const allVars: any[] = [];
     try {
-      // Get all variable collections
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      
       for (const collection of collections) {
-        // Get all variables in this collection
-        const variableIds = collection.variableIds;
-        
-        for (const varId of variableIds) {
+        for (const varId of collection.variableIds) {
           const variable = await figma.variables.getVariableByIdAsync(varId);
-          if (!variable) continue;
-          
-          // Check if variable type matches the category
-          const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
-          if (!isTypeMatch) continue;
-          
-          // Get the resolved value for the current mode
-          const modeId = collection.defaultModeId;
-          const varValue = variable.valuesByMode[modeId];
-          
-          // Compare values based on type
-          if (this.valuesMatch(varValue, value, variable.resolvedType)) {
-            matchingVars.push({
-              id: variable.id,
-              name: variable.name,
-              collectionName: collection.name,
-              resolvedValue: this.formatVariableValue(varValue, variable.resolvedType)
+          if (variable) {
+            allVars.push({
+              variable,
+              collection
             });
           }
         }
       }
-    } catch (error) {
-      console.error('Error finding matching variables:', error);
+    } catch (e) {
+      console.error('Error fetching all variables:', e);
+    }
+    return allVars;
+  }
+
+  /**
+   * Finds design variables that match the given value exactly or nearly
+   */
+  private static async findMatchingVariables(
+    value: string,
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
+    allVariables: any[]
+  ): Promise<MatchingVariable[]> {
+    const matchingVars: MatchingVariable[] = [];
+    
+    // Process pre-fetched variables
+    for (const { variable, collection } of allVariables) {
+      // Check if variable type matches the category
+      const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
+      if (!isTypeMatch) continue;
+      
+      // Get the resolved value for the current mode
+      const modeId = collection.defaultModeId;
+      const varValue = variable.valuesByMode[modeId];
+      
+      // Compare values based on type
+      const matchType = this.valuesMatch(varValue, value, variable.resolvedType);
+      
+      if (matchType) {
+        matchingVars.push({
+          id: variable.id,
+          name: variable.name,
+          collectionName: collection.name,
+          resolvedValue: this.formatVariableValue(varValue, variable.resolvedType),
+          matchType: matchType
+        });
+      }
     }
     
-    return matchingVars;
+    // Sort: Exact matches first, then by name
+    return matchingVars.sort((a, b) => {
+      if (a.matchType !== b.matchType) {
+        return a.matchType === 'EXACT' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
   }
 
   /**
@@ -627,41 +683,52 @@ export class TokenCoverageService {
 
   /**
    * Check if variable value matches the hard-coded value
-   * Note: Color matching only supports rgb() format as that's how colors are stored by tokenCoverageService
    */
   private static valuesMatch(
     varValue: VariableValue,
     hardValue: string,
     varType: VariableResolvedDataType
-  ): boolean {
+  ): 'EXACT' | 'NEAR' | null {
     if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
       // Parse color from rgb(r, g, b) format (this is how we store colors in addIssue)
       const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-      if (!colorMatch) return false;
+      if (!colorMatch) return null;
       
       const r = parseInt(colorMatch[1]) / 255;
       const g = parseInt(colorMatch[2]) / 255;
       const b = parseInt(colorMatch[3]) / 255;
       
-      // Compare with tolerance for floating point precision
-      // Tolerance of 0.01 allows for ~2.5 difference in RGB values (0.01 * 255 = 2.55)
-      // This is acceptable for visual matching while being strict enough to avoid false matches
-      return Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
-             Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
-             Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE;
+      // Exact match check (with small tolerance for float precision)
+      if (Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
+          Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
+          Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE) {
+        return 'EXACT';
+      }
+      
+      // Near match: No near match for colors currently requested, but could handle it later
+      return null;
     }
     
     if (varType === 'FLOAT' && typeof varValue === 'number') {
       // Parse numeric value from strings like "18px", "0.5"
       const numMatch = hardValue.match(/^([\d.]+)/);
-      if (!numMatch) return false;
+      if (!numMatch) return null;
       
       const hardNum = parseFloat(numMatch[1]);
-      // Compare with small tolerance for floating point precision (0.01px is imperceptible)
-      return Math.abs(varValue - hardNum) < VALUE_MATCH_TOLERANCE;
+      const diff = Math.abs(varValue - hardNum);
+      
+      // Exact match
+      if (diff < VALUE_MATCH_TOLERANCE) {
+        return 'EXACT';
+      }
+      
+      // Near match (within 2px)
+      if (diff <= 2.0) {
+        return 'NEAR';
+      }
     }
     
-    return false;
+    return null;
   }
 
   /**
