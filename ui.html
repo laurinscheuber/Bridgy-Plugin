@@ -1419,41 +1419,9 @@
 
         static createSkeletonLoader() {
           return `
-            <div class="quality-skeleton-loader">
-              <div class="skeleton-group">
-                <div class="skeleton-header">
-                  <div class="skeleton-icon"></div>
-                  <div class="skeleton-title"></div>
-                </div>
-                <div class="skeleton-content">
-                  <div class="skeleton-row"></div>
-                  <div class="skeleton-row"></div>
-                  <div class="skeleton-row short"></div>
-                </div>
-              </div>
-              <div class="skeleton-group">
-                <div class="skeleton-header">
-                  <div class="skeleton-icon"></div>
-                  <div class="skeleton-title"></div>
-                </div>
-                <div class="skeleton-content">
-                  <div class="skeleton-row"></div>
-                  <div class="skeleton-row"></div>
-                </div>
-              </div>
-               <div class="skeleton-group">
-                <div class="skeleton-header">
-                  <div class="skeleton-icon"></div>
-                  <div class="skeleton-title"></div>
-                </div>
-                <div class="skeleton-content">
-                  <div class="skeleton-row"></div>
-                </div>
-              </div>
-              <div class="scanning-text">
-                <span class="loading-spinner small"></span>
-                Analyzing token coverage...
-              </div>
+            <div class="quality-skeleton-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0;">
+              <div class="plugin-loading-spinner"></div>
+              <div class="plugin-loading-status" style="margin-top: 0; font-size: 13px; opacity: 0.8;">Analyzing token coverage...</div>
             </div>
           `;
         }
