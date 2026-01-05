@@ -2015,14 +2015,51 @@ window.toggleComponent = (id) => {
           showNotification('error', 'Analysis Failed', message.error || 'Failed to analyze token coverage');
         } else if (message.type === "apply-token-result") {
           // Handle token application result
+          
+          // Check for inline feedback target
+          if (window.lastApplyButtonId) {
+             const btn = document.getElementById(window.lastApplyButtonId);
+             if (btn) {
+                 btn.classList.remove('btn-loading');
+                 
+                 if (message.success) {
+                    btn.classList.add('btn-success');
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Applied';
+                 } else {
+                    // Revert on error so user can see it failed, but let the global notification show the error details
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
+                    updateApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
+                 }
+                 
+                 // Reset after delay
+                 setTimeout(() => {
+                    // Only reset visual state, logic state is handled by updateApplyButtonState
+                    if (message.success && btn.classList.contains('btn-success')) {
+                       btn.classList.remove('btn-success');
+                       btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
+                       updateApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
+                    }
+                    window.lastApplyButtonId = null; 
+                 }, 2000);
+             }
+          }
+          
+          // Show global notification only if NOT handled inline OR if it's an error
+          const handledInline = !!window.lastApplyButtonId && message.success;
+          
+          if (!handledInline) {
+              if (message.success) {
+                showNotification('success', 'Token Applied', `Successfully applied token to ${message.successCount} node${message.successCount !== 1 ? 's' : ''}`);
+              } else {
+                showNotification('error', 'Application Failed', message.error || 'Failed to apply token');
+              }
+          }
+
           if (message.success) {
-            showNotification('success', 'Token Applied', `Successfully applied token to ${message.successCount} node${message.successCount !== 1 ? 's' : ''}`);
             // Re-run analysis to update the UI
             analyzeTokenCoverage();
-          } else {
-            showNotification('error', 'Application Failed', message.error || 'Failed to apply token');
           }
-        }
         } catch (error) {
           console.error('Error handling plugin message:', error);
           
@@ -9242,12 +9279,16 @@ function applyTokenToSelection(issueId, property, category) {
   
   console.log('Applying token:', { variableId, property, category, nodeIds });
   
+
   // Disable button during operation
   const applyBtn = document.getElementById(`${issueId}-apply-btn`);
-  const originalText = applyBtn.innerHTML;
+  
+  // Track this button for success feedback handler
+  window.lastApplyButtonId = `${issueId}-apply-btn`;
+  
   applyBtn.disabled = true;
-  applyBtn.style.opacity = '0.5';
-  applyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Applying...';
+  applyBtn.classList.add('btn-loading');
+  applyBtn.innerHTML = ''; // Clear content for spinner
   
   // Send message to plugin
   parent.postMessage({
@@ -9256,15 +9297,19 @@ function applyTokenToSelection(issueId, property, category) {
       nodeIds,
       variableId,
       property,
-      category
+      category,
+      suppressNotification: true // Signal backend to suppress standard notification if possible, or handle on frontend
     }
   }, '*');
   
-  // Reset button after a delay (will be updated when we receive response)
+  // Auto-reset fallback (safety net)
   setTimeout(() => {
-    applyBtn.innerHTML = originalText;
-    updateApplyButtonState(issueId);
-  }, 2000);
+    if (applyBtn && applyBtn.classList.contains('btn-loading')) {
+         applyBtn.classList.remove('btn-loading');
+         applyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
+         updateApplyButtonState(issueId);
+    }
+  }, 5000);
 }
 
 // Expose to window
