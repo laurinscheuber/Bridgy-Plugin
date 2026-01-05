@@ -4184,7 +4184,18 @@ window.toggleComponent = (id) => {
                       ${issue.property}
                       ${badgesHtml}
                     </div>
-                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px;">${SecurityUtils.escapeHTML(issue.value)}</div>
+                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                        ${(function() {
+                            const val = issue.value;
+                            // Basic check for Hex, RGB, RGBA
+                            const isColor = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(val);
+                            if (isColor) {
+                                return `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${val}; border: 1px solid rgba(255,255,255,0.2);"></div>`;
+                            }
+                            return '';
+                        })()}
+                        ${SecurityUtils.escapeHTML(issue.value)}
+                    </div>
                   </div>
                   
                   <div style="display: flex; align-items: center; gap: 12px;">
