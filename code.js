@@ -5715,7 +5715,7 @@ ${Object.keys(cssProperties).map((property) => {
           if (!settings.projectId || !settings.projectId.trim()) {
             throw new Error("Project ID is required");
           }
-          const { owner, repo } = _GitHubService.parseOwnerRepo(settings.projectId);
+          _GitHubService.parseOwnerRepo(settings.projectId);
           if (!settings.token || !settings.token.trim()) {
             throw new baseGitService_1.GitAuthError("GitHub token is required");
           }
