@@ -9689,25 +9689,31 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 const allInstances = figma.root.findAll((n) => n.type === "INSTANCE");
                 for (const instance of allInstances) {
-                  const mainId = instance.mainComponentId;
-                  if (!mainId)
-                    continue;
-                  let targetId = mainId;
-                  if (variantToSetId.has(mainId)) {
-                    targetId = variantToSetId.get(mainId);
-                  }
-                  if (localDefinitions.has(targetId)) {
-                    const def = localDefinitions.get(targetId);
-                    let parentName = "Page";
-                    if (instance.parent) {
-                      parentName = instance.parent.name;
+                  const instanceNode = instance;
+                  try {
+                    const mainComponent = yield instanceNode.getMainComponentAsync();
+                    if (!mainComponent)
+                      continue;
+                    const mainId = mainComponent.id;
+                    let targetId = mainId;
+                    if (variantToSetId.has(mainId)) {
+                      targetId = variantToSetId.get(mainId);
                     }
-                    def.instances.push({
-                      id: instance.id,
-                      name: instance.name,
-                      // Instance name might differ from component name
-                      parentName
-                    });
+                    if (localDefinitions.has(targetId)) {
+                      const def = localDefinitions.get(targetId);
+                      let parentName = "Page";
+                      if (instance.parent) {
+                        parentName = instance.parent.name;
+                      }
+                      def.instances.push({
+                        id: instance.id,
+                        name: instance.name,
+                        // Instance name might differ from component name
+                        parentName
+                      });
+                    }
+                  } catch (err) {
+                    console.warn(`Could not get main component for instance ${instance.id}:`, err);
                   }
                 }
                 const statsData = Array.from(localDefinitions.values()).map((def) => ({

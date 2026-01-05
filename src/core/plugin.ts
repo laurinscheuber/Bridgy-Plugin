@@ -881,35 +881,43 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             // 2. Scan Instances - scan all pages in the file
             const allInstances = figma.root.findAll(n => n.type === "INSTANCE");
             
-            // 3. Match Instances to Definitions
+            // 3. Match Instances to Definitions (async because we need getMainComponentAsync)
             for (const instance of allInstances) {
-                // mainComponentId is available synchronously at runtime
-                // Cast to any because typings might be missing it on InstanceNode depending on version
-                const mainId = (instance as any).mainComponentId;
-                
-                if (!mainId) continue;
+                const instanceNode = instance as InstanceNode;
 
-                // Determine target ID (Handle Variants)
-                let targetId = mainId;
-                if (variantToSetId.has(mainId)) {
-                    targetId = variantToSetId.get(mainId);
-                }
+                try {
+                    // Get the main component - must use async method for dynamic-page access
+                    const mainComponent = await instanceNode.getMainComponentAsync();
 
-                // Check if it's a known local component
-                if (localDefinitions.has(targetId)) {
-                    const def = localDefinitions.get(targetId);
-                    
-                    // Get parent name for context
-                    let parentName = "Page";
-                    if (instance.parent) {
-                        parentName = instance.parent.name;
+                    if (!mainComponent) continue;
+
+                    const mainId = mainComponent.id;
+
+                    // Determine target ID (Handle Variants)
+                    let targetId = mainId;
+                    if (variantToSetId.has(mainId)) {
+                        targetId = variantToSetId.get(mainId);
                     }
 
-                    def.instances.push({
-                        id: instance.id,
-                        name: instance.name, // Instance name might differ from component name
-                        parentName: parentName
-                    });
+                    // Check if it's a known local component
+                    if (localDefinitions.has(targetId)) {
+                        const def = localDefinitions.get(targetId);
+
+                        // Get parent name for context
+                        let parentName = "Page";
+                        if (instance.parent) {
+                            parentName = instance.parent.name;
+                        }
+
+                        def.instances.push({
+                            id: instance.id,
+                            name: instance.name, // Instance name might differ from component name
+                            parentName: parentName
+                        });
+                    }
+                } catch (err) {
+                    // Skip instances that can't be accessed
+                    console.warn(`Could not get main component for instance ${instance.id}:`, err);
                 }
             }
 

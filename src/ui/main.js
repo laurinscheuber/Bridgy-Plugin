@@ -1127,105 +1127,6 @@
         "fr",
         "none",
       ];
-      
-// Render component stats
-function renderStats(statsData) {
-  const container = document.getElementById("stats-container");
-  if (!container) return;
-
-  if (!statsData || statsData.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📊</div>
-        <div class="empty-text">No local components found in this file</div>
-        <div class="empty-subtext">Components defined in this file will appear here</div>
-      </div>
-    `;
-    return;
-  }
-
-  // Calculate totals
-  const totalComponents = statsData.length;
-  const totalInstances = statsData.reduce((sum, item) => sum + item.count, 0);
-
-  let html = `
-    <div class="stats-summary">
-      <div class="stat-box">
-        <div class="stat-value">${totalComponents}</div>
-        <div class="stat-label">Components</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value">${totalInstances}</div>
-        <div class="stat-label">Local Instances</div>
-      </div>
-    </div>
-    <div class="component-list">
-  `;
-
-  statsData.forEach((item) => {
-    // Determine icon based on type
-    const icon = item.type === 'COMPONENT_SET' ? 
-      `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="component-icon set"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>` : 
-      `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="component-icon"><path d="M6 1l5 5-5 5-5-5 5-5z" stroke="currentColor" stroke-width="1"/></svg>`; // Diamond for component
-
-    // Render Component Row
-    html += `
-      <div class="unified-list-item component-item" data-id="${item.id}">
-        <div class="component-info">
-          <div class="component-icon-wrapper">${icon}</div>
-          <span class="component-name text-truncate" title="${item.name}">${item.name}</span>
-          <span class="component-count-badge">${item.count}</span>
-        </div>
-        <div class="component-actions">
-          ${UIHelper.createNavIcon(item.id, null, "Focus Component")}
-          ${item.count > 0 ? `
-            <button class="icon-button expand-btn" onclick="toggleComponent('${item.id}')" title="Show Instances">
-              <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-
-    // Render Instances (Hidden by default)
-    if (item.count > 0) {
-      html += `<div id="children-${item.id}" class="component-instances hidden">`;
-      
-      item.instances.forEach(instance => {
-        html += `
-          <div class="unified-list-item instance-item">
-            <div class="instance-info">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" class="instance-icon"><path d="M5 1L9 5L5 9L1 5L5 1Z" stroke="currentColor" width="8" height="8"/></svg>
-              <span class="instance-name text-truncate">
-                <span class="instance-parent">${instance.parentName}</span>
-                <span class="separator">/</span>
-                <span class="name">${instance.name}</span>
-              </span>
-            </div>
-            ${UIHelper.createNavIcon(instance.id, null, "Focus Instance")}
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-    }
-  });
-
-  html += `</div>`;
-  container.innerHTML = html;
-}
-
-// Helper to toggle component instances visibility
-window.toggleComponent = (id) => {
-  const children = document.getElementById(`children-${id}`);
-  const btn = document.querySelector(`.component-item[data-id="${id}"] .expand-btn`);
-  
-  if (children) {
-    children.classList.toggle('hidden');
-    if (btn) btn.classList.toggle('expanded');
-  }
-};
-
 
       function findVariableNameById(variableId) {
         // Fast lookup from references map (includes external vars)
@@ -4155,9 +4056,6 @@ function renderStats(statsData) {
 
   statsData.forEach((item) => {
     // Determine icon based on type
-    const icon = item.type === 'COMPONENT_SET' ? 
-      `<svg width="14" height="14" viewBox="0 0 12 12" fill="none" class="component-icon set"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>` : 
-      `<svg width="14" height="14" viewBox="0 0 12 12" fill="none" class="component-icon"><path d="M6 1l5 5-5 5-5-5 5-5z" stroke="currentColor" stroke-width="1"/></svg>`;
 
     const variantLabel = item.variantCount > 1 ? item.variantCount : '-';
 
@@ -4168,8 +4066,9 @@ function renderStats(statsData) {
         <!-- Name Column -->
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
             <div class="component-icon-wrapper" style="display: flex; align-items: center; justify-content: center; color: ${item.type === 'COMPONENT_SET' ? '#a855f7' : '#3b82f6'}; flex-shrink: 0;">
-                ${icon}
-            </div>
+                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none"  style="rotate: 45deg"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>
+
+  </div>
             <span class="component-name text-truncate" title="${item.name}" style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9);">
                 ${item.name}
             </span>
@@ -4184,42 +4083,8 @@ function renderStats(statsData) {
         <div style="text-align: right; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9);">
             ${item.count.toLocaleString()}
         </div>
-
-        <!-- Actions Column -->
-        <div class="component-actions" style="display: flex; justify-content: flex-end; gap: 2px;">
-          ${item.count > 0 ? `
-            <button class="icon-button expand-btn" onclick="toggleComponent('${item.id}')" title="Show Instances" style="padding: 4px; border-radius: 4px; color: rgba(255,255,255,0.6);">
-              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
-            </button>
-          ` : ''}
-        </div>
       </div>
     `;
-
-    // Render Instances (Hidden by default)
-    if (item.count > 0) {
-      html += `<div id="children-${item.id}" class="component-instances hidden" style="margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.1); margin-top: 4px;">`;
-      
-      item.instances.forEach(instance => {
-        html += `
-          <div class="unified-list-item instance-item" style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 6px 12px; margin-bottom: 2px;">
-            <div class="instance-info" style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
-              <span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.4); flex-shrink: 0;">subdirectory_arrow_right</span>
-              <span class="instance-name text-truncate" style="font-size: 12px; color: rgba(255,255,255,0.7);">
-                <span class="instance-parent" style="opacity: 0.5;">${instance.parentName}</span>
-                <span class="separator" style="margin: 0 4px; opacity: 0.3;">/</span>
-                <span class="name">${instance.name}</span>
-              </span>
-            </div>
-             <button class="icon-button" onclick="UIHelper.requestFocus('${instance.id}')" title="Focus Instance" style="padding: 4px; color: rgba(255,255,255,0.4);">
-                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
-             </button>
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-    }
   });
 
   html += `</div></div>`;
@@ -4548,13 +4413,15 @@ function renderStats(statsData) {
               
               // Determine icon based on name (approximate check)
               const isComponent = data.frame.includes('Component') || data.frame === 'Unknown Frame';
-              const icon = isComponent ? 'grid_view' : 'frame';
+                console.log('Is Component:', data);
 
               cardHtml += `
                 <div class="quality-node-item" data-issue-id="${issueId}">
                   <div class="node-header" onclick="toggleQualityNodeGroup('${groupId}')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
                     <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
-                    <span class="material-symbols-outlined node-icon" style="font-size: 16px; margin-right: 8px; opacity: 0.7; color: #a78bfa;">${icon}</span>
+                    ${isComponent ? ' <svg width="12" height="12" viewBox="0 0 12 12" fill="none"  style="rotate: 45deg"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>' :
+                  '<span class="material-symbols-outlined node-icon" style="font-size: 16px; margin-right: 8px; opacity: 0.7; color: #a78bfa;">grid_3x3</span>'
+              }
                     <span class="node-name" title="${SecurityUtils.escapeHTML(data.frame)}" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">${data.frame}</span>
                     <span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);">${data.count}</span>
                     <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4);" id="${groupId}-toggle">
@@ -4577,7 +4444,7 @@ function renderStats(statsData) {
               `;
             });
 
-            cardHtml += `
+                cardHtml += `
                   </div> <!-- End quality-nodes-list -->
                 </div> <!-- End Accordion Body Wrapper -->
               </div> <!-- End Accordion Body -->
