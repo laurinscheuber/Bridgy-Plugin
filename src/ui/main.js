@@ -1714,20 +1714,16 @@ window.toggleComponent = (id) => {
                     showNotification('success', 'Variable Created', `Variable '${name}' created and selected.`);
                 }
 
-                // Auto-apply: Click the apply button
+                // Auto-apply logic REMOVED as per user request
+                // We just enable the button and let the user click it
                 if (issueId) {
                     const applyBtn = document.getElementById(`${issueId}-apply-btn`);
                     if (applyBtn) {
-                        console.log('Auto-applying variable for issue:', issueId);
+                        console.log('Enabling apply button for issue:', issueId);
                         // Update button state immediately to enabled (in case change event didn't propagate fast enough)
                         applyBtn.disabled = false;
                         applyBtn.style.opacity = '1';
                         applyBtn.style.pointerEvents = 'auto';
-                        
-                        // Small timeout to let UI update state first if needed
-                        setTimeout(() => {
-                             applyBtn.click();
-                        }, 100);
                     } else {
                         console.warn('Could not find apply button for issue:', issueId);
                     }
