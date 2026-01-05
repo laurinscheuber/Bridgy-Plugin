@@ -235,20 +235,48 @@ export class TokenCoverageService {
     }
 
     // 2. Tailwind Readiness Score (20%)
-    // Logic: % of variables that match kebab-case naming convention
-    // Regex: starts with lowercase/number, contains only lowercase, numbers, hyphens, and slashes (for groups)
-    const tailwindRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
+    // Logic: % of variables that match Tailwind v4 CSS variable naming conventions
+    // Official prefixes: --color-*, --font-*, --text-*, --spacing-*, --radius-*, etc.
+    const TAILWIND_PREFIXES = [
+        'color',           // Color utilities (bg-red-500, text-sky-300)
+        'font',            // Font family utilities (font-sans)
+        'text',            // Font size utilities (text-xl)
+        'font-weight',     // Font weight utilities (font-bold)
+        'tracking',        // Letter spacing utilities (tracking-wide)
+        'leading',         // Line height utilities (leading-tight)
+        'breakpoint',      // Responsive breakpoint variants (sm:*)
+        'container',       // Container query variants (@sm:*, max-w-md)
+        'spacing',         // Spacing and sizing utilities (px-4, max-h-16)
+        'radius',          // Border radius utilities (rounded-sm)
+        'shadow',          // Box shadow utilities (shadow-md)
+        'inset-shadow',    // Inset box shadow utilities (inset-shadow-xs)
+        'drop-shadow',     // Drop shadow filter utilities (drop-shadow-md)
+        'blur',            // Blur filter utilities (blur-md)
+        'perspective',     // Perspective utilities (perspective-near)
+        'aspect',          // Aspect ratio utilities (aspect-video)
+        'ease',            // Transition timing function utilities (ease-out)
+        'animate',         // Animation utilities (animate-spin)
+    ];
+    
+    // Check if a variable name matches Tailwind naming convention
+    // Supports both flat names (color-primary) and grouped names (color/primary, spacing/md)
+    const isTailwindCompatible = (name: string): boolean => {
+        // Normalize: replace slashes with hyphens for prefix matching
+        const normalizedName = name.replace(/\//g, '-');
+        return TAILWIND_PREFIXES.some(prefix => normalizedName.startsWith(`${prefix}-`));
+    };
+    
     let validTailwindNames = 0;
     let totalVarsToCheck = allVariables.length;
     
     if (totalVarsToCheck > 0) {
-        console.log(`[Coverage Debug] Checking Tailwind regex for ${allVariables.length} vars`);
+        console.log(`[Coverage Debug] Checking Tailwind compatibility for ${allVariables.length} vars`);
         allVariables.forEach((v, idx) => {
             if (!v) { console.warn(`[Coverage Debug] v is null at ${idx}`); return; }
             if (!v.variable) { console.warn(`[Coverage Debug] v.variable is null at ${idx}`); return; }
             if (!v.variable.name) { console.warn(`[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`); return; }
             
-            if (v.variable && v.variable.name && tailwindRegex.test(v.variable.name)) {
+            if (v.variable && v.variable.name && isTailwindCompatible(v.variable.name)) {
                 validTailwindNames++;
             }
         });
