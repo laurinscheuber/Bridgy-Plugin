@@ -5,11 +5,11 @@
   "main": "code.js",
   "scripts": {
     "build": "npm run update-manifest && npm run build:ui && tsc -p tsconfig.json && npm run bundle && node build.js",
-    "build:ui": "node scripts/build-ui.js",
-    "build:ui:dev": "NODE_ENV=development node scripts/build-ui.js",
+    "build:ui": "vite build",
+    "build:ui:dev": "vite build --mode development",
     "bundle": "esbuild dist/index.js --bundle --platform=browser --format=iife --outfile=code.js",
     "watch": "tsc -p tsconfig.json --watch",
-    "watch:ui": "nodemon --watch src/ui -e css,js,html --exec \"npm run build:ui:dev\"",
+    "watch:ui": "vite build --watch",
     "dev": "npm run watch",
     "dev:ui": "npm run build:ui:dev && npm run watch:ui",
     "update-manifest": "node scripts/update-manifest.js",
@@ -24,12 +24,16 @@
   "license": "MIT",
   "devDependencies": {
     "@figma/plugin-typings": "^1.82.0",
+    "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.8",
     "@vitest/ui": "^4.0.7",
     "esbuild": "^0.25.5",
     "jsdom": "^27.1.0",
     "nodemon": "^3.0.2",
+    "terser": "^5.44.1",
     "typescript": "^5.3.3",
+    "vite": "^7.3.0",
+    "vite-plugin-singlefile": "^2.3.0",
     "vitest": "^4.0.7"
   }
 }
