@@ -4028,6 +4028,13 @@ window.toggleComponent = (id) => {
         }, "*");
       }
 
+      function getScoreColor(score) {
+          if (!score && score !== 0) return '#22c55e'; // Default to green
+          if (score >= 90) return '#22c55e'; // Green
+          if (score >= 70) return '#f59e0b'; // Orange/Yellow
+          return '#ef4444'; // Red
+      }
+
       // Update analysis scope
       function updateAnalysisScope(scope) {
         analysisScope = scope;
@@ -4058,16 +4065,43 @@ window.toggleComponent = (id) => {
         const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
         const issuesByCategory = result.issuesByCategory;
 
-        let html = `
-          <div style="margin-bottom: 16px; padding: 12px; background: rgba(139, 92, 246, 0.08); border-radius: 10px;">
-            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Summary</div>
-            <div style="display: flex; gap: 16px;">
-              <div style="flex: 1; text-align: center;">
-                <div style="font-size: 28px; font-weight: bold; color: #a855f7;">${result.totalNodes}</div>
-                <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase;">Nodes</div>
-              </div>
-              <div style="flex: 1; text-align: center;">
-                <div style="font-size: 28px; font-weight: bold; color: #f59e0b;">${result.totalIssues}</div>
+          <div style="margin-bottom: 24px; padding: 16px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                 <div style="font-size: 13px; color: rgba(255, 255, 255, 0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Design Quality Score</div>
+                 ${result.totalNodes <= 0 ? '' : `
+                 <div style="font-size: 11px; color: rgba(255, 255, 255, 0.4); background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;">
+                    ${result.totalNodes} Scanned Nodes
+                 </div>`}
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <!-- Ring Chart -->
+                <div style="position: relative; width: 80px; height: 80px;">
+                    <svg width="80" height="80" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="12" fill="none" />
+                        <circle cx="50" cy="50" r="40" stroke="${getScoreColor(result.qualityScore)}" stroke-width="12" fill="none" 
+                                stroke-dasharray="${2 * Math.PI * 40}" 
+                                stroke-dashoffset="${2 * Math.PI * 40 * (1 - (result.qualityScore || 100) / 100)}" 
+                                style="transition: stroke-dashoffset 1s ease-in-out;" />
+                    </svg>
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <span style="font-size: 24px; font-weight: 700; color: white;">${result.qualityScore || 100}</span>
+                    </div>
+                </div>
+
+                <!-- Summary Stats -->
+                <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: 600; color: #f59e0b; margin-bottom: 2px;">${result.totalIssues}</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.5);">Issues Found</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px;">
+                         <div style="font-size: 20px; font-weight: 600; color: #a855f7; margin-bottom: 2px;">${result.totalNodes}</div>
+                         <div style="font-size: 11px; color: rgba(255,255,255,0.5);">Scanned Nodes</div>
+                    </div>
+                </div>
+            </div>
+          </div>
                 <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase;">Issues</div>
               </div>
             </div>

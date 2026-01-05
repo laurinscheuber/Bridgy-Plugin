@@ -38,6 +38,7 @@ export interface TokenCoverageResult {
     Stroke: TokenCoverageIssue[];
     Appearance: TokenCoverageIssue[];
   };
+  qualityScore: number;
 }
 
 /**
@@ -191,10 +192,32 @@ export class TokenCoverageService {
       issuesByCategory[category].sort((a, b) => b.count - a.count);
     }
 
+    // Calculate Design Quality Score
+    // Heuristic: Start at 100.
+    // Deduct based on "Issue Density": (Total Issue Occurrences / (Total Nodes * 3))
+    // We assume ~3 properties per node on average could be tokenized.
+    
+    let totalIssueOccurrences = 0;
+    for (const issue of issuesMap.values()) {
+        totalIssueOccurrences += issue.count;
+    }
+
+    let qualityScore = 100;
+    if (totalNodes > 0) {
+        // Calculate penalty info
+        const issueDensity = totalIssueOccurrences / (totalNodes * 3);
+        const penalty = Math.round(issueDensity * 100);
+        qualityScore = Math.max(0, 100 - penalty);
+    } else {
+        // No nodes analyzed -> Perfect score (or N/A, but 100 is safer for UI)
+        qualityScore = 100;
+    }
+
     return {
       totalNodes,
       totalIssues: issuesMap.size,
-      issuesByCategory
+      issuesByCategory,
+      qualityScore
     };
   }
 
