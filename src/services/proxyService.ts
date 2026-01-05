@@ -45,9 +45,7 @@ export class ProxyService {
       'gitlab.eu',
     ];
 
-    return commonPatterns.some(pattern => 
-      domain === pattern || domain.endsWith(`.${pattern}`)
-    );
+    return commonPatterns.some((pattern) => domain === pattern || domain.endsWith(`.${pattern}`));
   }
 
   /**
@@ -56,7 +54,7 @@ export class ProxyService {
   static isValidGitLabUrl(url: string): boolean {
     try {
       const parsed = new URL(url);
-      
+
       // Must be HTTPS
       if (parsed.protocol !== 'https:') {
         return false;
@@ -79,7 +77,7 @@ export class ProxyService {
       ];
 
       // Allow if it matches a pattern OR if we're using proxy (for flexibility)
-      return gitlabPatterns.some(pattern => pattern.test(hostname)) || this.USE_PROXY;
+      return gitlabPatterns.some((pattern) => pattern.test(hostname)) || this.USE_PROXY;
     } catch {
       return false;
     }
@@ -88,51 +86,55 @@ export class ProxyService {
   /**
    * Proxy a GitLab API request through the proxy server
    */
-  static async proxyGitLabRequest(
-    targetUrl: string,
-    options: RequestInit
-  ): Promise<Response> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      // Validate URL
-      if (!this.isValidGitLabUrl(targetUrl)) {
-        throw new Error('Invalid GitLab URL');
-      }
+  static async proxyGitLabRequest(targetUrl: string, options: RequestInit): Promise<Response> {
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        // Validate URL
+        if (!this.isValidGitLabUrl(targetUrl)) {
+          throw new Error('Invalid GitLab URL');
+        }
 
-      // Prepare proxy request
-      const proxyRequest: ProxyRequest = {
-        targetUrl,
-        method: options.method || 'GET',
-        headers: this.extractHeaders(options.headers),
-        body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
-      };
+        // Prepare proxy request
+        const proxyRequest: ProxyRequest = {
+          targetUrl,
+          method: options.method || 'GET',
+          headers: this.extractHeaders(options.headers),
+          body: options.body
+            ? typeof options.body === 'string'
+              ? options.body
+              : JSON.stringify(options.body)
+            : undefined,
+        };
 
-      // Make request to proxy
-      const response = await fetch(this.PROXY_BASE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(proxyRequest),
-      });
+        // Make request to proxy
+        const response = await fetch(this.PROXY_BASE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(proxyRequest),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Proxy error: ${response.status} ${response.statusText}`);
-      }
+        if (!response.ok) {
+          throw new Error(`Proxy error: ${response.status} ${response.statusText}`);
+        }
 
-      // Parse proxy response
-      const proxyResponse: ProxyResponse = await response.json();
+        // Parse proxy response
+        const proxyResponse: ProxyResponse = await response.json();
 
-      // Create a Response-like object
-      return new Response(proxyResponse.body, {
-        status: proxyResponse.status,
-        statusText: proxyResponse.statusText,
-        headers: new Headers(proxyResponse.headers),
-      });
-    }, {
-      operation: 'proxy_gitlab_request',
-      component: 'ProxyService',
-      severity: 'high'
-    });
+        // Create a Response-like object
+        return new Response(proxyResponse.body, {
+          status: proxyResponse.status,
+          statusText: proxyResponse.statusText,
+          headers: new Headers(proxyResponse.headers),
+        });
+      },
+      {
+        operation: 'proxy_gitlab_request',
+        component: 'ProxyService',
+        severity: 'high',
+      },
+    );
   }
 
   /**
@@ -179,4 +181,3 @@ export class ProxyService {
     }
   }
 }
-

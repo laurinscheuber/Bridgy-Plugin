@@ -3,7 +3,7 @@
  * Handles the callback from GitHub OAuth and exchanges code for access token
  */
 
-import { LoggingService } from "../config";
+import { LoggingService } from '../config';
 
 interface GitHubTokenResponse {
   access_token: string;
@@ -24,11 +24,14 @@ interface GitHubUserResponse {
 export class OAuthCallbackHandler {
   private static readonly CLIENT_ID = 'Ov23liKXGtyeKaklFf0Q';
   private static readonly CLIENT_SECRET = 'your-client-secret'; // This should be set in production
-  
+
   /**
    * Handle OAuth callback from GitHub
    */
-  static async handleCallback(code: string, state: string): Promise<{
+  static async handleCallback(
+    code: string,
+    state: string,
+  ): Promise<{
     success: boolean;
     token?: string;
     user?: GitHubUserResponse;
@@ -39,39 +42,42 @@ export class OAuthCallbackHandler {
       if (!this.verifyState(state)) {
         return {
           success: false,
-          error: 'Invalid state parameter. Possible CSRF attack.'
+          error: 'Invalid state parameter. Possible CSRF attack.',
         };
       }
 
       // Exchange code for access token
       const tokenResponse = await this.exchangeCodeForToken(code);
-      
+
       if (tokenResponse.error) {
         return {
           success: false,
-          error: tokenResponse.error_description || tokenResponse.error
+          error: tokenResponse.error_description || tokenResponse.error,
         };
       }
 
       // Get user info to verify token works
       const user = await this.getUserInfo(tokenResponse.access_token);
 
-      LoggingService.info('OAuth callback successful', {
-        user: user.login,
-        scopes: tokenResponse.scope
-      }, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.info(
+        'OAuth callback successful',
+        {
+          user: user.login,
+          scopes: tokenResponse.scope,
+        },
+        LoggingService.CATEGORIES.GITHUB,
+      );
 
       return {
         success: true,
         token: tokenResponse.access_token,
-        user: user
+        user: user,
       };
-
     } catch (error: any) {
       LoggingService.error('OAuth callback error', error, LoggingService.CATEGORIES.GITHUB);
       return {
         success: false,
-        error: error.message || 'Unknown OAuth error'
+        error: error.message || 'Unknown OAuth error',
       };
     }
   }
@@ -83,22 +89,22 @@ export class OAuthCallbackHandler {
     const response = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'Bridgy-Plugin/1.0'
+        'User-Agent': 'Bridgy-Plugin/1.0',
       },
       body: JSON.stringify({
         client_id: this.CLIENT_ID,
         client_secret: this.CLIENT_SECRET,
-        code: code
-      })
+        code: code,
+      }),
     });
 
     if (!response.ok) {
       throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json() as GitHubTokenResponse;
+    return (await response.json()) as GitHubTokenResponse;
   }
 
   /**
@@ -107,17 +113,17 @@ export class OAuthCallbackHandler {
   private static async getUserInfo(token: string): Promise<GitHubUserResponse> {
     const response = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Bridgy-Plugin/1.0'
-      }
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'Bridgy-Plugin/1.0',
+      },
     });
 
     if (!response.ok) {
       throw new Error(`User info fetch failed: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json() as GitHubUserResponse;
+    return (await response.json()) as GitHubUserResponse;
   }
 
   /**
@@ -136,9 +142,9 @@ export class OAuthCallbackHandler {
     const params = new URLSearchParams({
       code,
       state,
-      source: 'bridgy-plugin'
+      source: 'bridgy-plugin',
     });
-    
+
     return `https://bridgy-oauth.netlify.app/github/success?${params.toString()}`;
   }
 

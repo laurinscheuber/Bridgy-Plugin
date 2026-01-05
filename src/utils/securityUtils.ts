@@ -25,10 +25,33 @@ export class SecurityUtils {
 
     // Allow only safe HTML tags
     const allowedTags = [
-      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'span', 'div',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
-      'code', 'pre', 'blockquote', 'select', 'option', 'button', 
-      'svg', 'path', 'circle'
+      'p',
+      'br',
+      'strong',
+      'em',
+      'b',
+      'i',
+      'u',
+      'span',
+      'div',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'code',
+      'pre',
+      'blockquote',
+      'select',
+      'option',
+      'button',
+      'svg',
+      'path',
+      'circle',
     ];
 
     // Remove any tags not in allowlist
@@ -69,7 +92,7 @@ export class SecurityUtils {
       '>': '&gt;',
       '"': '&quot;',
       "'": '&#x27;',
-      '/': '&#x2F;'
+      '/': '&#x2F;',
     };
 
     return text.replace(/[&<>"'/]/g, (match) => htmlEscapes[match]);
@@ -112,7 +135,7 @@ export class SecurityUtils {
 
     try {
       const parsedUrl = new URL(url);
-      
+
       // Must be HTTPS
       if (parsedUrl.protocol !== 'https:') {
         return false;
@@ -123,10 +146,10 @@ export class SecurityUtils {
         /^gitlab\.com$/,
         /^.*\.gitlab\.com$/,
         /^.*\.gitlab\.io$/,
-        /gitlab/i // Allow custom GitLab instances with "gitlab" in domain
+        /gitlab/i, // Allow custom GitLab instances with "gitlab" in domain
       ];
 
-      return gitlabPatterns.some(pattern => pattern.test(parsedUrl.hostname));
+      return gitlabPatterns.some((pattern) => pattern.test(parsedUrl.hostname));
     } catch {
       return false;
     }
@@ -142,7 +165,7 @@ export class SecurityUtils {
     const windowStart = now - windowMs;
 
     const current = this.rateLimitCache.get(key);
-    
+
     if (!current || current.resetTime < windowStart) {
       this.rateLimitCache.set(key, { count: 1, resetTime: now });
       return true;
@@ -195,7 +218,9 @@ export class SecurityUtils {
     try {
       // Decode from base64
       const encrypted = new Uint8Array(
-        atob(encryptedData).split('').map(char => char.charCodeAt(0))
+        atob(encryptedData)
+          .split('')
+          .map((char) => char.charCodeAt(0)),
       );
 
       const keyBytes = new TextEncoder().encode(key);
@@ -220,7 +245,7 @@ export class SecurityUtils {
     const fileId = (globalThis as any).figma?.root?.id || 'default';
     const sessionId = Math.random().toString(36).substring(2, 15); // Random session identifier
     const timestamp = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // Daily rotation
-    
+
     return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
   }
 
@@ -228,40 +253,44 @@ export class SecurityUtils {
    * Safe Base64 encoding for UTF-8 strings
    * Handles emoji and other double-byte characters correctly
    */
-  private static readonly b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  private static readonly b64chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
   private static btoaPolyfill(input: string): string {
     let str = input;
     let output = '';
 
-    for (let block = 0, charCode, i = 0, map = SecurityUtils.b64chars;
-    str.charAt(i | 0) || (map = '=', i % 1);
-    output += map.charAt(63 & block >> 8 - i % 1 * 8)) {
+    for (
+      let block = 0, charCode, i = 0, map = SecurityUtils.b64chars;
+      str.charAt(i | 0) || ((map = '='), i % 1);
+      output += map.charAt(63 & (block >> (8 - (i % 1) * 8)))
+    ) {
+      charCode = str.charCodeAt((i += 3 / 4));
 
-      charCode = str.charCodeAt(i += 3/4);
-
-      if (charCode > 0xFF) {
+      if (charCode > 0xff) {
         // Fallback for charCode > 255 (should be handled by utf8 conversion, but just in case)
-        console.warn("btoaPolyfill: unexpected multibyte character");
+        console.warn('btoaPolyfill: unexpected multibyte character');
       }
 
-      block = block << 8 | charCode;
+      block = (block << 8) | charCode;
     }
 
     return output;
   }
 
   static toBase64(str: string): string {
-    let binaryString = "";
+    let binaryString = '';
     try {
       // 1. Convert UTF-8 to Binary String (Latin1)
       // This is a robust way to handle emojis and other UTF-8 chars in a binary string container
-      binaryString = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+      binaryString = encodeURIComponent(str).replace(
+        /%([0-9A-F]{2})/g,
         function toSolidBytes(_match, p1) {
           return String.fromCharCode(parseInt(p1, 16));
-        });
+        },
+      );
     } catch (e) {
-      console.error("UTF-8 binary conversion failed:", e);
+      console.error('UTF-8 binary conversion failed:', e);
       binaryString = str; // best effort
     }
 

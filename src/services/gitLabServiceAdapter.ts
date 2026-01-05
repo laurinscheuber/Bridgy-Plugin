@@ -3,10 +3,10 @@
  * This allows gradual migration without breaking existing code
  */
 
-import { BaseGitService } from "./baseGitService";
-import { GitSettings, GitProject, GitFile, GitCommit, GitPullRequest } from "../types/git";
-import { GitLabSettings } from "../types";
-import { GitLabService } from "./gitlabService";
+import { BaseGitService } from './baseGitService';
+import { GitSettings, GitProject, GitFile, GitCommit, GitPullRequest } from '../types/git';
+import { GitLabSettings } from '../types';
+import { GitLabService } from './gitlabService';
 
 export class GitLabServiceAdapter implements BaseGitService {
   /**
@@ -27,7 +27,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       savedAt: settings.savedAt,
       savedBy: settings.savedBy,
       isPersonal: settings.isPersonal,
-      _needsCryptoMigration: settings._needsCryptoMigration
+      _needsCryptoMigration: settings._needsCryptoMigration,
     };
   }
 
@@ -36,7 +36,7 @@ export class GitLabServiceAdapter implements BaseGitService {
    */
   private fromGitLabSettings(settings: GitLabSettings | null): GitSettings | null {
     if (!settings) return null;
-    
+
     return {
       provider: 'gitlab',
       baseUrl: settings.gitlabUrl,
@@ -52,7 +52,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       savedAt: settings.savedAt,
       savedBy: settings.savedBy,
       isPersonal: settings.isPersonal,
-      _needsCryptoMigration: settings._needsCryptoMigration
+      _needsCryptoMigration: settings._needsCryptoMigration,
     };
   }
 
@@ -82,55 +82,47 @@ export class GitLabServiceAdapter implements BaseGitService {
 
   async getProject(settings: GitSettings): Promise<GitProject> {
     const gitlabSettings = this.toGitLabSettings(settings);
-    
+
     // Use private method access via prototype
     const projectData = await (GitLabService as any).fetchProjectInfo(
       settings.projectId,
       settings.token!,
-      gitlabSettings
+      gitlabSettings,
     );
 
     return {
       id: projectData.id,
       name: projectData.name,
       defaultBranch: projectData.default_branch,
-      webUrl: projectData.web_url
+      webUrl: projectData.web_url,
     };
   }
 
   async listRepositories(settings: GitSettings): Promise<GitProject[]> {
     // GitLab doesn't have a simple list repos endpoint like GitHub
     // Would need to implement project listing
-    throw new Error("List repositories not yet implemented for GitLab");
+    throw new Error('List repositories not yet implemented for GitLab');
   }
 
-  async createBranch(
-    settings: GitSettings,
-    branchName: string,
-    baseBranch: string
-  ): Promise<void> {
+  async createBranch(settings: GitSettings, branchName: string, baseBranch: string): Promise<void> {
     const gitlabSettings = this.toGitLabSettings(settings);
     await (GitLabService as any).createFeatureBranch(
       settings.projectId,
       settings.token!,
       branchName,
       baseBranch,
-      gitlabSettings
+      gitlabSettings,
     );
   }
 
-  async getFile(
-    settings: GitSettings,
-    filePath: string,
-    branch: string
-  ): Promise<GitFile | null> {
+  async getFile(settings: GitSettings, filePath: string, branch: string): Promise<GitFile | null> {
     const gitlabSettings = this.toGitLabSettings(settings);
     const result = await (GitLabService as any).prepareFileCommit(
       settings.projectId,
       settings.token!,
       filePath,
       branch,
-      gitlabSettings
+      gitlabSettings,
     );
 
     if (!result.fileData) return null;
@@ -141,7 +133,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       size: result.fileData.size,
       encoding: result.fileData.encoding,
       content: result.fileData.content,
-      lastCommitId: result.fileData.last_commit_id
+      lastCommitId: result.fileData.last_commit_id,
     };
   }
 
@@ -150,17 +142,17 @@ export class GitLabServiceAdapter implements BaseGitService {
     commitMessage: string,
     filePath: string,
     content: string,
-    branch: string
+    branch: string,
   ): Promise<GitCommit> {
     const gitlabSettings = this.toGitLabSettings(settings);
-    
+
     // Check if file exists
     const { fileData, action } = await (GitLabService as any).prepareFileCommit(
       settings.projectId,
       settings.token!,
       filePath,
       branch,
-      gitlabSettings
+      gitlabSettings,
     );
 
     const commit = await (GitLabService as any).createCommit(
@@ -172,14 +164,14 @@ export class GitLabServiceAdapter implements BaseGitService {
       content,
       action,
       fileData?.last_commit_id,
-      gitlabSettings
+      gitlabSettings,
     );
 
     return {
       id: commit.id,
       title: commit.title,
       message: commit.message,
-      webUrl: commit.web_url
+      webUrl: commit.web_url,
     };
   }
 
@@ -189,7 +181,7 @@ export class GitLabServiceAdapter implements BaseGitService {
     targetBranch: string,
     title: string,
     description: string,
-    isDraft: boolean = false
+    isDraft: boolean = false,
   ): Promise<GitPullRequest> {
     const gitlabSettings = this.toGitLabSettings(settings);
     const mr = await (GitLabService as any).createMergeRequest(
@@ -200,7 +192,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       title,
       description,
       isDraft,
-      gitlabSettings
+      gitlabSettings,
     );
 
     return {
@@ -211,20 +203,20 @@ export class GitLabServiceAdapter implements BaseGitService {
       webUrl: mr.web_url,
       sourceBranch: mr.source_branch,
       targetBranch: mr.target_branch,
-      draft: isDraft
+      draft: isDraft,
     };
   }
 
   async findExistingPullRequest(
     settings: GitSettings,
-    sourceBranch: string
+    sourceBranch: string,
   ): Promise<GitPullRequest | null> {
     const gitlabSettings = this.toGitLabSettings(settings);
     const mr = await (GitLabService as any).findExistingMergeRequest(
       settings.projectId,
       settings.token!,
       sourceBranch,
-      gitlabSettings
+      gitlabSettings,
     );
 
     if (!mr) return null;
@@ -236,7 +228,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       state: mr.state === 'opened' ? 'open' : mr.state,
       webUrl: mr.web_url,
       sourceBranch: mr.source_branch,
-      targetBranch: mr.target_branch
+      targetBranch: mr.target_branch,
     };
   }
 
@@ -245,20 +237,20 @@ export class GitLabServiceAdapter implements BaseGitService {
     commitMessage: string,
     filePath: string,
     cssData: string,
-    branchName: string
+    branchName: string,
   ): Promise<{ pullRequestUrl?: string }> {
     const gitlabSettings = this.toGitLabSettings(settings);
-    
+
     const result = await GitLabService.commitToGitLab(
       gitlabSettings,
       commitMessage,
       filePath,
       cssData,
-      branchName
+      branchName,
     );
 
     return {
-      pullRequestUrl: result.mergeRequestUrl
+      pullRequestUrl: result.mergeRequestUrl,
     };
   }
 
@@ -268,21 +260,21 @@ export class GitLabServiceAdapter implements BaseGitService {
     componentName: string,
     testContent: string,
     testFilePath: string,
-    branchName: string
+    branchName: string,
   ): Promise<{ pullRequestUrl?: string }> {
     const gitlabSettings = this.toGitLabSettings(settings);
-    
+
     const result = await GitLabService.commitComponentTest(
       gitlabSettings,
       commitMessage,
       componentName,
       testContent,
       testFilePath,
-      branchName
+      branchName,
     );
 
     return {
-      pullRequestUrl: result.mergeRequestUrl
+      pullRequestUrl: result.mergeRequestUrl,
     };
   }
 

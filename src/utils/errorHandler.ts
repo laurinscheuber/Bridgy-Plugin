@@ -22,12 +22,12 @@ export class ErrorHandler {
       operation: context.operation || 'unknown',
       component: context.component || 'unknown',
       timestamp: new Date().toISOString(),
-      severity: context.severity || 'medium'
+      severity: context.severity || 'medium',
     };
 
     // Add to error log
     this.errorLog.push({ error, context: fullContext });
-    
+
     // Trim log if too large
     if (this.errorLog.length > this.MAX_ERROR_LOG_SIZE) {
       this.errorLog.shift();
@@ -62,7 +62,11 @@ export class ErrorHandler {
     }
 
     // Authentication errors
-    if (errorLower.includes('unauthorized') || errorLower.includes('401') || errorLower.includes('403')) {
+    if (
+      errorLower.includes('unauthorized') ||
+      errorLower.includes('401') ||
+      errorLower.includes('403')
+    ) {
       return `Authentication failed. Please check your GitLab token and permissions in Settings.`;
     }
 
@@ -90,7 +94,7 @@ export class ErrorHandler {
    */
   static async withErrorHandling<T>(
     operation: () => Promise<T>,
-    context: Partial<ErrorContext>
+    context: Partial<ErrorContext>,
   ): Promise<T> {
     try {
       return await operation();
@@ -105,7 +109,7 @@ export class ErrorHandler {
    */
   static sanitizeErrorForUI(error: Error): { message: string; type: string } {
     let message = this.getUserFriendlyMessage(error, 'operation');
-    
+
     // Remove any potential sensitive information
     message = message
       .replace(/token[=:]\s*[a-zA-Z0-9_-]+/gi, 'token=***')
@@ -114,7 +118,7 @@ export class ErrorHandler {
 
     return {
       message,
-      type: error.name || 'Error'
+      type: error.name || 'Error',
     };
   }
 
@@ -126,23 +130,24 @@ export class ErrorHandler {
     bySeverity: Record<string, number>;
     recent: Array<{ operation: string; timestamp: string; severity: string }>;
   } {
-    const bySeverity = this.errorLog.reduce((acc, { context }) => {
-      acc[context.severity] = (acc[context.severity] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const bySeverity = this.errorLog.reduce(
+      (acc, { context }) => {
+        acc[context.severity] = (acc[context.severity] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
-    const recent = this.errorLog
-      .slice(-10)
-      .map(({ context }) => ({
-        operation: context.operation,
-        timestamp: context.timestamp,
-        severity: context.severity
-      }));
+    const recent = this.errorLog.slice(-10).map(({ context }) => ({
+      operation: context.operation,
+      timestamp: context.timestamp,
+      severity: context.severity,
+    }));
 
     return {
       total: this.errorLog.length,
       bySeverity,
-      recent
+      recent,
     };
   }
 
@@ -158,7 +163,7 @@ export class ErrorHandler {
    */
   static showUserError(error: Error, operation: string): void {
     const userMessage = this.getUserFriendlyMessage(error, operation);
-    
+
     // Try to post message to UI if available
     if (typeof figma !== 'undefined' && figma.ui) {
       try {
@@ -166,18 +171,18 @@ export class ErrorHandler {
           type: 'show-error',
           title: 'Operation Failed',
           message: userMessage,
-          operation: operation
+          operation: operation,
         });
       } catch (uiError) {
         console.error('Failed to show UI error:', uiError);
       }
     }
-    
+
     // Log the error for debugging
     this.handleError(error, {
       operation,
       component: 'UI',
-      severity: 'high'
+      severity: 'high',
     });
   }
 
@@ -191,7 +196,7 @@ export class ErrorHandler {
           type: 'show-success',
           title: 'Success',
           message: message,
-          operation: operation
+          operation: operation,
         });
       } catch (uiError) {
         console.error('Failed to show UI success:', uiError);
@@ -205,23 +210,23 @@ export class ErrorHandler {
   static async withErrorHandlingAndUI<T>(
     operation: () => Promise<T>,
     context: Partial<ErrorContext>,
-    showUIFeedback: boolean = true
+    showUIFeedback: boolean = true,
   ): Promise<T> {
     try {
       const result = await operation();
-      
+
       if (showUIFeedback && context.operation) {
         this.showUserSuccess(`${context.operation} completed successfully`, context.operation);
       }
-      
+
       return result;
     } catch (error) {
       this.handleError(error as Error, context);
-      
+
       if (showUIFeedback && context.operation) {
         this.showUserError(error as Error, context.operation);
       }
-      
+
       throw error;
     }
   }
@@ -229,13 +234,17 @@ export class ErrorHandler {
   /**
    * Validate and sanitize user input to prevent errors
    */
-  static validateInput(input: any, fieldName: string, rules: {
-    required?: boolean;
-    minLength?: number;
-    maxLength?: number;
-    pattern?: RegExp;
-    type?: 'string' | 'number' | 'email' | 'url';
-  }): { isValid: boolean; error?: string } {
+  static validateInput(
+    input: any,
+    fieldName: string,
+    rules: {
+      required?: boolean;
+      minLength?: number;
+      maxLength?: number;
+      pattern?: RegExp;
+      type?: 'string' | 'number' | 'email' | 'url';
+    },
+  ): { isValid: boolean; error?: string } {
     if (rules.required && (input === null || input === undefined || input === '')) {
       return { isValid: false, error: `${fieldName} is required` };
     }
@@ -247,11 +256,17 @@ export class ErrorHandler {
     const inputStr = String(input);
 
     if (rules.minLength && inputStr.length < rules.minLength) {
-      return { isValid: false, error: `${fieldName} must be at least ${rules.minLength} characters` };
+      return {
+        isValid: false,
+        error: `${fieldName} must be at least ${rules.minLength} characters`,
+      };
     }
 
     if (rules.maxLength && inputStr.length > rules.maxLength) {
-      return { isValid: false, error: `${fieldName} must be no more than ${rules.maxLength} characters` };
+      return {
+        isValid: false,
+        error: `${fieldName} must be no more than ${rules.maxLength} characters`,
+      };
     }
 
     if (rules.pattern && !rules.pattern.test(inputStr)) {

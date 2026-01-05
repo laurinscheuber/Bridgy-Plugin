@@ -15,4 +15,4 @@ console.log('✓ Copied manifest.json');
 // Bundle step already created code.js - don't overwrite it with TypeScript output
 console.log('✓ Using bundled code.js (esbuild output)');
 
-console.log('\n✅ Build completed successfully!'); 
+console.log('\n✅ Build completed successfully!');

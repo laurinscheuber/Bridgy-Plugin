@@ -3,16 +3,18 @@
 ## Quick Copy-Paste Component Specs
 
 ### 🎨 Color System (Already Imported)
+
 You already have these as variables, use them!
 
 ### 📦 Component Templates
 
 #### Button Component
+
 ```
 Primary Button
 ├── Auto Layout: Horizontal, Center align
 ├── Size: Hug contents
-├── Padding: 12px vertical, 24px horizontal  
+├── Padding: 12px vertical, 24px horizontal
 ├── Corner Radius: 10px
 ├── Fill: Linear gradient 135° (#8b5cf6 → #a855f7)
 ├── Effect: Drop shadow
@@ -28,6 +30,7 @@ Primary Button
 ```
 
 #### Input Field Component
+
 ```
 Input Container
 ├── Auto Layout: Horizontal, Left align
@@ -50,7 +53,8 @@ States (as Variants):
 - Disabled: Opacity 50%
 ```
 
-#### Card Component  
+#### Card Component
+
 ```
 Card Container
 ├── Auto Layout: Vertical, 16px gap
@@ -65,6 +69,7 @@ Card Container
 ```
 
 #### Modal Component
+
 ```
 Modal Overlay (Full screen)
 ├── Fill: #000000 50%
@@ -93,6 +98,7 @@ Modal Overlay (Full screen)
 ```
 
 #### Tab Navigation
+
 ```
 Tab Container
 ├── Auto Layout: Horizontal, 0px gap
@@ -111,6 +117,7 @@ Tab Container
 ```
 
 #### Notification Toast
+
 ```
 Notification Container
 ├── Auto Layout: Horizontal, 12px gap
@@ -163,6 +170,7 @@ Notification Container
    - This matches your spacing system
 
 3. **Glass Effect Technique**
+
    ```
    Background: #000000 10-20%
    + Background blur effect
@@ -172,7 +180,7 @@ Notification Container
 4. **Purple Gradient Variations**
    ```
    Light: 135° #c4b5fd → #8b5cf6
-   Medium: 135° #8b5cf6 → #a855f7  
+   Medium: 135° #8b5cf6 → #a855f7
    Dark: 135° #7c3aed → #9333ea
    ```
 

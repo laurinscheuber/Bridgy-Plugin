@@ -2,105 +2,105 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [18.x, 20.x]
         # Allow Node.js 18.x to fail without blocking the build
         # Node.js 20.x is the current LTS and primary target
       fail-fast: false
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-      continue-on-error: ${{ matrix.node-version == '18.x' }}
-    
-    - name: Run type check
-      run: npm run typecheck
-      continue-on-error: ${{ matrix.node-version == '18.x' }}
-    
-    - name: Run tests
-      run: npm run test:run
-      continue-on-error: ${{ matrix.node-version == '18.x' }}
-    
-    - name: Run tests with coverage
-      run: npm run test:coverage
-      continue-on-error: ${{ matrix.node-version == '18.x' }}
-    
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      if: matrix.node-version == '20.x'
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        fail_ci_if_error: false
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        continue-on-error: ${{ matrix.node-version == '18.x' }}
+
+      - name: Run type check
+        run: npm run typecheck
+        continue-on-error: ${{ matrix.node-version == '18.x' }}
+
+      - name: Run tests
+        run: npm run test:run
+        continue-on-error: ${{ matrix.node-version == '18.x' }}
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        continue-on-error: ${{ matrix.node-version == '18.x' }}
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: matrix.node-version == '20.x'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   build:
     runs-on: ubuntu-latest
     # Only require Node.js 20.x tests to pass (18.x can fail)
     needs: []
     if: always()
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.x
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build plugin
-      run: npm run build
-    
-    - name: Check build artifacts
-      run: |
-        ls -la
-        test -f manifest.json
-        test -f code.js
-        test -f ui.html
-        echo "✅ All required files present"
-    
-    - name: Validate manifest
-      run: node -e "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'))"
-    
-    - name: Check manifest has gitlab.fhnw.ch
-      run: grep -q "gitlab.fhnw.ch" manifest.json && echo "✅ gitlab.fhnw.ch found" || exit 1
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Check build artifacts
+        run: |
+          ls -la
+          test -f manifest.json
+          test -f code.js
+          test -f ui.html
+          echo "✅ All required files present"
+
+      - name: Validate manifest
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'))"
+
+      - name: Check manifest has gitlab.fhnw.ch
+        run: grep -q "gitlab.fhnw.ch" manifest.json && echo "✅ gitlab.fhnw.ch found" || exit 1
 
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.x
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Run linter
-      run: npm run lint
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint

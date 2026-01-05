@@ -10,7 +10,7 @@ const Components = {
         variant = 'primary',
         onClick = () => {},
         disabled = false,
-        icon = null
+        icon = null,
       } = props;
 
       return `
@@ -23,7 +23,7 @@ const Components = {
           <span>${text}</span>
         </button>
       `;
-    }
+    },
   },
 
   // Input Component
@@ -36,7 +36,7 @@ const Components = {
         id = '',
         label = '',
         error = '',
-        onChange = ''
+        onChange = '',
       } = props;
 
       return `
@@ -53,18 +53,13 @@ const Components = {
           ${error ? `<span class="error-message">${error}</span>` : ''}
         </div>
       `;
-    }
+    },
   },
 
   // Card Component
   Card: {
     render: (props = {}) => {
-      const {
-        title = '',
-        content = '',
-        actions = [],
-        variant = 'default'
-      } = props;
+      const { title = '', content = '', actions = [], variant = 'default' } = props;
 
       return `
         <div class="card card-${variant}">
@@ -72,26 +67,24 @@ const Components = {
           <div class="card-body">
             ${content}
           </div>
-          ${actions.length ? `
+          ${
+            actions.length
+              ? `
             <div class="card-footer">
-              ${actions.map(action => Components.Button.render(action)).join('')}
+              ${actions.map((action) => Components.Button.render(action)).join('')}
             </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       `;
-    }
+    },
   },
 
   // Modal Component
   Modal: {
     render: (props = {}) => {
-      const {
-        id = 'modal',
-        title = '',
-        content = '',
-        footer = '',
-        isOpen = false
-      } = props;
+      const { id = 'modal', title = '', content = '', footer = '', isOpen = false } = props;
 
       return `
         <div id="${id}" class="modal ${isOpen ? 'open' : ''}">
@@ -109,28 +102,23 @@ const Components = {
         </div>
       `;
     },
-    
+
     open: (modalId) => {
       document.getElementById(modalId)?.classList.add('open');
     },
-    
+
     close: (modalId) => {
       document.getElementById(modalId)?.classList.remove('open');
-    }
+    },
   },
 
   // Notification Component
   Notification: {
     render: (props = {}) => {
-      const {
-        type = 'info',
-        title = '',
-        message = '',
-        dismissible = true
-      } = props;
+      const { type = 'info', title = '', message = '', dismissible = true } = props;
 
       const id = `notification-${Date.now()}`;
-      
+
       return `
         <div id="${id}" class="notification notification-${type}">
           <div class="notification-content">
@@ -142,20 +130,24 @@ const Components = {
               <div class="notification-message">${message}</div>
             </div>
           </div>
-          ${dismissible ? `
+          ${
+            dismissible
+              ? `
             <button class="notification-close" onclick="Components.Notification.dismiss('${id}')">
               &times;
             </button>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       `;
     },
-    
+
     show: (props) => {
       const container = document.getElementById('notification-container');
       const notification = Components.Notification.render(props);
       container.insertAdjacentHTML('beforeend', notification);
-      
+
       // Auto dismiss after 5 seconds
       if (props.autoDismiss !== false) {
         setTimeout(() => {
@@ -163,23 +155,23 @@ const Components = {
         }, 5000);
       }
     },
-    
+
     dismiss: (notificationId) => {
       const element = document.getElementById(notificationId);
       element?.classList.add('fade-out');
       setTimeout(() => element?.remove(), 300);
     },
-    
+
     getIcon: (type) => {
       const icons = {
         success: '✓',
         error: '✕',
         warning: '⚠',
-        info: 'ℹ'
+        info: 'ℹ',
       };
       return icons[type] || icons.info;
-    }
-  }
+    },
+  },
 };
 
 // === Component Styles Manager ===
@@ -231,9 +223,9 @@ const StyleManager = {
           cursor: not-allowed;
           pointer-events: none;
         }
-      `
+      `,
     },
-    
+
     input: {
       base: `
         .form-group {
@@ -267,25 +259,25 @@ const StyleManager = {
           color: var(--error-500);
           font-size: var(--text-xs);
         }
-      `
-    }
+      `,
+    },
   },
-  
+
   // Inject all component styles
-  init: function() {
+  init: function () {
     const styleEl = document.createElement('style');
     styleEl.id = 'component-styles';
-    
+
     let allStyles = '';
-    Object.values(this.styles).forEach(componentStyle => {
-      Object.values(componentStyle).forEach(style => {
+    Object.values(this.styles).forEach((componentStyle) => {
+      Object.values(componentStyle).forEach((style) => {
         allStyles += style;
       });
     });
-    
+
     styleEl.textContent = allStyles;
     document.head.appendChild(styleEl);
-  }
+  },
 };
 
 // === Component Factory ===
@@ -298,40 +290,40 @@ const ComponentFactory = {
           id: 'repo-url',
           label: 'Repository URL',
           placeholder: 'https://gitlab.com/username/repo',
-          onChange: 'handleRepoUrlChange(event)'
+          onChange: 'handleRepoUrlChange(event)',
         })}
         
         ${Components.Input.render({
           id: 'branch',
           label: 'Branch',
           placeholder: 'main',
-          value: 'main'
+          value: 'main',
         })}
         
         ${Components.Input.render({
           id: 'token',
           type: 'password',
           label: 'Access Token',
-          placeholder: 'Your GitLab token'
+          placeholder: 'Your GitLab token',
         })}
         
         <div class="form-actions">
           ${Components.Button.render({
             text: 'Cancel',
             variant: 'secondary',
-            onClick: 'closeSettings()'
+            onClick: 'closeSettings()',
           })}
           
           ${Components.Button.render({
             text: 'Save Settings',
             variant: 'primary',
-            onClick: 'saveSettings()'
+            onClick: 'saveSettings()',
           })}
         </div>
       </form>
     `;
   },
-  
+
   // Create a variable list item
   createVariableItem: (variable) => {
     return Components.Card.render({
@@ -347,11 +339,11 @@ const ComponentFactory = {
           text: 'Edit',
           variant: 'secondary',
           icon: '✏️',
-          onClick: `editVariable('${variable.id}')`
-        }
-      ]
+          onClick: `editVariable('${variable.id}')`,
+        },
+      ],
     });
-  }
+  },
 };
 
 // === Usage Example ===
@@ -360,9 +352,10 @@ const ComponentFactory = {
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize component styles
   StyleManager.init();
-  
+
   // Render a modal
-  document.body.insertAdjacentHTML('beforeend', 
+  document.body.insertAdjacentHTML(
+    'beforeend',
     Components.Modal.render({
       id: 'settings-modal',
       title: 'Plugin Settings',
@@ -372,18 +365,18 @@ document.addEventListener('DOMContentLoaded', () => {
           ${Components.Button.render({
             text: 'Documentation',
             variant: 'secondary',
-            onClick: 'window.open("https://docs.example.com")'
+            onClick: 'window.open("https://docs.example.com")',
           })}
         </div>
-      `
-    })
+      `,
+    }),
   );
-  
+
   // Show a notification
   Components.Notification.show({
     type: 'success',
     title: 'Success!',
     message: 'Your settings have been saved.',
-    autoDismiss: true
+    autoDismiss: true,
   });
 });

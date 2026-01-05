@@ -9,13 +9,9 @@ export default defineConfig({
       'tests/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.e2e.{test,spec}.{ts,tsx}',
-      'src/**/*.test.ts'
+      'src/**/*.test.ts',
     ],
-    exclude: [
-      'node_modules',
-      'dist',
-      'src/ui'
-    ],
+    exclude: ['node_modules', 'dist', 'src/ui'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -27,19 +23,19 @@ export default defineConfig({
         'build.js',
         'scripts/',
         '**/*.d.ts',
-        'code.js'
-      ]
+        'code.js',
+      ],
     },
     // Mock Figma API for tests
     server: {
       deps: {
-        inline: ['@figma/plugin-typings']
-      }
-    }
+        inline: ['@figma/plugin-typings'],
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': './src'
-    }
-  }
+      '@': './src',
+    },
+  },
 });

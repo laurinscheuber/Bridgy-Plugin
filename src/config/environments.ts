@@ -17,22 +17,22 @@ export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
     allowedDomains: ['gitlab.com', '*.gitlab.com', '*.gitlab.io'],
     name: 'GitLab.com',
     description: 'Official GitLab SaaS platform',
-    requiresCustomToken: false
+    requiresCustomToken: false,
   },
   'gitlab.fhnw.ch': {
     gitlabBaseUrl: 'https://gitlab.fhnw.ch',
     allowedDomains: ['gitlab.fhnw.ch', '*.gitlab.fhnw.ch'],
     name: 'FHNW GitLab',
     description: 'University of Applied Sciences Northwestern Switzerland',
-    requiresCustomToken: false
+    requiresCustomToken: false,
   },
   custom: {
     gitlabBaseUrl: '', // Will be set by user
     allowedDomains: [], // Will be populated based on URL
     name: 'Custom GitLab',
     description: 'Self-hosted or enterprise GitLab instance',
-    requiresCustomToken: true
-  }
+    requiresCustomToken: true,
+  },
 };
 
 export class EnvironmentManager {
@@ -56,20 +56,17 @@ export class EnvironmentManager {
    * Add or update a custom environment configuration
    */
   static async saveCustomEnvironment(
-    key: string, 
-    config: Omit<EnvironmentConfig, 'requiresCustomToken'>
+    key: string,
+    config: Omit<EnvironmentConfig, 'requiresCustomToken'>,
   ): Promise<void> {
     try {
       const customConfigs = await this.getCustomEnvironments();
       customConfigs[key] = {
         ...config,
-        requiresCustomToken: true
+        requiresCustomToken: true,
       };
 
-      await figma.clientStorage.setAsync(
-        this.CUSTOM_CONFIG_KEY,
-        JSON.stringify(customConfigs)
-      );
+      await figma.clientStorage.setAsync(this.CUSTOM_CONFIG_KEY, JSON.stringify(customConfigs));
     } catch (error) {
       console.error('Failed to save custom environment:', error);
       throw error;
@@ -96,7 +93,7 @@ export class EnvironmentManager {
     const customConfigs = await this.getCustomEnvironments();
     return {
       ...ENVIRONMENTS,
-      ...customConfigs
+      ...customConfigs,
     };
   }
 
@@ -106,13 +103,13 @@ export class EnvironmentManager {
   static validateGitLabUrl(url: string): { isValid: boolean; domain?: string; error?: string } {
     try {
       const parsed = new URL(url);
-      
+
       if (parsed.protocol !== 'https:') {
         return { isValid: false, error: 'GitLab URL must use HTTPS' };
       }
 
       const domain = parsed.hostname;
-      
+
       // Basic validation - should look like a GitLab instance
       if (!domain || domain.length < 3) {
         return { isValid: false, error: 'Invalid domain' };
@@ -134,17 +131,19 @@ export class EnvironmentManager {
     }
 
     const domain = validation.domain;
-    
+
     // Check if it matches a known environment
     for (const key in ENVIRONMENTS) {
       const config = ENVIRONMENTS[key];
-      if (config.allowedDomains.some(allowed => {
-        if (allowed.startsWith('*.')) {
-          const suffix = allowed.substring(2);
-          return domain.endsWith(suffix);
-        }
-        return domain === allowed;
-      })) {
+      if (
+        config.allowedDomains.some((allowed) => {
+          if (allowed.startsWith('*.')) {
+            const suffix = allowed.substring(2);
+            return domain.endsWith(suffix);
+          }
+          return domain === allowed;
+        })
+      ) {
         return config;
       }
     }
@@ -155,7 +154,7 @@ export class EnvironmentManager {
       allowedDomains: [domain, `*.${domain}`],
       name: `Custom (${domain})`,
       description: `Self-hosted GitLab at ${domain}`,
-      requiresCustomToken: true
+      requiresCustomToken: true,
     };
   }
 
@@ -167,10 +166,7 @@ export class EnvironmentManager {
       const customConfigs = await this.getCustomEnvironments();
       delete customConfigs[key];
 
-      await figma.clientStorage.setAsync(
-        this.CUSTOM_CONFIG_KEY,
-        JSON.stringify(customConfigs)
-      );
+      await figma.clientStorage.setAsync(this.CUSTOM_CONFIG_KEY, JSON.stringify(customConfigs));
     } catch (error) {
       console.error('Failed to remove custom environment:', error);
       throw error;
@@ -223,9 +219,9 @@ export class EnvironmentManager {
           // Skip invalid URLs
         }
       }
-      
+
       // Add allowed domains
-      config.allowedDomains.forEach(domain => {
+      config.allowedDomains.forEach((domain) => {
         if (!domain.startsWith('*.')) {
           domains.add(`https://${domain}`);
         } else {

@@ -17,15 +17,15 @@ try {
   // Read all the JavaScript modules
   const jsFiles = [
     'bridgy-utils.js',
-    'bridgy-state.js', 
+    'bridgy-state.js',
     'bridgy-api.js',
     'bridgy-components.js',
-    'main.js'
+    'main.js',
   ];
 
   console.log('📦 Combining JavaScript modules...');
   let combinedJS = '';
-  
+
   // Add header
   combinedJS += `/**
  * Bridgy Plugin UI - Combined Build
@@ -35,7 +35,7 @@ try {
 `;
 
   // Combine all JS files
-  jsFiles.forEach(filename => {
+  jsFiles.forEach((filename) => {
     const filePath = path.join(jsDir, filename);
     if (fs.existsSync(filePath)) {
       console.log(`  ✓ Including ${filename}`);
@@ -51,7 +51,7 @@ try {
   // Read existing styles and add component styles
   console.log('🎨 Combining CSS styles...');
   let combinedCSS = '';
-  
+
   const existingCSS = path.join(srcDir, 'styles.css');
   if (fs.existsSync(existingCSS)) {
     combinedCSS += fs.readFileSync(existingCSS, 'utf8');
@@ -68,7 +68,7 @@ try {
   console.log('🏗️ Processing HTML structure...');
   const reorganizedHTML = path.join(srcDir, 'body-reorganized.html');
   let htmlContent = '';
-  
+
   if (fs.existsSync(reorganizedHTML)) {
     htmlContent = fs.readFileSync(reorganizedHTML, 'utf8');
   } else {
@@ -79,11 +79,11 @@ try {
   // Create backup of original files
   console.log('💾 Creating backups...');
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  
+
   const originalMain = path.join(srcDir, 'main.js');
   const originalBody = path.join(srcDir, 'body.html');
   const originalStyles = path.join(srcDir, 'styles.css');
-  
+
   if (fs.existsSync(originalMain)) {
     fs.copyFileSync(originalMain, path.join(srcDir, `main.js.backup-${timestamp}`));
   }
@@ -96,15 +96,15 @@ try {
 
   // Write new files
   console.log('✍️ Writing new files...');
-  
+
   // Write combined JavaScript
   fs.writeFileSync(originalMain, combinedJS);
   console.log('  ✓ Updated main.js');
-  
+
   // Write reorganized HTML
   fs.writeFileSync(originalBody, htmlContent);
   console.log('  ✓ Updated body.html');
-  
+
   // Write combined CSS
   fs.writeFileSync(originalStyles, combinedCSS);
   console.log('  ✓ Updated styles.css');
@@ -124,7 +124,6 @@ try {
   console.log(`  • Created backup files with timestamp: ${timestamp}`);
   console.log(`  • Generated component documentation`);
   console.log('\n🚀 Ready to build the plugin!');
-
 } catch (error) {
   console.error('❌ Build failed:', error);
   process.exit(1);

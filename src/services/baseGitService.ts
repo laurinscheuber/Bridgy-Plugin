@@ -3,7 +3,7 @@
  * Provides a common API for all Git operations
  */
 
-import { GitSettings, GitProject, GitFile, GitCommit, GitPullRequest } from "../types/git";
+import { GitSettings, GitProject, GitFile, GitCommit, GitPullRequest } from '../types/git';
 
 export interface BaseGitService {
   /**
@@ -39,20 +39,12 @@ export interface BaseGitService {
   /**
    * Create a new branch
    */
-  createBranch(
-    settings: GitSettings,
-    branchName: string,
-    baseBranch: string
-  ): Promise<void>;
+  createBranch(settings: GitSettings, branchName: string, baseBranch: string): Promise<void>;
 
   /**
    * Get file content from repository
    */
-  getFile(
-    settings: GitSettings,
-    filePath: string,
-    branch: string
-  ): Promise<GitFile | null>;
+  getFile(settings: GitSettings, filePath: string, branch: string): Promise<GitFile | null>;
 
   /**
    * Commit file to repository
@@ -62,7 +54,7 @@ export interface BaseGitService {
     commitMessage: string,
     filePath: string,
     content: string,
-    branch: string
+    branch: string,
   ): Promise<GitCommit>;
 
   /**
@@ -74,7 +66,7 @@ export interface BaseGitService {
     targetBranch: string,
     title: string,
     description: string,
-    isDraft?: boolean
+    isDraft?: boolean,
   ): Promise<GitPullRequest>;
 
   /**
@@ -82,7 +74,7 @@ export interface BaseGitService {
    */
   findExistingPullRequest(
     settings: GitSettings,
-    sourceBranch: string
+    sourceBranch: string,
   ): Promise<GitPullRequest | null>;
 
   /**
@@ -93,7 +85,7 @@ export interface BaseGitService {
     commitMessage: string,
     filePath: string,
     cssData: string,
-    branchName: string
+    branchName: string,
   ): Promise<{ pullRequestUrl?: string }>;
 
   /**
@@ -105,7 +97,7 @@ export interface BaseGitService {
     componentName: string,
     testContent: string,
     testFilePath: string,
-    branchName: string
+    branchName: string,
   ): Promise<{ pullRequestUrl?: string }>;
 
   /**
@@ -130,7 +122,7 @@ export class GitServiceError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public response?: any
+    public response?: any,
   ) {
     super(message);
     this.name = 'GitServiceError';

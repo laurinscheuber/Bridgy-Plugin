@@ -8,12 +8,12 @@
 export function objectEntries<T>(obj: Record<string, T>): Array<[string, T]> {
   const keys = Object.keys(obj);
   const result: Array<[string, T]> = [];
-  
+
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     result.push([key, obj[key]]);
   }
-  
+
   return result;
 }
 
@@ -23,11 +23,11 @@ export function objectEntries<T>(obj: Record<string, T>): Array<[string, T]> {
 export function objectValues<T>(obj: Record<string, T>): T[] {
   const keys = Object.keys(obj);
   const result: T[] = [];
-  
+
   for (let i = 0; i < keys.length; i++) {
     result.push(obj[keys[i]]);
   }
-  
+
   return result;
 }
 
@@ -36,12 +36,12 @@ export function objectValues<T>(obj: Record<string, T>): T[] {
  */
 export function objectFromEntries<T>(entries: Array<[string, T]>): Record<string, T> {
   const result: Record<string, T> = {};
-  
+
   for (let i = 0; i < entries.length; i++) {
     const [key, value] = entries[i];
     result[key] = value;
   }
-  
+
   return result;
 }
 
@@ -67,16 +67,19 @@ export function stringIncludes(str: string, searchString: string): boolean {
 /**
  * ES2015-compatible Array.prototype.flatMap replacement
  */
-export function arrayFlatMap<T, U>(array: T[], callback: (value: T, index: number, array: T[]) => U[]): U[] {
+export function arrayFlatMap<T, U>(
+  array: T[],
+  callback: (value: T, index: number, array: T[]) => U[],
+): U[] {
   const result: U[] = [];
-  
+
   for (let i = 0; i < array.length; i++) {
     const mapped = callback(array[i], i, array);
     for (let j = 0; j < mapped.length; j++) {
       result.push(mapped[j]);
     }
   }
-  
+
   return result;
 }
 

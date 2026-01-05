@@ -1,1 +1,1 @@
-import './core/plugin'; 
+import './core/plugin';

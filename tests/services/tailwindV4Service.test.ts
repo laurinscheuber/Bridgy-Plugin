@@ -61,16 +61,24 @@ describe('TailwindV4Service', () => {
           name: 'Design Tokens',
           variables: [],
           groups: {
-            'color': [
-              { name: 'primary-500', value: 'rgb(99, 102, 241)', originalName: 'color/primary-500' },
-              { name: 'secondary-500', value: 'rgb(236, 72, 153)', originalName: 'color/secondary-500' }
+            color: [
+              {
+                name: 'primary-500',
+                value: 'rgb(99, 102, 241)',
+                originalName: 'color/primary-500',
+              },
+              {
+                name: 'secondary-500',
+                value: 'rgb(236, 72, 153)',
+                originalName: 'color/secondary-500',
+              },
             ],
-            'spacing': [
+            spacing: [
               { name: 'sm', value: '8px', originalName: 'spacing/sm' },
-              { name: 'md', value: '16px', originalName: 'spacing/md' }
-            ]
-          }
-        }
+              { name: 'md', value: '16px', originalName: 'spacing/md' },
+            ],
+          },
+        },
       ];
 
       const result = TailwindV4Service.buildTailwindV4CSS(collections);
@@ -87,11 +95,9 @@ describe('TailwindV4Service', () => {
       const collections = [
         {
           name: 'Test',
-          variables: [
-            { name: 'standalone-var', value: '100px', originalName: 'standalone-var' }
-          ],
-          groups: {}
-        }
+          variables: [{ name: 'standalone-var', value: '100px', originalName: 'standalone-var' }],
+          groups: {},
+        },
       ];
 
       const result = TailwindV4Service.buildTailwindV4CSS(collections);
@@ -106,11 +112,9 @@ describe('TailwindV4Service', () => {
           name: 'My Tokens',
           variables: [],
           groups: {
-            'color': [
-              { name: 'primary', value: '#000', originalName: 'color/primary' }
-            ]
-          }
-        }
+            color: [{ name: 'primary', value: '#000', originalName: 'color/primary' }],
+          },
+        },
       ];
 
       const result = TailwindV4Service.buildTailwindV4CSS(collections);
@@ -123,13 +127,13 @@ describe('TailwindV4Service', () => {
   describe('getValidNamespacesList', () => {
     it('should return a sorted list of valid namespaces', () => {
       const namespaces = TailwindV4Service.getValidNamespacesList();
-      
+
       expect(Array.isArray(namespaces)).toBe(true);
       expect(namespaces.length).toBeGreaterThan(0);
       expect(namespaces).toContain('color');
       expect(namespaces).toContain('spacing');
       expect(namespaces).toContain('radius');
-      
+
       // Check if sorted
       const sorted = [...namespaces].sort();
       expect(namespaces).toEqual(sorted);
@@ -162,7 +166,7 @@ describe('TailwindV4Service', () => {
   describe('TAILWIND_V4_NAMESPACES', () => {
     it('should include common Tailwind namespaces', () => {
       const namespaces = [...TAILWIND_V4_NAMESPACES];
-      
+
       expect(namespaces).toContain('color');
       expect(namespaces).toContain('spacing');
       expect(namespaces).toContain('radius');

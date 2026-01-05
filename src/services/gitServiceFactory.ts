@@ -2,10 +2,10 @@
  * Factory for creating Git service instances based on provider
  */
 
-import { BaseGitService } from "./baseGitService";
-import { GitProvider, GitSettings } from "../types/git";
-import { GitLabServiceAdapter } from "./gitLabServiceAdapter";
-import { GitHubService } from "./githubService";
+import { BaseGitService } from './baseGitService';
+import { GitProvider, GitSettings } from '../types/git';
+import { GitLabServiceAdapter } from './gitLabServiceAdapter';
+import { GitHubService } from './githubService';
 
 export class GitServiceFactory {
   private static instances: Map<string, BaseGitService> = new Map();
@@ -68,7 +68,7 @@ export class GitServiceFactory {
     // Check if we have old GitLab settings that need migration
     const gitlabService = this.getService('gitlab');
     const settings = await gitlabService.loadSettings();
-    
+
     if (settings && !settings.provider) {
       // Old settings format detected, add provider field
       settings.provider = 'gitlab';

@@ -31,7 +31,7 @@ export class CacheService<T> {
     misses: 0,
     evictions: 0,
     currentSize: 0,
-    hitRate: 0
+    hitRate: 0,
   };
 
   protected options: CacheOptions;
@@ -41,7 +41,7 @@ export class CacheService<T> {
       maxSize: 500,
       defaultTtl: 5 * 60 * 1000, // 5 minutes
       enableStats: true,
-      ...options
+      ...options,
     };
   }
 
@@ -50,7 +50,7 @@ export class CacheService<T> {
    */
   get(key: string): T | null {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.updateStats('miss');
       return null;
@@ -67,7 +67,7 @@ export class CacheService<T> {
     // Update access info
     entry.accessCount++;
     entry.lastAccessed = now;
-    
+
     this.updateStats('hit');
     return entry.value;
   }
@@ -77,7 +77,7 @@ export class CacheService<T> {
    */
   set(key: string, value: T, ttl?: number): void {
     const now = Date.now();
-    
+
     // Check if we need to evict (only if adding a new key)
     if (!this.cache.has(key) && this.cache.size >= (this.options.maxSize || 500)) {
       this.evictLRU();
@@ -87,7 +87,7 @@ export class CacheService<T> {
       value,
       timestamp: now,
       accessCount: 1,
-      lastAccessed: now
+      lastAccessed: now,
     });
 
     this.stats.currentSize = this.cache.size;
@@ -218,7 +218,7 @@ export class CSSCache extends CacheService<string> {
     super({
       maxSize: 1000,
       defaultTtl: 10 * 60 * 1000, // 10 minutes for CSS data
-      enableStats: true
+      enableStats: true,
     });
   }
 
@@ -304,7 +304,7 @@ export class PerformanceCache extends CacheService<number> {
     super({
       maxSize: 200,
       defaultTtl: 60 * 60 * 1000, // 1 hour for performance metrics
-      enableStats: false
+      enableStats: false,
     });
   }
 
@@ -339,9 +339,7 @@ export class PerformanceCache extends CacheService<number> {
       }
     }
 
-    return durations.length > 0 
-      ? durations.reduce((a, b) => a + b, 0) / durations.length 
-      : 0;
+    return durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
   }
 }
 

@@ -272,7 +272,7 @@
         REQUEST_TIMEOUT: 3e4,
         DEFAULT_HEADERS: {
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          Accept: "application/json"
         }
       };
       var buildGitLabApiUrl = (gitlabUrl) => __awaiter(void 0, void 0, void 0, function* () {
@@ -401,15 +401,7 @@
           "textindent"
         ],
         // Relative sizing (prefer %)
-        RELATIVE_PATTERNS: [
-          "width",
-          "height",
-          "top",
-          "right",
-          "bottom",
-          "left",
-          "inset"
-        ],
+        RELATIVE_PATTERNS: ["width", "height", "top", "right", "bottom", "left", "inset"],
         // Viewport units (prefer vw/vh)
         VIEWPORT_PATTERNS: [
           "viewport",
@@ -423,13 +415,7 @@
           "breakpoint"
         ],
         // Border radius (prefer px for small values, % for large)
-        BORDER_RADIUS_PATTERNS: [
-          "radius",
-          "rounded",
-          "corner",
-          "border-radius",
-          "borderradius"
-        ],
+        BORDER_RADIUS_PATTERNS: ["radius", "rounded", "corner", "border-radius", "borderradius"],
         // Spacing (prefer rem for consistency)
         SPACING_PATTERNS: [
           "margin",
@@ -487,13 +473,7 @@
           "filter"
         ],
         // Layout properties (often structural, not styling)
-        LAYOUT: [
-          "justifyContent",
-          "alignItems",
-          "display",
-          "flexDirection",
-          "position"
-        ],
+        LAYOUT: ["justifyContent", "alignItems", "display", "flexDirection", "position"],
         // Interactive properties (change on hover/focus/active)
         INTERACTIVE: [
           "background-color",
@@ -683,7 +663,7 @@
         // Network errors
         NETWORK_ERROR: "Network error while communicating with GitLab",
         NETWORK_FETCH: "Network error - unable to connect to GitLab API",
-        // Parse errors  
+        // Parse errors
         PARSE_ERROR: "Error parsing {type}: {error}",
         PARSE_SETTINGS: "Error parsing document settings",
         PARSE_METADATA: "Error parsing settings metadata",
@@ -1423,10 +1403,16 @@
           }
           const inputStr = String(input);
           if (rules.minLength && inputStr.length < rules.minLength) {
-            return { isValid: false, error: `${fieldName} must be at least ${rules.minLength} characters` };
+            return {
+              isValid: false,
+              error: `${fieldName} must be at least ${rules.minLength} characters`
+            };
           }
           if (rules.maxLength && inputStr.length > rules.maxLength) {
-            return { isValid: false, error: `${fieldName} must be no more than ${rules.maxLength} characters` };
+            return {
+              isValid: false,
+              error: `${fieldName} must be no more than ${rules.maxLength} characters`
+            };
           }
           if (rules.pattern && !rules.pattern.test(inputStr)) {
             return { isValid: false, error: `${fieldName} format is invalid` };
@@ -1920,11 +1906,7 @@
                     if (cryptoService_1.CryptoService.isAvailable()) {
                       const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.gitlabToken);
                       yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-                      yield figma.clientStorage.setAsync(
-                        `${settingsKey}-crypto`,
-                        "v2"
-                        // Version marker for new encryption
-                      );
+                      yield figma.clientStorage.setAsync(`${settingsKey}-crypto`, "v2");
                       if (settings._needsCryptoMigration) {
                         yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
                         delete settings._needsCryptoMigration;
@@ -3551,15 +3533,7 @@
               const existingPR = yield this.findExistingPullRequest(settings, featureBranch);
               if (!existingPR) {
                 const prDescription = `Automatically created pull request for component test: ${componentName}`;
-                const newPR = yield this.createPullRequest(
-                  settings,
-                  featureBranch,
-                  defaultBranch,
-                  commitMessage,
-                  prDescription,
-                  true
-                  // Mark as draft
-                );
+                const newPR = yield this.createPullRequest(settings, featureBranch, defaultBranch, commitMessage, prDescription, true);
                 return { pullRequestUrl: newPR.webUrl };
               }
               return { pullRequestUrl: existingPR.webUrl };
@@ -3615,8 +3589,8 @@
          */
         getHeaders(token) {
           return Object.assign({}, _GitHubService.DEFAULT_HEADERS, {
-            "Authorization": `Bearer ${token}`,
-            "Accept": _GitHubService.API_VERSION
+            Authorization: `Bearer ${token}`,
+            Accept: _GitHubService.API_VERSION
           });
         }
         validateCommitParameters(settings, commitMessage, filePath, cssData) {
@@ -4337,32 +4311,32 @@
         static getSuggestion(groupName) {
           const normalized = groupName.toLowerCase().trim();
           const suggestions = {
-            "colors": "color",
-            "colour": "color",
-            "fonts": "font",
+            colors: "color",
+            colour: "color",
+            fonts: "font",
             "font-family": "font",
             "font-size": "text",
             "text-size": "text",
-            "size": "text",
-            "weight": "font-weight",
+            size: "text",
+            weight: "font-weight",
             "letter-spacing": "tracking",
             "line-height": "leading",
-            "line": "leading",
-            "space": "spacing",
-            "padding": "spacing",
-            "margin": "spacing",
-            "gap": "spacing",
+            line: "leading",
+            space: "spacing",
+            padding: "spacing",
+            margin: "spacing",
+            gap: "spacing",
             "border-radius": "radius",
-            "rounded": "radius",
-            "shadows": "shadow",
+            rounded: "radius",
+            shadows: "shadow",
             "box-shadow": "shadow",
-            "timing": "ease",
+            timing: "ease",
             "timing-function": "ease",
-            "transition": "ease",
-            "animation": "animate",
+            transition: "ease",
+            animation: "animate",
             "aspect-ratio": "aspect",
-            "breakpoints": "breakpoint",
-            "screen": "breakpoint"
+            breakpoints: "breakpoint",
+            screen: "breakpoint"
           };
           return suggestions[normalized] || null;
         }
@@ -5253,7 +5227,15 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         if ((0, es2015_helpers_1.arrayIncludes)(exports.INTERACTIVE_PROPERTIES, property) || (0, es2015_helpers_1.arrayIncludes)(exports.INTERACTIVE_PROPERTIES, kebabProperty)) {
           return true;
         }
-        const colorRelatedKeywords = ["color", "background", "border", "outline", "shadow", "fill", "stroke"];
+        const colorRelatedKeywords = [
+          "color",
+          "background",
+          "border",
+          "outline",
+          "shadow",
+          "fill",
+          "stroke"
+        ];
         return colorRelatedKeywords.some((keyword) => property.toLowerCase().indexOf(keyword) !== -1 || kebabProperty.indexOf(keyword) !== -1);
       }
       function toKebabCase(property) {
@@ -6592,7 +6574,7 @@ ${variantTests}
             "font-size": "fontSize",
             "font-family": "fontFamily",
             "font-weight": "fontWeight",
-            "color": "color",
+            color: "color",
             "line-height": "lineHeight",
             "letter-spacing": "letterSpacing"
           };
@@ -7067,13 +7049,10 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, void 0, void 0, function* () {
             const currentPage = figma.currentPage;
-            const allNodes = currentPage.findAll(
-              (node) => (
-                // node.type === 'FRAME' || 
-                node.type === "COMPONENT" || node.type === "COMPONENT_SET"
-              )
-              // node.type === 'INSTANCE'
-            );
+            const allNodes = currentPage.findAll((node) => (
+              // node.type === 'FRAME' ||
+              node.type === "COMPONENT" || node.type === "COMPONENT_SET"
+            ));
             return this.analyzeNodes(allNodes);
           });
         }
@@ -7085,13 +7064,10 @@ ${Object.keys(cssProperties).map((property) => {
             const allPages = figma.root.children;
             let allNodes = [];
             for (const page of allPages) {
-              const pageNodes = page.findAll(
-                (node) => (
-                  // node.type === 'FRAME' || 
-                  node.type === "COMPONENT" || node.type === "COMPONENT_SET"
-                )
-                // node.type === 'INSTANCE'
-              );
+              const pageNodes = page.findAll((node) => (
+                // node.type === 'FRAME' ||
+                node.type === "COMPONENT" || node.type === "COMPONENT_SET"
+              ));
               allNodes = [...allNodes, ...pageNodes];
             }
             return this.analyzeNodes(allNodes);
@@ -7113,13 +7089,10 @@ ${Object.keys(cssProperties).map((property) => {
             for (const page of allPages) {
               if (page.id === currentPageId)
                 continue;
-              const pageNodes = page.findAll(
-                (node) => (
-                  // node.type === 'FRAME' || 
-                  node.type === "COMPONENT" || node.type === "COMPONENT_SET"
-                )
-                // node.type === 'INSTANCE'
-              );
+              const pageNodes = page.findAll((node) => (
+                // node.type === 'FRAME' ||
+                node.type === "COMPONENT" || node.type === "COMPONENT_SET"
+              ));
               const pageResult = yield this.analyzeNodes(pageNodes);
               if (pageResult.totalIssues > 0) {
                 yield figma.setCurrentPageAsync(page);
@@ -8281,7 +8254,10 @@ ${Object.keys(cssProperties).map((property) => {
             console.warn(`Failed to parse gradient ${token.name}:`, error);
             const fallback = {
               type: "GRADIENT_LINEAR",
-              gradientTransform: [[1, 0, 0], [0, 1, 0]],
+              gradientTransform: [
+                [1, 0, 0],
+                [0, 1, 0]
+              ],
               gradientStops: [
                 { position: 0, color: { r: 0.5, g: 0.5, b: 0.5, a: 1 } },
                 { position: 1, color: { r: 0.8, g: 0.8, b: 0.8, a: 1 } }
@@ -8342,15 +8318,17 @@ ${Object.keys(cssProperties).map((property) => {
           if (lengths.length >= 4) {
             spread = lengths[3];
           }
-          style.effects = [{
-            type: isInset ? "INNER_SHADOW" : "DROP_SHADOW",
-            color,
-            offset: { x, y },
-            radius: blur,
-            spread,
-            visible: true,
-            blendMode: "NORMAL"
-          }];
+          style.effects = [
+            {
+              type: isInset ? "INNER_SHADOW" : "DROP_SHADOW",
+              color,
+              offset: { x, y },
+              radius: blur,
+              spread,
+              visible: true,
+              blendMode: "NORMAL"
+            }
+          ];
         }
         static mapTokenTypeToFigmaType(type) {
           switch (type) {
@@ -8450,17 +8428,17 @@ ${Object.keys(cssProperties).map((property) => {
               }
             }
             const namedColors = {
-              "transparent": { r: 0, g: 0, b: 0, a: 0 },
-              "black": { r: 0, g: 0, b: 0, a: 1 },
-              "white": { r: 1, g: 1, b: 1, a: 1 },
-              "red": { r: 1, g: 0, b: 0, a: 1 },
-              "green": { r: 0, g: 0.5, b: 0, a: 1 },
-              "blue": { r: 0, g: 0, b: 1, a: 1 },
-              "yellow": { r: 1, g: 1, b: 0, a: 1 },
-              "cyan": { r: 0, g: 1, b: 1, a: 1 },
-              "magenta": { r: 1, g: 0, b: 1, a: 1 },
-              "gray": { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-              "grey": { r: 0.5, g: 0.5, b: 0.5, a: 1 }
+              transparent: { r: 0, g: 0, b: 0, a: 0 },
+              black: { r: 0, g: 0, b: 0, a: 1 },
+              white: { r: 1, g: 1, b: 1, a: 1 },
+              red: { r: 1, g: 0, b: 0, a: 1 },
+              green: { r: 0, g: 0.5, b: 0, a: 1 },
+              blue: { r: 0, g: 0, b: 1, a: 1 },
+              yellow: { r: 1, g: 1, b: 0, a: 1 },
+              cyan: { r: 0, g: 1, b: 1, a: 1 },
+              magenta: { r: 1, g: 0, b: 1, a: 1 },
+              gray: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+              grey: { r: 0.5, g: 0.5, b: 0.5, a: 1 }
             };
             if (namedColors[cleanColor]) {
               return namedColors[cleanColor];
@@ -8523,7 +8501,10 @@ ${Object.keys(cssProperties).map((property) => {
           const stops = this.parseGradientStops(parts);
           return {
             type: "GRADIENT_RADIAL",
-            gradientTransform: [[1, 0, 0.5], [0, 1, 0.5]],
+            gradientTransform: [
+              [1, 0, 0.5],
+              [0, 1, 0.5]
+            ],
             // Centered radial
             gradientStops: stops
           };
@@ -8543,7 +8524,10 @@ ${Object.keys(cssProperties).map((property) => {
           const stops = this.parseGradientStops(parts);
           return {
             type: "GRADIENT_ANGULAR",
-            gradientTransform: [[1, 0, 0.5], [0, 1, 0.5]],
+            gradientTransform: [
+              [1, 0, 0.5],
+              [0, 1, 0.5]
+            ],
             // Centered angular
             gradientStops: stops
           };
@@ -8627,7 +8611,10 @@ ${Object.keys(cssProperties).map((property) => {
           const radians = degrees * Math.PI / 180;
           const cos = Math.cos(radians);
           const sin = Math.sin(radians);
-          return [[cos, -sin, 0.5], [sin, cos, 0.5]];
+          return [
+            [cos, -sin, 0.5],
+            [sin, cos, 0.5]
+          ];
         }
       };
       exports.VariableImportService = VariableImportService;
@@ -9243,14 +9230,14 @@ ${Object.keys(cssProperties).map((property) => {
         return __awaiter(this, void 0, void 0, function* () {
           try {
             const propertyMap = {
-              "Width": "width",
-              "Height": "height",
+              Width: "width",
+              Height: "height",
               "Min Width": "minWidth",
               "Max Width": "maxWidth",
               "Min Height": "minHeight",
               "Max Height": "maxHeight",
-              "Gap": "itemSpacing",
-              "Padding": "paddingLeft",
+              Gap: "itemSpacing",
+              Padding: "paddingLeft",
               // Will also set other padding properties
               "Padding Left": "paddingLeft",
               "Padding Top": "paddingTop",
@@ -9259,7 +9246,7 @@ ${Object.keys(cssProperties).map((property) => {
               "Fill Color": "fills",
               "Stroke Color": "strokes",
               "Stroke Weight": "strokeWeight",
-              "Opacity": "opacity",
+              Opacity: "opacity",
               "Corner Radius": "topLeftRadius",
               // Will also set other corner radii
               "Corner Radius (Top Left)": "topLeftRadius",
@@ -9430,11 +9417,7 @@ ${Object.keys(cssProperties).map((property) => {
                 throw new Error(`Component with ID ${msg.componentId} not found`);
               }
               yield componentService_1.ComponentService.loadComponentDetails(msg.componentId);
-              const testContent = componentService_1.ComponentService.generateTest(
-                component,
-                msg.includeStateTests !== false
-                // Default to true
-              );
+              const testContent = componentService_1.ComponentService.generateTest(component, msg.includeStateTests !== false);
               figma.ui.postMessage({
                 type: "test-generated",
                 componentName: msg.componentName || component.name,
@@ -9662,7 +9645,14 @@ ${Object.keys(cssProperties).map((property) => {
                 const usageMap = {};
                 const localDefinitions = /* @__PURE__ */ new Map();
                 const variantToSetId = /* @__PURE__ */ new Map();
-                const localNodes = figma.root.findAll((n) => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
+                const localNodes = [];
+                const allInstances = [];
+                for (const page of figma.root.children) {
+                  const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
+                  localNodes.push(...pageDefs);
+                  const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
+                  allInstances.push(...pageInstances);
+                }
                 for (const node of localNodes) {
                   if (node.type === "COMPONENT_SET") {
                     localDefinitions.set(node.id, {
@@ -9687,33 +9677,26 @@ ${Object.keys(cssProperties).map((property) => {
                     }
                   }
                 }
-                const allInstances = figma.root.findAll((n) => n.type === "INSTANCE");
                 for (const instance of allInstances) {
-                  const instanceNode = instance;
-                  try {
-                    const mainComponent = yield instanceNode.getMainComponentAsync();
-                    if (!mainComponent)
-                      continue;
-                    const mainId = mainComponent.id;
-                    let targetId = mainId;
-                    if (variantToSetId.has(mainId)) {
-                      targetId = variantToSetId.get(mainId);
+                  const mainId = instance.mainComponentId;
+                  if (!mainId)
+                    continue;
+                  let targetId = mainId;
+                  if (variantToSetId.has(mainId)) {
+                    targetId = variantToSetId.get(mainId);
+                  }
+                  if (localDefinitions.has(targetId)) {
+                    const def = localDefinitions.get(targetId);
+                    let parentName = "Page";
+                    if (instance.parent) {
+                      parentName = instance.parent.name;
                     }
-                    if (localDefinitions.has(targetId)) {
-                      const def = localDefinitions.get(targetId);
-                      let parentName = "Page";
-                      if (instance.parent) {
-                        parentName = instance.parent.name;
-                      }
-                      def.instances.push({
-                        id: instance.id,
-                        name: instance.name,
-                        // Instance name might differ from component name
-                        parentName
-                      });
-                    }
-                  } catch (err) {
-                    console.warn(`Could not get main component for instance ${instance.id}:`, err);
+                    def.instances.push({
+                      id: instance.id,
+                      name: instance.name,
+                      // Instance name might differ from component name
+                      parentName
+                    });
                   }
                 }
                 const statsData = Array.from(localDefinitions.values()).map((def) => ({
@@ -9860,7 +9843,7 @@ ${Object.keys(cssProperties).map((property) => {
                   // Default value
                   testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
                   strategy: "merge-request",
-                  // Default value  
+                  // Default value
                   branchName: "feature/variables",
                   // Default value
                   testBranchName: msg.branchName || "feature/component-tests",
@@ -10346,7 +10329,9 @@ ${Object.keys(cssProperties).map((property) => {
                   success: false,
                   error: applyError.message || "Failed to apply token"
                 });
-                figma.notify(`\u2717 Error: ${applyError.message || "Failed to apply token"}`, { error: true });
+                figma.notify(`\u2717 Error: ${applyError.message || "Failed to apply token"}`, {
+                  error: true
+                });
               }
               break;
             default:

@@ -19,7 +19,7 @@ const componentPatterns = {
   tabs: /\.(tab|sub-tab)[^{]*\{[^}]+\}/g,
   headers: /\.header[^{]*\{[^}]+\}/g,
   notifications: /\.(notification|success-message|error-message)[^{]*\{[^}]+\}/g,
-  loading: /\.(loading|spinner|progress)[^{]*\{[^}]+\}/g
+  loading: /\.(loading|spinner|progress)[^{]*\{[^}]+\}/g,
 };
 
 // Extract root variables
@@ -28,7 +28,7 @@ const rootVars = cssContent.match(/:root\s*\{[^}]+\}/s);
 // Extract component styles
 const extractedStyles = {
   variables: rootVars ? rootVars[0] : '',
-  components: {}
+  components: {},
 };
 
 Object.entries(componentPatterns).forEach(([componentType, pattern]) => {
@@ -65,7 +65,7 @@ const buttonSpecs = {
     color: 'white',
     fontSize: '14px',
     fontWeight: '600',
-    shadow: '0 4px 15px var(--glass-purple-medium)'
+    shadow: '0 4px 15px var(--glass-purple-medium)',
   },
   secondary: {
     height: '40px',
@@ -75,8 +75,8 @@ const buttonSpecs = {
     border: '1px solid var(--glass-white-medium)',
     color: 'var(--neutral-100)',
     fontSize: '14px',
-    fontWeight: '500'
-  }
+    fontWeight: '500',
+  },
 };
 
 // Create Figma-ready component specs
@@ -152,13 +152,34 @@ fs.writeFileSync(outputPath, output + figmaSpecs);
 const jsonOutput = {
   cssVariables: {
     colors: {
-      primary: ['#f0f9ff', '#e0e7ff', '#c7d2fe', '#c4b5fd', '#8b5cf6', '#7c3aed', '#6366f1', '#4c1d95'],
-      neutral: ['#ffffff', '#fafafa', '#f5f5f5', '#e5e5e5', '#d4d4d4', '#a3a3a3', '#737373', '#525252', '#404040', '#262626', '#171717'],
+      primary: [
+        '#f0f9ff',
+        '#e0e7ff',
+        '#c7d2fe',
+        '#c4b5fd',
+        '#8b5cf6',
+        '#7c3aed',
+        '#6366f1',
+        '#4c1d95',
+      ],
+      neutral: [
+        '#ffffff',
+        '#fafafa',
+        '#f5f5f5',
+        '#e5e5e5',
+        '#d4d4d4',
+        '#a3a3a3',
+        '#737373',
+        '#525252',
+        '#404040',
+        '#262626',
+        '#171717',
+      ],
       semantic: {
         success: ['#f0fdf4', '#22c55e', '#16a34a', '#15803d'],
         warning: ['#fefce8', '#eab308', '#ca8a04', '#a16207'],
-        error: ['#fef2f2', '#ef4444', '#dc2626', '#b91c1c']
-      }
+        error: ['#fef2f2', '#ef4444', '#dc2626', '#b91c1c'],
+      },
     },
     spacing: {
       px: '1px',
@@ -170,7 +191,7 @@ const jsonOutput = {
       5: '1.25rem',
       6: '1.5rem',
       8: '2rem',
-      12: '3rem'
+      12: '3rem',
     },
     typography: {
       sizes: {
@@ -179,14 +200,14 @@ const jsonOutput = {
         base: '1rem',
         lg: '1.125rem',
         xl: '1.25rem',
-        '2xl': '1.5rem'
+        '2xl': '1.5rem',
       },
       weights: {
         normal: 400,
         medium: 500,
         semibold: 600,
-        bold: 700
-      }
+        bold: 700,
+      },
     },
     borderRadius: {
       sm: '0.375rem',
@@ -194,10 +215,10 @@ const jsonOutput = {
       button: '0.625rem',
       card: '0.75rem',
       modal: '0.9375rem',
-      lg: '1rem'
-    }
+      lg: '1rem',
+    },
   },
-  components: extractedStyles.components
+  components: extractedStyles.components,
 };
 
 const jsonPath = path.join(__dirname, '../docs/component-styles.json');

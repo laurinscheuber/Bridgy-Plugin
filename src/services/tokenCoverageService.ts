@@ -63,22 +63,17 @@ const PROPERTIES_TO_CHECK = {
     'paddingLeft',
     'paddingTop',
     'paddingRight',
-    'paddingBottom'
+    'paddingBottom',
   ],
-  Fill: [
-    'fills'
-  ],
-  Stroke: [
-    'strokes',
-    'strokeWeight'
-  ],
+  Fill: ['fills'],
+  Stroke: ['strokes', 'strokeWeight'],
   Appearance: [
     'opacity',
     'topLeftRadius',
     'topRightRadius',
     'bottomLeftRadius',
-    'bottomRightRadius'
-  ]
+    'bottomRightRadius',
+  ],
 };
 
 export class TokenCoverageService {
@@ -87,13 +82,13 @@ export class TokenCoverageService {
    */
   static async analyzeCurrentPage(): Promise<TokenCoverageResult> {
     const currentPage = figma.currentPage;
-    const allNodes = currentPage.findAll(node => 
-      // node.type === 'FRAME' || 
-      node.type === 'COMPONENT' || 
-      node.type === 'COMPONENT_SET'
+    const allNodes = currentPage.findAll(
+      (node) =>
+        // node.type === 'FRAME' ||
+        node.type === 'COMPONENT' || node.type === 'COMPONENT_SET',
       // node.type === 'INSTANCE'
     );
-    
+
     return this.analyzeNodes(allNodes as SceneNode[]);
   }
 
@@ -103,18 +98,18 @@ export class TokenCoverageService {
   static async analyzeDocument(): Promise<TokenCoverageResult> {
     const allPages = figma.root.children;
     let allNodes: SceneNode[] = [];
-    
+
     // Iterate through all pages
     for (const page of allPages) {
-      const pageNodes = page.findAll(node => 
-        // node.type === 'FRAME' || 
-        node.type === 'COMPONENT' || 
-        node.type === 'COMPONENT_SET'
+      const pageNodes = page.findAll(
+        (node) =>
+          // node.type === 'FRAME' ||
+          node.type === 'COMPONENT' || node.type === 'COMPONENT_SET',
         // node.type === 'INSTANCE'
       );
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
-    
+
     return this.analyzeNodes(allNodes);
   }
 
@@ -140,13 +135,13 @@ export class TokenCoverageService {
       // Skip the page we just checked
       if (page.id === currentPageId) continue;
 
-      const pageNodes = page.findAll(node => 
-        // node.type === 'FRAME' || 
-        node.type === 'COMPONENT' || 
-        node.type === 'COMPONENT_SET'
+      const pageNodes = page.findAll(
+        (node) =>
+          // node.type === 'FRAME' ||
+          node.type === 'COMPONENT' || node.type === 'COMPONENT_SET',
         // node.type === 'INSTANCE'
       );
-      
+
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[]);
 
       if (pageResult.totalIssues > 0) {
@@ -181,17 +176,22 @@ export class TokenCoverageService {
       totalNodes++;
 
       // DSQ Metrics Collection (Node Level)
-      if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'COMPONENT_SET' || node.type === 'INSTANCE') {
-          // Check for auto-layout (applies to Frame-like nodes)
-          if ('layoutMode' in node && node.layoutMode !== 'NONE') {
-              autoLayoutCount++;
-          }
-          
-          if (node.type === 'INSTANCE') {
-              instanceCount++;
-          } else {
-              frameCount++; // Treat Component/Set/Frame as "frames" for this ratio
-          }
+      if (
+        node.type === 'FRAME' ||
+        node.type === 'COMPONENT' ||
+        node.type === 'COMPONENT_SET' ||
+        node.type === 'INSTANCE'
+      ) {
+        // Check for auto-layout (applies to Frame-like nodes)
+        if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+          autoLayoutCount++;
+        }
+
+        if (node.type === 'INSTANCE') {
+          instanceCount++;
+        } else {
+          frameCount++; // Treat Component/Set/Frame as "frames" for this ratio
+        }
       }
 
       await this.analyzeNode(node, issuesMap);
@@ -199,7 +199,11 @@ export class TokenCoverageService {
 
     // Find matching variables for each issue
     for (const issue of issuesMap.values()) {
-      issue.matchingVariables = await this.findMatchingVariables(issue.value, issue.category, allVariables);
+      issue.matchingVariables = await this.findMatchingVariables(
+        issue.value,
+        issue.category,
+        allVariables,
+      );
     }
 
     // Group issues by category
@@ -207,7 +211,7 @@ export class TokenCoverageService {
       Layout: [] as TokenCoverageIssue[],
       Fill: [] as TokenCoverageIssue[],
       Stroke: [] as TokenCoverageIssue[],
-      Appearance: [] as TokenCoverageIssue[]
+      Appearance: [] as TokenCoverageIssue[],
     };
 
     for (const issue of issuesMap.values()) {
@@ -225,80 +229,95 @@ export class TokenCoverageService {
     // Base logic: 100 - penalty based on density
     let tokenCoverageScore = 100;
     if (totalNodes > 0) {
-        let totalIssueOccurrences = 0;
-        for (const issue of issuesMap.values()) {
-            totalIssueOccurrences += issue.count;
-        }
-        const issueDensity = totalIssueOccurrences / (totalNodes * 3); // Assume ~3 checkable props per node
-        const penalty = Math.round(issueDensity * 100);
-        tokenCoverageScore = Math.max(0, 100 - penalty);
+      let totalIssueOccurrences = 0;
+      for (const issue of issuesMap.values()) {
+        totalIssueOccurrences += issue.count;
+      }
+      const issueDensity = totalIssueOccurrences / (totalNodes * 3); // Assume ~3 checkable props per node
+      const penalty = Math.round(issueDensity * 100);
+      tokenCoverageScore = Math.max(0, 100 - penalty);
     }
 
     // 2. Tailwind Readiness Score (20%)
     // Logic: % of variables that match Tailwind v4 CSS variable naming conventions
     // Official prefixes: --color-*, --font-*, --text-*, --spacing-*, --radius-*, etc.
     const TAILWIND_PREFIXES = [
-        'color',           // Color utilities (bg-red-500, text-sky-300)
-        'font',            // Font family utilities (font-sans)
-        'text',            // Font size utilities (text-xl)
-        'font-weight',     // Font weight utilities (font-bold)
-        'tracking',        // Letter spacing utilities (tracking-wide)
-        'leading',         // Line height utilities (leading-tight)
-        'breakpoint',      // Responsive breakpoint variants (sm:*)
-        'container',       // Container query variants (@sm:*, max-w-md)
-        'spacing',         // Spacing and sizing utilities (px-4, max-h-16)
-        'radius',          // Border radius utilities (rounded-sm)
-        'shadow',          // Box shadow utilities (shadow-md)
-        'inset-shadow',    // Inset box shadow utilities (inset-shadow-xs)
-        'drop-shadow',     // Drop shadow filter utilities (drop-shadow-md)
-        'blur',            // Blur filter utilities (blur-md)
-        'perspective',     // Perspective utilities (perspective-near)
-        'aspect',          // Aspect ratio utilities (aspect-video)
-        'ease',            // Transition timing function utilities (ease-out)
-        'animate',         // Animation utilities (animate-spin)
+      'color', // Color utilities (bg-red-500, text-sky-300)
+      'font', // Font family utilities (font-sans)
+      'text', // Font size utilities (text-xl)
+      'font-weight', // Font weight utilities (font-bold)
+      'tracking', // Letter spacing utilities (tracking-wide)
+      'leading', // Line height utilities (leading-tight)
+      'breakpoint', // Responsive breakpoint variants (sm:*)
+      'container', // Container query variants (@sm:*, max-w-md)
+      'spacing', // Spacing and sizing utilities (px-4, max-h-16)
+      'radius', // Border radius utilities (rounded-sm)
+      'shadow', // Box shadow utilities (shadow-md)
+      'inset-shadow', // Inset box shadow utilities (inset-shadow-xs)
+      'drop-shadow', // Drop shadow filter utilities (drop-shadow-md)
+      'blur', // Blur filter utilities (blur-md)
+      'perspective', // Perspective utilities (perspective-near)
+      'aspect', // Aspect ratio utilities (aspect-video)
+      'ease', // Transition timing function utilities (ease-out)
+      'animate', // Animation utilities (animate-spin)
     ];
-    
+
     // Check if a variable name matches Tailwind naming convention
     // Supports both flat names (color-primary) and grouped names (color/primary, spacing/md)
     const isTailwindCompatible = (name: string): boolean => {
-        // Normalize: replace slashes with hyphens for prefix matching
-        const normalizedName = name.replace(/\//g, '-');
-        return TAILWIND_PREFIXES.some(prefix => normalizedName.startsWith(`${prefix}-`));
+      // Normalize: replace slashes with hyphens for prefix matching
+      const normalizedName = name.replace(/\//g, '-');
+      return TAILWIND_PREFIXES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
     };
-    
+
     let validTailwindNames = 0;
     let totalVarsToCheck = allVariables.length;
-    
+
     if (totalVarsToCheck > 0) {
-        console.log(`[Coverage Debug] Checking Tailwind compatibility for ${allVariables.length} vars`);
-        allVariables.forEach((v, idx) => {
-            if (!v) { console.warn(`[Coverage Debug] v is null at ${idx}`); return; }
-            if (!v.variable) { console.warn(`[Coverage Debug] v.variable is null at ${idx}`); return; }
-            if (!v.variable.name) { console.warn(`[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`); return; }
-            
-            if (v.variable && v.variable.name && isTailwindCompatible(v.variable.name)) {
-                validTailwindNames++;
-            }
-        });
+      console.log(
+        `[Coverage Debug] Checking Tailwind compatibility for ${allVariables.length} vars`,
+      );
+      allVariables.forEach((v, idx) => {
+        if (!v) {
+          console.warn(`[Coverage Debug] v is null at ${idx}`);
+          return;
+        }
+        if (!v.variable) {
+          console.warn(`[Coverage Debug] v.variable is null at ${idx}`);
+          return;
+        }
+        if (!v.variable.name) {
+          console.warn(
+            `[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`,
+          );
+          return;
+        }
+
+        if (v.variable && v.variable.name && isTailwindCompatible(v.variable.name)) {
+          validTailwindNames++;
+        }
+      });
     }
-    // If no variables exist, we give a neutral score (100) or 0? 
+    // If no variables exist, we give a neutral score (100) or 0?
     // Let's go with 100 if 0 variables (nothing wrong), otherwise calculate %
-    const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round((validTailwindNames / totalVarsToCheck) * 100);
+    const tailwindScore =
+      totalVarsToCheck === 0 ? 100 : Math.round((validTailwindNames / totalVarsToCheck) * 100);
 
     // 3. Variable Hygiene Score (15%)
     // Logic: % of variables that use grouping (contain '/')
     let groupedVariables = 0;
     if (totalVarsToCheck > 0) {
-        console.log(`[Coverage Debug] Checking Variable Hygiene for ${allVariables.length} vars`);
-        allVariables.forEach((v, idx) => {
-            if (!v || !v.variable || !v.variable.name) return; // Silent skip for safety
-            
-            if (v.variable && v.variable.name && v.variable.name.includes('/')) {
-                groupedVariables++;
-            }
-        });
+      console.log(`[Coverage Debug] Checking Variable Hygiene for ${allVariables.length} vars`);
+      allVariables.forEach((v, idx) => {
+        if (!v || !v.variable || !v.variable.name) return; // Silent skip for safety
+
+        if (v.variable && v.variable.name && v.variable.name.includes('/')) {
+          groupedVariables++;
+        }
+      });
     }
-    const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round((groupedVariables / totalVarsToCheck) * 100);
+    const variableHygieneScore =
+      totalVarsToCheck === 0 ? 100 : Math.round((groupedVariables / totalVarsToCheck) * 100);
 
     // 4. Component Hygiene Score (15%)
     // Logic: Ratio of Instances vs Raw Frames/Components. We want to encourage using Instances (composition).
@@ -309,11 +328,13 @@ export class TokenCoverageService {
     // If we only have roots (Components), instanceCount might be 0.
     // NOTE: Since the current scan finds *only* Components (roots), this score will likely be 0 unless we scan deeper.
     // However, we stick to the metric defined for now.
-    const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round((instanceCount / totalContainerNodes) * 100);
+    const componentHygieneScore =
+      totalContainerNodes === 0 ? 100 : Math.round((instanceCount / totalContainerNodes) * 100);
 
     // 5. Layout Hygiene Score (15%)
     // Logic: % of frames/components using Auto Layout
-    const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round((autoLayoutCount / totalContainerNodes) * 100);
+    const layoutHygieneScore =
+      totalContainerNodes === 0 ? 100 : Math.round((autoLayoutCount / totalContainerNodes) * 100);
 
     // Weighted Total Score
     // Weights:
@@ -322,13 +343,13 @@ export class TokenCoverageService {
     // Comp Hygiene: 15%
     // Var Hygiene: 15%
     // Layout: 15%
-    
+
     const weightedScore = Math.round(
-        (tokenCoverageScore * 0.35) +
-        (tailwindScore * 0.20) +
-        (componentHygieneScore * 0.15) +
-        (variableHygieneScore * 0.15) +
-        (layoutHygieneScore * 0.15)
+      tokenCoverageScore * 0.35 +
+        tailwindScore * 0.2 +
+        componentHygieneScore * 0.15 +
+        variableHygieneScore * 0.15 +
+        layoutHygieneScore * 0.15,
     );
 
     return {
@@ -337,12 +358,12 @@ export class TokenCoverageService {
       issuesByCategory,
       qualityScore: weightedScore,
       subScores: {
-          tokenCoverage: tokenCoverageScore,
-          tailwindReadiness: tailwindScore,
-          componentHygiene: componentHygieneScore,
-          variableHygiene: variableHygieneScore,
-          layoutHygiene: layoutHygieneScore
-      }
+        tokenCoverage: tokenCoverageScore,
+        tailwindReadiness: tailwindScore,
+        componentHygiene: componentHygieneScore,
+        variableHygiene: variableHygieneScore,
+        layoutHygiene: layoutHygieneScore,
+      },
     };
   }
 
@@ -365,7 +386,7 @@ export class TokenCoverageService {
    */
   private static async analyzeNode(
     node: SceneNode,
-    issuesMap: Map<string, TokenCoverageIssue>
+    issuesMap: Map<string, TokenCoverageIssue>,
   ): Promise<void> {
     // Skip if node is inside an instance (we only care about the instance itself or non-instance nodes)
     if (this.isInsideInstance(node)) {
@@ -399,7 +420,7 @@ export class TokenCoverageService {
    */
   private static checkLayoutProperties(
     node: SceneNode,
-    issuesMap: Map<string, TokenCoverageIssue>
+    issuesMap: Map<string, TokenCoverageIssue>,
   ): void {
     // Check if node has layout properties
     if (!('minWidth' in node)) return;
@@ -407,59 +428,103 @@ export class TokenCoverageService {
     const layoutNode = node as FrameNode | ComponentNode | InstanceNode;
 
     // Check minWidth - exclude zero values
-    if (layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, 'minWidth')) {
+    if (
+      layoutNode.minWidth !== null &&
+      layoutNode.minWidth !== 0 &&
+      !this.isVariableBound(layoutNode, 'minWidth')
+    ) {
       this.addIssue(issuesMap, 'Min Width', this.formatValue(layoutNode.minWidth), node, 'Layout');
     }
 
     // Check maxWidth - exclude zero values
-    if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, 'maxWidth')) {
+    if (
+      layoutNode.maxWidth !== null &&
+      layoutNode.maxWidth !== 0 &&
+      !this.isVariableBound(layoutNode, 'maxWidth')
+    ) {
       this.addIssue(issuesMap, 'Max Width', this.formatValue(layoutNode.maxWidth), node, 'Layout');
     }
 
     // Check width (if not auto) - exclude zero values and dynamic sizing
-    if (layoutNode.width && typeof layoutNode.width === 'number' && layoutNode.width !== 0 
-        && !this.isVariableBound(layoutNode, 'width')
-        && !this.isWidthDynamic(layoutNode)) {
+    if (
+      layoutNode.width &&
+      typeof layoutNode.width === 'number' &&
+      layoutNode.width !== 0 &&
+      !this.isVariableBound(layoutNode, 'width') &&
+      !this.isWidthDynamic(layoutNode)
+    ) {
       this.addIssue(issuesMap, 'Width', this.formatValue(layoutNode.width), node, 'Layout');
     }
 
     // Check height (if not auto) - exclude zero values and dynamic sizing
-    if (layoutNode.height && typeof layoutNode.height === 'number' && layoutNode.height !== 0 
-        && !this.isVariableBound(layoutNode, 'height')
-        && !this.isHeightDynamic(layoutNode)) {
+    if (
+      layoutNode.height &&
+      typeof layoutNode.height === 'number' &&
+      layoutNode.height !== 0 &&
+      !this.isVariableBound(layoutNode, 'height') &&
+      !this.isHeightDynamic(layoutNode)
+    ) {
       this.addIssue(issuesMap, 'Height', this.formatValue(layoutNode.height), node, 'Layout');
     }
 
     // Check minHeight - exclude zero values
-    if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, 'minHeight')) {
-      this.addIssue(issuesMap, 'Min Height', this.formatValue(layoutNode.minHeight), node, 'Layout');
+    if (
+      layoutNode.minHeight !== null &&
+      layoutNode.minHeight !== 0 &&
+      !this.isVariableBound(layoutNode, 'minHeight')
+    ) {
+      this.addIssue(
+        issuesMap,
+        'Min Height',
+        this.formatValue(layoutNode.minHeight),
+        node,
+        'Layout',
+      );
     }
 
     // Check maxHeight - exclude zero values
-    if (layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, 'maxHeight')) {
-      this.addIssue(issuesMap, 'Max Height', this.formatValue(layoutNode.maxHeight), node, 'Layout');
+    if (
+      layoutNode.maxHeight !== null &&
+      layoutNode.maxHeight !== 0 &&
+      !this.isVariableBound(layoutNode, 'maxHeight')
+    ) {
+      this.addIssue(
+        issuesMap,
+        'Max Height',
+        this.formatValue(layoutNode.maxHeight),
+        node,
+        'Layout',
+      );
     }
 
     // Check auto-layout properties
     if ('layoutMode' in layoutNode && layoutNode.layoutMode !== 'NONE') {
       // Check gap (itemSpacing) - exclude zero values
-      if (typeof layoutNode.itemSpacing === 'number' && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, 'itemSpacing')) {
+      if (
+        typeof layoutNode.itemSpacing === 'number' &&
+        layoutNode.itemSpacing !== 0 &&
+        !this.isVariableBound(layoutNode, 'itemSpacing')
+      ) {
         this.addIssue(issuesMap, 'Gap', this.formatValue(layoutNode.itemSpacing), node, 'Layout');
       }
 
       // Check padding - consolidate if all values are the same, exclude zero values
       const paddingLeft = typeof layoutNode.paddingLeft === 'number' ? layoutNode.paddingLeft : 0;
       const paddingTop = typeof layoutNode.paddingTop === 'number' ? layoutNode.paddingTop : 0;
-      const paddingRight = typeof layoutNode.paddingRight === 'number' ? layoutNode.paddingRight : 0;
-      const paddingBottom = typeof layoutNode.paddingBottom === 'number' ? layoutNode.paddingBottom : 0;
-      
+      const paddingRight =
+        typeof layoutNode.paddingRight === 'number' ? layoutNode.paddingRight : 0;
+      const paddingBottom =
+        typeof layoutNode.paddingBottom === 'number' ? layoutNode.paddingBottom : 0;
+
       // Check if all padding values are the same and not bound to variables
-      const allPaddingSame = paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
-      const anyPaddingBound = this.isVariableBound(layoutNode, 'paddingLeft') || 
-                              this.isVariableBound(layoutNode, 'paddingTop') ||
-                              this.isVariableBound(layoutNode, 'paddingRight') ||
-                              this.isVariableBound(layoutNode, 'paddingBottom');
-      
+      const allPaddingSame =
+        paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
+      const anyPaddingBound =
+        this.isVariableBound(layoutNode, 'paddingLeft') ||
+        this.isVariableBound(layoutNode, 'paddingTop') ||
+        this.isVariableBound(layoutNode, 'paddingRight') ||
+        this.isVariableBound(layoutNode, 'paddingBottom');
+
       if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
         // Report as consolidated "Padding"
         this.addIssue(issuesMap, 'Padding', this.formatValue(paddingLeft), node, 'Layout');
@@ -475,7 +540,13 @@ export class TokenCoverageService {
           this.addIssue(issuesMap, 'Padding Right', this.formatValue(paddingRight), node, 'Layout');
         }
         if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, 'paddingBottom')) {
-          this.addIssue(issuesMap, 'Padding Bottom', this.formatValue(paddingBottom), node, 'Layout');
+          this.addIssue(
+            issuesMap,
+            'Padding Bottom',
+            this.formatValue(paddingBottom),
+            node,
+            'Layout',
+          );
         }
       }
     }
@@ -486,7 +557,7 @@ export class TokenCoverageService {
    */
   private static checkFillProperties(
     node: SceneNode,
-    issuesMap: Map<string, TokenCoverageIssue>
+    issuesMap: Map<string, TokenCoverageIssue>,
   ): void {
     if (!('fills' in node)) return;
 
@@ -496,7 +567,7 @@ export class TokenCoverageService {
     // Check if any paint has a color variable bound
     if (!this.isPaintColorVariableBound(fills)) {
       // Get the first solid fill
-      const solidFill = fills.find(fill => fill.type === 'SOLID' && fill.visible !== false);
+      const solidFill = fills.find((fill) => fill.type === 'SOLID' && fill.visible !== false);
       if (solidFill && solidFill.type === 'SOLID') {
         const color = solidFill.color;
         const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
@@ -510,7 +581,7 @@ export class TokenCoverageService {
    */
   private static checkStrokeProperties(
     node: SceneNode,
-    issuesMap: Map<string, TokenCoverageIssue>
+    issuesMap: Map<string, TokenCoverageIssue>,
   ): void {
     if (!('strokes' in node)) return;
 
@@ -519,7 +590,9 @@ export class TokenCoverageService {
 
     // Check stroke color (paint-level binding)
     if (!this.isPaintColorVariableBound(strokes)) {
-      const solidStroke = strokes.find(stroke => stroke.type === 'SOLID' && stroke.visible !== false);
+      const solidStroke = strokes.find(
+        (stroke) => stroke.type === 'SOLID' && stroke.visible !== false,
+      );
       if (solidStroke && solidStroke.type === 'SOLID') {
         const color = solidStroke.color;
         const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
@@ -528,18 +601,26 @@ export class TokenCoverageService {
     }
 
     // Check stroke weight - exclude zero values
-    const hasNumericStrokeWeight = 'strokeWeight' in node && typeof (node as any).strokeWeight === 'number';
+    const hasNumericStrokeWeight =
+      'strokeWeight' in node && typeof (node as any).strokeWeight === 'number';
     const strokeWeightValue = hasNumericStrokeWeight ? (node as any).strokeWeight : 0;
 
     // Consider any of the individual stroke weights as a valid variable binding as well
-    const anyStrokeWeightBound = this.isVariableBound(node as any, 'strokeWeight') ||
-                                 this.isVariableBound(node as any, 'strokeTopWeight') ||
-                                 this.isVariableBound(node as any, 'strokeRightWeight') ||
-                                 this.isVariableBound(node as any, 'strokeBottomWeight') ||
-                                 this.isVariableBound(node as any, 'strokeLeftWeight');
+    const anyStrokeWeightBound =
+      this.isVariableBound(node as any, 'strokeWeight') ||
+      this.isVariableBound(node as any, 'strokeTopWeight') ||
+      this.isVariableBound(node as any, 'strokeRightWeight') ||
+      this.isVariableBound(node as any, 'strokeBottomWeight') ||
+      this.isVariableBound(node as any, 'strokeLeftWeight');
 
     if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
-      this.addIssue(issuesMap, 'Stroke Weight', this.formatValue(strokeWeightValue), node, 'Stroke');
+      this.addIssue(
+        issuesMap,
+        'Stroke Weight',
+        this.formatValue(strokeWeightValue),
+        node,
+        'Stroke',
+      );
     }
   }
 
@@ -548,46 +629,79 @@ export class TokenCoverageService {
    */
   private static checkAppearanceProperties(
     node: SceneNode,
-    issuesMap: Map<string, TokenCoverageIssue>
+    issuesMap: Map<string, TokenCoverageIssue>,
   ): void {
     // Check opacity - exclude zero and one (default) values
-    if ('opacity' in node && node.opacity !== 1 && node.opacity !== 0 && !this.isVariableBound(node, 'opacity')) {
+    if (
+      'opacity' in node &&
+      node.opacity !== 1 &&
+      node.opacity !== 0 &&
+      !this.isVariableBound(node, 'opacity')
+    ) {
       this.addIssue(issuesMap, 'Opacity', `${node.opacity}`, node, 'Appearance');
     }
 
     // Check corner radius - exclude zero values as they typically don't need tokens
     if ('cornerRadius' in node) {
       const rectNode = node as RectangleNode | FrameNode | ComponentNode | InstanceNode;
-      
+
       // Get all corner radius values
       const topLeft = typeof rectNode.topLeftRadius === 'number' ? rectNode.topLeftRadius : 0;
       const topRight = typeof rectNode.topRightRadius === 'number' ? rectNode.topRightRadius : 0;
-      const bottomLeft = typeof rectNode.bottomLeftRadius === 'number' ? rectNode.bottomLeftRadius : 0;
-      const bottomRight = typeof rectNode.bottomRightRadius === 'number' ? rectNode.bottomRightRadius : 0;
-      
+      const bottomLeft =
+        typeof rectNode.bottomLeftRadius === 'number' ? rectNode.bottomLeftRadius : 0;
+      const bottomRight =
+        typeof rectNode.bottomRightRadius === 'number' ? rectNode.bottomRightRadius : 0;
+
       // Check if all corner radii are the same and not bound to variables
-      const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
-      const anyRadiusBound = this.isVariableBound(rectNode, 'topLeftRadius') ||
-                             this.isVariableBound(rectNode, 'topRightRadius') ||
-                             this.isVariableBound(rectNode, 'bottomLeftRadius') ||
-                             this.isVariableBound(rectNode, 'bottomRightRadius');
-      
+      const allRadiiSame =
+        topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
+      const anyRadiusBound =
+        this.isVariableBound(rectNode, 'topLeftRadius') ||
+        this.isVariableBound(rectNode, 'topRightRadius') ||
+        this.isVariableBound(rectNode, 'bottomLeftRadius') ||
+        this.isVariableBound(rectNode, 'bottomRightRadius');
+
       if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
         // Report as consolidated "Corner Radius"
         this.addIssue(issuesMap, 'Corner Radius', this.formatValue(topLeft), node, 'Appearance');
       } else {
         // Report individual corner radii (only non-zero and non-bound)
         if (topLeft > 0 && !this.isVariableBound(rectNode, 'topLeftRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Top Left)', this.formatValue(topLeft), node, 'Appearance');
+          this.addIssue(
+            issuesMap,
+            'Corner Radius (Top Left)',
+            this.formatValue(topLeft),
+            node,
+            'Appearance',
+          );
         }
         if (topRight > 0 && !this.isVariableBound(rectNode, 'topRightRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Top Right)', this.formatValue(topRight), node, 'Appearance');
+          this.addIssue(
+            issuesMap,
+            'Corner Radius (Top Right)',
+            this.formatValue(topRight),
+            node,
+            'Appearance',
+          );
         }
         if (bottomLeft > 0 && !this.isVariableBound(rectNode, 'bottomLeftRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Bottom Left)', this.formatValue(bottomLeft), node, 'Appearance');
+          this.addIssue(
+            issuesMap,
+            'Corner Radius (Bottom Left)',
+            this.formatValue(bottomLeft),
+            node,
+            'Appearance',
+          );
         }
         if (bottomRight > 0 && !this.isVariableBound(rectNode, 'bottomRightRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Bottom Right)', this.formatValue(bottomRight), node, 'Appearance');
+          this.addIssue(
+            issuesMap,
+            'Corner Radius (Bottom Right)',
+            this.formatValue(bottomRight),
+            node,
+            'Appearance',
+          );
         }
       }
     }
@@ -625,15 +739,20 @@ export class TokenCoverageService {
     property: string,
     value: string,
     node: SceneNode,
-    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
   ): void {
     const key = `${category}:${property}:${value}`;
-    
+
     // Find parent frame name
     let frameName = 'Unknown Frame';
     let parent = node.parent;
     while (parent) {
-      if (parent.type === 'FRAME' || parent.type === 'SECTION' || parent.type === 'COMPONENT' || parent.type === 'COMPONENT_SET') {
+      if (
+        parent.type === 'FRAME' ||
+        parent.type === 'SECTION' ||
+        parent.type === 'COMPONENT' ||
+        parent.type === 'COMPONENT_SET'
+      ) {
         frameName = parent.name;
         break;
       }
@@ -643,7 +762,7 @@ export class TokenCoverageService {
       }
       parent = parent.parent;
     }
-    
+
     if (issuesMap.has(key)) {
       const issue = issuesMap.get(key)!;
       issue.count++;
@@ -662,7 +781,7 @@ export class TokenCoverageService {
         nodeIds: [node.id],
         nodeNames: [node.name],
         nodeFrames: [frameName],
-        category
+        category,
       });
     }
   }
@@ -682,9 +801,9 @@ export class TokenCoverageService {
     // 2. Modern API Check: layoutSizingHorizontal
     // This handles FIXED vs HUG vs FILL more reliably if available
     if ('layoutSizingHorizontal' in node) {
-        const sizing = (node as any).layoutSizingHorizontal;
-        // If it's anything other than FIXED (e.g. HUG, FILL), treat as dynamic
-        if (sizing && sizing !== 'FIXED') return true;
+      const sizing = (node as any).layoutSizingHorizontal;
+      // If it's anything other than FIXED (e.g. HUG, FILL), treat as dynamic
+      if (sizing && sizing !== 'FIXED') return true;
     }
 
     // 3. Check for "Fill container" (Legacy/Fallback)
@@ -720,9 +839,9 @@ export class TokenCoverageService {
 
     // 2. Modern API Check: layoutSizingVertical
     if ('layoutSizingVertical' in node) {
-        const sizing = (node as any).layoutSizingVertical;
-        // If it's anything other than FIXED (e.g. HUG, FILL), treat as dynamic
-        if (sizing && sizing !== 'FIXED') return true;
+      const sizing = (node as any).layoutSizingVertical;
+      // If it's anything other than FIXED (e.g. HUG, FILL), treat as dynamic
+      if (sizing && sizing !== 'FIXED') return true;
     }
 
     // 3. Check for "Fill container" (Legacy/Fallback)
@@ -736,12 +855,12 @@ export class TokenCoverageService {
         if ('layoutGrow' in node && node.layoutGrow === 1) return true;
       }
     }
-    
+
     // Special case for Text nodes (Auto Height)
     if (node.type === 'TEXT') {
-        if (node.textAutoResize === 'WIDTH_AND_HEIGHT' || node.textAutoResize === 'HEIGHT') {
-            return true;
-        }
+      if (node.textAutoResize === 'WIDTH_AND_HEIGHT' || node.textAutoResize === 'HEIGHT') {
+        return true;
+      }
     }
 
     return false;
@@ -760,7 +879,7 @@ export class TokenCoverageService {
           if (variable) {
             allVars.push({
               variable,
-              collection
+              collection,
             });
           }
         }
@@ -777,34 +896,34 @@ export class TokenCoverageService {
   private static async findMatchingVariables(
     value: string,
     category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
-    allVariables: any[]
+    allVariables: any[],
   ): Promise<MatchingVariable[]> {
     const matchingVars: MatchingVariable[] = [];
-    
+
     // Process pre-fetched variables
     for (const { variable, collection } of allVariables) {
       // Check if variable type matches the category
       const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
       if (!isTypeMatch) continue;
-      
+
       // Get the resolved value for the current mode
       const modeId = collection.defaultModeId;
       const varValue = variable.valuesByMode[modeId];
-      
+
       // Compare values based on type
       const matchType = this.valuesMatch(varValue, value, variable.resolvedType);
-      
+
       if (matchType) {
         matchingVars.push({
           id: variable.id,
           name: variable.name,
           collectionName: collection.name,
           resolvedValue: this.formatVariableValue(varValue, variable.resolvedType),
-          matchType: matchType
+          matchType: matchType,
         });
       }
     }
-    
+
     // Sort: Exact matches first, then by name
     return matchingVars.sort((a, b) => {
       if (a.matchType !== b.matchType) {
@@ -820,7 +939,7 @@ export class TokenCoverageService {
    */
   private static isVariableTypeMatch(
     varType: VariableResolvedDataType,
-    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance'
+    category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
   ): boolean {
     if (category === 'Fill') {
       return varType === 'COLOR';
@@ -844,47 +963,49 @@ export class TokenCoverageService {
   private static valuesMatch(
     varValue: VariableValue,
     hardValue: string,
-    varType: VariableResolvedDataType
+    varType: VariableResolvedDataType,
   ): 'EXACT' | 'NEAR' | null {
     if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
       // Parse color from rgb(r, g, b) format (this is how we store colors in addIssue)
       const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
       if (!colorMatch) return null;
-      
+
       const r = parseInt(colorMatch[1]) / 255;
       const g = parseInt(colorMatch[2]) / 255;
       const b = parseInt(colorMatch[3]) / 255;
-      
+
       // Exact match check (with small tolerance for float precision)
-      if (Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
-          Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
-          Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE) {
+      if (
+        Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
+        Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
+        Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE
+      ) {
         return 'EXACT';
       }
-      
+
       // Near match: No near match for colors currently requested, but could handle it later
       return null;
     }
-    
+
     if (varType === 'FLOAT' && typeof varValue === 'number') {
       // Parse numeric value from strings like "18px", "0.5"
       const numMatch = hardValue.match(/^([\d.]+)/);
       if (!numMatch) return null;
-      
+
       const hardNum = parseFloat(numMatch[1]);
       const diff = Math.abs(varValue - hardNum);
-      
+
       // Exact match
       if (diff < VALUE_MATCH_TOLERANCE) {
         return 'EXACT';
       }
-      
+
       // Near match (within 2px)
       if (diff <= 2.0) {
         return 'NEAR';
       }
     }
-    
+
     return null;
   }
 
@@ -893,7 +1014,7 @@ export class TokenCoverageService {
    */
   private static formatVariableValue(
     varValue: VariableValue,
-    varType: VariableResolvedDataType
+    varType: VariableResolvedDataType,
   ): string {
     if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
       return `rgb(${Math.round(varValue.r * 255)}, ${Math.round(varValue.g * 255)}, ${Math.round(varValue.b * 255)})`;

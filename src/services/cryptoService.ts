@@ -21,10 +21,7 @@ export class CryptoService {
   /**
    * Derives an encryption key from a password and salt
    */
-  private static async deriveKey(
-    password: string,
-    salt: Uint8Array
-  ): Promise<CryptoKey> {
+  private static async deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
     try {
       const encoder = new TextEncoder();
       const passwordKey = await crypto.subtle.importKey(
@@ -32,7 +29,7 @@ export class CryptoService {
         encoder.encode(password),
         'PBKDF2',
         false,
-        ['deriveKey']
+        ['deriveKey'],
       );
 
       return await crypto.subtle.deriveKey(
@@ -40,21 +37,21 @@ export class CryptoService {
           name: 'PBKDF2',
           salt,
           iterations: this.ITERATIONS,
-          hash: 'SHA-256'
+          hash: 'SHA-256',
         },
         passwordKey,
         {
           name: 'AES-GCM',
-          length: this.KEY_LENGTH
+          length: this.KEY_LENGTH,
         },
         false,
-        ['encrypt', 'decrypt']
+        ['encrypt', 'decrypt'],
       );
     } catch (error) {
       ErrorHandler.handleError(error as Error, {
         operation: 'derive_key',
         component: 'CryptoService',
-        severity: 'high'
+        severity: 'high',
       });
       throw error;
     }
@@ -84,16 +81,16 @@ export class CryptoService {
         {
           name: 'AES-GCM',
           iv,
-          tagLength: this.TAG_LENGTH
+          tagLength: this.TAG_LENGTH,
         },
         key,
-        encoder.encode(plaintext)
+        encoder.encode(plaintext),
       );
 
       const encryptedData: EncryptedData = {
         ciphertext: this.bufferToBase64(ciphertext),
         iv: this.bufferToBase64(iv),
-        salt: this.bufferToBase64(salt)
+        salt: this.bufferToBase64(salt),
       };
 
       return JSON.stringify(encryptedData);
@@ -101,7 +98,7 @@ export class CryptoService {
       ErrorHandler.handleError(error as Error, {
         operation: 'encrypt',
         component: 'CryptoService',
-        severity: 'high'
+        severity: 'high',
       });
       throw error;
     }
@@ -113,21 +110,21 @@ export class CryptoService {
   static async decrypt(encryptedString: string): Promise<string> {
     try {
       const encryptedData: EncryptedData = JSON.parse(encryptedString);
-      
+
       const salt = this.base64ToBuffer(encryptedData.salt);
       const iv = this.base64ToBuffer(encryptedData.iv);
       const ciphertext = this.base64ToBuffer(encryptedData.ciphertext);
-      
+
       const key = await this.deriveKey(this.getFileKey(), new Uint8Array(salt));
 
       const decrypted = await crypto.subtle.decrypt(
         {
           name: 'AES-GCM',
           iv,
-          tagLength: this.TAG_LENGTH
+          tagLength: this.TAG_LENGTH,
         },
         key,
-        ciphertext
+        ciphertext,
       );
 
       const decoder = new TextDecoder();
@@ -136,7 +133,7 @@ export class CryptoService {
       ErrorHandler.handleError(error as Error, {
         operation: 'decrypt',
         component: 'CryptoService',
-        severity: 'high'
+        severity: 'high',
       });
       throw error;
     }
@@ -170,9 +167,11 @@ export class CryptoService {
    * Checks if Web Crypto API is available
    */
   static isAvailable(): boolean {
-    return typeof crypto !== 'undefined' && 
-           crypto.subtle !== undefined &&
-           typeof crypto.getRandomValues === 'function';
+    return (
+      typeof crypto !== 'undefined' &&
+      crypto.subtle !== undefined &&
+      typeof crypto.getRandomValues === 'function'
+    );
   }
 
   /**
@@ -183,7 +182,7 @@ export class CryptoService {
     try {
       // First decrypt using old XOR method
       const decrypted = this.xorDecrypt(xorEncrypted, key);
-      
+
       // Then encrypt using new secure method
       return await this.encrypt(decrypted);
     } catch (error) {
@@ -198,7 +197,9 @@ export class CryptoService {
   private static xorDecrypt(encrypted: string, key: string): string {
     // Implementation copied from securityUtils for migration
     const encryptedBytes = new Uint8Array(
-      atob(encrypted).split('').map(c => c.charCodeAt(0))
+      atob(encrypted)
+        .split('')
+        .map((c) => c.charCodeAt(0)),
     );
     const keyBytes = new TextEncoder().encode(key);
     const decrypted = new Uint8Array(encryptedBytes.length);

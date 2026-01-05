@@ -3,14 +3,21 @@
  * Handles all GitHub API interactions
  */
 
-import { BaseGitService, GitAuthError, GitNetworkError, GitServiceError } from "./baseGitService";
-import { GitSettings, GitProject, GitFile, GitCommit, GitPullRequest, GitError } from "../types/git";
-import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService } from "../config";
-import { SecurityUtils } from "../utils/securityUtils";
-import { ErrorHandler } from "../utils/errorHandler";
-import { CryptoService } from "./cryptoService";
-import { ProxyService } from "./proxyService";
-import { RepositoryCacheService } from "./repositoryCacheService";
+import { BaseGitService, GitAuthError, GitNetworkError, GitServiceError } from './baseGitService';
+import {
+  GitSettings,
+  GitProject,
+  GitFile,
+  GitCommit,
+  GitPullRequest,
+  GitError,
+} from '../types/git';
+import { API_CONFIG, GIT_CONFIG, ERROR_MESSAGES, LoggingService } from '../config';
+import { SecurityUtils } from '../utils/securityUtils';
+import { ErrorHandler } from '../utils/errorHandler';
+import { CryptoService } from './cryptoService';
+import { ProxyService } from './proxyService';
+import { RepositoryCacheService } from './repositoryCacheService';
 
 // GitHub API types
 interface GitHubRepo {
@@ -142,11 +149,7 @@ export class GitHubService implements BaseGitService {
           delete settingsToSave.token;
         }
 
-        figma.root.setSharedPluginData(
-          "Bridgy",
-          settingsKey,
-          JSON.stringify(settingsToSave)
-        );
+        figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settingsToSave));
 
         // Encrypt and save token separately if requested
         if (settings.saveToken && settings.token) {
@@ -162,49 +165,37 @@ export class GitHubService implements BaseGitService {
               console.warn('CryptoService.isAvailable() failed:', cryptoError);
               cryptoAvailable = false;
             }
-            
+
             if (cryptoAvailable) {
               console.log('DEBUG: Calls CryptoService.encrypt');
               const encryptedToken = await CryptoService.encrypt(settings.token);
               console.log('DEBUG: CryptoService.encrypt success');
-              await figma.clientStorage.setAsync(
-                `${settingsKey}-token`,
-                encryptedToken
-              );
-              await figma.clientStorage.setAsync(
-                `${settingsKey}-crypto`,
-                'v2'
-              );
+              await figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+              await figma.clientStorage.setAsync(`${settingsKey}-crypto`, 'v2');
             } else {
               // Fallback encryption
               console.log('DEBUG: Using fallback encryption');
               console.log('DEBUG: SecurityUtils object:', SecurityUtils);
-              
+
               if (typeof SecurityUtils.generateEncryptionKey !== 'function') {
-                 console.error('CRITICAL: SecurityUtils.generateEncryptionKey is not a function');
+                console.error('CRITICAL: SecurityUtils.generateEncryptionKey is not a function');
               }
               const encryptionKey = SecurityUtils.generateEncryptionKey();
-              
+
               if (typeof SecurityUtils.encryptData !== 'function') {
-                 console.error('CRITICAL: SecurityUtils.encryptData is not a function');
+                console.error('CRITICAL: SecurityUtils.encryptData is not a function');
               }
               const encryptedToken = SecurityUtils.encryptData(settings.token, encryptionKey);
-              
-              await figma.clientStorage.setAsync(
-                `${settingsKey}-token`,
-                encryptedToken
-              );
-              await figma.clientStorage.setAsync(
-                `${settingsKey}-key`,
-                encryptionKey
-              );
+
+              await figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
+              await figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
             }
           } catch (error) {
             console.error('DEBUG: Caught error in encrypt_token:', error);
             ErrorHandler.handleError(error as Error, {
               operation: 'encrypt_token',
               component: 'GitHubService',
-              severity: 'high'
+              severity: 'high',
             });
             delete settingsToSave.token;
           }
@@ -213,20 +204,20 @@ export class GitHubService implements BaseGitService {
 
       // Track metadata
       figma.root.setSharedPluginData(
-        "Bridgy",
+        'Bridgy',
         `${settingsKey}-meta`,
         JSON.stringify({
           sharedWithTeam: shareWithTeam,
           savedAt: settings.savedAt,
           savedBy: settings.savedBy,
-        })
+        }),
       );
     } catch (error: any) {
-      LoggingService.error("Error saving GitHub settings", error, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.error('Error saving GitHub settings', error, LoggingService.CATEGORIES.GITHUB);
       throw new GitServiceError(
-        `Error saving GitHub settings: ${error.message || "Unknown error"}`,
+        `Error saving GitHub settings: ${error.message || 'Unknown error'}`,
         undefined,
-        error
+        error,
       );
     }
   }
@@ -236,7 +227,7 @@ export class GitHubService implements BaseGitService {
       const settingsKey = GitHubService.getSettingsKey();
 
       // Try loading shared document settings first
-      const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+      const documentSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
       if (documentSettings) {
         try {
           const settings = JSON.parse(documentSettings) as GitSettings;
@@ -245,7 +236,7 @@ export class GitHubService implements BaseGitService {
           if (settings.saveToken && !settings.token) {
             const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
             const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
-            
+
             if (encryptedToken) {
               try {
                 let cryptoAvailable = false;
@@ -255,7 +246,7 @@ export class GitHubService implements BaseGitService {
                   console.warn('CryptoService.isAvailable() failed during decrypt:', cryptoError);
                   cryptoAvailable = false;
                 }
-                
+
                 if (cryptoVersion === 'v2' && cryptoAvailable) {
                   settings.token = await CryptoService.decrypt(encryptedToken);
                 } else if (await figma.clientStorage.getAsync(`${settingsKey}-key`)) {
@@ -267,26 +258,30 @@ export class GitHubService implements BaseGitService {
                 ErrorHandler.handleError(error as Error, {
                   operation: 'decrypt_token',
                   component: 'GitHubService',
-                  severity: 'medium'
+                  severity: 'medium',
                 });
               }
             }
           }
 
           // Load metadata
-          const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
+          const metaData = figma.root.getSharedPluginData('Bridgy', `${settingsKey}-meta`);
           if (metaData) {
             try {
               const meta = JSON.parse(metaData);
               settings.isPersonal = !meta.sharedWithTeam;
             } catch (metaParseError) {
-              console.warn("Error parsing settings metadata:", metaParseError);
+              console.warn('Error parsing settings metadata:', metaParseError);
             }
           }
 
           return settings;
         } catch (parseError) {
-          LoggingService.error("Error parsing document settings", parseError, LoggingService.CATEGORIES.GITHUB);
+          LoggingService.error(
+            'Error parsing document settings',
+            parseError,
+            LoggingService.CATEGORIES.GITHUB,
+          );
         }
       }
 
@@ -298,7 +293,11 @@ export class GitHubService implements BaseGitService {
 
       return null;
     } catch (error: any) {
-      LoggingService.error("Error loading GitHub settings", error, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.error(
+        'Error loading GitHub settings',
+        error,
+        LoggingService.CATEGORIES.GITHUB,
+      );
       return null;
     }
   }
@@ -308,8 +307,8 @@ export class GitHubService implements BaseGitService {
       const settingsKey = GitHubService.getSettingsKey();
 
       // Remove shared document storage
-      figma.root.setSharedPluginData("Bridgy", settingsKey, "");
-      figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+      figma.root.setSharedPluginData('Bridgy', settingsKey, '');
+      figma.root.setSharedPluginData('Bridgy', `${settingsKey}-meta`, '');
 
       // Remove personal client storage
       await figma.clientStorage.deleteAsync(settingsKey);
@@ -317,11 +316,15 @@ export class GitHubService implements BaseGitService {
       await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
     } catch (error: any) {
-      LoggingService.error("Error resetting GitHub settings", error, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.error(
+        'Error resetting GitHub settings',
+        error,
+        LoggingService.CATEGORIES.GITHUB,
+      );
       throw new GitServiceError(
-        `Error resetting GitHub settings: ${error.message || "Unknown error"}`,
+        `Error resetting GitHub settings: ${error.message || 'Unknown error'}`,
         undefined,
-        error
+        error,
       );
     }
   }
@@ -341,12 +344,16 @@ export class GitHubService implements BaseGitService {
     const url = `${apiBase}/repos/${owner}/${repo}`;
 
     try {
-      const response = await this.makeAPIRequest(url, {
-        method: 'GET',
-        headers: this.getHeaders(settings.token!)
-      }, settings);
+      const response = await this.makeAPIRequest(
+        url,
+        {
+          method: 'GET',
+          headers: this.getHeaders(settings.token!),
+        },
+        settings,
+      );
 
-      const repoData = await response.json() as GitHubRepo;
+      const repoData = (await response.json()) as GitHubRepo;
 
       return {
         id: repoData.id,
@@ -355,7 +362,7 @@ export class GitHubService implements BaseGitService {
         defaultBranch: repoData.default_branch,
         webUrl: repoData.html_url,
         description: repoData.description,
-        private: repoData.private
+        private: repoData.private,
       };
     } catch (error: any) {
       throw this.handleGitHubError(error, 'fetch repository information');
@@ -370,38 +377,43 @@ export class GitHubService implements BaseGitService {
     }
 
     const apiBase = GitHubService.getGitHubApiBase(settings);
-    
+
     try {
       // Fetch multiple pages for comprehensive results
       const allRepos: GitHubRepo[] = [];
       let page = 1;
       const perPage = 100;
-      
-      while (page <= 5) { // Limit to 5 pages (500 repos max)
-        const url = `${apiBase}/user/repos?per_page=${perPage}&sort=updated&page=${page}&type=all`;
-        
-        const response = await this.makeAPIRequest(url, {
-          method: 'GET',
-          headers: this.getHeaders(settings.token!)
-        }, settings);
 
-        const repos = await response.json() as GitHubRepo[];
-        
+      while (page <= 5) {
+        // Limit to 5 pages (500 repos max)
+        const url = `${apiBase}/user/repos?per_page=${perPage}&sort=updated&page=${page}&type=all`;
+
+        const response = await this.makeAPIRequest(
+          url,
+          {
+            method: 'GET',
+            headers: this.getHeaders(settings.token!),
+          },
+          settings,
+        );
+
+        const repos = (await response.json()) as GitHubRepo[];
+
         if (repos.length === 0) {
           break; // No more repos
         }
-        
+
         allRepos.push(...repos);
-        
+
         // If we got less than the page size, we're done
         if (repos.length < perPage) {
           break;
         }
-        
+
         page++;
       }
 
-      const projects = allRepos.map(repo => ({
+      const projects = allRepos.map((repo) => ({
         id: repo.id,
         name: repo.name,
         fullName: repo.full_name,
@@ -417,8 +429,8 @@ export class GitHubService implements BaseGitService {
         topics: repo.topics || [],
         owner: {
           login: repo.owner.login,
-          avatar_url: repo.owner.avatar_url
-        }
+          avatar_url: repo.owner.avatar_url,
+        },
       }));
 
       // Cache the results
@@ -433,65 +445,73 @@ export class GitHubService implements BaseGitService {
   /**
    * List branches for a repository
    */
-  async listBranches(settings: GitSettings): Promise<Array<{name: string; isDefault: boolean}>> {
+  async listBranches(settings: GitSettings): Promise<Array<{ name: string; isDefault: boolean }>> {
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
     const apiBase = GitHubService.getGitHubApiBase(settings);
-    
+
     try {
       // Get repository info for default branch
       const repoData = await this.getProject(settings);
       const defaultBranch = repoData.defaultBranch;
-      
+
       // Get branches
       const url = `${apiBase}/repos/${owner}/${repo}/branches`;
-      
-      const response = await this.makeAPIRequest(url, {
-        method: 'GET',
-        headers: this.getHeaders(settings.token!)
-      }, settings);
 
-      const branches = await response.json() as GitHubBranch[];
+      const response = await this.makeAPIRequest(
+        url,
+        {
+          method: 'GET',
+          headers: this.getHeaders(settings.token!),
+        },
+        settings,
+      );
 
-      return branches.map(branch => ({
+      const branches = (await response.json()) as GitHubBranch[];
+
+      return branches.map((branch) => ({
         name: branch.name,
-        isDefault: branch.name === defaultBranch
+        isDefault: branch.name === defaultBranch,
       }));
     } catch (error: any) {
       throw this.handleGitHubError(error, 'list branches');
     }
   }
 
-  async createBranch(
-    settings: GitSettings,
-    branchName: string,
-    baseBranch: string
-  ): Promise<void> {
+  async createBranch(settings: GitSettings, branchName: string, baseBranch: string): Promise<void> {
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
     const apiBase = GitHubService.getGitHubApiBase(settings);
-    
+
     // First, get the base branch SHA
     const baseBranchUrl = `${apiBase}/repos/${owner}/${repo}/git/refs/heads/${baseBranch}`;
-    
-    try {
-      const baseResponse = await this.makeAPIRequest(baseBranchUrl, {
-        method: 'GET',
-        headers: this.getHeaders(settings.token!)
-      }, settings);
 
-      const baseRef = await baseResponse.json() as GitHubRef;
+    try {
+      const baseResponse = await this.makeAPIRequest(
+        baseBranchUrl,
+        {
+          method: 'GET',
+          headers: this.getHeaders(settings.token!),
+        },
+        settings,
+      );
+
+      const baseRef = (await baseResponse.json()) as GitHubRef;
       const baseSha = baseRef.object.sha;
 
       // Create new branch
       const createBranchUrl = `${apiBase}/repos/${owner}/${repo}/git/refs`;
-      
-      await this.makeAPIRequest(createBranchUrl, {
-        method: 'POST',
-        headers: this.getHeaders(settings.token!),
-        body: JSON.stringify({
-          ref: `refs/heads/${branchName}`,
-          sha: baseSha
-        })
-      }, settings);
+
+      await this.makeAPIRequest(
+        createBranchUrl,
+        {
+          method: 'POST',
+          headers: this.getHeaders(settings.token!),
+          body: JSON.stringify({
+            ref: `refs/heads/${branchName}`,
+            sha: baseSha,
+          }),
+        },
+        settings,
+      );
     } catch (error: any) {
       // If branch already exists, that's OK
       if (error instanceof GitServiceError && error.statusCode === 422) {
@@ -504,22 +524,22 @@ export class GitHubService implements BaseGitService {
     }
   }
 
-  async getFile(
-    settings: GitSettings,
-    filePath: string,
-    branch: string
-  ): Promise<GitFile | null> {
+  async getFile(settings: GitSettings, filePath: string, branch: string): Promise<GitFile | null> {
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
     const apiBase = GitHubService.getGitHubApiBase(settings);
     const url = `${apiBase}/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
 
     try {
-      const response = await this.makeAPIRequest(url, {
-        method: 'GET',
-        headers: this.getHeaders(settings.token!)
-      }, settings);
+      const response = await this.makeAPIRequest(
+        url,
+        {
+          method: 'GET',
+          headers: this.getHeaders(settings.token!),
+        },
+        settings,
+      );
 
-      const fileData = await response.json() as GitHubContent;
+      const fileData = (await response.json()) as GitHubContent;
 
       if (fileData.type !== 'file') {
         throw new Error('Path is not a file');
@@ -532,7 +552,7 @@ export class GitHubService implements BaseGitService {
         encoding: fileData.encoding,
         content: fileData.content,
         lastCommitId: fileData.sha,
-        sha: fileData.sha
+        sha: fileData.sha,
       };
     } catch (error: any) {
       if (error instanceof GitServiceError && error.statusCode === 404) {
@@ -547,7 +567,7 @@ export class GitHubService implements BaseGitService {
     commitMessage: string,
     filePath: string,
     content: string,
-    branch: string
+    branch: string,
   ): Promise<GitCommit> {
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
     const apiBase = GitHubService.getGitHubApiBase(settings);
@@ -560,13 +580,13 @@ export class GitHubService implements BaseGitService {
     } catch (e) {
       // File doesn't exist, which is fine for new files
     }
-    
+
     const encodedContent = SecurityUtils.toBase64(content);
 
     const requestBody: any = {
       message: commitMessage,
       content: encodedContent,
-      branch: branch
+      branch: branch,
     };
 
     if (existingFile) {
@@ -574,13 +594,17 @@ export class GitHubService implements BaseGitService {
     }
 
     try {
-      const response = await this.makeAPIRequest(url, {
-        method: 'PUT',
-        headers: this.getHeaders(settings.token!),
-        body: JSON.stringify(requestBody)
-      }, settings);
+      const response = await this.makeAPIRequest(
+        url,
+        {
+          method: 'PUT',
+          headers: this.getHeaders(settings.token!),
+          body: JSON.stringify(requestBody),
+        },
+        settings,
+      );
 
-      const result = await response.json() as {
+      const result = (await response.json()) as {
         commit: GitHubCommit;
         content: GitHubContent;
       };
@@ -590,7 +614,7 @@ export class GitHubService implements BaseGitService {
         sha: result.commit.sha,
         title: commitMessage,
         message: commitMessage,
-        webUrl: result.commit.html_url
+        webUrl: result.commit.html_url,
       };
     } catch (error: any) {
       console.error('DEBUG: commitFile error catch block:', error);
@@ -605,26 +629,30 @@ export class GitHubService implements BaseGitService {
     targetBranch: string,
     title: string,
     description: string,
-    isDraft: boolean = false
+    isDraft: boolean = false,
   ): Promise<GitPullRequest> {
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
     const apiBase = GitHubService.getGitHubApiBase(settings);
     const url = `${apiBase}/repos/${owner}/${repo}/pulls`;
 
     try {
-      const response = await this.makeAPIRequest(url, {
-        method: 'POST',
-        headers: this.getHeaders(settings.token!),
-        body: JSON.stringify({
-          title: title,
-          body: description,
-          head: sourceBranch,
-          base: targetBranch,
-          draft: isDraft
-        })
-      }, settings);
+      const response = await this.makeAPIRequest(
+        url,
+        {
+          method: 'POST',
+          headers: this.getHeaders(settings.token!),
+          body: JSON.stringify({
+            title: title,
+            body: description,
+            head: sourceBranch,
+            base: targetBranch,
+            draft: isDraft,
+          }),
+        },
+        settings,
+      );
 
-      const pr = await response.json() as GitHubPullRequest;
+      const pr = (await response.json()) as GitHubPullRequest;
 
       return {
         id: pr.id,
@@ -635,7 +663,7 @@ export class GitHubService implements BaseGitService {
         webUrl: pr.html_url,
         sourceBranch: pr.head.ref,
         targetBranch: pr.base.ref,
-        draft: pr.draft
+        draft: pr.draft,
       };
     } catch (error: any) {
       throw this.handleGitHubError(error, 'create pull request');
@@ -644,19 +672,23 @@ export class GitHubService implements BaseGitService {
 
   async findExistingPullRequest(
     settings: GitSettings,
-    sourceBranch: string
+    sourceBranch: string,
   ): Promise<GitPullRequest | null> {
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
     const apiBase = GitHubService.getGitHubApiBase(settings);
     const url = `${apiBase}/repos/${owner}/${repo}/pulls?state=open&head=${owner}:${sourceBranch}`;
 
     try {
-      const response = await this.makeAPIRequest(url, {
-        method: 'GET',
-        headers: this.getHeaders(settings.token!)
-      }, settings);
+      const response = await this.makeAPIRequest(
+        url,
+        {
+          method: 'GET',
+          headers: this.getHeaders(settings.token!),
+        },
+        settings,
+      );
 
-      const prs = await response.json() as GitHubPullRequest[];
+      const prs = (await response.json()) as GitHubPullRequest[];
 
       if (prs.length === 0) {
         return null;
@@ -672,7 +704,7 @@ export class GitHubService implements BaseGitService {
         webUrl: pr.html_url,
         sourceBranch: pr.head.ref,
         targetBranch: pr.base.ref,
-        draft: pr.draft
+        draft: pr.draft,
       };
     } catch (error: any) {
       throw this.handleGitHubError(error, 'find existing pull request');
@@ -684,44 +716,47 @@ export class GitHubService implements BaseGitService {
     commitMessage: string,
     filePath: string,
     cssData: string,
-    branchName: string = DEFAULT_BRANCH_NAME
+    branchName: string = DEFAULT_BRANCH_NAME,
   ): Promise<{ pullRequestUrl?: string }> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      this.validateCommitParameters(settings, commitMessage, filePath, cssData);
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        this.validateCommitParameters(settings, commitMessage, filePath, cssData);
 
-      // Get project info
-      const project = await this.getProject(settings);
-      const defaultBranch = project.defaultBranch;
+        // Get project info
+        const project = await this.getProject(settings);
+        const defaultBranch = project.defaultBranch;
 
-      // Create or verify branch exists
-      await this.createBranch(settings, branchName, defaultBranch);
+        // Create or verify branch exists
+        await this.createBranch(settings, branchName, defaultBranch);
 
-      // Commit the file
-      await this.commitFile(settings, commitMessage, filePath, cssData, branchName);
+        // Commit the file
+        await this.commitFile(settings, commitMessage, filePath, cssData, branchName);
 
-      // Check for existing PR
-      const existingPR = await this.findExistingPullRequest(settings, branchName);
+        // Check for existing PR
+        const existingPR = await this.findExistingPullRequest(settings, branchName);
 
-      if (!existingPR) {
-        // Create new PR
-        const newPR = await this.createPullRequest(
-          settings,
-          branchName,
-          defaultBranch,
-          commitMessage,
-          "Automatically created pull request for CSS variables update",
-          false
-        );
-        return { pullRequestUrl: newPR.webUrl };
-      }
+        if (!existingPR) {
+          // Create new PR
+          const newPR = await this.createPullRequest(
+            settings,
+            branchName,
+            defaultBranch,
+            commitMessage,
+            'Automatically created pull request for CSS variables update',
+            false,
+          );
+          return { pullRequestUrl: newPR.webUrl };
+        }
 
-      console.log('DEBUG: Found existing PR');
-      return { pullRequestUrl: existingPR.webUrl };
-    }, {
-      operation: 'commit_to_github',
-      component: 'GitHubService',
-      severity: 'high'
-    });
+        console.log('DEBUG: Found existing PR');
+        return { pullRequestUrl: existingPR.webUrl };
+      },
+      {
+        operation: 'commit_to_github',
+        component: 'GitHubService',
+        severity: 'high',
+      },
+    );
   }
 
   async commitComponentTest(
@@ -729,83 +764,86 @@ export class GitHubService implements BaseGitService {
     commitMessage: string,
     componentName: string,
     testContent: string,
-    testFilePath: string = "components/{componentName}.spec.ts",
-    branchName: string = DEFAULT_TEST_BRANCH_NAME
+    testFilePath: string = 'components/{componentName}.spec.ts',
+    branchName: string = DEFAULT_TEST_BRANCH_NAME,
   ): Promise<{ pullRequestUrl?: string }> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      this.validateComponentTestParameters(settings, commitMessage, componentName, testContent);
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        this.validateComponentTestParameters(settings, commitMessage, componentName, testContent);
 
-      // Normalize component name and file path
-      const normalizedComponentName = this.normalizeComponentName(componentName);
-      const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
-      const featureBranch = `${branchName}-${normalizedComponentName}`;
+        // Normalize component name and file path
+        const normalizedComponentName = this.normalizeComponentName(componentName);
+        const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
+        const featureBranch = `${branchName}-${normalizedComponentName}`;
 
-      // Get project info
-      const project = await this.getProject(settings);
-      const defaultBranch = project.defaultBranch;
+        // Get project info
+        const project = await this.getProject(settings);
+        const defaultBranch = project.defaultBranch;
 
-      // Create or verify branch
-      await this.createBranch(settings, featureBranch, defaultBranch);
+        // Create or verify branch
+        await this.createBranch(settings, featureBranch, defaultBranch);
 
-      // Commit the test file
-      await this.commitFile(settings, commitMessage, filePath, testContent, featureBranch);
+        // Commit the test file
+        await this.commitFile(settings, commitMessage, filePath, testContent, featureBranch);
 
-      // Check for existing PR
-      const existingPR = await this.findExistingPullRequest(settings, featureBranch);
+        // Check for existing PR
+        const existingPR = await this.findExistingPullRequest(settings, featureBranch);
 
-      if (!existingPR) {
-        // Create new PR
-        const prDescription = `Automatically created pull request for component test: ${componentName}`;
-        const newPR = await this.createPullRequest(
-          settings,
-          featureBranch,
-          defaultBranch,
-          commitMessage,
-          prDescription,
-          true // Mark as draft
-        );
-        return { pullRequestUrl: newPR.webUrl };
-      }
+        if (!existingPR) {
+          // Create new PR
+          const prDescription = `Automatically created pull request for component test: ${componentName}`;
+          const newPR = await this.createPullRequest(
+            settings,
+            featureBranch,
+            defaultBranch,
+            commitMessage,
+            prDescription,
+            true, // Mark as draft
+          );
+          return { pullRequestUrl: newPR.webUrl };
+        }
 
-      return { pullRequestUrl: existingPR.webUrl };
-    }, {
-      operation: 'commit_component_test',
-      component: 'GitHubService',
-      severity: 'high'
-    });
+        return { pullRequestUrl: existingPR.webUrl };
+      },
+      {
+        operation: 'commit_component_test',
+        component: 'GitHubService',
+        severity: 'high',
+      },
+    );
   }
 
   async clearAllTokens(): Promise<void> {
     try {
       const settingsKey = GitHubService.getSettingsKey();
-      
+
       // Clear token and encryption keys
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
-      
+
       // Clear personal storage
       await figma.clientStorage.deleteAsync(settingsKey);
-      
+
       // Update shared settings to remove saveToken flag
-      const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+      const sharedSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
       if (sharedSettings) {
         try {
           const settings = JSON.parse(sharedSettings) as GitSettings;
           settings.saveToken = false;
           delete settings.token;
-          figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+          figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settings));
         } catch (e) {
           // Ignore parse errors
         }
       }
-      
-      LoggingService.info("All GitHub tokens cleared", LoggingService.CATEGORIES.GITHUB);
+
+      LoggingService.info('All GitHub tokens cleared', LoggingService.CATEGORIES.GITHUB);
     } catch (error) {
       ErrorHandler.handleError(error as Error, {
         operation: 'clear_tokens',
         component: 'GitHubService',
-        severity: 'low'
+        severity: 'low',
       });
     }
   }
@@ -818,11 +856,11 @@ export class GitHubService implements BaseGitService {
     const settingsKey = GitHubService.getSettingsKey();
     const token = await figma.clientStorage.getAsync(`${settingsKey}-token`);
     const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
-    
+
     return {
       hasToken: !!token,
       encrypted: !!token,
-      version: cryptoVersion || (token ? 'v1' : 'none')
+      version: cryptoVersion || (token ? 'v1' : 'none'),
     };
   }
 
@@ -832,8 +870,8 @@ export class GitHubService implements BaseGitService {
 
   private getHeaders(token: string): Record<string, string> {
     return Object.assign({}, GitHubService.DEFAULT_HEADERS, {
-      'Authorization': `Bearer ${token}`,
-      'Accept': GitHubService.API_VERSION
+      Authorization: `Bearer ${token}`,
+      Accept: GitHubService.API_VERSION,
     });
   }
 
@@ -841,26 +879,26 @@ export class GitHubService implements BaseGitService {
     settings: GitSettings,
     commitMessage: string,
     filePath: string,
-    cssData: string
+    cssData: string,
   ): void {
     if (!settings.projectId || !settings.projectId.trim()) {
       throw new Error('Project ID is required');
     }
-    
+
     const { owner, repo } = GitHubService.parseOwnerRepo(settings.projectId);
-    
+
     if (!settings.token || !settings.token.trim()) {
       throw new GitAuthError('GitHub token is required');
     }
-    
+
     if (!commitMessage || !commitMessage.trim()) {
       throw new Error('Commit message is required');
     }
-    
+
     if (!filePath || !filePath.trim()) {
       throw new Error('File path is required');
     }
-    
+
     if (!cssData || !cssData.trim()) {
       throw new Error('CSS data is required');
     }
@@ -870,24 +908,24 @@ export class GitHubService implements BaseGitService {
     settings: GitSettings,
     commitMessage: string,
     componentName: string,
-    testContent: string
+    testContent: string,
   ): void {
     if (!settings.projectId || !settings.projectId.trim()) {
       throw new Error('Project ID is required');
     }
-    
+
     if (!settings.token || !settings.token.trim()) {
       throw new GitAuthError('GitHub token is required');
     }
-    
+
     if (!commitMessage || !commitMessage.trim()) {
       throw new Error('Commit message is required');
     }
-    
+
     if (!componentName || !componentName.trim()) {
       throw new Error('Component name is required');
     }
-    
+
     if (!testContent || !testContent.trim()) {
       throw new Error('Test content is required');
     }
@@ -896,14 +934,14 @@ export class GitHubService implements BaseGitService {
   private normalizeComponentName(componentName: string): string {
     return componentName
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
   }
 
   private async makeAPIRequest(
     url: string,
     options: RequestInit,
-    settings: GitSettings
+    settings: GitSettings,
   ): Promise<Response> {
     const timeoutMs = 30000;
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -915,19 +953,19 @@ export class GitHubService implements BaseGitService {
     try {
       // Check if we should use proxy
       const useProxy = ProxyService.shouldUseProxy(url);
-      
+
       const response = await Promise.race([
-        useProxy 
+        useProxy
           ? ProxyService.proxyGitLabRequest(url, options) // Can reuse for GitHub
           : fetch(url, options),
-        timeoutPromise
+        timeoutPromise,
       ]);
-      
+
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        
+
         try {
-          const errorData = await response.json() as GitError;
+          const errorData = (await response.json()) as GitError;
           if (errorData.message) {
             errorMessage = errorData.message;
           } else if (errorData.error) {
@@ -936,27 +974,31 @@ export class GitHubService implements BaseGitService {
         } catch {
           // Use default message
         }
-        
+
         const error = new GitServiceError(errorMessage, response.status);
         throw error;
       }
-      
+
       return response;
     } catch (error: any) {
       if (error instanceof GitServiceError || error instanceof GitNetworkError) {
         throw error;
       }
-      
+
       if (error.name === 'TypeError' && error.message.indexOf('fetch') !== -1) {
         throw new GitNetworkError('Network error - unable to connect to GitHub API');
       }
-      
+
       throw error;
     }
   }
 
   private handleGitHubError(error: any, operation: string): Error {
-    if (error instanceof GitServiceError || error instanceof GitAuthError || error instanceof GitNetworkError) {
+    if (
+      error instanceof GitServiceError ||
+      error instanceof GitAuthError ||
+      error instanceof GitNetworkError
+    ) {
       return error;
     }
 
@@ -964,19 +1006,37 @@ export class GitHubService implements BaseGitService {
       switch (error.statusCode) {
         case 401:
         case 403:
-          return new GitAuthError(`Authentication failed while trying to ${operation}. Please check your GitHub token.`);
+          return new GitAuthError(
+            `Authentication failed while trying to ${operation}. Please check your GitHub token.`,
+          );
         case 404:
-          return new GitServiceError(`Resource not found while trying to ${operation}. Please check your repository.`, 404);
+          return new GitServiceError(
+            `Resource not found while trying to ${operation}. Please check your repository.`,
+            404,
+          );
         case 422:
-          return new GitServiceError(`Invalid data provided while trying to ${operation}. Please check your inputs.`, 422);
+          return new GitServiceError(
+            `Invalid data provided while trying to ${operation}. Please check your inputs.`,
+            422,
+          );
         case 429:
-          return new GitServiceError(`Rate limit exceeded while trying to ${operation}. Please try again later.`, 429);
+          return new GitServiceError(
+            `Rate limit exceeded while trying to ${operation}. Please try again later.`,
+            429,
+          );
         default:
-          return new GitServiceError(`GitHub API error while trying to ${operation}: ${error.message || 'Unknown error'}`, error.statusCode);
+          return new GitServiceError(
+            `GitHub API error while trying to ${operation}: ${error.message || 'Unknown error'}`,
+            error.statusCode,
+          );
       }
     }
 
-    if (error.name === 'TypeError' || error.message?.indexOf('fetch') !== -1 || error.message?.indexOf('network') !== -1) {
+    if (
+      error.name === 'TypeError' ||
+      error.message?.indexOf('fetch') !== -1 ||
+      error.message?.indexOf('network') !== -1
+    ) {
       return new GitNetworkError(`Network error while trying to ${operation}`);
     }
 

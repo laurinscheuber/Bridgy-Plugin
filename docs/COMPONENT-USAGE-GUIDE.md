@@ -7,12 +7,13 @@ This guide shows you how to use and extend the Bridgy plugin component system.
 ## Basic Component Usage
 
 ### 1. Rendering a Button
+
 ```javascript
 // Simple button
 const buttonHTML = BridgyComponents.Button.render({
   text: 'Save Settings',
   variant: 'primary',
-  onClick: 'saveSettings()'
+  onClick: 'saveSettings()',
 });
 
 // Icon button
@@ -20,11 +21,12 @@ const iconButtonHTML = BridgyComponents.Button.iconButton({
   icon: '⚙️',
   variant: 'ghost',
   onClick: 'openSettings()',
-  title: 'Open Settings'
+  title: 'Open Settings',
 });
 ```
 
 ### 2. Creating a Form
+
 ```javascript
 const formHTML = `
   <form id="my-form">
@@ -33,7 +35,7 @@ const formHTML = `
       name: 'username',
       label: 'Username',
       placeholder: 'Enter your username',
-      required: true
+      required: true,
     })}
     
     ${BridgyComponents.Input.render({
@@ -41,19 +43,19 @@ const formHTML = `
       name: 'password',
       type: 'password',
       label: 'Password',
-      required: true
+      required: true,
     })}
     
     <div class="form-actions">
       ${BridgyComponents.Button.render({
         text: 'Cancel',
         variant: 'secondary',
-        onClick: 'closeModal()'
+        onClick: 'closeModal()',
       })}
       ${BridgyComponents.Button.render({
         text: 'Login',
         variant: 'primary',
-        onClick: 'submitForm()'
+        onClick: 'submitForm()',
       })}
     </div>
   </form>
@@ -61,13 +63,14 @@ const formHTML = `
 ```
 
 ### 3. Creating a Modal
+
 ```javascript
 // Render modal HTML
 const modalHTML = BridgyComponents.Modal.render({
   id: 'login-modal',
   title: 'Login to Continue',
   content: formHTML,
-  size: 'medium'
+  size: 'medium',
 });
 
 // Add to page
@@ -80,14 +83,13 @@ BridgyComponents.Modal.open('login-modal');
 ## Advanced Usage
 
 ### 1. Dynamic Content Updates
+
 ```javascript
 // Update a list dynamically
 function updateVariablesList() {
   const variables = BridgyState.get.filteredVariables();
-  const listHTML = variables.map(variable => 
-    renderVariableItem(variable)
-  ).join('');
-  
+  const listHTML = variables.map((variable) => renderVariableItem(variable)).join('');
+
   const container = BridgyUtils.dom.$('variables-list');
   if (container) {
     BridgyUtils.dom.setHTML(container, listHTML);
@@ -109,7 +111,7 @@ function renderVariableItem(variable) {
           icon: '✏️',
           size: 'small',
           onClick: `editVariable('${variable.id}')`,
-          title: 'Edit variable'
+          title: 'Edit variable',
         })}
       </div>
     </div>
@@ -118,6 +120,7 @@ function renderVariableItem(variable) {
 ```
 
 ### 2. Tabs with Dynamic Content
+
 ```javascript
 function renderMainTabs() {
   const tabsData = [
@@ -125,20 +128,20 @@ function renderMainTabs() {
       label: 'Variables',
       content: renderVariablesContent(),
       icon: '🎨',
-      badge: BridgyState.data.variables.length
+      badge: BridgyState.data.variables.length,
     },
     {
       label: 'Components',
       content: renderComponentsContent(),
       icon: '📦',
-      badge: BridgyState.data.components.length
-    }
+      badge: BridgyState.data.components.length,
+    },
   ];
 
   const tabsHTML = BridgyComponents.Tabs.render({
     id: 'main-tabs',
     tabs: tabsData,
-    activeTab: 0
+    activeTab: 0,
   });
 
   const container = BridgyUtils.dom.$('tabs-container');
@@ -147,6 +150,7 @@ function renderMainTabs() {
 ```
 
 ### 3. State-Driven Components
+
 ```javascript
 // Listen for state changes and update UI
 BridgyState.events.on('selectionChange', (data) => {
@@ -158,11 +162,11 @@ function updateSelectionUI(data) {
   const count = data.selectedItems.size;
   const counter = BridgyUtils.dom.$('selection-counter');
   const bulkActions = BridgyUtils.dom.$('bulk-actions');
-  
+
   if (counter) {
     counter.textContent = count;
   }
-  
+
   if (bulkActions) {
     bulkActions.style.display = count > 0 ? 'flex' : 'none';
   }
@@ -172,22 +176,18 @@ function updateSelectionUI(data) {
 ## Creating Custom Components
 
 ### 1. Basic Component Structure
+
 ```javascript
 // Add to BridgyComponents object
 BridgyComponents.CustomComponent = {
   render: (props = {}) => {
-    const {
-      title = '',
-      content = '',
-      variant = 'default',
-      className = '',
-      ...otherProps
-    } = props;
+    const { title = '', content = '', variant = 'default', className = '', ...otherProps } = props;
 
     return `
       <div class="custom-component custom-component--${variant} ${className}"
-           ${Object.entries(otherProps).map(([key, value]) => 
-             `data-${key}="${value}"`).join(' ')}>
+           ${Object.entries(otherProps)
+             .map(([key, value]) => `data-${key}="${value}"`)
+             .join(' ')}>
         <div class="custom-component__header">
           <h3 class="custom-component__title">${title}</h3>
         </div>
@@ -196,11 +196,12 @@ BridgyComponents.CustomComponent = {
         </div>
       </div>
     `;
-  }
+  },
 };
 ```
 
 ### 2. Component with Methods
+
 ```javascript
 BridgyComponents.AdvancedComponent = {
   render: (props = {}) => {
@@ -221,13 +222,14 @@ BridgyComponents.AdvancedComponent = {
     if (element) {
       element.remove();
     }
-  }
+  },
 };
 ```
 
 ## Working with State
 
 ### 1. Reading State
+
 ```javascript
 // Get current state
 const variables = BridgyState.data.variables;
@@ -240,6 +242,7 @@ const hasSelection = BridgyState.get.hasSelection();
 ```
 
 ### 2. Updating State
+
 ```javascript
 // Update specific values
 BridgyState.set.value('ui.searchQuery', 'new search');
@@ -252,6 +255,7 @@ BridgyState.actions.clearSelection('variables');
 ```
 
 ### 3. Listening to Changes
+
 ```javascript
 // Listen to specific events
 BridgyState.events.on('stateChange', (data) => {
@@ -271,6 +275,7 @@ BridgyState.events.once('dataLoaded', (data) => {
 ## API Integration
 
 ### 1. Making API Calls
+
 ```javascript
 // Refresh data from plugin
 BridgyAPI.data.refresh();
@@ -286,6 +291,7 @@ BridgyAPI.git.testConnection();
 ```
 
 ### 2. Handling API Responses
+
 ```javascript
 // Listen for API events
 BridgyState.events.on('dataLoaded', (data) => {
@@ -297,7 +303,7 @@ BridgyState.events.on('dataLoaded', (data) => {
 BridgyState.events.on('exportComplete', (data) => {
   BridgyComponents.Notification.show({
     type: 'success',
-    message: `Exported ${data.count} items successfully`
+    message: `Exported ${data.count} items successfully`,
   });
 });
 
@@ -305,7 +311,7 @@ BridgyState.events.on('apiError', (error) => {
   BridgyComponents.Notification.show({
     type: 'error',
     title: 'API Error',
-    message: error.message
+    message: error.message,
   });
 });
 ```
@@ -313,23 +319,29 @@ BridgyState.events.on('apiError', (error) => {
 ## Utility Functions
 
 ### 1. DOM Helpers
+
 ```javascript
 // Find elements safely
 const element = BridgyUtils.dom.$('element-id');
 const elements = BridgyUtils.dom.findAll('.class-name');
 
 // Create elements
-const newElement = BridgyUtils.dom.create('div', {
-  className: 'my-class',
-  id: 'my-id',
-  dataset: { value: '123' }
-}, 'Content here');
+const newElement = BridgyUtils.dom.create(
+  'div',
+  {
+    className: 'my-class',
+    id: 'my-id',
+    dataset: { value: '123' },
+  },
+  'Content here',
+);
 
 // Set HTML safely
 BridgyUtils.dom.setHTML(container, htmlContent);
 ```
 
 ### 2. String Utilities
+
 ```javascript
 // Format strings
 const truncated = BridgyUtils.string.truncate('Long text...', 20);
@@ -338,6 +350,7 @@ const escaped = BridgyUtils.string.escapeHTML('<script>');
 ```
 
 ### 3. Array Utilities
+
 ```javascript
 // Group arrays
 const grouped = BridgyUtils.array.groupBy(variables, 'collection');
@@ -350,6 +363,7 @@ const unique = BridgyUtils.array.unique(items, 'id');
 ```
 
 ### 4. Performance Helpers
+
 ```javascript
 // Debounce function calls
 const debouncedSave = BridgyUtils.debounce(saveSettings, 1000);
@@ -361,24 +375,28 @@ const throttledScroll = BridgyUtils.throttle(handleScroll, 100);
 ## Best Practices
 
 ### 1. Component Design
+
 - Keep components focused and single-purpose
 - Use descriptive prop names with sensible defaults
 - Include proper error handling and validation
 - Make components responsive and accessible
 
 ### 2. State Management
+
 - Use the centralized state system instead of global variables
 - Listen for state changes rather than polling
 - Keep state updates atomic and predictable
 - Use actions for complex state changes
 
 ### 3. Performance
+
 - Use debouncing for frequent operations like search
 - Avoid unnecessary DOM updates
 - Use event delegation for dynamic content
 - Clean up event listeners when components are destroyed
 
 ### 4. Error Handling
+
 - Always validate props and state
 - Provide meaningful error messages
 - Use try-catch blocks for API calls

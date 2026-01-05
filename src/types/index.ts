@@ -98,8 +98,8 @@ export interface PluginMessage {
   shouldDownload?: boolean;
   forceCreate?: boolean;
   forCommit?: boolean;
-  collections?: {[key: string]: string};
-  groups?: {[key: string]: string};
+  collections?: { [key: string]: string };
+  groups?: { [key: string]: string };
   width?: number;
   height?: number;
   // Git provider fields
@@ -108,8 +108,14 @@ export interface PluginMessage {
   token?: string;
   // External URL opening
   url?: string;
-  // Token import  
-  tokens?: Array<{name: string, value: any, type: string, references?: string[], isAlias?: boolean}>;
+  // Token import
+  tokens?: Array<{
+    name: string;
+    value: any;
+    type: string;
+    references?: string[];
+    isAlias?: boolean;
+  }>;
   options?: {
     collectionName?: string;
     createNew?: boolean;
@@ -118,4 +124,4 @@ export interface PluginMessage {
     overwriteExisting?: boolean;
   };
   scope?: 'PAGE' | 'ALL' | 'SMART_SCAN';
-} 
+}

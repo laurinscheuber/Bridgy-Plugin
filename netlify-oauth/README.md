@@ -5,6 +5,7 @@ This is the OAuth callback service for the Bridgy Figma Plugin, deployed on Netl
 ## 🤔 Why This OAuth Service is Needed
 
 **The Problem with Personal Access Tokens:**
+
 - Users have to manually create GitHub tokens
 - Complex setup: GitHub Settings → Developer Settings → Personal Access Tokens
 - Users need to remember to set correct permissions (`repo`, `read:user`)
@@ -12,6 +13,7 @@ This is the OAuth callback service for the Bridgy Figma Plugin, deployed on Netl
 - Poor user experience
 
 **The OAuth Solution:**
+
 - One-click "Login with GitHub" experience
 - No manual token creation needed
 - Automatic permission handling
@@ -19,6 +21,7 @@ This is the OAuth callback service for the Bridgy Figma Plugin, deployed on Netl
 - Works for ALL users, not just you
 
 **Why a Backend Server is Required:**
+
 - GitHub OAuth requires a "client secret" that must be kept secret
 - Client secrets can't be stored in browser code (security risk)
 - We need a server to securely exchange the authorization code for an access token
@@ -29,6 +32,7 @@ This is the OAuth callback service for the Bridgy Figma Plugin, deployed on Netl
 ### Step 1: Deploy to Netlify
 
 1. **Create a new Netlify site:**
+
    ```bash
    cd netlify-oauth/
    npm install -g netlify-cli
@@ -37,6 +41,7 @@ This is the OAuth callback service for the Bridgy Figma Plugin, deployed on Netl
    ```
 
 2. **Deploy:**
+
    ```bash
    netlify deploy --prod --dir=public --functions=functions
    ```
@@ -46,6 +51,7 @@ This is the OAuth callback service for the Bridgy Figma Plugin, deployed on Netl
 ### Step 2: Configure Environment Variables
 
 In your Netlify dashboard:
+
 1. Go to Site Settings → Environment Variables
 2. Add: `GITHUB_CLIENT_SECRET` = `your_github_client_secret_here`
 
@@ -61,11 +67,13 @@ In your Netlify dashboard:
 ### Step 4: Update Plugin Code
 
 Replace `your-netlify-site.netlify.app` with your actual Netlify URL in:
+
 - `src/services/oauthService.ts`
 - `src/services/oauthCallbackHandler.ts`
 - `src/ui/main.js`
 
 Search and replace:
+
 ```bash
 find src/ -type f -name "*.ts" -o -name "*.js" | xargs sed -i 's/your-netlify-site\.netlify\.app/YOUR-ACTUAL-SITE.netlify.app/g'
 ```
@@ -79,6 +87,7 @@ netlify dev
 ```
 
 Create `.env` file:
+
 ```
 GITHUB_CLIENT_SECRET=your_github_client_secret_here
 ```
@@ -117,6 +126,7 @@ Once deployed, this OAuth service works for **anyone** using your Figma plugin:
 ## 🔗 Required URLs
 
 Make sure these match in your code:
+
 - **Callback URL**: `https://YOUR-SITE.netlify.app/github/callback`
 - **Token Exchange**: `https://YOUR-SITE.netlify.app/api/github/token`
 

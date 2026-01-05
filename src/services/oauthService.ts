@@ -3,7 +3,7 @@
  * Provides OAuth flow setup and configuration for GitHub integration
  */
 
-import { LoggingService } from "../config";
+import { LoggingService } from '../config';
 
 export interface OAuthConfig {
   clientId: string;
@@ -28,8 +28,8 @@ export class OAuthService {
     scope: [
       'repo', // Access to repositories
       'read:user', // Read user profile
-      'user:email' // Access to user email
-    ]
+      'user:email', // Access to user email
+    ],
   };
 
   /**
@@ -38,24 +38,28 @@ export class OAuthService {
   static generateGitHubOAuthUrl(): string {
     const config = this.GITHUB_OAUTH_CONFIG;
     const state = this.generateSecureState();
-    
+
     const params = new URLSearchParams({
       client_id: config.clientId,
       redirect_uri: config.redirectUri,
       scope: config.scope.join(' '),
       state: state,
-      response_type: 'code'
+      response_type: 'code',
     });
 
     // Store state for verification
     this.storeOAuthState(state);
 
     const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`;
-    
-    LoggingService.debug('Generated GitHub OAuth URL', { 
-      scopes: config.scope,
-      state: state.substring(0, 8) + '...' // Log first 8 chars for debugging
-    }, LoggingService.CATEGORIES.GITHUB);
+
+    LoggingService.debug(
+      'Generated GitHub OAuth URL',
+      {
+        scopes: config.scope,
+        state: state.substring(0, 8) + '...', // Log first 8 chars for debugging
+      },
+      LoggingService.CATEGORIES.GITHUB,
+    );
 
     return authUrl;
   }
@@ -65,9 +69,11 @@ export class OAuthService {
    */
   static isOAuthConfigured(): boolean {
     const config = this.GITHUB_OAUTH_CONFIG;
-    return config.clientId !== 'your-github-client-id' && 
-           config.clientId.length > 0 &&
-           config.redirectUri.startsWith('https://');
+    return (
+      config.clientId !== 'your-github-client-id' &&
+      config.clientId.length > 0 &&
+      config.redirectUri.startsWith('https://')
+    );
   }
 
   /**
@@ -82,25 +88,25 @@ export class OAuthService {
     if (!this.isOAuthConfigured()) {
       return {
         success: false,
-        error: 'OAuth is not configured. Please use Personal Access Token method.'
+        error: 'OAuth is not configured. Please use Personal Access Token method.',
       };
     }
 
     return new Promise((resolve) => {
       try {
         const authUrl = this.generateGitHubOAuthUrl();
-        
+
         // Open popup window
         const popup = window.open(
           authUrl,
           'github-oauth',
-          'width=600,height=700,scrollbars=yes,resizable=yes'
+          'width=600,height=700,scrollbars=yes,resizable=yes',
         );
 
         if (!popup) {
           resolve({
             success: false,
-            error: 'Failed to open OAuth popup. Please allow popups for this site.'
+            error: 'Failed to open OAuth popup. Please allow popups for this site.',
           });
           return;
         }
@@ -117,14 +123,14 @@ export class OAuthService {
             resolve({
               success: true,
               token: event.data.token,
-              user: event.data.user
+              user: event.data.user,
             });
           } else if (event.data.type === 'oauth-error') {
             window.removeEventListener('message', messageHandler);
             popup.close();
             resolve({
               success: false,
-              error: event.data.error
+              error: event.data.error,
             });
           }
         };
@@ -138,7 +144,7 @@ export class OAuthService {
             window.removeEventListener('message', messageHandler);
             resolve({
               success: false,
-              error: 'OAuth flow was cancelled by user'
+              error: 'OAuth flow was cancelled by user',
             });
           }
         }, 1000);
@@ -152,14 +158,13 @@ export class OAuthService {
           window.removeEventListener('message', messageHandler);
           resolve({
             success: false,
-            error: 'OAuth flow timed out'
+            error: 'OAuth flow timed out',
           });
         }, 300000);
-
       } catch (error: any) {
         resolve({
           success: false,
-          error: error.message || 'Failed to start OAuth flow'
+          error: error.message || 'Failed to start OAuth flow',
         });
       }
     });
@@ -174,18 +179,18 @@ export class OAuthService {
     message: string;
   } {
     const configured = this.isOAuthConfigured();
-    
+
     if (configured) {
       return {
         available: true,
         configured: true,
-        message: 'OAuth login is available'
+        message: 'OAuth login is available',
       };
     } else {
       return {
         available: false,
         configured: false,
-        message: 'OAuth not configured. Using Personal Access Token method.'
+        message: 'OAuth not configured. Using Personal Access Token method.',
       };
     }
   }
@@ -196,7 +201,7 @@ export class OAuthService {
   private static generateSecureState(): string {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    return Array.from(array, byte => {
+    return Array.from(array, (byte) => {
       const hex = byte.toString(16);
       return hex.length === 1 ? '0' + hex : hex;
     }).join('');
@@ -206,14 +211,17 @@ export class OAuthService {
    * Store OAuth state for verification (in-memory for now)
    */
   private static oauthStates: Set<string> = new Set();
-  
+
   private static storeOAuthState(state: string): void {
     this.oauthStates.add(state);
-    
+
     // Clean up old states after 10 minutes
-    setTimeout(() => {
-      this.oauthStates.delete(state);
-    }, 10 * 60 * 1000);
+    setTimeout(
+      () => {
+        this.oauthStates.delete(state);
+      },
+      10 * 60 * 1000,
+    );
   }
 
   /**
@@ -253,7 +261,7 @@ export class OAuthService {
       '6. Deploy backend OAuth handler to handle token exchange',
       '',
       'For development, you can continue using Personal Access Tokens.',
-      'OAuth provides better security and user experience for production.'
+      'OAuth provides better security and user experience for production.',
     ];
   }
 
@@ -277,7 +285,7 @@ export class OAuthService {
     return {
       minimal: ['public_repo'], // Public repositories only
       standard: ['repo', 'read:user'], // Private repos + user info
-      full: ['repo', 'read:user', 'user:email', 'admin:repo_hook'] // Full access
+      full: ['repo', 'read:user', 'user:email', 'admin:repo_hook'], // Full access
     };
   }
 
@@ -291,14 +299,14 @@ export class OAuthService {
   } {
     const required = ['repo'];
     const recommended = ['read:user'];
-    
-    const missing = required.filter(scope => scopes.indexOf(scope) === -1);
-    const recommendations = recommended.filter(scope => scopes.indexOf(scope) === -1);
-    
+
+    const missing = required.filter((scope) => scopes.indexOf(scope) === -1);
+    const recommendations = recommended.filter((scope) => scopes.indexOf(scope) === -1);
+
     return {
       valid: missing.length === 0,
       missing: missing,
-      recommendations: recommendations
+      recommendations: recommendations,
     };
   }
 

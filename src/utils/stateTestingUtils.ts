@@ -22,23 +22,23 @@ export const INTERACTIVE_STATES: StateTestConfig[] = [
   {
     state: 'hover',
     pseudoClass: ':hover',
-    properties: STATE_SPECIFIC_PROPERTIES.hover
+    properties: STATE_SPECIFIC_PROPERTIES.hover,
   },
   {
     state: 'focus',
     pseudoClass: ':focus',
-    properties: STATE_SPECIFIC_PROPERTIES.focus
+    properties: STATE_SPECIFIC_PROPERTIES.focus,
   },
   {
     state: 'active',
     pseudoClass: ':active',
-    properties: STATE_SPECIFIC_PROPERTIES.active
+    properties: STATE_SPECIFIC_PROPERTIES.active,
   },
   {
     state: 'disabled',
     pseudoClass: ':disabled',
-    properties: STATE_SPECIFIC_PROPERTIES.disabled
-  }
+    properties: STATE_SPECIFIC_PROPERTIES.disabled,
+  },
 ];
 
 /**
@@ -47,19 +47,29 @@ export const INTERACTIVE_STATES: StateTestConfig[] = [
 export function shouldTestPropertyForState(property: string): boolean {
   // Convert camelCase to kebab-case
   const kebabProperty = property.replace(/([A-Z])/g, '-$1').toLowerCase();
-  
+
   // Check both the original property and kebab-case version
-  if (arrayIncludes(INTERACTIVE_PROPERTIES as any, property) || 
-      arrayIncludes(INTERACTIVE_PROPERTIES as any, kebabProperty)) {
+  if (
+    arrayIncludes(INTERACTIVE_PROPERTIES as any, property) ||
+    arrayIncludes(INTERACTIVE_PROPERTIES as any, kebabProperty)
+  ) {
     return true;
   }
-  
+
   // Also check if this property could potentially have color/visual changes
   // This catches properties that contain color-related keywords
-  const colorRelatedKeywords = ['color', 'background', 'border', 'outline', 'shadow', 'fill', 'stroke'];
-  return colorRelatedKeywords.some(keyword => 
-    property.toLowerCase().indexOf(keyword) !== -1 || 
-    kebabProperty.indexOf(keyword) !== -1
+  const colorRelatedKeywords = [
+    'color',
+    'background',
+    'border',
+    'outline',
+    'shadow',
+    'fill',
+    'stroke',
+  ];
+  return colorRelatedKeywords.some(
+    (keyword) =>
+      property.toLowerCase().indexOf(keyword) !== -1 || kebabProperty.indexOf(keyword) !== -1,
   );
 }
 
@@ -153,46 +163,49 @@ export function generateTestHelpers(): string {
 export function generateStateTests(
   componentSelector: string,
   states: StateTestConfig[],
-  componentStyles: Record<string, any>
+  componentStyles: Record<string, any>,
 ): string {
   const tests: string[] = [];
-  
+
   // Check if component has any properties that could change on interaction
   const hasInteractiveElement = Object.keys(componentStyles).some(shouldTestPropertyForState);
-  
+
   if (!hasInteractiveElement) {
     return ''; // Don't generate state tests if no interactive properties
   }
-  
-  states.forEach(state => {
+
+  states.forEach((state) => {
     // Combine component styles with state-specific properties
-    const componentInteractiveProps = Object.keys(componentStyles)
-      .filter(shouldTestPropertyForState);
-    
+    const componentInteractiveProps = Object.keys(componentStyles).filter(
+      shouldTestPropertyForState,
+    );
+
     // Use both component's interactive properties and common state properties
     const allPropertiesToTest = new Set(
-      componentInteractiveProps.map(toKebabCase).concat(state.properties)
+      componentInteractiveProps.map(toKebabCase).concat(state.properties),
     );
-    
+
     if (allPropertiesToTest.size > 0) {
       const testName = `should have correct ${state.state} styles`;
-      const propertyChecks = Array.from(allPropertiesToTest).map(prop => {
-        // Try to get expected value from component styles
-        const camelCaseProp = toCamelCase(prop);
-        const expectedValue = componentStyles[camelCaseProp];
-        
-        if (expectedValue && typeof expectedValue === 'string') {
-          // If we have an expected value from component styles, use it
-          // But only for certain properties that typically don't change much
-          if (prop === 'color' || prop === 'background-color' || prop.indexOf('border') !== -1) {
-            return `      { property: '${prop}', expected: '${expectedValue}' }`;
+      const propertyChecks = Array.from(allPropertiesToTest)
+        .map((prop) => {
+          // Try to get expected value from component styles
+          const camelCaseProp = toCamelCase(prop);
+          const expectedValue = componentStyles[camelCaseProp];
+
+          if (expectedValue && typeof expectedValue === 'string') {
+            // If we have an expected value from component styles, use it
+            // But only for certain properties that typically don't change much
+            if (prop === 'color' || prop === 'background-color' || prop.indexOf('border') !== -1) {
+              return `      { property: '${prop}', expected: '${expectedValue}' }`;
+            }
           }
-        }
-        
-        // For other properties or when we don't have expected values, just check existence
-        return `      { property: '${prop}', expected: undefined }`;
-      }).join(',\n');
-      
+
+          // For other properties or when we don't have expected values, just check existence
+          return `      { property: '${prop}', expected: undefined }`;
+        })
+        .join(',\n');
+
       const testCode = `
   it('${testName}', () => {
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
@@ -207,20 +220,22 @@ ${propertyChecks}
       checkStyleProperty('${componentSelector}', '${state.pseudoClass}', property, expected);
     });
   });`;
-      
+
       tests.push(testCode);
     }
   });
-  
+
   return tests.join('\n');
 }
 
 /**
  * Analyzes component variants to find style differences between states
  */
-export function analyzeComponentStateVariants(variants: Component[]): Map<string, Map<string, any>> {
+export function analyzeComponentStateVariants(
+  variants: Component[],
+): Map<string, Map<string, any>> {
   const stateStyleMap = new Map<string, Map<string, any>>();
-  
+
   // Process each variant to extract state and styles
   variants.forEach((variant, index) => {
     // Parse variant name to extract state (e.g., "State=hover, Size=small")
@@ -229,28 +244,30 @@ export function analyzeComponentStateVariants(variants: Component[]): Map<string
       console.log('DEBUG: No state name found, skipping variant');
       return;
     }
-    
+
     // Parse styles
     let styles: Record<string, any>;
     try {
       styles = typeof variant.styles === 'string' ? JSON.parse(variant.styles) : variant.styles;
-      console.log(`DEBUG: Parsed ${Object.keys(styles).length} style properties for state "${stateName}"`);
+      console.log(
+        `DEBUG: Parsed ${Object.keys(styles).length} style properties for state "${stateName}"`,
+      );
     } catch (e) {
       console.error('Error parsing variant styles:', e);
       return;
     }
-    
+
     // Store styles for this state
     const styleMap = new Map<string, any>(objectEntries(styles));
     stateStyleMap.set(stateName, styleMap);
   });
-  
+
   return stateStyleMap;
 }
 
 /**
  * Extracts state name from variant name (handles multiple patterns)
- * Examples: 
+ * Examples:
  * - "State=hover, Size=small" -> "hover"
  * - "Property 1=Default" -> "default"
  * - "Property 1=Hover" -> "hover"
@@ -261,29 +278,32 @@ function extractStateFromVariantName(variantName: string): string | null {
   if (stateMatch) {
     return stateMatch[1].toLowerCase();
   }
-  
+
   // Try Property [number]= pattern (common in Figma auto-generated variants)
   stateMatch = variantName.match(/Property\s*\d*\s*=\s*(\w+)/i);
   if (stateMatch) {
     return stateMatch[1].toLowerCase();
   }
-  
+
   // Try any [word]= pattern as fallback
   stateMatch = variantName.match(/(\w+)=(\w+)/i);
   if (stateMatch) {
     // Return the value part (after =) as the state
     return stateMatch[2].toLowerCase();
   }
-  
+
   return null;
 }
 
 /**
  * Compares two style maps and returns only the properties that differ
  */
-export function findStyleDifferences(baseStyles: Map<string, any>, compareStyles: Map<string, any>): Map<string, any> {
+export function findStyleDifferences(
+  baseStyles: Map<string, any>,
+  compareStyles: Map<string, any>,
+): Map<string, any> {
   const differences = new Map<string, any>();
-  
+
   // Check all properties in the compare styles
   compareStyles.forEach((value, key) => {
     const baseValue = baseStyles.get(key);
@@ -292,7 +312,7 @@ export function findStyleDifferences(baseStyles: Map<string, any>, compareStyles
       differences.set(key, value);
     }
   });
-  
+
   return differences;
 }
 
@@ -302,42 +322,44 @@ export function findStyleDifferences(baseStyles: Map<string, any>, compareStyles
 export function generateStateTestsFromVariants(
   componentSelector: string,
   variants: Component[],
-  defaultStyles: Record<string, any>
+  defaultStyles: Record<string, any>,
 ): string {
   const tests: string[] = [];
-  
+
   // Analyze all variants to find state differences
   const stateStyleMap = analyzeComponentStateVariants(variants);
-  
+
   // Get the default state styles
   let defaultStateStyles = stateStyleMap.get('default');
   if (!defaultStateStyles) {
     defaultStateStyles = new Map<string, any>(objectEntries(defaultStyles));
   }
-  
+
   // Dynamically generate tests for ALL states found in variants (not just predefined ones)
-  const allStates = Array.from(stateStyleMap.keys()).filter(state => state !== 'default');
-  
-  allStates.forEach(stateName => {
+  const allStates = Array.from(stateStyleMap.keys()).filter((state) => state !== 'default');
+
+  allStates.forEach((stateName) => {
     const stateStyles = stateStyleMap.get(stateName);
     if (!stateStyles) return;
-    
+
     // Find differences between this state and default
     const differences = findStyleDifferences(defaultStateStyles, stateStyles);
-    
+
     if (differences.size === 0) return;
-    
+
     // Convert state name to pseudo-class (handle custom states)
     const pseudoClass = stateName.startsWith(':') ? stateName : `:${stateName}`;
     const testName = `should have correct ${stateName} styles`;
-    
+
     // Build property checks only for changed properties
-    const propertyChecks = Array.from(differences.entries()).map(([property, value]) => {
-      // Convert to kebab-case for CSS
-      const kebabProperty = toKebabCase(property);
-      return `      { property: '${kebabProperty}', expected: '${value}' }`;
-    }).join(',\n');
-    
+    const propertyChecks = Array.from(differences.entries())
+      .map(([property, value]) => {
+        // Convert to kebab-case for CSS
+        const kebabProperty = toKebabCase(property);
+        return `      { property: '${kebabProperty}', expected: '${value}' }`;
+      })
+      .join(',\n');
+
     const testCode = `
   it('${testName}', () => {
     const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
@@ -352,9 +374,9 @@ ${propertyChecks}
       checkStyleProperty('${componentSelector}', '${pseudoClass}', property, expected);
     });
   });`;
-    
+
     tests.push(testCode);
   });
-  
+
   return tests.join('\n');
 }

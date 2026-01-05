@@ -3,8 +3,8 @@
  * Provides intelligent caching for repository lists to improve performance
  */
 
-import { GitProject } from "../types/git";
-import { LoggingService } from "../config";
+import { GitProject } from '../types/git';
+import { LoggingService } from '../config';
 
 interface CacheEntry {
   repositories: GitProject[];
@@ -23,12 +23,12 @@ export class RepositoryCacheService {
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private static readonly MAX_CACHE_SIZE = 10; // Max different token/provider combinations
   private static readonly CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
-  
+
   private static cache: Map<string, CacheEntry> = new Map();
   private static metadata: CacheMetadata = {
     lastCleanup: Date.now(),
     hitCount: 0,
-    missCount: 0
+    missCount: 0,
   };
 
   /**
@@ -46,10 +46,10 @@ export class RepositoryCacheService {
   private static simpleHash(str: string): string {
     let hash = 0;
     if (str.length === 0) return hash.toString();
-    
+
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash).toString(36);
@@ -60,13 +60,17 @@ export class RepositoryCacheService {
    */
   static getCachedRepositories(provider: string, token: string): GitProject[] | null {
     this.performPeriodicCleanup();
-    
+
     const cacheKey = this.generateCacheKey(provider, token);
     const entry = this.cache.get(cacheKey);
-    
+
     if (!entry) {
       this.metadata.missCount++;
-      LoggingService.debug(`Cache miss for ${provider}`, { cacheKey }, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.debug(
+        `Cache miss for ${provider}`,
+        { cacheKey },
+        LoggingService.CATEGORIES.GITHUB,
+      );
       return null;
     }
 
@@ -75,16 +79,24 @@ export class RepositoryCacheService {
       // Cache expired
       this.cache.delete(cacheKey);
       this.metadata.missCount++;
-      LoggingService.debug(`Cache expired for ${provider}`, { age, maxAge: this.CACHE_DURATION }, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.debug(
+        `Cache expired for ${provider}`,
+        { age, maxAge: this.CACHE_DURATION },
+        LoggingService.CATEGORIES.GITHUB,
+      );
       return null;
     }
 
     this.metadata.hitCount++;
-    LoggingService.debug(`Cache hit for ${provider}`, { 
-      repositoryCount: entry.repositories.length,
-      age 
-    }, LoggingService.CATEGORIES.GITHUB);
-    
+    LoggingService.debug(
+      `Cache hit for ${provider}`,
+      {
+        repositoryCount: entry.repositories.length,
+        age,
+      },
+      LoggingService.CATEGORIES.GITHUB,
+    );
+
     return [...entry.repositories]; // Return copy to prevent mutation
   }
 
@@ -93,28 +105,32 @@ export class RepositoryCacheService {
    */
   static cacheRepositories(provider: string, token: string, repositories: GitProject[]): void {
     this.performPeriodicCleanup();
-    
+
     const cacheKey = this.generateCacheKey(provider, token);
     const tokenHash = this.simpleHash(token);
-    
+
     const entry: CacheEntry = {
       repositories: [...repositories], // Store copy to prevent mutation
       timestamp: Date.now(),
       provider,
-      tokenHash
+      tokenHash,
     };
 
     this.cache.set(cacheKey, entry);
-    
+
     // Limit cache size
     if (this.cache.size > this.MAX_CACHE_SIZE) {
       this.evictOldestEntry();
     }
 
-    LoggingService.debug(`Cached repositories for ${provider}`, { 
-      repositoryCount: repositories.length,
-      cacheSize: this.cache.size 
-    }, LoggingService.CATEGORIES.GITHUB);
+    LoggingService.debug(
+      `Cached repositories for ${provider}`,
+      {
+        repositoryCount: repositories.length,
+        cacheSize: this.cache.size,
+      },
+      LoggingService.CATEGORIES.GITHUB,
+    );
   }
 
   /**
@@ -123,9 +139,13 @@ export class RepositoryCacheService {
   static invalidateCache(provider: string, token: string): void {
     const cacheKey = this.generateCacheKey(provider, token);
     const deleted = this.cache.delete(cacheKey);
-    
+
     if (deleted) {
-      LoggingService.debug(`Invalidated cache for ${provider}`, { cacheKey }, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.debug(
+        `Invalidated cache for ${provider}`,
+        { cacheKey },
+        LoggingService.CATEGORIES.GITHUB,
+      );
     }
   }
 
@@ -137,8 +157,12 @@ export class RepositoryCacheService {
     this.cache.clear();
     this.metadata.hitCount = 0;
     this.metadata.missCount = 0;
-    
-    LoggingService.info(`Cleared repository cache`, { previousSize: size }, LoggingService.CATEGORIES.GITHUB);
+
+    LoggingService.info(
+      `Cleared repository cache`,
+      { previousSize: size },
+      LoggingService.CATEGORIES.GITHUB,
+    );
   }
 
   /**
@@ -161,13 +185,13 @@ export class RepositoryCacheService {
       provider: entry.provider,
       repositoryCount: entry.repositories.length,
       age: Date.now() - entry.timestamp,
-      fresh: (Date.now() - entry.timestamp) < this.CACHE_DURATION
+      fresh: Date.now() - entry.timestamp < this.CACHE_DURATION,
     }));
 
     return {
       size: this.cache.size,
       hitRate: Math.round(hitRate * 100) / 100,
-      entries
+      entries,
     };
   }
 
@@ -177,7 +201,7 @@ export class RepositoryCacheService {
   private static performPeriodicCleanup(): void {
     const now = Date.now();
     const timeSinceLastCleanup = now - this.metadata.lastCleanup;
-    
+
     if (timeSinceLastCleanup < this.CLEANUP_INTERVAL) {
       return;
     }
@@ -194,13 +218,17 @@ export class RepositoryCacheService {
     }
 
     this.metadata.lastCleanup = now;
-    
+
     if (removedCount > 0) {
-      LoggingService.debug(`Cleaned up expired cache entries`, { 
-        removed: removedCount,
-        before: sizeBefore,
-        after: this.cache.size 
-      }, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.debug(
+        `Cleaned up expired cache entries`,
+        {
+          removed: removedCount,
+          before: sizeBefore,
+          after: this.cache.size,
+        },
+        LoggingService.CATEGORIES.GITHUB,
+      );
     }
   }
 
@@ -220,10 +248,14 @@ export class RepositoryCacheService {
 
     if (oldestKey) {
       this.cache.delete(oldestKey);
-      LoggingService.debug(`Evicted oldest cache entry`, { 
-        key: oldestKey,
-        age: Date.now() - oldestTime 
-      }, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.debug(
+        `Evicted oldest cache entry`,
+        {
+          key: oldestKey,
+          age: Date.now() - oldestTime,
+        },
+        LoggingService.CATEGORIES.GITHUB,
+      );
     }
   }
 
@@ -231,9 +263,9 @@ export class RepositoryCacheService {
    * Preload repositories in background (for proactive caching)
    */
   static async preloadRepositories(
-    provider: string, 
-    token: string, 
-    fetchFunction: () => Promise<GitProject[]>
+    provider: string,
+    token: string,
+    fetchFunction: () => Promise<GitProject[]>,
   ): Promise<GitProject[]> {
     // Check cache first
     const cached = this.getCachedRepositories(provider, token);
@@ -242,16 +274,23 @@ export class RepositoryCacheService {
       const cacheKey = this.generateCacheKey(provider, token);
       const entry = this.cache.get(cacheKey);
       const age = Date.now() - (entry?.timestamp || 0);
-      
-      if (age > 2 * 60 * 1000) { // 2 minutes
+
+      if (age > 2 * 60 * 1000) {
+        // 2 minutes
         // Background refresh (don't await)
-        fetchFunction().then(fresh => {
-          this.cacheRepositories(provider, token, fresh);
-        }).catch(error => {
-          LoggingService.warn(`Background repository refresh failed`, error, LoggingService.CATEGORIES.GITHUB);
-        });
+        fetchFunction()
+          .then((fresh) => {
+            this.cacheRepositories(provider, token, fresh);
+          })
+          .catch((error) => {
+            LoggingService.warn(
+              `Background repository refresh failed`,
+              error,
+              LoggingService.CATEGORIES.GITHUB,
+            );
+          });
       }
-      
+
       return cached;
     }
 
@@ -261,7 +300,11 @@ export class RepositoryCacheService {
       this.cacheRepositories(provider, token, repositories);
       return repositories;
     } catch (error) {
-      LoggingService.error(`Failed to preload repositories`, error, LoggingService.CATEGORIES.GITHUB);
+      LoggingService.error(
+        `Failed to preload repositories`,
+        error,
+        LoggingService.CATEGORIES.GITHUB,
+      );
       throw error;
     }
   }

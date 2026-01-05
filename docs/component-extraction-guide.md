@@ -1,11 +1,13 @@
 # Bridgy Component Extraction Guide for Figma
 
 ## Overview
+
 This guide helps you extract UI components from the Bridgy plugin into Figma design components.
 
 ## Component Inventory
 
 ### 1. **Buttons**
+
 - Primary Button (purple gradient)
 - Secondary Button (outlined)
 - Icon Button (settings, refresh, help)
@@ -13,12 +15,14 @@ This guide helps you extract UI components from the Bridgy plugin into Figma des
 - Large Action Button (commit, export)
 
 ### 2. **Cards**
+
 - Variable Card
 - Component Card
 - Settings Card
 - Feedback Card
 
 ### 3. **Form Elements**
+
 - Text Input
 - Password Input
 - Textarea
@@ -27,17 +31,20 @@ This guide helps you extract UI components from the Bridgy plugin into Figma des
 - Form Group Container
 
 ### 4. **Modals**
+
 - Standard Modal
 - Settings Modal
 - Error Modal
 - Success Modal
 
 ### 5. **Navigation**
+
 - Tab Navigation (Variables/Components)
 - Sub-tabs
 - Header Navigation
 
 ### 6. **Feedback & Status**
+
 - Success Notification
 - Error Notification
 - Loading States
@@ -45,6 +52,7 @@ This guide helps you extract UI components from the Bridgy plugin into Figma des
 - Beta Badge
 
 ### 7. **Layout Components**
+
 - Container
 - Header
 - Section
@@ -53,6 +61,7 @@ This guide helps you extract UI components from the Bridgy plugin into Figma des
 ## Step-by-Step Extraction Process
 
 ### Step 1: Create Component Library Structure in Figma
+
 1. Create a new Figma file called "Bridgy Design System"
 2. Create pages:
    - ✦ Foundations (Colors, Typography, Spacing)
@@ -61,7 +70,9 @@ This guide helps you extract UI components from the Bridgy plugin into Figma des
    - ✦ Templates
 
 ### Step 2: Import Design Tokens (Already Done ✓)
+
 You've already imported the CSS variables, which gives you:
+
 - Color system (primary, neutral, semantic colors)
 - Spacing system
 - Typography scale
@@ -71,6 +82,7 @@ You've already imported the CSS variables, which gives you:
 ### Step 3: Create Base Components
 
 #### Button Component
+
 1. Create a frame: 40px height
 2. Apply styles:
    - Background: `var(--gradient-button)` → Use gradient paint style
@@ -86,6 +98,7 @@ You've already imported the CSS variables, which gives you:
    - Hover state (darker gradient)
 
 #### Input Component
+
 1. Create a frame: 40px height
 2. Apply styles:
    - Background: `var(--glass-dark-medium)`
@@ -101,6 +114,7 @@ You've already imported the CSS variables, which gives you:
    - Disabled
 
 #### Card Component
+
 1. Create auto-layout frame
 2. Apply styles:
    - Background: `var(--glass-dark-light)`
@@ -112,6 +126,7 @@ You've already imported the CSS variables, which gives you:
 ### Step 4: Extract Complex Components
 
 #### Modal Component Structure
+
 ```
 Modal Container
 ├── Backdrop (dark overlay)
@@ -127,6 +142,7 @@ Modal Container
 ### Step 5: Create Component Documentation
 
 For each component, document:
+
 1. Component name and purpose
 2. Props/Variants available
 3. Usage guidelines
@@ -135,19 +151,24 @@ For each component, document:
 ## Automation Options
 
 ### Option 1: Manual Recreation (Recommended)
+
 Best for accuracy and Figma-native features:
+
 1. Use the imported color variables
 2. Manually create each component
 3. Apply auto-layout for responsive behavior
 4. Use Figma's variant system
 
 ### Option 2: HTML/CSS to Figma Tools
+
 Tools that can help:
+
 - **Figma HTML to Design** plugin
 - **Design System Manager** plugin
 - **Tokens Studio** plugin
 
 ### Option 3: Screenshot & Trace Method
+
 1. Take screenshots of each component state
 2. Import into Figma
 3. Trace over with native Figma elements
@@ -157,14 +178,14 @@ Tools that can help:
 
 ### CSS Classes to Figma Components
 
-| CSS Class | Figma Component | Notes |
-|-----------|-----------------|-------|
-| `.btn-primary` | Button/Primary | Use gradient paint style |
-| `.modal` | Modal/Default | Use auto-layout |
-| `.form-group` | Form/Field Group | Vertical auto-layout |
-| `.tab` | Navigation/Tab | Use variants for active state |
-| `.notification-container` | Feedback/Notification | Use variants for success/error |
-| `.header` | Layout/Header | Fixed height, horizontal auto-layout |
+| CSS Class                 | Figma Component       | Notes                                |
+| ------------------------- | --------------------- | ------------------------------------ |
+| `.btn-primary`            | Button/Primary        | Use gradient paint style             |
+| `.modal`                  | Modal/Default         | Use auto-layout                      |
+| `.form-group`             | Form/Field Group      | Vertical auto-layout                 |
+| `.tab`                    | Navigation/Tab        | Use variants for active state        |
+| `.notification-container` | Feedback/Notification | Use variants for success/error       |
+| `.header`                 | Layout/Header         | Fixed height, horizontal auto-layout |
 
 ## Best Practices
 
@@ -177,6 +198,7 @@ Tools that can help:
 ## Quick Start Components
 
 Start with these essential components:
+
 1. Button (Primary, Secondary)
 2. Input Field
 3. Card Container

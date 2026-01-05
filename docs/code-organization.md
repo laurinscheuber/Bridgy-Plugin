@@ -25,6 +25,7 @@ src/ui/
 ## Module Architecture
 
 ### 1. **State Management** (`bridgy-state.js`)
+
 - Centralized state management with event system
 - Persistent storage (localStorage)
 - Reactive updates across the application
@@ -38,6 +39,7 @@ BridgyState.events.on('stateChange', handleUpdate);
 ```
 
 ### 2. **Component Library** (`bridgy-components.js`)
+
 - Reusable UI components with consistent API
 - Type-safe component props
 - Built-in accessibility features
@@ -48,17 +50,18 @@ BridgyState.events.on('stateChange', handleUpdate);
 const button = BridgyComponents.Button.render({
   text: 'Save',
   variant: 'primary',
-  onClick: 'handleSave()'
+  onClick: 'handleSave()',
 });
 
 BridgyComponents.Modal.open('settings-modal');
 BridgyComponents.Notification.show({
   type: 'success',
-  message: 'Saved successfully'
+  message: 'Saved successfully',
 });
 ```
 
 ### 3. **API Communication** (`bridgy-api.js`)
+
 - All plugin core communication centralized
 - Type-safe message handling
 - Automatic loading states
@@ -72,6 +75,7 @@ BridgyAPI.export.variables({ format: 'json' });
 ```
 
 ### 4. **Utilities** (`bridgy-utils.js`)
+
 - Common utility functions
 - DOM helpers, validation, formatting
 - Debounce/throttle, async utilities
@@ -85,6 +89,7 @@ BridgyUtils.color.hexToRgb('#ff0000'); // {r: 255, g: 0, b: 0}
 ```
 
 ### 5. **Application Logic** (`bridgy-app.js`)
+
 - Main application orchestrator
 - UI rendering and event handling
 - Keyboard shortcuts and responsive behavior
@@ -93,6 +98,7 @@ BridgyUtils.color.hexToRgb('#ff0000'); // {r: 255, g: 0, b: 0}
 ## Component System
 
 ### Button Components
+
 ```javascript
 // Primary button
 BridgyComponents.Button.render({
@@ -100,18 +106,19 @@ BridgyComponents.Button.render({
   variant: 'primary',
   size: 'medium',
   onClick: 'handleExport()',
-  icon: '📤'
+  icon: '📤',
 });
 
 // Icon button
 BridgyComponents.Button.iconButton({
   icon: '⚙️',
   title: 'Settings',
-  onClick: 'openSettings()'
+  onClick: 'openSettings()',
 });
 ```
 
 ### Form Components
+
 ```javascript
 // Input field
 BridgyComponents.Input.render({
@@ -119,7 +126,7 @@ BridgyComponents.Input.render({
   label: 'Repository URL',
   placeholder: 'https://gitlab.com/...',
   required: true,
-  helper: 'Your GitLab repository URL'
+  helper: 'Your GitLab repository URL',
 });
 
 // Select dropdown
@@ -128,12 +135,13 @@ BridgyComponents.Input.select({
   label: 'Export Format',
   options: [
     { value: 'json', label: 'JSON' },
-    { value: 'css', label: 'CSS' }
-  ]
+    { value: 'css', label: 'CSS' },
+  ],
 });
 ```
 
 ### Layout Components
+
 ```javascript
 // Card with actions
 BridgyComponents.Card.render({
@@ -141,8 +149,8 @@ BridgyComponents.Card.render({
   content: 'Configure your design tokens...',
   actions: [
     { text: 'Cancel', variant: 'secondary' },
-    { text: 'Save', variant: 'primary' }
-  ]
+    { text: 'Save', variant: 'primary' },
+  ],
 });
 
 // Modal dialog
@@ -150,14 +158,16 @@ BridgyComponents.Modal.render({
   id: 'settings-modal',
   title: 'Settings',
   content: settingsFormHTML,
-  size: 'large'
+  size: 'large',
 });
 ```
 
 ## CSS Architecture
 
 ### 1. **Variables** (`01-variables.css`)
+
 All design tokens defined as CSS custom properties:
+
 - Color palette (primary, neutral, semantic)
 - Spacing scale (rem-based)
 - Typography (sizes, weights, line heights)
@@ -165,7 +175,9 @@ All design tokens defined as CSS custom properties:
 - Z-index scale, opacity levels
 
 ### 2. **Base Styles** (`02-base.css`)
+
 Foundation styles:
+
 - Reset and base typography
 - Scrollbar styling
 - Selection colors
@@ -174,7 +186,9 @@ Foundation styles:
 - Animation keyframes
 
 ### 3. **Components** (`03-components.css`)
+
 Component-specific styles:
+
 - Button variants and states
 - Form elements
 - Cards and modals
@@ -182,7 +196,9 @@ Component-specific styles:
 - Notifications and loading states
 
 ### 4. **Layout** (`04-layout.css`)
+
 Layout and responsive styles:
+
 - Header and main content
 - Grid and flexbox layouts
 - Responsive breakpoints
@@ -191,28 +207,30 @@ Layout and responsive styles:
 ## State Management System
 
 ### State Structure
+
 ```javascript
 BridgyState.data = {
   // Data
   variables: [],
   components: [],
   styles: [],
-  
+
   // UI State
   ui: {
     activeTab: 'variables',
     searchQuery: '',
     isLoading: false,
-    modals: { settings: false }
+    modals: { settings: false },
   },
-  
+
   // Settings
   gitSettings: { repoUrl: '', branch: 'main' },
-  exportSettings: { format: 'json' }
-}
+  exportSettings: { format: 'json' },
+};
 ```
 
 ### Event System
+
 ```javascript
 // Listen for state changes
 BridgyState.events.on('stateChange', (data) => {
@@ -228,22 +246,26 @@ BridgyState.actions.switchTab('components');
 ## Benefits of New Architecture
 
 ### ✅ **Developer Experience**
+
 - **Modular**: Easy to find and modify specific functionality
 - **Reusable**: Components can be used across different parts of the UI
 - **Maintainable**: Clear separation of concerns
 - **Testable**: Each module can be tested independently
 
 ### ✅ **Performance**
+
 - **Efficient**: Only load and update what's needed
 - **Cached**: Browser can cache individual modules
 - **Optimized**: CSS is organized for better performance
 
 ### ✅ **Scalability**
+
 - **Extensible**: Easy to add new components and features
 - **Consistent**: Design system enforces consistency
 - **Flexible**: Easy to modify without breaking other parts
 
 ### ✅ **User Experience**
+
 - **Responsive**: Mobile-first design with proper breakpoints
 - **Accessible**: Built-in accessibility features
 - **Fast**: Efficient state management and rendering
@@ -252,6 +274,7 @@ BridgyState.actions.switchTab('components');
 ## Migration from Old Structure
 
 ### What Changed
+
 1. **Single 6,248-line main.js** → **5 focused modules**
 2. **Monolithic styles.css** → **4 organized CSS files**
 3. **Inline HTML components** → **Reusable component system**
@@ -259,6 +282,7 @@ BridgyState.actions.switchTab('components');
 5. **Ad-hoc event handling** → **Event-driven architecture**
 
 ### Backwards Compatibility
+
 - All existing onclick handlers still work
 - Existing CSS classes maintained
 - Plugin API unchanged
@@ -267,24 +291,28 @@ BridgyState.actions.switchTab('components');
 ## Best Practices Implemented
 
 ### 🎯 **Component Design**
+
 - Single responsibility principle
 - Consistent prop interfaces
 - Built-in error handling
 - Accessibility by default
 
 ### 🎯 **State Management**
+
 - Immutable state updates
 - Event-driven updates
 - Persistent storage
 - Type-safe operations
 
 ### 🎯 **CSS Organization**
+
 - Mobile-first responsive design
 - Design token system
 - BEM-inspired naming
 - Scoped component styles
 
 ### 🎯 **JavaScript Architecture**
+
 - ES6+ features with fallbacks
 - Modular imports
 - Error boundaries
@@ -293,6 +321,7 @@ BridgyState.actions.switchTab('components');
 ## Usage Examples
 
 ### Adding a New Component
+
 ```javascript
 // 1. Add to bridgy-components.js
 BridgyComponents.NewComponent = {
@@ -311,6 +340,7 @@ const html = BridgyComponents.NewComponent.render({ content: 'Hello' });
 ```
 
 ### Adding New State
+
 ```javascript
 // 1. Add to state structure
 BridgyState.data.myFeature = { enabled: false };

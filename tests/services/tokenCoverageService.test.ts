@@ -21,7 +21,7 @@ describe('TokenCoverageService', () => {
     it('should have correct property categories defined', () => {
       // Testing the structure is correct
       const service = TokenCoverageService as any;
-      
+
       // This is an indirect test - we're checking the service has the right methods
       expect(service.checkLayoutProperties).toBeDefined();
       expect(service.checkFillProperties).toBeDefined();
@@ -43,10 +43,10 @@ describe('TokenCoverageService', () => {
           Layout: expect.any(Array),
           Fill: expect.any(Array),
           Stroke: expect.any(Array),
-          Appearance: expect.any(Array)
-        }
+          Appearance: expect.any(Array),
+        },
       };
-      
+
       // This is a type validation test
       expect(expectedStructure).toBeDefined();
     });
@@ -60,9 +60,9 @@ describe('TokenCoverageService', () => {
         count: 5,
         nodeIds: ['node1', 'node2'],
         nodeNames: ['Frame 1', 'Frame 2'],
-        category: 'Layout' as const
+        category: 'Layout' as const,
       };
-      
+
       expect(exampleIssue.property).toBe('Padding Left');
       expect(exampleIssue.value).toBe('16px');
       expect(exampleIssue.count).toBe(5);
@@ -83,11 +83,11 @@ describe('TokenCoverageService', () => {
             id: 'var1',
             name: 'spacing-sm',
             collectionName: 'Primitives',
-            resolvedValue: '18'
-          }
-        ]
+            resolvedValue: '18',
+          },
+        ],
       };
-      
+
       expect(issueWithMatches.matchingVariables).toBeDefined();
       expect(issueWithMatches.matchingVariables?.length).toBe(1);
       expect(issueWithMatches.matchingVariables?.[0].name).toBe('spacing-sm');
@@ -100,9 +100,9 @@ describe('TokenCoverageService', () => {
         id: 'var-123',
         name: 'color-primary',
         collectionName: 'Brand Colors',
-        resolvedValue: 'rgb(139, 92, 246)'
+        resolvedValue: 'rgb(139, 92, 246)',
       };
-      
+
       expect(exampleVariable.id).toBe('var-123');
       expect(exampleVariable.name).toBe('color-primary');
       expect(exampleVariable.collectionName).toBe('Brand Colors');

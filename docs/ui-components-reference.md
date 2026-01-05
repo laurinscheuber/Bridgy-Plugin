@@ -15,7 +15,7 @@ The Bridgy UI uses a component-based architecture with the following structure:
 ```
 BridgyComponents/
 ├── Button          # Button variations and states
-├── Input           # Form input components  
+├── Input           # Form input components
 ├── Card            # Card containers and layouts
 ├── Modal           # Modal dialogs and overlays
 ├── Notification    # Toast notifications
@@ -30,25 +30,26 @@ BridgyComponents/
 
 ```javascript
 BridgyState.data = {
-  variables: [],           // Design variables
-  components: [],          // Figma components  
-  selectedVariables: Set,  // Selected variable IDs
-  gitSettings: {},        // Repository settings
-  ui: {                   // UI state
+  variables: [], // Design variables
+  components: [], // Figma components
+  selectedVariables: Set, // Selected variable IDs
+  gitSettings: {}, // Repository settings
+  ui: {
+    // UI state
     activeTab: 'variables',
     searchQuery: '',
-    expandedGroups: Set
-  }
-}
+    expandedGroups: Set,
+  },
+};
 ```
 
 ### API Communication
 
 ```javascript
-BridgyAPI.send(type, data)     // Send to plugin core
-BridgyAPI.data.refresh()       // Refresh from Figma
-BridgyAPI.git.commit(options)  // Commit to repository
-BridgyAPI.import.tokens(data)  // Import design tokens
+BridgyAPI.send(type, data); // Send to plugin core
+BridgyAPI.data.refresh(); // Refresh from Figma
+BridgyAPI.git.commit(options); // Commit to repository
+BridgyAPI.import.tokens(data); // Import design tokens
 ```
 
 ## Component Usage
@@ -60,14 +61,14 @@ BridgyAPI.import.tokens(data)  // Import design tokens
 BridgyComponents.Button.render({
   text: 'Click me',
   variant: 'primary',
-  onClick: 'handleClick()'
+  onClick: 'handleClick()',
 });
 
 // Icon button
 BridgyComponents.Button.iconButton({
   icon: '⚙️',
   title: 'Settings',
-  onClick: 'openSettings()'
+  onClick: 'openSettings()',
 });
 ```
 
@@ -83,7 +84,7 @@ BridgyComponents.Input.render({
   id: 'username',
   label: 'Username',
   placeholder: 'Enter username',
-  required: true
+  required: true,
 });
 
 // Select dropdown
@@ -92,8 +93,8 @@ BridgyComponents.Input.select({
   label: 'Export Format',
   options: [
     { value: 'json', label: 'JSON' },
-    { value: 'css', label: 'CSS' }
-  ]
+    { value: 'css', label: 'CSS' },
+  ],
 });
 ```
 
@@ -106,11 +107,13 @@ BridgyComponents.Card.render({
   title: 'Variable Group',
   subtitle: '12 variables',
   content: '<p>Card content here</p>',
-  actions: [{
-    text: 'Edit',
-    variant: 'secondary',
-    onClick: 'editGroup()'
-  }]
+  actions: [
+    {
+      text: 'Edit',
+      variant: 'secondary',
+      onClick: 'editGroup()',
+    },
+  ],
 });
 ```
 
@@ -124,7 +127,7 @@ const modal = BridgyComponents.Modal.render({
   id: 'settings-modal',
   title: 'Settings',
   content: '<form>...</form>',
-  size: 'large'
+  size: 'large',
 });
 
 // Control modal
@@ -142,7 +145,7 @@ BridgyComponents.Notification.show({
   type: 'success',
   title: 'Import Complete',
   message: 'Successfully imported 25 tokens',
-  duration: 5000
+  duration: 5000,
 });
 ```
 
@@ -155,8 +158,8 @@ BridgyComponents.Tabs.render({
   id: 'main-tabs',
   tabs: [
     { label: 'Variables', icon: '🎨', content: '...' },
-    { label: 'Components', icon: '🧩', content: '...' }
-  ]
+    { label: 'Components', icon: '🧩', content: '...' },
+  ],
 });
 ```
 
@@ -165,12 +168,12 @@ BridgyComponents.Tabs.render({
 ### BridgyUtils
 
 ```javascript
-BridgyUtils.dom.$(id)                    // Get element by ID
-BridgyUtils.string.kebabCase(str)        // Convert to kebab-case
-BridgyUtils.array.groupBy(arr, key)      // Group array by key
-BridgyUtils.validate.email(email)        // Validate email
-BridgyUtils.format.number(num, precision) // Format number
-BridgyUtils.debounce(fn, delay)          // Debounce function
+BridgyUtils.dom.$(id); // Get element by ID
+BridgyUtils.string.kebabCase(str); // Convert to kebab-case
+BridgyUtils.array.groupBy(arr, key); // Group array by key
+BridgyUtils.validate.email(email); // Validate email
+BridgyUtils.format.number(num, precision); // Format number
+BridgyUtils.debounce(fn, delay); // Debounce function
 ```
 
 ## Event System
@@ -182,9 +185,9 @@ BridgyState.events.on('dataLoaded', (data) => {
 });
 
 // Emit events
-BridgyState.events.emit('selectionChange', { 
-  type: 'variable', 
-  id: 'var123' 
+BridgyState.events.emit('selectionChange', {
+  type: 'variable',
+  id: 'var123',
 });
 ```
 

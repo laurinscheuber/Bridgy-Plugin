@@ -1,6 +1,12 @@
 import { ParsedComponentName, StyleCheck, Component } from '../types';
-import { generateTestHelpers, generateStateTests, INTERACTIVE_STATES, shouldTestPropertyForState, generateStateTestsFromVariants } from './stateTestingUtils';
-import { PATTERNS, CSS_PROPERTIES  } from '../config';
+import {
+  generateTestHelpers,
+  generateStateTests,
+  INTERACTIVE_STATES,
+  shouldTestPropertyForState,
+  generateStateTestsFromVariants,
+} from './stateTestingUtils';
+import { PATTERNS, CSS_PROPERTIES } from '../config';
 import { arrayIncludes } from './es2015-helpers';
 
 /**
@@ -11,24 +17,27 @@ import { arrayIncludes } from './es2015-helpers';
 export function hexToRgb(hex: string): string {
   // Remove # if present and validate hex format
   const cleanHex = hex.replace('#', '');
-  
+
   // Check if it's a valid 3 or 6 character hex
   if (!PATTERNS.HEX_COLOR.BOTH.test(cleanHex)) {
     return hex; // Return original if not valid hex
   }
-  
+
   let fullHex = cleanHex;
-  
+
   // Convert 3-character hex to 6-character hex
   if (cleanHex.length === 3) {
-    fullHex = cleanHex.split('').map(char => char + char).join('');
+    fullHex = cleanHex
+      .split('')
+      .map((char) => char + char)
+      .join('');
   }
-  
+
   // Parse RGB values
   const r = parseInt(fullHex.substring(0, 2), 16);
   const g = parseInt(fullHex.substring(2, 4), 16);
   const b = parseInt(fullHex.substring(4, 6), 16);
-  
+
   return `rgb(${r}, ${g}, ${b})`;
 }
 
@@ -42,17 +51,17 @@ export function normalizeColorForTesting(color: string): string {
   if (!color || typeof color !== 'string') {
     return color;
   }
-  
+
   // If it's already rgb/rgba, return as-is
   if (color.startsWith('rgb(') || color.startsWith('rgba(')) {
     return color;
   }
-  
+
   // If it's hex, convert to RGB
   if (color.startsWith('#') || PATTERNS.HEX_COLOR.BOTH.test(color)) {
     return hexToRgb(color);
   }
-  
+
   // Return original for other formats (named colors, etc.)
   return color;
 }
@@ -66,7 +75,7 @@ export function normalizeComplexColorValue(value: string): string {
   if (!value || typeof value !== 'string') {
     return value;
   }
-  
+
   // Replace hex colors in the value with RGB equivalents
   return value.replace(PATTERNS.HEX_COLOR.INLINE, (match) => {
     return hexToRgb(match);
@@ -97,12 +106,15 @@ export function parseComponentName(name: string): ParsedComponentName {
 
 export function generateStyleChecks(styleChecks: StyleCheck[]): string {
   if (!styleChecks.length) {
-    return "        // No style properties to check";
+    return '        // No style properties to check';
   }
 
   function stripCssVarFallback(value: string): string {
     // Replace all var(--..., fallback) with just the fallback
-    return value.replace(PATTERNS.CSS_VARIABLE.STRIP_FALLBACK, '$1').replace(PATTERNS.WHITESPACE_NORMALIZE, ' ').trim();
+    return value
+      .replace(PATTERNS.CSS_VARIABLE.STRIP_FALLBACK, '$1')
+      .replace(PATTERNS.WHITESPACE_NORMALIZE, ' ')
+      .trim();
   }
 
   return styleChecks
@@ -111,7 +123,7 @@ export function generateStyleChecks(styleChecks: StyleCheck[]): string {
       return `        // Check ${check.property}
         expect(computedStyle.${check.property}).toBe('${expected}');`;
     })
-    .join("\n\n");
+    .join('\n\n');
 }
 
 // Properties that should be commented out in tests (layout/structural)
@@ -126,33 +138,40 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
   }
 
   const tests: string[] = [];
-  
+
   // Skip text content testing - we don't want to test "Donate" text content
   // Only test text styles
-  
+
   // Test for text styles if available
-  const textWithStyles = textElements.filter(el => el.textStyles && Object.keys(el.textStyles).length > 0);
+  const textWithStyles = textElements.filter(
+    (el) => el.textStyles && Object.keys(el.textStyles).length > 0,
+  );
   if (textWithStyles.length > 0) {
     // If we have component variants, test text styles for each state/size combination
     if (componentVariants && componentVariants.length > 0) {
       // Group variants by state and size
       const variantGroups = new Map<string, Component[]>();
-      
-      componentVariants.forEach(variant => {
+
+      componentVariants.forEach((variant) => {
         const stateMatch = variant.name.match(/State=([^,]+)/i);
         const sizeMatch = variant.name.match(/Size=([^,]+)/i);
         const propMatch = variant.name.match(/Property\s*\d*\s*=\s*([^,]+)/i);
-        
-        const state = stateMatch && stateMatch[1] ? stateMatch[1].toLowerCase() : (propMatch && propMatch[1] ? propMatch[1].toLowerCase() : 'default');
+
+        const state =
+          stateMatch && stateMatch[1]
+            ? stateMatch[1].toLowerCase()
+            : propMatch && propMatch[1]
+              ? propMatch[1].toLowerCase()
+              : 'default';
         const size = sizeMatch && sizeMatch[1] ? sizeMatch[1].toLowerCase() : 'default';
-        
+
         const key = `${state}-${size}`;
         if (!variantGroups.has(key)) {
           variantGroups.set(key, []);
         }
         variantGroups.get(key)!.push(variant);
       });
-      
+
       // Generate tests for each variant group that has text content
       variantGroups.forEach((variants, key) => {
         const variant = variants[0]; // Use first variant in group
@@ -169,40 +188,50 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
     }
     
     const computedStyle = window.getComputedStyle(textElement);
-    ${variant.textElements.map((textEl: any, index: number) => {
-      const styles = textEl.textStyles;
-      if (!styles || Object.keys(styles).length === 0) return '';
-      
-      const assertions: string[] = [];
-      
-      if (styles.fontSize) {
-        const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
-        assertions.push(`
+    ${variant.textElements
+      .map((textEl: any, index: number) => {
+        const styles = textEl.textStyles;
+        if (!styles || Object.keys(styles).length === 0) return '';
+
+        const assertions: string[] = [];
+
+        if (styles.fontSize) {
+          const normalizedFontSize = styles.fontSize
+            .replace(/var\([^,]+,\s*([^)]+)\)/g, '$1')
+            .trim();
+          assertions.push(`
     expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
-      }
-      
-      if (styles.fontFamily) {
-        const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
-        assertions.push(`
+        }
+
+        if (styles.fontFamily) {
+          const normalizedFontFamily = styles.fontFamily
+            .replace(/var\([^,]+,\s*([^)]+)\)/g, '$1')
+            .trim();
+          assertions.push(`
     expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
-      }
-      
-      if (styles.fontWeight) {
-        const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
-        assertions.push(`
+        }
+
+        if (styles.fontWeight) {
+          const normalizedFontWeight = styles.fontWeight
+            .replace(/var\([^,]+,\s*([^)]+)\)/g, '$1')
+            .trim();
+          assertions.push(`
     expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
-      }
-      
-      if (styles.color) {
-        const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim());
-        assertions.push(`
+        }
+
+        if (styles.color) {
+          const normalizedColor = normalizeColorForTesting(
+            styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim(),
+          );
+          assertions.push(`
     expect(computedStyle.color).toBe('${normalizedColor}');`);
-      }
-      
-      return assertions.join('');
-    }).join('')}
+        }
+
+        return assertions.join('');
+      })
+      .join('')}
   });`;
-          
+
           tests.push(textStyleTest);
         }
       });
@@ -219,42 +248,52 @@ function generateTextContentTests(textElements?: any[], componentVariants?: Comp
     }
     
     const computedStyle = window.getComputedStyle(textElement);
-    ${textWithStyles.map((textEl, index) => {
-      const styles = textEl.textStyles;
-      const assertions: string[] = [];
-      
-      if (styles.fontSize) {
-        const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
-        assertions.push(`
+    ${textWithStyles
+      .map((textEl, index) => {
+        const styles = textEl.textStyles;
+        const assertions: string[] = [];
+
+        if (styles.fontSize) {
+          const normalizedFontSize = styles.fontSize
+            .replace(/var\([^,]+,\s*([^)]+)\)/g, '$1')
+            .trim();
+          assertions.push(`
     expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
-      }
-      
-      if (styles.fontFamily) {
-        const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
-        assertions.push(`
+        }
+
+        if (styles.fontFamily) {
+          const normalizedFontFamily = styles.fontFamily
+            .replace(/var\([^,]+,\s*([^)]+)\)/g, '$1')
+            .trim();
+          assertions.push(`
     expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
-      }
-      
-      if (styles.fontWeight) {
-        const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim();
-        assertions.push(`
+        }
+
+        if (styles.fontWeight) {
+          const normalizedFontWeight = styles.fontWeight
+            .replace(/var\([^,]+,\s*([^)]+)\)/g, '$1')
+            .trim();
+          assertions.push(`
     expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
-      }
-      
-      if (styles.color) {
-        const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim());
-        assertions.push(`
+        }
+
+        if (styles.color) {
+          const normalizedColor = normalizeColorForTesting(
+            styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, '$1').trim(),
+          );
+          assertions.push(`
     expect(computedStyle.color).toBe('${normalizedColor}');`);
-      }
-      
-      return assertions.join('');
-    }).join('')}
+        }
+
+        return assertions.join('');
+      })
+      .join('')}
   });`;
-      
+
       tests.push(textStyleTest);
     }
   }
-  
+
   return tests.join('');
 }
 
@@ -265,38 +304,44 @@ export function createTestWithStyleChecks(
   includeStateTests: boolean = true,
   includeSizeTests: boolean = true,
   componentVariants?: any[],
-  textElements?: any[]
+  textElements?: any[],
 ): string {
   function stripCssVarFallback(value: string): string {
-    return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
+    return value
+      .replace(/var\([^,]+,\s*([^\)]+)\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
-  const styleCheckCode = styleChecks.length > 0
-    ? styleChecks
-        .map((check) => {
-          const expected = stripCssVarFallback(String(check.value));
-          // Comment out layout properties
-          if (arrayIncludes(LAYOUT_PROPERTIES as any, check.property)) {
-            return `      // Check ${check.property} (layout property - often structural)
+  const styleCheckCode =
+    styleChecks.length > 0
+      ? styleChecks
+          .map((check) => {
+            const expected = stripCssVarFallback(String(check.value));
+            // Comment out layout properties
+            if (arrayIncludes(LAYOUT_PROPERTIES as any, check.property)) {
+              return `      // Check ${check.property} (layout property - often structural)
       // expect(computedStyle.${check.property}).toBe('${expected}');`;
-          }
-          return `      // Check ${check.property}
+            }
+            return `      // Check ${check.property}
       expect(computedStyle.${check.property}).toBe('${expected}');`;
-        })
-        .join("\n\n")
-    : "      // No style properties to check";
+          })
+          .join('\n\n')
+      : '      // No style properties to check';
 
   // Use proper PascalCase naming: Primary Button Component -> PrimaryButtonComponent
-  const words = componentName.split(/[^a-zA-Z0-9]+/).filter(word => word.length > 0);
-  const pascalName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+  const words = componentName.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
+  const pascalName = words
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
   const componentSelector = `.${kebabName}`;
-  
+
   // Extract styles object for state testing
   const stylesObject: Record<string, any> = {};
-  styleChecks.forEach(check => {
+  styleChecks.forEach((check) => {
     stylesObject[check.property] = check.value;
   });
-  
+
   // Generate state tests if requested
   let stateTestsCode = '';
   if (includeStateTests) {
@@ -304,21 +349,26 @@ export function createTestWithStyleChecks(
     if (componentVariants && componentVariants.length > 0) {
       // For variant-based testing, we don't need to check for interactive properties
       // We'll detect any property changes dynamically
-      stateTestsCode = generateStateTestsFromVariants(componentSelector, componentVariants as Component[], stylesObject);
+      stateTestsCode = generateStateTestsFromVariants(
+        componentSelector,
+        componentVariants as Component[],
+        stylesObject,
+      );
     } else {
       // Fall back to generic state testing only if there are interactive properties
-      const hasInteractiveProperties = styleChecks.some(check => shouldTestPropertyForState(check.property));
+      const hasInteractiveProperties = styleChecks.some((check) =>
+        shouldTestPropertyForState(check.property),
+      );
       if (hasInteractiveProperties) {
         stateTestsCode = generateStateTests(componentSelector, INTERACTIVE_STATES, stylesObject);
       }
     }
   }
-  
+
   // Include helper functions if we have any tests that use variants
-  const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
-  const helperFunctions = hasVariantTests
-    ? `\n${generateTestHelpers()}\n`
-    : '';
+  const hasVariantTests =
+    componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
+  const helperFunctions = hasVariantTests ? `\n${generateTestHelpers()}\n` : '';
 
   return `import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ${pascalName}Component } from './${kebabName}.component';
@@ -351,4 +401,4 @@ ${styleCheckCode}
     }
   });${stateTestsCode}${generateTextContentTests(textElements, componentVariants)}
 });`;
-} 
+}

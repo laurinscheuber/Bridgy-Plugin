@@ -3,11 +3,13 @@
 ## 🚀 What is OAuth?
 
 OAuth (Open Authorization) is a secure way to authenticate with GitHub without manually copying and pasting tokens. Instead of:
+
 1. Going to GitHub Settings → Developer Settings
 2. Creating a Personal Access Token
 3. Copying and pasting it into Bridgy
 
 You can simply:
+
 1. Click the **OAuth** button in Bridgy
 2. Authorize the app in the popup
 3. Done! ✨
@@ -17,11 +19,13 @@ You can simply:
 ## 📋 Quick Start
 
 ### Step 1: Open Settings
+
 1. Open Bridgy in Figma
 2. Click the **⚙️ Settings** icon in the top-right corner
 3. Select **GitHub** as your Git Provider
 
 ### Step 2: Click OAuth Button
+
 Look for the green **OAuth** button next to the token input field:
 
 ```
@@ -34,12 +38,14 @@ Look for the green **OAuth** button next to the token input field:
 ```
 
 ### Step 3: Authorize in Popup
+
 - A popup window will open with GitHub's authorization page
 - Review the requested permissions
 - Click **Authorize Bridgy**
 - The popup will close automatically
 
 ### Step 4: Done!
+
 Your GitHub token will be automatically filled in. Save your settings and start using Bridgy!
 
 ---
@@ -111,7 +117,8 @@ Click the OAuth button again and complete the authorization process.
 **Why this happens:**  
 The OAuth flow took longer than 5 minutes to complete.
 
-**Solution:**  
+**Solution:**
+
 1. Check your internet connection
 2. Click the OAuth button again
 3. Complete the authorization quickly
@@ -123,6 +130,7 @@ The OAuth flow took longer than 5 minutes to complete.
 ### What permissions does Bridgy request?
 
 Bridgy requests these GitHub permissions:
+
 - **`repo`** - Access to your repositories (to commit design tokens)
 - **`read:user`** - Read your basic profile information
 - **`user:email`** - Access to your email address
@@ -130,6 +138,7 @@ Bridgy requests these GitHub permissions:
 ### Is OAuth more secure than Personal Access Tokens?
 
 **Yes!** OAuth tokens:
+
 - Can be revoked easily from GitHub settings
 - Are scoped to specific permissions
 - Don't require you to store sensitive tokens locally
@@ -138,6 +147,7 @@ Bridgy requests these GitHub permissions:
 ### Can I still use Personal Access Tokens instead?
 
 Absolutely! If you prefer using PATs:
+
 1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens
 2. Create a new token with `repo`, `read:user`, and `user:email` scopes
 3. Copy the token
@@ -150,6 +160,7 @@ Your OAuth token is stored securely in Figma's client storage, encrypted and onl
 ### What if OAuth doesn't work at all?
 
 If OAuth continues to fail after allowing popups:
+
 1. **Clear your browser cache** and try again
 2. **Use a Personal Access Token** as an alternative
 3. **Contact support** with error details from the browser console (F12 → Console)
@@ -197,10 +208,12 @@ For developers maintaining or debugging the OAuth flow:
 4. Plugin stores token and updates UI
 
 ### Files Modified
+
 - `src/ui/main.js` - OAuth flow implementation (lines 4338-4850)
 - `src/ui/styles.css` - OAuth animations and button styles (lines 2609-2686)
 
 ### Functions Added
+
 - `detectBrowser()` - Identifies user's browser
 - `detectPopupBlocker()` - Tests if popups are blocked
 - `getPopupInstructions()` - Returns browser-specific guidance
@@ -213,10 +226,11 @@ For developers maintaining or debugging the OAuth flow:
 ## 📞 Need Help?
 
 If you're still having trouble:
+
 - **GitHub Issues**: [Report a bug](https://github.com/laurinscheuber/Bridgy-Plugin/issues)
 - **Documentation**: Check the main [README.md](../README.md)
 - **Feedback**: Use the feedback buttons in the plugin
 
 ---
 
-*Last updated: 2025-11-20*
+_Last updated: 2025-11-20_

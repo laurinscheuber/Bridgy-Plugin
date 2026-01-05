@@ -1,5 +1,4 @@
 :root {
-
   /* ===== DESIGN TOKENS TEST ===== */
   --primary-50: rgb(240, 249, 255);
   --primary-100: rgb(224, 231, 255);
@@ -159,10 +158,10 @@
   --icon-lg: 1.5px;
   --icon-xl: 1.75px;
   --icon-2xl: 2px;
-  --shadow-md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
-  --shadow-lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
-  --shadow-purple-glow: "0 8px 30px rgba(139, 92, 246, var(--opacity-accent-max))";
-  --shadow-dark-inset-heavy: "inset 0 1px 5px rgba(0, 0, 0, 0.4)";
+  --shadow-md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)';
+  --shadow-lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)';
+  --shadow-purple-glow: '0 8px 30px rgba(139, 92, 246, var(--opacity-accent-max))';
+  --shadow-dark-inset-heavy: 'inset 0 1px 5px rgba(0, 0, 0, 0.4)';
   --transition-color: rgb(255, 255, 255);
   --z-hide: -1px;
   --z-base: 0px;
@@ -170,14 +169,14 @@
   --z-dropdown: 100px;
   --z-sticky: 1000px;
   --z-modal: 9999px;
-  --blur-light: "blur(5px)";
-  --blur-medium: "blur(10px)";
-  --blur-heavy: "blur(15px)";
-  --blur-intense: "blur(20px)";
-  --transition-fast: "all 0.2s ease";
-  --transition-normal: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-  --transition-smooth: "all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
-  --transition-opacity: "opacity 0.5s ease-out";
+  --blur-light: 'blur(5px)';
+  --blur-medium: 'blur(10px)';
+  --blur-heavy: 'blur(15px)';
+  --blur-intense: 'blur(20px)';
+  --transition-fast: 'all 0.2s ease';
+  --transition-normal: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+  --transition-smooth: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+  --transition-opacity: 'opacity 0.5s ease-out';
 
   /* ===== HTML.TO.DESIGN ===== */
 
@@ -185,35 +184,35 @@
   --color-white-solid: rgb(255, 255, 255);
   --color-black-solid: rgb(0, 0, 0);
   --color-blue-10: rgb(15, 15, 35);
-  --color-white--10-: rgba(255, 255, 255, 0.10);
-  --color-white--80-: rgba(255, 255, 255, 0.80);
+  --color-white--10-: rgba(255, 255, 255, 0.1);
+  --color-white--80-: rgba(255, 255, 255, 0.8);
   --color-blue-85: rgb(196, 181, 253);
   --color-violet-76: rgb(167, 139, 250);
-  --color-violet-66-20-: rgba(139, 92, 246, 0.20);
-  --color-violet-66-50-: rgba(139, 92, 246, 0.50);
-  --color-white--0-: rgba(255, 255, 255, 0.00);
-  --color-white--20-: rgba(255, 255, 255, 0.20);
-  --color-white--90-: rgba(255, 255, 255, 0.90);
+  --color-violet-66-20-: rgba(139, 92, 246, 0.2);
+  --color-violet-66-50-: rgba(139, 92, 246, 0.5);
+  --color-white--0-: rgba(255, 255, 255, 0);
+  --color-white--20-: rgba(255, 255, 255, 0.2);
+  --color-white--90-: rgba(255, 255, 255, 0.9);
   --color-violet-66: rgb(139, 92, 246);
   --color-violet-65: rgb(168, 85, 247);
   --color-violet-66-3-: rgba(139, 92, 246, 0.03);
   --color-violet-65-5-: rgba(168, 85, 247, 0.05);
   --color-violet-66-5-: rgba(139, 92, 246, 0.05);
-  --color-white--70-: rgba(255, 255, 255, 0.70);
+  --color-white--70-: rgba(255, 255, 255, 0.7);
   --color-white--5-: rgba(255, 255, 255, 0.05);
-  --color-white--60-: rgba(255, 255, 255, 0.60);
+  --color-white--60-: rgba(255, 255, 255, 0.6);
   --color-spring-green-45: rgb(34, 197, 94);
   --color-azure-50: rgb(0, 123, 255);
   --color-orange-54: rgb(253, 126, 20);
   --color-violet-58: rgb(124, 58, 237);
-  --color-violet-66-30-: rgba(139, 92, 246, 0.30);
+  --color-violet-66-30-: rgba(139, 92, 246, 0.3);
   --color-white--25-: rgba(255, 255, 255, 0.25);
-  --color-white--40-: rgba(255, 255, 255, 0.40);
+  --color-white--40-: rgba(255, 255, 255, 0.4);
   --color-white--15-: rgba(255, 255, 255, 0.15);
-  --color-white--30-: rgba(255, 255, 255, 0.30);
+  --color-white--30-: rgba(255, 255, 255, 0.3);
   --color-blue-67: rgb(99, 102, 241);
-  --color-white--50-: rgba(255, 255, 255, 0.50);
-  --color-violet-66-40-: rgba(139, 92, 246, 0.40);
+  --color-white--50-: rgba(255, 255, 255, 0.5);
+  --color-violet-66-40-: rgba(139, 92, 246, 0.4);
   --color-blue-17: rgb(26, 26, 62);
   --color-blue-26: rgb(45, 27, 105);
   --color-violet-35: rgb(76, 29, 149);
@@ -221,8 +220,8 @@
   --color-grey-94: rgb(224, 231, 255);
   --color-blue-89: rgb(199, 210, 254);
   --color-black--15-: rgba(0, 0, 0, 0.15);
-  --color-black--80-: rgba(0, 0, 0, 0.80);
-  --color-violet-66-10-: rgba(139, 92, 246, 0.10);
+  --color-black--80-: rgba(0, 0, 0, 0.8);
+  --color-violet-66-10-: rgba(139, 92, 246, 0.1);
   --color-blue-63: rgb(94, 114, 228);
   --color-violet-63: rgb(130, 94, 228);
   --color-white--95-: rgba(255, 255, 255, 0.95);
@@ -230,20 +229,20 @@
   --color-grey-88: rgb(224, 224, 224);
   --color-red-54: rgb(220, 53, 69);
   --color-violet-51: rgb(111, 66, 193);
-  --color-spring-green-45-10-: rgba(34, 197, 94, 0.10);
-  --color-spring-green-45-30-: rgba(34, 197, 94, 0.30);
-  --color-orange-56-10-: rgba(251, 191, 36, 0.10);
-  --color-orange-56-30-: rgba(251, 191, 36, 0.30);
+  --color-spring-green-45-10-: rgba(34, 197, 94, 0.1);
+  --color-spring-green-45-30-: rgba(34, 197, 94, 0.3);
+  --color-orange-56-10-: rgba(251, 191, 36, 0.1);
+  --color-orange-56-30-: rgba(251, 191, 36, 0.3);
   --color-orange-56: rgb(251, 191, 36);
   --color-grey-90: rgb(229, 229, 229);
   --color-grey-10: rgb(26, 26, 26);
   --color-grey-18: rgb(45, 45, 45);
   --color-grey-96: rgb(245, 245, 245);
   --color-grey-64: rgb(163, 163, 163);
-  --color-black--20-: rgba(0, 0, 0, 0.20);
-  --color-black--10-: rgba(0, 0, 0, 0.10);
+  --color-black--20-: rgba(0, 0, 0, 0.2);
+  --color-black--10-: rgba(0, 0, 0, 0.1);
   --color-blue-16-98-: rgba(26, 26, 58, 0.98);
-  --color-white--0-2-: rgba(255, 255, 255, 0.00);
+  --color-white--0-2-: rgba(255, 255, 255, 0);
   --color-white--2-: rgba(255, 255, 255, 0.02);
   --color-white--6-: rgba(255, 255, 255, 0.06);
   --color-violet-66-16-: rgba(139, 92, 246, 0.16);
@@ -251,13 +250,13 @@
   --color-white--3-: rgba(255, 255, 255, 0.03);
   --color-white--75-: rgba(255, 255, 255, 0.75);
   --color-grey-95: rgb(229, 231, 255);
-  --color-blue-11-90-: rgba(17, 17, 40, 0.90);
+  --color-blue-11-90-: rgba(17, 17, 40, 0.9);
   --color-azure-84: rgb(209, 213, 219);
 
   /* Font Family */
-  --font-family-font-1: "Times New Roman";
-  --font-family-font-2: "Inter";
-  --font-family-font-3: "Arial";
+  --font-family-font-1: 'Times New Roman';
+  --font-family-font-2: 'Inter';
+  --font-family-font-3: 'Arial';
 
   /* Font Size */
   --font-size-16: 16rem;

@@ -80,6 +80,7 @@ Bridgy supports exporting Figma variables in Tailwind v4 compatible format with 
 For Tailwind v4 export, all variable groups must use valid Tailwind v4 namespaces:
 
 **Supported Namespaces:**
+
 - `color` - Color tokens
 - `spacing` - Spacing/padding/margin values
 - `radius` - Border radius values
@@ -92,6 +93,7 @@ For Tailwind v4 export, all variable groups must use valid Tailwind v4 namespace
 ### Usage
 
 1. **Organize Variables with Namespaces:**
+
    ```
    color/primary-500
    color/secondary-600
@@ -138,6 +140,7 @@ For Tailwind v4 export, all variable groups must use valid Tailwind v4 namespace
 ### Common Namespace Suggestions
 
 The plugin provides helpful suggestions for common variations:
+
 - `colors` → `color`
 - `space`, `padding`, `margin` → `spacing`
 - `border-radius`, `rounded` → `radius`
@@ -187,13 +190,16 @@ The Quality tab helps you maintain design system consistency by identifying elem
 ### Supported Properties
 
 **Layout:**
+
 - Width, Height, Min/Max Width/Height
 - Padding, Gap (auto-layout spacing)
 
 **Fill & Stroke:**
+
 - Fill Color, Stroke Color, Stroke Weight
 
 **Appearance:**
+
 - Opacity, Corner Radius
 
 ### Example Workflow
@@ -213,18 +219,21 @@ The Quality tab helps you maintain design system consistency by identifying elem
 The plugin has been completely reorganized from a monolithic structure to a modern, modular architecture:
 
 ### Before (Monolithic)
+
 - 1 massive 6,248-line `main.js` file
 - 1 large monolithic `styles.css` file
 - Difficult to maintain and extend
 
 ### After (Modular)
+
 - **5 focused JavaScript modules** (72KB total)
-- **4 organized CSS modules** (37KB total)  
+- **4 organized CSS modules** (37KB total)
 - **50+ reusable UI components**
 - **Centralized state management**
 - **Clean API communication layer**
 
 ### Benefits
+
 - ✅ **Better maintainability**: Clear separation of concerns
 - ✅ **Reusable components**: Consistent UI patterns
 - ✅ **Developer-friendly**: Easy to find and modify code
@@ -278,12 +287,14 @@ Output:
 ### For UI Changes
 
 #### Option 1: Modular Development (Recommended)
+
 1. Edit files in `src/ui/js/` and `src/ui/css/` modules
 2. Use `src/ui/index.html` for development
 3. Run `node scripts/build-new-ui.js` to build combined files
 4. Test in Figma with `dist/ui.html`
 
 #### Option 2: Legacy Development
+
 1. Edit files in `src/ui/` (styles.css, main.js, body.html)
 2. Run `npm run build:ui:dev` for fast development build
 3. Or use `npm run watch:ui` for auto-rebuild
@@ -309,6 +320,7 @@ Output:
 ## Architecture
 
 ### Plugin Core (TypeScript)
+
 - **Services**: Business logic (GitLab, CSS export, caching)
 - **Utils**: Helper functions and utilities
 - **Core**: Main plugin entry point and message handling
@@ -316,6 +328,7 @@ Output:
 - **Types**: TypeScript type definitions
 
 ### UI Layer (JavaScript/CSS)
+
 - **Component System**: 50+ reusable UI components with consistent API
 - **State Management**: Centralized, event-driven state with localStorage persistence
 - **API Communication**: Clean separation between UI and plugin logic
@@ -323,9 +336,10 @@ Output:
 - **Modular CSS**: Organized styles with design token system
 
 ### Key Features
+
 - Lazy loading of component details
 - Efficient caching strategies
-- Modular service architecture  
+- Modular service architecture
 - Comprehensive error handling
 - Type-safe TypeScript codebase
 - Event-driven UI updates

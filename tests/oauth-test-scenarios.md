@@ -2,12 +2,12 @@
 
 ## Test Matrix
 
-| Test Case | Expected Result | Status |
-|-----------|----------------|---------|
-| Happy Path | Token received, UI updated | ✅ Pass |
+| Test Case             | Expected Result             | Status  |
+| --------------------- | --------------------------- | ------- |
+| Happy Path            | Token received, UI updated  | ✅ Pass |
 | Popup Blocker Enabled | Detection, help modal shown | ✅ Pass |
-| User Cancels | Graceful error handling | ✅ Pass |
-| Network Timeout | 5-min timeout, clear error | ✅ Pass |
+| User Cancels          | Graceful error handling     | ✅ Pass |
+| Network Timeout       | 5-min timeout, clear error  | ✅ Pass |
 | Browser Compatibility | Works on all major browsers | 🔄 Test |
 
 ---
@@ -17,11 +17,13 @@
 ### Test: Successful OAuth Flow
 
 **Prerequisites:**
+
 - Popups allowed for figma.com
 - Valid internet connection
 - GitHub account available
 
 **Steps:**
+
 1. Open Bridgy plugin in Figma
 2. Click Settings (⚙️ icon)
 3. Select "GitHub" as provider
@@ -31,6 +33,7 @@
 7. Observe popup closes automatically
 
 **Expected Results:**
+
 - ✅ OAuth button shows "Connecting..." state
 - ✅ Popup opens without blocker warning
 - ✅ GitHub authorization page loads
@@ -47,16 +50,19 @@
 ### Test: Popup Blocker Enabled
 
 **Prerequisites:**
+
 - Enable popup blocker in browser
 - Clear site permissions for figma.com
 
 **Steps:**
+
 1. Enable popup blocker for all sites
 2. Open Bridgy → Settings → GitHub
 3. Click OAuth button
 4. Observe help modal automatically appears
 
 **Expected Results:**
+
 - ✅ Help modal opens immediately
 - ✅ Browser-specific instructions shown (e.g., "Chrome: Look for 🚫 in address bar")
 - ✅ "Why popups?" explanation visible
@@ -67,12 +73,12 @@
 
 ### Test: Popup Detection Edge Cases
 
-| Scenario | Expected Behavior |
-|----------|-------------------|
+| Scenario                           | Expected Behavior              |
+| ---------------------------------- | ------------------------------ |
 | Popup opens but closes immediately | Detected as blocked, show help |
-| Popup returns null | Detected as blocked, show help |
-| Popup opens after 100ms delay | Popup allowed, continue flow |
-| Browser extension blocks popup | Detected as blocked, show help |
+| Popup returns null                 | Detected as blocked, show help |
+| Popup opens after 100ms delay      | Popup allowed, continue flow   |
+| Browser extension blocks popup     | Detected as blocked, show help |
 
 ---
 
@@ -81,12 +87,14 @@
 ### Test: User Closes Popup Manually
 
 **Steps:**
+
 1. Click OAuth button
 2. Popup opens with GitHub auth page
 3. Close popup without authorizing
 4. Observe plugin behavior
 
 **Expected Results:**
+
 - ✅ Status updates to "Authentication cancelled. Please try again."
 - ✅ OAuth button returns to normal state
 - ✅ No error notification shown (graceful handling)
@@ -100,12 +108,14 @@
 ### Test: OAuth Flow Timeout (5 minutes)
 
 **Steps:**
+
 1. Click OAuth button
 2. Leave popup open without taking action
 3. Wait 5 minutes
 4. Observe automatic timeout
 
 **Expected Results:**
+
 - ✅ Popup closes automatically after 5 minutes
 - ✅ Status shows "Authentication timed out. Please try again."
 - ✅ OAuth button returns to normal state
@@ -119,6 +129,7 @@
 ### Test: Network Disconnection During OAuth
 
 **Steps:**
+
 1. Click OAuth button
 2. Popup opens
 3. Disconnect network
@@ -126,6 +137,7 @@
 5. Observe error handling
 
 **Expected Results:**
+
 - ✅ GitHub shows network error
 - ✅ Plugin shows "OAuth Error" if callback fails
 - ✅ OAuth button resets
@@ -138,6 +150,7 @@
 ### Browsers to Test
 
 #### ✅ Chrome (Latest)
+
 - [ ] Popup detection works
 - [ ] Help modal displays correctly
 - [ ] OAuth flow completes successfully
@@ -145,6 +158,7 @@
 - [ ] Status updates display correctly
 
 #### ✅ Firefox (Latest)
+
 - [ ] Popup detection works
 - [ ] Help modal displays correctly
 - [ ] OAuth flow completes successfully
@@ -152,6 +166,7 @@
 - [ ] Status updates display correctly
 
 #### ✅ Safari (Latest)
+
 - [ ] Popup detection works
 - [ ] Help modal displays correctly
 - [ ] OAuth flow completes successfully
@@ -159,6 +174,7 @@
 - [ ] Status updates display correctly
 
 #### ✅ Edge (Latest)
+
 - [ ] Popup detection works
 - [ ] Help modal displays correctly
 - [ ] OAuth flow completes successfully
@@ -171,12 +187,12 @@
 
 ### Visual States
 
-| State | Visual Indicator | Duration |
-|-------|-----------------|----------|
-| Idle | Green "OAuth" button with GitHub icon | Persistent |
-| Loading | Spinner, "Connecting...", disabled | Until response |
-| Success | Checkmark, "Connected", green gradient | 3 seconds |
-| Error | Error icon, error message, help button | Until dismissed |
+| State   | Visual Indicator                       | Duration        |
+| ------- | -------------------------------------- | --------------- |
+| Idle    | Green "OAuth" button with GitHub icon  | Persistent      |
+| Loading | Spinner, "Connecting...", disabled     | Until response  |
+| Success | Checkmark, "Connected", green gradient | 3 seconds       |
+| Error   | Error icon, error message, help button | Until dismissed |
 
 ### Animation Testing
 
@@ -194,14 +210,14 @@
 
 ### Error Types
 
-| Error Type | Message | Help Button |
-|-----------|---------|-------------|
-| POPUP_BLOCKED | "Popup blocker detected..." | ✅ Yes |
-| POPUP_FAILED | "Could not open authentication window..." | ✅ Yes |
-| USER_CANCELLED | "Authentication cancelled..." | ❌ No |
-| TIMEOUT | "Authentication timed out..." | ❌ No |
-| OAUTH_ERROR | "GitHub OAuth error: {details}" | ❌ No |
-| UNKNOWN_ERROR | "An unexpected error occurred" | ❌ No |
+| Error Type     | Message                                   | Help Button |
+| -------------- | ----------------------------------------- | ----------- |
+| POPUP_BLOCKED  | "Popup blocker detected..."               | ✅ Yes      |
+| POPUP_FAILED   | "Could not open authentication window..." | ✅ Yes      |
+| USER_CANCELLED | "Authentication cancelled..."             | ❌ No       |
+| TIMEOUT        | "Authentication timed out..."             | ❌ No       |
+| OAUTH_ERROR    | "GitHub OAuth error: {details}"           | ❌ No       |
+| UNKNOWN_ERROR  | "An unexpected error occurred"            | ❌ No       |
 
 ---
 
@@ -236,14 +252,14 @@
 
 ### Edge Case Testing
 
-| Scenario | Expected Behavior |
-|----------|-------------------|
+| Scenario                         | Expected Behavior                           |
+| -------------------------------- | ------------------------------------------- |
 | Click OAuth button twice quickly | Second click ignored while first is pending |
-| OAuth button clicked for GitLab | Error: "OAuth only available for GitHub" |
-| Popup blocked byextension | Detected, help shown |
-| postMessage from wrong origin | Message ignored (security) |
-| Malformed OAuth response | Error handled gracefully |
-| State parameter mismatch | OAuth fails (CSRF protection) |
+| OAuth button clicked for GitLab  | Error: "OAuth only available for GitHub"    |
+| Popup blocked byextension        | Detected, help shown                        |
+| postMessage from wrong origin    | Message ignored (security)                  |
+| Malformed OAuth response         | Error handled gracefully                    |
+| State parameter mismatch         | OAuth fails (CSRF protection)               |
 
 ### Security Testing
 
@@ -259,13 +275,13 @@
 
 ### Metrics
 
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Popup detection time | < 200ms | ⏱️ Test |
-| Help modal open time | < 100ms | ⏱️ Test |
-| OAuth button state change | < 50ms | ⏱️ Test |
-| Token field update | Instant | ⏱️ Test |
-| Overall OAuth flow | < 10 seconds | ⏱️ Test |
+| Metric                    | Target       | Actual  |
+| ------------------------- | ------------ | ------- |
+| Popup detection time      | < 200ms      | ⏱️ Test |
+| Help modal open time      | < 100ms      | ⏱️ Test |
+| OAuth button state change | < 50ms       | ⏱️ Test |
+| Token field update        | Instant      | ⏱️ Test |
+| Overall OAuth flow        | < 10 seconds | ⏱️ Test |
 
 ---
 
@@ -283,18 +299,21 @@
 ## Test Execution Checklist
 
 ### Before Testing
+
 - [ ] Build plugin: `npm run build`
 - [ ] Clear Figma cache
 - [ ] Clear browser cache for figma.com
 - [ ] Reset browser popup permissions
 
 ### During Testing
+
 - [ ] Test on clean browser profile
 - [ ] Document all errors in console
 - [ ] Screenshot unexpected behaviors
 - [ ] Note browser-specific issues
 
 ### After Testing
+
 - [ ] Update this document with results
 - [ ] File bugs for failures
 - [ ] Update browser compatibility matrix
@@ -314,21 +333,22 @@
 ## Test Results Log
 
 ### Test Run: [DATE]
+
 **Tester:** [NAME]
 **Environment:** [BROWSER VERSION, OS]
 
-| Test Case | Result | Notes |
-|-----------|--------|-------|
-| Happy Path | ✅/❌ | |
-| Popup Blocker | ✅/❌ | |
-| User Cancel | ✅/❌ | |
-| Timeout | ✅/❌ | |
-| Network Error | ✅/❌ | |
-| Chrome | ✅/❌ | |
-| Firefox | ✅/❌ | |
-| Safari | ✅/❌ | |
-| Edge | ✅/❌ | |
+| Test Case     | Result | Notes |
+| ------------- | ------ | ----- |
+| Happy Path    | ✅/❌  |       |
+| Popup Blocker | ✅/❌  |       |
+| User Cancel   | ✅/❌  |       |
+| Timeout       | ✅/❌  |       |
+| Network Error | ✅/❌  |       |
+| Chrome        | ✅/❌  |       |
+| Firefox       | ✅/❌  |       |
+| Safari        | ✅/❌  |       |
+| Edge          | ✅/❌  |       |
 
 ---
 
-*Last updated: 2025-11-20*
+_Last updated: 2025-11-20_

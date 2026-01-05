@@ -5,6 +5,7 @@ This document provides an overview of all UI components available in the Bridgy 
 ## Component Architecture
 
 The Bridgy plugin uses a modular component system organized into the following files:
+
 - `src/ui/js/bridgy-components.js` - Reusable UI components
 - `src/ui/css/components.css` - Component-specific styles
 - `src/ui/js/bridgy-app.js` - Main application orchestrator
@@ -14,49 +15,55 @@ The Bridgy plugin uses a modular component system organized into the following f
 ### Core UI Components
 
 #### Button Component
+
 **File:** `src/ui/js/bridgy-components.js:22`
 **Usage:**
+
 ```javascript
 BridgyComponents.Button.render({
   text: 'Click Me',
   variant: 'primary', // 'primary', 'secondary', 'ghost', 'danger'
-  size: 'medium',     // 'small', 'medium', 'large'
+  size: 'medium', // 'small', 'medium', 'large'
   onClick: 'functionName()',
   disabled: false,
-  icon: '🎨',         // optional emoji icon
-  id: 'unique-id',    // optional
-  className: 'custom-class' // optional
-})
+  icon: '🎨', // optional emoji icon
+  id: 'unique-id', // optional
+  className: 'custom-class', // optional
+});
 ```
 
 #### Input Component
+
 **File:** `src/ui/js/bridgy-components.js:89`
 **Usage:**
+
 ```javascript
 BridgyComponents.Input.render({
   id: 'input-id',
   name: 'fieldName',
-  type: 'text',       // 'text', 'password', 'email', 'number'
+  type: 'text', // 'text', 'password', 'email', 'number'
   label: 'Field Label',
   placeholder: 'Enter text...',
   value: 'default value',
   required: true,
   helper: 'Additional help text',
-  error: 'Error message' // optional
-})
+  error: 'Error message', // optional
+});
 ```
 
 #### Modal Component
+
 **File:** `src/ui/js/bridgy-components.js:193`
 **Usage:**
+
 ```javascript
 // Render modal
 const modalHTML = BridgyComponents.Modal.render({
   id: 'my-modal',
   title: 'Modal Title',
   content: '<p>Modal content here</p>',
-  size: 'medium',     // 'small', 'medium', 'large'
-  closable: true
+  size: 'medium', // 'small', 'medium', 'large'
+  closable: true,
 });
 
 // Control modal
@@ -65,8 +72,10 @@ BridgyComponents.Modal.close('my-modal');
 ```
 
 #### Tabs Component
+
 **File:** `src/ui/js/bridgy-components.js:368`
 **Usage:**
+
 ```javascript
 BridgyComponents.Tabs.render({
   id: 'main-tabs',
@@ -75,103 +84,118 @@ BridgyComponents.Tabs.render({
       label: 'Tab 1',
       content: '<div>Tab 1 content</div>',
       icon: '🎨',
-      badge: 5 // optional
+      badge: 5, // optional
     },
     // ... more tabs
   ],
-  activeTab: 0
-})
+  activeTab: 0,
+});
 ```
 
 #### Notification Component
+
 **File:** `src/ui/js/bridgy-components.js:283`
 **Usage:**
+
 ```javascript
 BridgyComponents.Notification.show({
-  type: 'success',    // 'success', 'error', 'warning', 'info'
+  type: 'success', // 'success', 'error', 'warning', 'info'
   title: 'Success!', // optional
   message: 'Operation completed successfully',
-  duration: 5000,    // auto-hide after ms (0 = no auto-hide)
-  action: {          // optional
+  duration: 5000, // auto-hide after ms (0 = no auto-hide)
+  action: {
+    // optional
     text: 'Undo',
-    onClick: 'undoFunction()'
-  }
-})
+    onClick: 'undoFunction()',
+  },
+});
 ```
 
 ### Layout Components
 
 #### Card Component
+
 **File:** `src/ui/js/bridgy-components.js:149`
 **Usage:**
+
 ```javascript
 BridgyComponents.Card.render({
   title: 'Card Title',
   content: '<p>Card content</p>',
   variant: 'default', // 'default', 'outlined', 'elevated'
-  padding: 'medium',  // 'small', 'medium', 'large'
-  className: 'custom-card'
-})
+  padding: 'medium', // 'small', 'medium', 'large'
+  className: 'custom-card',
+});
 ```
 
 #### List Component
+
 **File:** `src/ui/js/bridgy-components.js:446`
 **Usage:**
+
 ```javascript
 BridgyComponents.List.render({
   items: [
     { id: '1', content: 'Item 1', selected: true },
-    { id: '2', content: 'Item 2', selected: false }
+    { id: '2', content: 'Item 2', selected: false },
   ],
   selectable: true,
   multiSelect: true,
-  emptyText: 'No items available'
-})
+  emptyText: 'No items available',
+});
 ```
 
 ### Utility Components
 
 #### Loading Component
+
 **File:** `src/ui/js/bridgy-components.js:420`
 **Usage:**
+
 ```javascript
 BridgyComponents.Loading.render({
   text: 'Loading...',
-  size: 'medium',     // 'small', 'medium', 'large'
-  variant: 'spinner'  // 'spinner', 'dots', 'pulse'
-})
+  size: 'medium', // 'small', 'medium', 'large'
+  variant: 'spinner', // 'spinner', 'dots', 'pulse'
+});
 ```
 
 #### Badge Component
+
 **File:** `src/ui/js/bridgy-components.js:477`
 **Usage:**
+
 ```javascript
 BridgyComponents.Badge.render({
   text: '5',
   variant: 'primary', // 'primary', 'secondary', 'success', 'warning', 'error'
-  size: 'small'       // 'small', 'medium', 'large'
-})
+  size: 'small', // 'small', 'medium', 'large'
+});
 ```
 
 #### EmptyState Component
+
 **File:** `src/ui/js/bridgy-components.js:506`
 **Usage:**
+
 ```javascript
 BridgyComponents.EmptyState.render({
   icon: '🎨',
   title: 'No Items Found',
   message: 'Create some items to get started.',
-  action: {           // optional
+  action: {
+    // optional
     text: 'Create Item',
     variant: 'primary',
-    onClick: 'createItem()'
-  }
-})
+    onClick: 'createItem()',
+  },
+});
 ```
 
 ## State Management
 
 ### BridgyState
+
 **File:** `src/ui/js/bridgy-state.js`
 
 Centralized state management for the plugin:
@@ -194,6 +218,7 @@ BridgyState.events.on('stateChange', (data) => {
 ## API Communication
 
 ### BridgyAPI
+
 **File:** `src/ui/js/bridgy-api.js`
 
 Handles communication between UI and plugin core:
@@ -219,6 +244,7 @@ BridgyAPI.oauth.checkStatus();
 ## Styling System
 
 ### CSS Custom Properties
+
 **File:** `src/ui/css/01-variables.css`
 
 The plugin uses CSS custom properties for consistent theming:
@@ -247,9 +273,11 @@ The plugin uses CSS custom properties for consistent theming:
 ```
 
 ### Component Classes
+
 **File:** `src/ui/css/03-components.css`
 
 Organized component styles:
+
 - `.btn-*` - Button variants
 - `.input-*` - Input field styles
 - `.modal-*` - Modal components
@@ -261,17 +289,19 @@ Organized component styles:
 ### Creating a New Feature
 
 1. **Define Component Structure**
+
    ```javascript
    // In bridgy-components.js
    const MyComponent = {
      render: (props = {}) => {
        // Component implementation
        return html;
-     }
+     },
    };
    ```
 
 2. **Add Styles**
+
    ```css
    /* In components.css */
    .my-component {
@@ -305,6 +335,7 @@ To test components in the plugin:
 ## Migration Notes
 
 When updating from the old structure:
+
 - Replace direct DOM manipulation with component renders
 - Use BridgyState instead of global variables
 - Migrate event handlers to the centralized system

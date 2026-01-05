@@ -1,9 +1,9 @@
 ---
 name: User Story
 about: IP6 User Story
-title: ""
-labels: ""
-assignees: ""
+title: ''
+labels: ''
+assignees: ''
 ---
 
 ## 0) User Story

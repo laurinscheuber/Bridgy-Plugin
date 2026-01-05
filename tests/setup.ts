@@ -9,28 +9,28 @@ import { vi } from 'vitest';
 const mockFigma = {
   currentUser: {
     id: 'test-user-123',
-    name: 'Test User'
+    name: 'Test User',
   },
   root: {
     id: 'test-file-456',
     name: 'Test File',
     children: [],
     setSharedPluginData: vi.fn(),
-    getSharedPluginData: vi.fn(() => null)
+    getSharedPluginData: vi.fn(() => null),
   },
   clientStorage: {
     getAsync: vi.fn(() => Promise.resolve(null)),
     setAsync: vi.fn(() => Promise.resolve()),
-    deleteAsync: vi.fn(() => Promise.resolve())
+    deleteAsync: vi.fn(() => Promise.resolve()),
   },
   loadAllPagesAsync: vi.fn(() => Promise.resolve()),
   variables: {
-    getLocalVariableCollectionsAsync: vi.fn(() => Promise.resolve([]))
+    getLocalVariableCollectionsAsync: vi.fn(() => Promise.resolve([])),
   },
   getLocalPaintStylesAsync: vi.fn(() => Promise.resolve([])),
   getLocalTextStylesAsync: vi.fn(() => Promise.resolve([])),
   getLocalEffectStylesAsync: vi.fn(() => Promise.resolve([])),
-  getLocalGridStylesAsync: vi.fn(() => Promise.resolve([]))
+  getLocalGridStylesAsync: vi.fn(() => Promise.resolve([])),
 };
 
 // Create global figma object
@@ -58,28 +58,28 @@ const mockCrypto = {
         result[i] = view[i] ^ 42; // Reverse XOR
       }
       return Promise.resolve(result.buffer);
-    })
+    }),
   },
   getRandomValues: vi.fn((array: Uint8Array) => {
     for (let i = 0; i < array.length; i++) {
       array[i] = Math.floor(Math.random() * 256);
     }
     return array;
-  })
+  }),
 };
 
 // Use Object.defineProperty to override read-only crypto
 Object.defineProperty(global, 'crypto', {
   value: mockCrypto,
   writable: true,
-  configurable: true
+  configurable: true,
 });
 
 // Mock performance API
 (global as any).performance = {
   now: vi.fn(() => Date.now()),
   mark: vi.fn(),
-  measure: vi.fn()
+  measure: vi.fn(),
 };
 
 // Mock fetch for GitLab API calls
@@ -89,21 +89,21 @@ Object.defineProperty(global, 'crypto', {
     status: 200,
     json: () => Promise.resolve({}),
     text: () => Promise.resolve(''),
-    headers: new Map()
-  })
+    headers: new Map(),
+  }),
 );
 
 // Mock URL constructor for environment validation
 (global as any).URL = class URL {
   hostname: string;
   protocol: string;
-  
+
   constructor(url: string) {
     // Throw error for truly invalid URLs like the native URL constructor would
     if (!url || typeof url !== 'string' || !url.includes('://')) {
       throw new TypeError('Invalid URL');
     }
-    
+
     try {
       this.hostname = url.replace(/^https?:\/\//, '').split('/')[0];
       this.protocol = url.startsWith('https') ? 'https:' : 'http:';

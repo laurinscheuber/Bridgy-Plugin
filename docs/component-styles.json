@@ -25,24 +25,9 @@
         "#171717"
       ],
       "semantic": {
-        "success": [
-          "#f0fdf4",
-          "#22c55e",
-          "#16a34a",
-          "#15803d"
-        ],
-        "warning": [
-          "#fefce8",
-          "#eab308",
-          "#ca8a04",
-          "#a16207"
-        ],
-        "error": [
-          "#fef2f2",
-          "#ef4444",
-          "#dc2626",
-          "#b91c1c"
-        ]
+        "success": ["#f0fdf4", "#22c55e", "#16a34a", "#15803d"],
+        "warning": ["#fefce8", "#eab308", "#ca8a04", "#a16207"],
+        "error": ["#fef2f2", "#ef4444", "#dc2626", "#b91c1c"]
       }
     },
     "spacing": {

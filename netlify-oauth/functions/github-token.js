@@ -21,7 +21,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: ''
+      body: '',
     };
   }
 
@@ -32,8 +32,8 @@ exports.handler = async (event, context) => {
       headers: corsHeaders,
       body: JSON.stringify({
         success: false,
-        error: 'Method not allowed'
-      })
+        error: 'Method not allowed',
+      }),
     };
   }
 
@@ -48,8 +48,8 @@ exports.handler = async (event, context) => {
         headers: corsHeaders,
         body: JSON.stringify({
           success: false,
-          error: 'Invalid JSON in request body'
-        })
+          error: 'Invalid JSON in request body',
+        }),
       };
     }
 
@@ -62,8 +62,8 @@ exports.handler = async (event, context) => {
         headers: corsHeaders,
         body: JSON.stringify({
           success: false,
-          error: 'Missing code or state parameter'
-        })
+          error: 'Missing code or state parameter',
+        }),
       };
     }
 
@@ -74,8 +74,8 @@ exports.handler = async (event, context) => {
         headers: corsHeaders,
         body: JSON.stringify({
           success: false,
-          error: 'Invalid state parameter format'
-        })
+          error: 'Invalid state parameter format',
+        }),
       };
     }
 
@@ -86,8 +86,8 @@ exports.handler = async (event, context) => {
         headers: corsHeaders,
         body: JSON.stringify({
           success: false,
-          error: 'Server configuration error: GitHub client secret not configured'
-        })
+          error: 'Server configuration error: GitHub client secret not configured',
+        }),
       };
     }
 
@@ -95,15 +95,15 @@ exports.handler = async (event, context) => {
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'Bridgy-Plugin/1.0'
+        'User-Agent': 'Bridgy-Plugin/1.0',
       },
       body: JSON.stringify({
         client_id: GITHUB_CLIENT_ID,
         client_secret: GITHUB_CLIENT_SECRET,
-        code: code
-      })
+        code: code,
+      }),
     });
 
     if (!tokenResponse.ok) {
@@ -118,18 +118,18 @@ exports.handler = async (event, context) => {
         headers: corsHeaders,
         body: JSON.stringify({
           success: false,
-          error: tokenData.error_description || tokenData.error
-        })
+          error: tokenData.error_description || tokenData.error,
+        }),
       };
     }
 
     // Get user information to verify token works
     const userResponse = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Bridgy-Plugin/1.0'
-      }
+        Authorization: `Bearer ${tokenData.access_token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'Bridgy-Plugin/1.0',
+      },
     });
 
     if (!userResponse.ok) {
@@ -153,21 +153,20 @@ exports.handler = async (event, context) => {
           login: userData.login,
           name: userData.name,
           email: userData.email,
-          avatar_url: userData.avatar_url
-        }
-      })
+          avatar_url: userData.avatar_url,
+        },
+      }),
     };
-
   } catch (error) {
     console.error('OAuth token exchange error:', error);
-    
+
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({
         success: false,
-        error: error.message || 'Internal server error'
-      })
+        error: error.message || 'Internal server error',
+      }),
     };
   }
 };

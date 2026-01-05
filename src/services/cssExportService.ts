@@ -36,64 +36,73 @@ export class CSSExportService {
    * Export variables in the specified format (CSS, SCSS, or Tailwind v4)
    */
   static async exportVariables(format: CSSFormat = DEFAULT_FORMAT): Promise<string> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      // Validate format
-      const validFormats = ['css', 'scss', 'tailwind-v4'];
-      if (validFormats.indexOf(format.toLowerCase()) === -1) {
-        throw new Error(`Invalid export format: ${format}. Must be 'css', 'scss', or 'tailwind-v4'.`);
-      }
-
-      // For Tailwind v4, validate namespaces first
-      if (format === 'tailwind-v4') {
-        const validation = await TailwindV4Service.validateVariableGroups();
-        if (!validation.isValid) {
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        // Validate format
+        const validFormats = ['css', 'scss', 'tailwind-v4'];
+        if (validFormats.indexOf(format.toLowerCase()) === -1) {
           throw new Error(
-            `Cannot export to Tailwind v4 format. Invalid variable group namespaces: ${validation.invalidGroups.join(', ')}. ` +
-            `All variable groups must use valid Tailwind v4 namespaces (e.g., color, spacing, radius).`
+            `Invalid export format: ${format}. Must be 'css', 'scss', or 'tailwind-v4'.`,
           );
         }
-      }
 
-      await this.initialize();
-      await this.initialize();
-      const collections = await this.getProcessedCollections();
-      
-      let css = '';
-      
-      // Export Variables
-      if (collections && collections.length > 0) {
-        css += this.buildExportContent(collections, format);
-      }
-      
-      // Export Styles (Text, Paint, Effect, Grid)
-      if (format !== 'tailwind-v4') { // Skip styles for tailwind-v4 for now or implement later
-         css += await this.buildStylesContent(format);
-      }
-      
-      if (!css) {
-        throw new Error('No variables or styles found to export.');
-      }
+        // For Tailwind v4, validate namespaces first
+        if (format === 'tailwind-v4') {
+          const validation = await TailwindV4Service.validateVariableGroups();
+          if (!validation.isValid) {
+            throw new Error(
+              `Cannot export to Tailwind v4 format. Invalid variable group namespaces: ${validation.invalidGroups.join(', ')}. ` +
+                `All variable groups must use valid Tailwind v4 namespaces (e.g., color, spacing, radius).`,
+            );
+          }
+        }
 
-      return css;
-    }, {
-      operation: 'export_variables',
-      component: 'CSSExportService',
-      severity: 'high'
-    });
+        await this.initialize();
+        await this.initialize();
+        const collections = await this.getProcessedCollections();
+
+        let css = '';
+
+        // Export Variables
+        if (collections && collections.length > 0) {
+          css += this.buildExportContent(collections, format);
+        }
+
+        // Export Styles (Text, Paint, Effect, Grid)
+        if (format !== 'tailwind-v4') {
+          // Skip styles for tailwind-v4 for now or implement later
+          css += await this.buildStylesContent(format);
+        }
+
+        if (!css) {
+          throw new Error('No variables or styles found to export.');
+        }
+
+        return css;
+      },
+      {
+        operation: 'export_variables',
+        component: 'CSSExportService',
+        severity: 'high',
+      },
+    );
   }
 
   /**
    * Initialize the service by clearing caches and loading settings
    */
   private static async initialize(): Promise<void> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      this.clearCaches();
-      await UnitsService.loadUnitSettings();
-    }, {
-      operation: 'initialize_css_export_service',
-      component: 'CSSExportService',
-      severity: 'medium'
-    });
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        this.clearCaches();
+        await UnitsService.loadUnitSettings();
+      },
+      {
+        operation: 'initialize_css_export_service',
+        component: 'CSSExportService',
+        severity: 'medium',
+      },
+    );
   }
 
   /**
@@ -108,40 +117,43 @@ export class CSSExportService {
    * Get processed collections with variables organized by groups
    */
   private static async getProcessedCollections(): Promise<FormattedCollection[]> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      
-      if (!collections || collections.length === 0) {
-        throw new Error('No variable collections found in this Figma file.');
-      }
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
 
-      await this.populateVariableCache(collections);
-      
-      const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-      const processedCollections: FormattedCollection[] = [];
-      
-      for (const collection of sortedCollections) {
-        try {
-          const processed = await this.processCollection(collection);
-          if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
-            processedCollections.push(processed);
-          }
-        } catch (collectionError) {
-          ErrorHandler.handleError(collectionError as Error, {
-            operation: `process_collection_${collection.name}`,
-            component: 'CSSExportService',
-            severity: 'medium'
-          });
-          // Continue processing other collections
+        if (!collections || collections.length === 0) {
+          throw new Error('No variable collections found in this Figma file.');
         }
-      }
-      
-      return processedCollections;
-    }, {
-      operation: 'get_processed_collections',
-      component: 'CSSExportService',
-      severity: 'high'
-    });
+
+        await this.populateVariableCache(collections);
+
+        const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+        const processedCollections: FormattedCollection[] = [];
+
+        for (const collection of sortedCollections) {
+          try {
+            const processed = await this.processCollection(collection);
+            if (processed.variables.length > 0 || Object.keys(processed.groups).length > 0) {
+              processedCollections.push(processed);
+            }
+          } catch (collectionError) {
+            ErrorHandler.handleError(collectionError as Error, {
+              operation: `process_collection_${collection.name}`,
+              component: 'CSSExportService',
+              severity: 'medium',
+            });
+            // Continue processing other collections
+          }
+        }
+
+        return processedCollections;
+      },
+      {
+        operation: 'get_processed_collections',
+        component: 'CSSExportService',
+        severity: 'high',
+      },
+    );
   }
 
   /**
@@ -157,29 +169,31 @@ export class CSSExportService {
     const variables: CSSVariable[] = [];
     const groups: GroupedVariables = {};
 
-    await Promise.all(collection.variableIds.map(async (variableId: string) => {
-      const cssVariable = await this.processVariable(variableId, collection);
-      if (!cssVariable) return;
+    await Promise.all(
+      collection.variableIds.map(async (variableId: string) => {
+        const cssVariable = await this.processVariable(variableId, collection);
+        if (!cssVariable) return;
 
-      // Group by prefix if contains /
-      const pathMatch = cssVariable.originalName.match(/^([^\/]+)\//);
-      if (pathMatch) {
-        const groupName = pathMatch[1];
-        if (!groups[groupName]) {
-          groups[groupName] = [];
+        // Group by prefix if contains /
+        const pathMatch = cssVariable.originalName.match(/^([^\/]+)\//);
+        if (pathMatch) {
+          const groupName = pathMatch[1];
+          if (!groups[groupName]) {
+            groups[groupName] = [];
+          }
+          groups[groupName].push(cssVariable);
+        } else {
+          variables.push(cssVariable);
         }
-        groups[groupName].push(cssVariable);
-      } else {
-        variables.push(cssVariable);
-      }
-    }));
-    
+      }),
+    );
+
     const result: FormattedCollection = {
       name: collection.name,
       variables,
-      groups
+      groups,
     };
-    
+
     this.collectionCache.set(cacheKey, result);
     return result;
   }
@@ -187,16 +201,19 @@ export class CSSExportService {
   /**
    * Process a single variable and return formatted CSS variable
    */
-  private static async processVariable(variableId: string, collection: any): Promise<CSSVariable | null> {
+  private static async processVariable(
+    variableId: string,
+    collection: any,
+  ): Promise<CSSVariable | null> {
     const variable = await figma.variables.getVariableByIdAsync(variableId);
     if (!variable) return null;
 
     const formattedName = this.formatVariableName(variable.name);
-    
+
     // Process all modes, not just the first one
     const modes: { [modeName: string]: string } = {};
     const hasMultipleModes = collection.modes.length > 1;
-    
+
     for (const mode of collection.modes) {
       const value = variable.valuesByMode[mode.modeId];
       const cssValue = this.resolveCSSValue(variable, value, collection);
@@ -204,7 +221,7 @@ export class CSSExportService {
         modes[mode.name] = cssValue;
       }
     }
-    
+
     if (Object.keys(modes).length === 0) {
       return null;
     }
@@ -213,7 +230,7 @@ export class CSSExportService {
       name: formattedName,
       value: modes[collection.modes[0].name], // Default value (for :root)
       modes: hasMultipleModes ? modes : null, // All mode values
-      originalName: variable.name
+      originalName: variable.name,
     };
   }
 
@@ -221,15 +238,22 @@ export class CSSExportService {
    * Resolve the CSS value for a variable (handles aliases and type formatting)
    */
   private static resolveCSSValue(variable: any, value: any, collection: any): string | null {
-    const isAlias = value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS";
-    
+    const isAlias =
+      value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS';
+
     if (isAlias) {
       return this.resolveVariableAlias(value.id);
     }
-    
+
     const pathMatch = variable.name.match(/^([^\/]+)\//);
     const groupName = pathMatch ? pathMatch[1] : undefined;
-    return this.formatVariableValue(variable.resolvedType, value, variable.name, collection.name, groupName);
+    return this.formatVariableValue(
+      variable.resolvedType,
+      value,
+      variable.name,
+      collection.name,
+      groupName,
+    );
   }
 
   /**
@@ -238,7 +262,7 @@ export class CSSExportService {
   private static resolveVariableAlias(aliasId: string): string | null {
     const referencedVariable = this.variableCache.get(aliasId);
     if (!referencedVariable) return null;
-    
+
     const referencedName = this.formatVariableName(referencedVariable.name);
     return `var(${CSS_VARIABLE_PREFIX}${referencedName})`;
   }
@@ -262,18 +286,18 @@ export class CSSExportService {
     if (lowerStyle.includes('black') || lowerStyle.includes('heavy')) return 900;
     return 400; // Default
   }
-  
+
   // Helper: Sanitize variable names
   private static sanitizeName(name: string): string {
     // Remove common URL prefixes that might appear in import names
     let cleanName = name.replace(/^(www\.|https?:\/\/)?(figma\.com\/)?/, '');
-    
+
     // Replace invalid characters with hyphens
     cleanName = cleanName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
-    
+
     // Remove duplicate hyphens
     cleanName = cleanName.replace(/-+/g, '-');
-    
+
     // Remove leading/trailing hyphens
     return cleanName.replace(/^-+|-+$/g, '');
   }
@@ -293,30 +317,31 @@ export class CSSExportService {
     if (format === 'tailwind-v4') {
       return TailwindV4Service.buildTailwindV4CSS(collections);
     }
-    
+
     const contentParts: string[] = [];
-    
+
     // Check if any variables have multiple modes
-    const hasMultiModeVariables = collections.some(collection => 
-      collection.variables.some(variable => variable.modes !== null) ||
-      Object.keys(collection.groups).some(groupKey => 
-        collection.groups[groupKey].some(variable => variable.modes !== null)
-      )
+    const hasMultiModeVariables = collections.some(
+      (collection) =>
+        collection.variables.some((variable) => variable.modes !== null) ||
+        Object.keys(collection.groups).some((groupKey) =>
+          collection.groups[groupKey].some((variable) => variable.modes !== null),
+        ),
     );
-    
+
     if (format === 'css') {
       contentParts.push(':root {');
-      collections.forEach(collection => {
+      collections.forEach((collection) => {
         contentParts.push(this.buildCollectionContent(collection, format, false));
       });
       contentParts.push('}');
-      
+
       // If there are multi-mode variables, generate data-theme selectors
       if (hasMultiModeVariables) {
         const allModeNames = this.getAllModeNames(collections);
         allModeNames.slice(1).forEach((modeName) => {
           contentParts.push(`\n[data-theme="${modeName}"] {`);
-          collections.forEach(collection => {
+          collections.forEach((collection) => {
             contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
           });
           contentParts.push('}');
@@ -324,11 +349,11 @@ export class CSSExportService {
       }
     } else {
       // SCSS format - keep original behavior for now
-      collections.forEach(collection => {
+      collections.forEach((collection) => {
         contentParts.push(this.buildCollectionContent(collection, format, false));
       });
     }
-    
+
     return contentParts.join('\n');
   }
 
@@ -336,228 +361,248 @@ export class CSSExportService {
    * Build content for styles (Paint, Text, Effect, Grid)
    */
   private static async buildStylesContent(format: CSSFormat): Promise<string> {
-      const parts: string[] = [];
-      const commentPrefix = format === 'scss' ? '//' : '  /*';
-      const commentSuffix = format === 'scss' ? '' : ' */';
-      
-      parts.push(`\n${commentPrefix} ===== STYLES =====${commentSuffix}`);
-      if (format === 'css') parts.push(':root {');
+    const parts: string[] = [];
+    const commentPrefix = format === 'scss' ? '//' : '  /*';
+    const commentSuffix = format === 'scss' ? '' : ' */';
 
-      // Track used names to prevent duplicates
-      const usedNames = new Set<string>();
+    parts.push(`\n${commentPrefix} ===== STYLES =====${commentSuffix}`);
+    if (format === 'css') parts.push(':root {');
 
-      // Paint Styles
-      const paintStyles = await figma.getLocalPaintStylesAsync();
-      if (paintStyles.length > 0) {
-          parts.push(`\n${commentPrefix} Colors${commentSuffix}`);
-          paintStyles.forEach(style => {
-              const baseName = this.formatVariableName(style.name);
-              // Handle duplicates
-              let name = baseName;
-              let i = 1;
-              while(usedNames.has(name)) {
-                  name = `${baseName}-${i++}`;
-              }
-              usedNames.add(name);
+    // Track used names to prevent duplicates
+    const usedNames = new Set<string>();
 
-              // Check for bound variable on the first paint
-              const boundVariables = style.boundVariables;
-              let val: string | null = null;
+    // Paint Styles
+    const paintStyles = await figma.getLocalPaintStylesAsync();
+    if (paintStyles.length > 0) {
+      parts.push(`\n${commentPrefix} Colors${commentSuffix}`);
+      paintStyles.forEach((style) => {
+        const baseName = this.formatVariableName(style.name);
+        // Handle duplicates
+        let name = baseName;
+        let i = 1;
+        while (usedNames.has(name)) {
+          name = `${baseName}-${i++}`;
+        }
+        usedNames.add(name);
 
-              if (boundVariables && boundVariables['paints'] && boundVariables['paints'][0]) {
-                  const alias = boundVariables['paints'][0];
-                  // If resolvedType is COLOR, we can use the variable directly
-                  val = this.resolveVariableAlias(alias.id);
-              }
+        // Check for bound variable on the first paint
+        const boundVariables = style.boundVariables;
+        let val: string | null = null;
 
-              if (!val) {
-                  const paint = style.paints[0];
-                  if (paint) {
-                      val = this.formatPaintValue(paint);
-                  }
-              }
+        if (boundVariables && boundVariables['paints'] && boundVariables['paints'][0]) {
+          const alias = boundVariables['paints'][0];
+          // If resolvedType is COLOR, we can use the variable directly
+          val = this.resolveVariableAlias(alias.id);
+        }
 
-              if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
-          });
-      }
+        if (!val) {
+          const paint = style.paints[0];
+          if (paint) {
+            val = this.formatPaintValue(paint);
+          }
+        }
 
-      // Text Styles
-      const textStyles = await figma.getLocalTextStylesAsync();
-      if (textStyles.length > 0) {
-          parts.push(`\n${commentPrefix} Typography${commentSuffix}`);
-          textStyles.forEach(style => {
-             const baseName = this.formatVariableName(style.name);
-             const bound = style.boundVariables || {};
-             
-             // Font Family
-             let fontFamily: string | null = null;
-             if (bound['fontFamily']) {
-                 fontFamily = this.resolveVariableAlias(bound['fontFamily'].id);
-             } 
-             if (!fontFamily) {
-                 fontFamily = `"${style.fontName.family}"`;
-             }
-             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: ${fontFamily};`);
+        if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}color-${name}: ${val};`);
+      });
+    }
 
-             // Font Size
-             let fontSize: string | null = null;
-             if (bound['fontSize']) {
-                 fontSize = this.resolveVariableAlias(bound['fontSize'].id);
-             }
-             if (!fontSize) {
-                 fontSize = `${this.round(style.fontSize)}px`;
-             }
-             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${fontSize};`);
+    // Text Styles
+    const textStyles = await figma.getLocalTextStylesAsync();
+    if (textStyles.length > 0) {
+      parts.push(`\n${commentPrefix} Typography${commentSuffix}`);
+      textStyles.forEach((style) => {
+        const baseName = this.formatVariableName(style.name);
+        const bound = style.boundVariables || {};
 
-             // Font Weight (Style)
-             let fontWeight: string | null = null;
-             if (bound['fontStyle']) { // Figma uses 'fontStyle' key for weight/style binding often, but check definition
-                 fontWeight = this.resolveVariableAlias(bound['fontStyle'].id);
-             }
-             // Fallback for font weight is tricky if it's bound to "style" property which maps to weight
-             if (!fontWeight && bound['fontWeight']) {
-                  fontWeight = this.resolveVariableAlias(bound['fontWeight'].id);
-             }
-             if (!fontWeight) {
-                 fontWeight = `${this.mapFontWeight(style.fontName.style)}`;
-             }
-             parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${fontWeight};`);
+        // Font Family
+        let fontFamily: string | null = null;
+        if (bound['fontFamily']) {
+          fontFamily = this.resolveVariableAlias(bound['fontFamily'].id);
+        }
+        if (!fontFamily) {
+          fontFamily = `"${style.fontName.family}"`;
+        }
+        parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-family: ${fontFamily};`);
 
-             // Line Height
-             let lineHeight: string | null = null;
-             if (bound['lineHeight']) {
-                 lineHeight = this.resolveVariableAlias(bound['lineHeight'].id);
-             }
-             if (!lineHeight && style.lineHeight && style.lineHeight.unit !== 'AUTO') {
-                 lineHeight = style.lineHeight.unit === 'PIXELS' 
-                    ? `${this.round(style.lineHeight.value)}px` 
-                    : `${this.round(style.lineHeight.value)}`;
-             }
-             if (lineHeight) {
-                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lineHeight};`);
-             }
+        // Font Size
+        let fontSize: string | null = null;
+        if (bound['fontSize']) {
+          fontSize = this.resolveVariableAlias(bound['fontSize'].id);
+        }
+        if (!fontSize) {
+          fontSize = `${this.round(style.fontSize)}px`;
+        }
+        parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-size: ${fontSize};`);
 
-             // Letter Spacing
-             let letterSpacing: string | null = null;
-             if (bound['letterSpacing']) {
-                 letterSpacing = this.resolveVariableAlias(bound['letterSpacing'].id);
-             }
-             if (!letterSpacing && style.letterSpacing && style.letterSpacing.unit === 'PIXELS') {
-                 letterSpacing = `${this.round(style.letterSpacing.value)}px`;
-             }
-             if (letterSpacing) {
-                 parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${letterSpacing};`);
-             }
-          });
-      }
+        // Font Weight (Style)
+        let fontWeight: string | null = null;
+        if (bound['fontStyle']) {
+          // Figma uses 'fontStyle' key for weight/style binding often, but check definition
+          fontWeight = this.resolveVariableAlias(bound['fontStyle'].id);
+        }
+        // Fallback for font weight is tricky if it's bound to "style" property which maps to weight
+        if (!fontWeight && bound['fontWeight']) {
+          fontWeight = this.resolveVariableAlias(bound['fontWeight'].id);
+        }
+        if (!fontWeight) {
+          fontWeight = `${this.mapFontWeight(style.fontName.style)}`;
+        }
+        parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-weight: ${fontWeight};`);
 
-      // Effect Styles
-      const effectStyles = await figma.getLocalEffectStylesAsync();
-      if (effectStyles.length > 0) {
-          parts.push(`\n${commentPrefix} Effects${commentSuffix}`);
-          effectStyles.forEach(style => {
-              const name = this.formatVariableName(style.name);
-              // Effects binding is typically on individual properties like 'color' or 'spread' of an effect, 
-              // NOT the whole effect stack. Figma does not support binding "Effects" as a whole array to a variable yet.
-              // However, check if we can simulate binding if the user asks for it, but standard Figma API binds sub-props.
-              // Since CSS variables for effects usually represent the whole boxShadow/filter string,
-              // we probably can't easily resolving a single "variable" for the whole effect unless we manually reconstruct it with variables.
-              
-              // For now, let's stick to standard formatting but keep an eye on full-effect variables if they become a thing.
-              // Actually, wait, if the user binds the COLOR of a shadow, we CAN return `drop-shadow(..., var(--color), ...)`
-              
-              const val = this.formatEffectsValue(style.effects, style.boundVariables?.['effects']);
-              if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}effect-${name}: ${val};`);
-          });
-      }
-      
-      // Grid Styles
-      const gridStyles = await figma.getLocalGridStylesAsync();
-      if (gridStyles.length > 0) {
-          parts.push(`\n${commentPrefix} Grids${commentSuffix}`);
-          gridStyles.forEach(style => {
-              const name = this.formatVariableName(style.name);
-              const val = this.formatGridsValue(style.layoutGrids);
-              if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}grid-${name}: ${val};`);
-          });
-      }
+        // Line Height
+        let lineHeight: string | null = null;
+        if (bound['lineHeight']) {
+          lineHeight = this.resolveVariableAlias(bound['lineHeight'].id);
+        }
+        if (!lineHeight && style.lineHeight && style.lineHeight.unit !== 'AUTO') {
+          lineHeight =
+            style.lineHeight.unit === 'PIXELS'
+              ? `${this.round(style.lineHeight.value)}px`
+              : `${this.round(style.lineHeight.value)}`;
+        }
+        if (lineHeight) {
+          parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-line-height: ${lineHeight};`);
+        }
 
-      if (format === 'css') parts.push('}');
-      return parts.join('\n');
+        // Letter Spacing
+        let letterSpacing: string | null = null;
+        if (bound['letterSpacing']) {
+          letterSpacing = this.resolveVariableAlias(bound['letterSpacing'].id);
+        }
+        if (!letterSpacing && style.letterSpacing && style.letterSpacing.unit === 'PIXELS') {
+          letterSpacing = `${this.round(style.letterSpacing.value)}px`;
+        }
+        if (letterSpacing) {
+          parts.push(`  ${CSS_VARIABLE_PREFIX}font-${baseName}-letter-spacing: ${letterSpacing};`);
+        }
+      });
+    }
+
+    // Effect Styles
+    const effectStyles = await figma.getLocalEffectStylesAsync();
+    if (effectStyles.length > 0) {
+      parts.push(`\n${commentPrefix} Effects${commentSuffix}`);
+      effectStyles.forEach((style) => {
+        const name = this.formatVariableName(style.name);
+        // Effects binding is typically on individual properties like 'color' or 'spread' of an effect,
+        // NOT the whole effect stack. Figma does not support binding "Effects" as a whole array to a variable yet.
+        // However, check if we can simulate binding if the user asks for it, but standard Figma API binds sub-props.
+        // Since CSS variables for effects usually represent the whole boxShadow/filter string,
+        // we probably can't easily resolving a single "variable" for the whole effect unless we manually reconstruct it with variables.
+
+        // For now, let's stick to standard formatting but keep an eye on full-effect variables if they become a thing.
+        // Actually, wait, if the user binds the COLOR of a shadow, we CAN return `drop-shadow(..., var(--color), ...)`
+
+        const val = this.formatEffectsValue(style.effects, style.boundVariables?.['effects']);
+        if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}effect-${name}: ${val};`);
+      });
+    }
+
+    // Grid Styles
+    const gridStyles = await figma.getLocalGridStylesAsync();
+    if (gridStyles.length > 0) {
+      parts.push(`\n${commentPrefix} Grids${commentSuffix}`);
+      gridStyles.forEach((style) => {
+        const name = this.formatVariableName(style.name);
+        const val = this.formatGridsValue(style.layoutGrids);
+        if (val) parts.push(`  ${CSS_VARIABLE_PREFIX}grid-${name}: ${val};`);
+      });
+    }
+
+    if (format === 'css') parts.push('}');
+    return parts.join('\n');
   }
 
   private static formatPaintValue(paint: Paint): string | null {
-      if (paint.type === 'SOLID') {
-          const { r, g, b } = paint.color;
-           const a = paint.opacity !== undefined ? paint.opacity : 1;
-           if (a >= 1) {
-             return `rgb(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)})`;
-           }
-           return `rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${this.round(a)})`;
-      } else if (paint.type === 'GRADIENT_LINEAR') {
-          // TODO: Implement cleaner gradient export
-          return 'linear-gradient(...)'; 
+    if (paint.type === 'SOLID') {
+      const { r, g, b } = paint.color;
+      const a = paint.opacity !== undefined ? paint.opacity : 1;
+      if (a >= 1) {
+        return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
       }
-      return null;
+      return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${this.round(a)})`;
+    } else if (paint.type === 'GRADIENT_LINEAR') {
+      // TODO: Implement cleaner gradient export
+      return 'linear-gradient(...)';
+    }
+    return null;
   }
-  
-  private static formatEffectsValue(effects: readonly Effect[], boundEffects?: any[]): string | null {
-      return effects.map((effect, index) => {
-          if (effect.type === 'DROP_SHADOW' || effect.type === 'INNER_SHADOW') {
-              const { r, g, b, a } = effect.color;
-              
-              let colorPart = `rgba(${Math.round(r*255)}, ${Math.round(g*255)}, ${Math.round(b*255)}, ${this.round(a)})`;
-              
-              // Check if color is bound
-              if (boundEffects && boundEffects[index] && boundEffects[index]['color']) {
-                  const alias = boundEffects[index]['color'];
-                  const ref = this.resolveVariableAlias(alias.id);
-                  if (ref) colorPart = ref;
-              }
 
-              const inset = effect.type === 'INNER_SHADOW' ? 'inset ' : '';
-              const blur = this.round(effect.radius);
-              const spread = effect.spread ? this.round(effect.spread) : 0;
-              const x = this.round(effect.offset.x);
-              const y = this.round(effect.offset.y);
-              return `${inset}${x}px ${y}px ${blur}px ${spread}px ${colorPart}`;
-          } else if (effect.type === 'LAYER_BLUR') {
-              return `blur(${this.round(effect.radius)}px)`;
+  private static formatEffectsValue(
+    effects: readonly Effect[],
+    boundEffects?: any[],
+  ): string | null {
+    return effects
+      .map((effect, index) => {
+        if (effect.type === 'DROP_SHADOW' || effect.type === 'INNER_SHADOW') {
+          const { r, g, b, a } = effect.color;
+
+          let colorPart = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${this.round(a)})`;
+
+          // Check if color is bound
+          if (boundEffects && boundEffects[index] && boundEffects[index]['color']) {
+            const alias = boundEffects[index]['color'];
+            const ref = this.resolveVariableAlias(alias.id);
+            if (ref) colorPart = ref;
           }
-          return null;
-      }).filter(Boolean).join(', ');
-  }
-  
-  private static formatGridsValue(grids: readonly LayoutGrid[]): string | null {
-      return grids.map(grid => {
-         if (grid.pattern === 'COLUMNS') {
-             return `columns(${grid.count}, ${this.round(grid.gutterSize)}px)`;
-         } else if (grid.pattern === 'ROWS') {
-             return `rows(${grid.count}, ${this.round(grid.gutterSize)}px)`; 
-         } else if (grid.pattern === 'GRID') {
-             return `grid(${this.round(grid.sectionSize)}px)`;
-         }
-         return null;
-      }).filter(Boolean).join(', ');
+
+          const inset = effect.type === 'INNER_SHADOW' ? 'inset ' : '';
+          const blur = this.round(effect.radius);
+          const spread = effect.spread ? this.round(effect.spread) : 0;
+          const x = this.round(effect.offset.x);
+          const y = this.round(effect.offset.y);
+          return `${inset}${x}px ${y}px ${blur}px ${spread}px ${colorPart}`;
+        } else if (effect.type === 'LAYER_BLUR') {
+          return `blur(${this.round(effect.radius)}px)`;
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join(', ');
   }
 
+  private static formatGridsValue(grids: readonly LayoutGrid[]): string | null {
+    return grids
+      .map((grid) => {
+        if (grid.pattern === 'COLUMNS') {
+          return `columns(${grid.count}, ${this.round(grid.gutterSize)}px)`;
+        } else if (grid.pattern === 'ROWS') {
+          return `rows(${grid.count}, ${this.round(grid.gutterSize)}px)`;
+        } else if (grid.pattern === 'GRID') {
+          return `grid(${this.round(grid.sectionSize)}px)`;
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
 
   /**
    * Build content for a single collection
    */
-  private static buildCollectionContent(collection: FormattedCollection, format: CSSFormat, isThemeSpecific: boolean = false, themeName: string | null = null): string {
+  private static buildCollectionContent(
+    collection: FormattedCollection,
+    format: CSSFormat,
+    isThemeSpecific: boolean = false,
+    themeName: string | null = null,
+  ): string {
     const parts: string[] = [];
     const commentPrefix = format === 'scss' ? '//' : '  /*';
     const commentSuffix = format === 'scss' ? '' : ' */';
-    
+
     // Collection header
     if (!isThemeSpecific) {
       parts.push(`\n${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
     }
 
     // Standalone variables
-    collection.variables.forEach(variable => {
-      const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+    collection.variables.forEach((variable) => {
+      const declaration = this.formatVariableDeclaration(
+        variable,
+        format,
+        isThemeSpecific,
+        themeName,
+      );
       if (declaration && declaration.trim()) {
         parts.push(declaration);
       }
@@ -565,14 +610,19 @@ export class CSSExportService {
 
     // Grouped variables
     const sortedGroupNames = Object.keys(collection.groups).sort();
-    sortedGroupNames.forEach(groupName => {
+    sortedGroupNames.forEach((groupName) => {
       const displayName = this.formatGroupDisplayName(groupName);
       if (!isThemeSpecific) {
         parts.push(`\n${commentPrefix} ${displayName}${commentSuffix}`);
       }
-      
-      collection.groups[groupName].forEach(variable => {
-        const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+
+      collection.groups[groupName].forEach((variable) => {
+        const declaration = this.formatVariableDeclaration(
+          variable,
+          format,
+          isThemeSpecific,
+          themeName,
+        );
         if (declaration && declaration.trim()) {
           parts.push(declaration);
         }
@@ -585,9 +635,14 @@ export class CSSExportService {
   /**
    * Format a variable declaration for the given format
    */
-  private static formatVariableDeclaration(variable: CSSVariable, format: CSSFormat, isThemeSpecific: boolean = false, themeName: string | null = null): string {
+  private static formatVariableDeclaration(
+    variable: CSSVariable,
+    format: CSSFormat,
+    isThemeSpecific: boolean = false,
+    themeName: string | null = null,
+  ): string {
     let value = variable.value;
-    
+
     // For theme-specific declarations, use the value for that specific theme
     if (isThemeSpecific && variable.modes && themeName && variable.modes[themeName]) {
       value = variable.modes[themeName];
@@ -595,7 +650,7 @@ export class CSSExportService {
       // Skip variables that don't have this theme mode
       return '';
     }
-    
+
     if (format === 'scss') {
       return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
     }
@@ -606,7 +661,7 @@ export class CSSExportService {
    * Format group name for display
    */
   private static formatGroupDisplayName(groupName: string): string {
-    return groupName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return groupName.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   }
 
   /**
@@ -614,23 +669,23 @@ export class CSSExportService {
    */
   private static getAllModeNames(collections: FormattedCollection[]): string[] {
     const modeNames = new Set<string>();
-    
-    collections.forEach(collection => {
-      collection.variables.forEach(variable => {
+
+    collections.forEach((collection) => {
+      collection.variables.forEach((variable) => {
         if (variable.modes) {
-          Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+          Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
         }
       });
-      
-      Object.keys(collection.groups).forEach(groupKey => {
-        collection.groups[groupKey].forEach(variable => {
+
+      Object.keys(collection.groups).forEach((groupKey) => {
+        collection.groups[groupKey].forEach((variable) => {
           if (variable.modes) {
-            Object.keys(variable.modes).forEach(modeName => modeNames.add(modeName));
+            Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
           }
         });
       });
     });
-    
+
     return Array.from(modeNames).sort();
   }
 
@@ -638,38 +693,45 @@ export class CSSExportService {
    * Populate the variable cache for alias resolution
    */
   private static async populateVariableCache(collections: any[]): Promise<void> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      await Promise.all(collections.map(async (collection) => {
-        try {
-          await Promise.all(collection.variableIds.map(async (variableId: string) => {
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        await Promise.all(
+          collections.map(async (collection) => {
             try {
-              const variable = await figma.variables.getVariableByIdAsync(variableId);
-              if (variable) {
-                this.variableCache.set(variable.id, variable);
-              }
-            } catch (variableError) {
-              ErrorHandler.handleError(variableError as Error, {
-                operation: `cache_variable_${variableId}`,
+              await Promise.all(
+                collection.variableIds.map(async (variableId: string) => {
+                  try {
+                    const variable = await figma.variables.getVariableByIdAsync(variableId);
+                    if (variable) {
+                      this.variableCache.set(variable.id, variable);
+                    }
+                  } catch (variableError) {
+                    ErrorHandler.handleError(variableError as Error, {
+                      operation: `cache_variable_${variableId}`,
+                      component: 'CSSExportService',
+                      severity: 'low',
+                    });
+                    // Continue caching other variables
+                  }
+                }),
+              );
+            } catch (collectionError) {
+              ErrorHandler.handleError(collectionError as Error, {
+                operation: `cache_collection_variables_${collection.name}`,
                 component: 'CSSExportService',
-                severity: 'low'
+                severity: 'medium',
               });
-              // Continue caching other variables
+              // Continue processing other collections
             }
-          }));
-        } catch (collectionError) {
-          ErrorHandler.handleError(collectionError as Error, {
-            operation: `cache_collection_variables_${collection.name}`,
-            component: 'CSSExportService',
-            severity: 'medium'
-          });
-          // Continue processing other collections
-        }
-      }));
-    }, {
-      operation: 'populate_variable_cache',
-      component: 'CSSExportService',
-      severity: 'medium'
-    });
+          }),
+        );
+      },
+      {
+        operation: 'populate_variable_cache',
+        component: 'CSSExportService',
+        severity: 'medium',
+      },
+    );
   }
 
   /**
@@ -680,18 +742,24 @@ export class CSSExportService {
     await this.populateVariableCache(collections);
   }
 
-  private static formatVariableValue(type: string, value: any, name: string, collectionName: string, groupName?: string): string | null {
+  private static formatVariableValue(
+    type: string,
+    value: any,
+    name: string,
+    collectionName: string,
+    groupName?: string,
+  ): string | null {
     switch (type) {
-      case "COLOR":
+      case 'COLOR':
         return this.formatColorValue(value);
 
-      case "FLOAT":
+      case 'FLOAT':
         return this.formatFloatValue(value, name, collectionName, groupName);
 
-      case "STRING":
+      case 'STRING':
         return this.formatStringValue(value);
 
-      case "BOOLEAN":
+      case 'BOOLEAN':
         return this.formatBooleanValue(value);
 
       default:
@@ -703,7 +771,13 @@ export class CSSExportService {
    * Format color values with proper RGB/RGBA handling
    */
   private static formatColorValue(value: any): string | null {
-    if (!value || typeof value !== "object" || !("r" in value) || !("g" in value) || !("b" in value)) {
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      !('r' in value) ||
+      !('g' in value) ||
+      !('b' in value)
+    ) {
       return null;
     }
 
@@ -711,20 +785,25 @@ export class CSSExportService {
     const r = Math.round(color.r * 255);
     const g = Math.round(color.g * 255);
     const b = Math.round(color.b * 255);
-    
+
     // Check if the color has an alpha channel and it's less than 1
-    if (typeof color.a === "number" && color.a < 1) {
+    if (typeof color.a === 'number' && color.a < 1) {
       return `rgba(${r}, ${g}, ${b}, ${this.round(color.a)})`;
     }
-    
+
     return `rgb(${r}, ${g}, ${b})`;
   }
 
   /**
    * Format float values with appropriate units
    */
-  private static formatFloatValue(value: any, name: string, collectionName: string, groupName?: string): string | null {
-    if (typeof value !== "number" || isNaN(value)) {
+  private static formatFloatValue(
+    value: any,
+    name: string,
+    collectionName: string,
+    groupName?: string,
+  ): string | null {
+    if (typeof value !== 'number' || isNaN(value)) {
       return null;
     }
 
@@ -737,7 +816,7 @@ export class CSSExportService {
    * Format string values with proper quoting
    */
   private static formatStringValue(value: any): string | null {
-    if (typeof value !== "string") {
+    if (typeof value !== 'string') {
       return null;
     }
     // Remove extra quotes if they exist in the value already
@@ -749,116 +828,136 @@ export class CSSExportService {
    * Format boolean values
    */
   private static formatBooleanValue(value: any): string | null {
-    if (typeof value !== "boolean") {
+    if (typeof value !== 'boolean') {
       return null;
     }
-    return value ? "true" : "false";
+    return value ? 'true' : 'false';
   }
 
   // Get unit settings data for the settings interface
   static async getUnitSettingsData(): Promise<{
-    collections: Array<{name: string, defaultUnit: string, currentUnit: string}>,
-    groups: Array<{collectionName: string, groupName: string, defaultUnit: string, currentUnit: string}>
+    collections: Array<{ name: string; defaultUnit: string; currentUnit: string }>;
+    groups: Array<{
+      collectionName: string;
+      groupName: string;
+      defaultUnit: string;
+      currentUnit: string;
+    }>;
   }> {
-    return await ErrorHandler.withErrorHandling(async () => {
-      await UnitsService.loadUnitSettings();
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      
-      if (!collections || collections.length === 0) {
-        return { collections: [], groups: [] };
-      }
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        await UnitsService.loadUnitSettings();
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
 
-      const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
-      
-      const collectionsData = [];
-      const groupsData = [];
-      const unitSettings = UnitsService.getUnitSettings();
-
-      await Promise.all(sortedCollections.map(async (collection) => {
-        try {
-          // Collection data - show actual smart default if no setting exists
-          const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
-          const defaultUnit = hasCollectionSetting ? unitSettings.collections[collection.name] : UnitsService.getDefaultUnit(collection.name);
-          const currentUnit = unitSettings.collections[collection.name] || '';
-          collectionsData.push({
-            name: collection.name,
-            defaultUnit,
-            currentUnit
-          });
-          
-          // Find all groups in this collection
-          const groups = new Set<string>();
-          await Promise.all(collection.variableIds.map(async (variableId: string) => {
-            try {
-              const variable = await figma.variables.getVariableByIdAsync(variableId);
-              if (variable) {
-                const pathMatch = variable.name.match(/^([^\/]+)\//);
-                if (pathMatch) {
-                  groups.add(pathMatch[1]);
-                }
-              }
-            } catch (variableError) {
-              ErrorHandler.handleError(variableError as Error, {
-                operation: `get_variable_for_groups_${variableId}`,
-                component: 'CSSExportService',
-                severity: 'low'
-              });
-              // Continue processing other variables
-            }
-          }));
-
-          // Group data
-          Array.from(groups).sort().forEach(groupName => {
-            try {
-              const groupKey = `${collection.name}/${groupName}`;
-              const hasGroupSetting = unitSettings.groups[groupKey] !== undefined;
-              const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
-              
-              let defaultUnit: string;
-              if (hasGroupSetting) {
-                defaultUnit = unitSettings.groups[groupKey];
-              } else if (hasCollectionSetting) {
-                defaultUnit = `Inherits: ${unitSettings.collections[collection.name]}`;
-              } else {
-                defaultUnit = UnitsService.getDefaultUnit(groupName);
-              }
-              
-              const groupCurrentUnit: string = unitSettings.groups[groupKey] || '';
-              groupsData.push({
-                collectionName: collection.name,
-                groupName,
-                defaultUnit,
-                currentUnit: groupCurrentUnit
-              });
-            } catch (groupError) {
-              ErrorHandler.handleError(groupError as Error, {
-                operation: `process_group_${groupName}`,
-                component: 'CSSExportService',
-                severity: 'low'
-              });
-              // Continue processing other groups
-            }
-          });
-        } catch (collectionError) {
-          ErrorHandler.handleError(collectionError as Error, {
-            operation: `get_unit_settings_for_collection_${collection.name}`,
-            component: 'CSSExportService',
-            severity: 'medium'
-          });
-          // Continue processing other collections
+        if (!collections || collections.length === 0) {
+          return { collections: [], groups: [] };
         }
-      }));
-      
-      return { collections: collectionsData, groups: groupsData };
-    }, {
-      operation: 'get_unit_settings_data',
-      component: 'CSSExportService',
-      severity: 'medium'
-    });
+
+        const sortedCollections = collections.sort((a, b) => a.name.localeCompare(b.name));
+
+        const collectionsData = [];
+        const groupsData = [];
+        const unitSettings = UnitsService.getUnitSettings();
+
+        await Promise.all(
+          sortedCollections.map(async (collection) => {
+            try {
+              // Collection data - show actual smart default if no setting exists
+              const hasCollectionSetting = unitSettings.collections[collection.name] !== undefined;
+              const defaultUnit = hasCollectionSetting
+                ? unitSettings.collections[collection.name]
+                : UnitsService.getDefaultUnit(collection.name);
+              const currentUnit = unitSettings.collections[collection.name] || '';
+              collectionsData.push({
+                name: collection.name,
+                defaultUnit,
+                currentUnit,
+              });
+
+              // Find all groups in this collection
+              const groups = new Set<string>();
+              await Promise.all(
+                collection.variableIds.map(async (variableId: string) => {
+                  try {
+                    const variable = await figma.variables.getVariableByIdAsync(variableId);
+                    if (variable) {
+                      const pathMatch = variable.name.match(/^([^\/]+)\//);
+                      if (pathMatch) {
+                        groups.add(pathMatch[1]);
+                      }
+                    }
+                  } catch (variableError) {
+                    ErrorHandler.handleError(variableError as Error, {
+                      operation: `get_variable_for_groups_${variableId}`,
+                      component: 'CSSExportService',
+                      severity: 'low',
+                    });
+                    // Continue processing other variables
+                  }
+                }),
+              );
+
+              // Group data
+              Array.from(groups)
+                .sort()
+                .forEach((groupName) => {
+                  try {
+                    const groupKey = `${collection.name}/${groupName}`;
+                    const hasGroupSetting = unitSettings.groups[groupKey] !== undefined;
+                    const hasCollectionSetting =
+                      unitSettings.collections[collection.name] !== undefined;
+
+                    let defaultUnit: string;
+                    if (hasGroupSetting) {
+                      defaultUnit = unitSettings.groups[groupKey];
+                    } else if (hasCollectionSetting) {
+                      defaultUnit = `Inherits: ${unitSettings.collections[collection.name]}`;
+                    } else {
+                      defaultUnit = UnitsService.getDefaultUnit(groupName);
+                    }
+
+                    const groupCurrentUnit: string = unitSettings.groups[groupKey] || '';
+                    groupsData.push({
+                      collectionName: collection.name,
+                      groupName,
+                      defaultUnit,
+                      currentUnit: groupCurrentUnit,
+                    });
+                  } catch (groupError) {
+                    ErrorHandler.handleError(groupError as Error, {
+                      operation: `process_group_${groupName}`,
+                      component: 'CSSExportService',
+                      severity: 'low',
+                    });
+                    // Continue processing other groups
+                  }
+                });
+            } catch (collectionError) {
+              ErrorHandler.handleError(collectionError as Error, {
+                operation: `get_unit_settings_for_collection_${collection.name}`,
+                component: 'CSSExportService',
+                severity: 'medium',
+              });
+              // Continue processing other collections
+            }
+          }),
+        );
+
+        return { collections: collectionsData, groups: groupsData };
+      },
+      {
+        operation: 'get_unit_settings_data',
+        component: 'CSSExportService',
+        severity: 'medium',
+      },
+    );
   }
 
   // Update unit settings
-  static updateUnitSettings(settings: {collections?: {[key: string]: string}, groups?: {[key: string]: string}}): void {
+  static updateUnitSettings(settings: {
+    collections?: { [key: string]: string };
+    groups?: { [key: string]: string };
+  }): void {
     UnitsService.updateUnitSettings(settings);
   }
 
@@ -870,7 +969,7 @@ export class CSSExportService {
   // Get Tailwind v4 validation status
   static async getTailwindV4ValidationStatus(): Promise<{
     isValid: boolean;
-    groups: Array<{name: string; isValid: boolean; namespace?: string; variableCount: number}>;
+    groups: Array<{ name: string; isValid: boolean; namespace?: string; variableCount: number }>;
     invalidGroups: string[];
   }> {
     return await TailwindV4Service.validateVariableGroups();
