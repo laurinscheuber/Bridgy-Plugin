@@ -7067,7 +7067,13 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, void 0, void 0, function* () {
             const currentPage = figma.currentPage;
-            const allNodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            const allNodes = currentPage.findAll(
+              (node) => (
+                // node.type === 'FRAME' || 
+                node.type === "COMPONENT" || node.type === "COMPONENT_SET"
+              )
+              // node.type === 'INSTANCE'
+            );
             return this.analyzeNodes(allNodes);
           });
         }
@@ -7079,7 +7085,13 @@ ${Object.keys(cssProperties).map((property) => {
             const allPages = figma.root.children;
             let allNodes = [];
             for (const page of allPages) {
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageNodes = page.findAll(
+                (node) => (
+                  // node.type === 'FRAME' || 
+                  node.type === "COMPONENT" || node.type === "COMPONENT_SET"
+                )
+                // node.type === 'INSTANCE'
+              );
               allNodes = [...allNodes, ...pageNodes];
             }
             return this.analyzeNodes(allNodes);
@@ -7101,7 +7113,13 @@ ${Object.keys(cssProperties).map((property) => {
             for (const page of allPages) {
               if (page.id === currentPageId)
                 continue;
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageNodes = page.findAll(
+                (node) => (
+                  // node.type === 'FRAME' || 
+                  node.type === "COMPONENT" || node.type === "COMPONENT_SET"
+                )
+                // node.type === 'INSTANCE'
+              );
               const pageResult = yield this.analyzeNodes(pageNodes);
               if (pageResult.totalIssues > 0) {
                 yield figma.setCurrentPageAsync(page);
@@ -7118,11 +7136,24 @@ ${Object.keys(cssProperties).map((property) => {
           return __awaiter(this, void 0, void 0, function* () {
             const issuesMap = /* @__PURE__ */ new Map();
             let totalNodes = 0;
+            let frameCount = 0;
+            let instanceCount = 0;
+            let autoLayoutCount = 0;
             console.log("Fetching variables for analysis...");
             const allVariables = yield this.getAllVariables();
             console.log(`Fetched ${allVariables.length} variables for analysis`);
             for (const node of nodes) {
               totalNodes++;
+              if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
+                if ("layoutMode" in node && node.layoutMode !== "NONE") {
+                  autoLayoutCount++;
+                }
+                if (node.type === "INSTANCE") {
+                  instanceCount++;
+                } else {
+                  frameCount++;
+                }
+              }
               yield this.analyzeNode(node, issuesMap);
             }
             for (const issue of issuesMap.values()) {
@@ -7140,10 +7171,68 @@ ${Object.keys(cssProperties).map((property) => {
             for (const category of Object.keys(issuesByCategory)) {
               issuesByCategory[category].sort((a, b) => b.count - a.count);
             }
+            let tokenCoverageScore = 100;
+            if (totalNodes > 0) {
+              let totalIssueOccurrences = 0;
+              for (const issue of issuesMap.values()) {
+                totalIssueOccurrences += issue.count;
+              }
+              const issueDensity = totalIssueOccurrences / (totalNodes * 3);
+              const penalty = Math.round(issueDensity * 100);
+              tokenCoverageScore = Math.max(0, 100 - penalty);
+            }
+            const tailwindRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
+            let validTailwindNames = 0;
+            let totalVarsToCheck = allVariables.length;
+            if (totalVarsToCheck > 0) {
+              console.log(`[Coverage Debug] Checking Tailwind regex for ${allVariables.length} vars`);
+              allVariables.forEach((v, idx) => {
+                if (!v) {
+                  console.warn(`[Coverage Debug] v is null at ${idx}`);
+                  return;
+                }
+                if (!v.variable) {
+                  console.warn(`[Coverage Debug] v.variable is null at ${idx}`);
+                  return;
+                }
+                if (!v.variable.name) {
+                  console.warn(`[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`);
+                  return;
+                }
+                if (v.variable && v.variable.name && tailwindRegex.test(v.variable.name)) {
+                  validTailwindNames++;
+                }
+              });
+            }
+            const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
+            let groupedVariables = 0;
+            if (totalVarsToCheck > 0) {
+              console.log(`[Coverage Debug] Checking Variable Hygiene for ${allVariables.length} vars`);
+              allVariables.forEach((v, idx) => {
+                if (!v || !v.variable || !v.variable.name)
+                  return;
+                if (v.variable && v.variable.name && v.variable.name.includes("/")) {
+                  groupedVariables++;
+                }
+              });
+            }
+            const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round(groupedVariables / totalVarsToCheck * 100);
+            const totalContainerNodes = instanceCount + frameCount;
+            const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(instanceCount / totalContainerNodes * 100);
+            const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
+            const weightedScore = Math.round(tokenCoverageScore * 0.35 + tailwindScore * 0.2 + componentHygieneScore * 0.15 + variableHygieneScore * 0.15 + layoutHygieneScore * 0.15);
             return {
               totalNodes,
               totalIssues: issuesMap.size,
-              issuesByCategory
+              issuesByCategory,
+              qualityScore: weightedScore,
+              subScores: {
+                tokenCoverage: tokenCoverageScore,
+                tailwindReadiness: tailwindScore,
+                componentHygiene: componentHygieneScore,
+                variableHygiene: variableHygieneScore,
+                layoutHygiene: layoutHygieneScore
+              }
             };
           });
         }
@@ -7175,6 +7264,13 @@ ${Object.keys(cssProperties).map((property) => {
           });
         }
         /**
+         * Helper to format numeric values to max 2 decimal places
+         */
+        static formatValue(value) {
+          const rounded = Math.round(value * 100) / 100;
+          return `${rounded}px`;
+        }
+        /**
          * Checks layout properties (spacing, sizing)
          */
         static checkLayoutProperties(node, issuesMap) {
@@ -7182,26 +7278,26 @@ ${Object.keys(cssProperties).map((property) => {
             return;
           const layoutNode = node;
           if (layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
-            this.addIssue(issuesMap, "Min Width", `${layoutNode.minWidth}px`, node, "Layout");
+            this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
           }
           if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
-            this.addIssue(issuesMap, "Max Width", `${layoutNode.maxWidth}px`, node, "Layout");
+            this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
           }
           if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
-            this.addIssue(issuesMap, "Width", `${Math.round(layoutNode.width * 100) / 100}px`, node, "Layout");
+            this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
           }
           if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
-            this.addIssue(issuesMap, "Height", `${Math.round(layoutNode.height * 100) / 100}px`, node, "Layout");
+            this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
           }
           if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
-            this.addIssue(issuesMap, "Min Height", `${layoutNode.minHeight}px`, node, "Layout");
+            this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
           }
           if (layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
-            this.addIssue(issuesMap, "Max Height", `${layoutNode.maxHeight}px`, node, "Layout");
+            this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
           }
           if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
             if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, "itemSpacing")) {
-              this.addIssue(issuesMap, "Gap", `${layoutNode.itemSpacing}px`, node, "Layout");
+              this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout");
             }
             const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;
             const paddingTop = typeof layoutNode.paddingTop === "number" ? layoutNode.paddingTop : 0;
@@ -7210,19 +7306,19 @@ ${Object.keys(cssProperties).map((property) => {
             const allPaddingSame = paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
             const anyPaddingBound = this.isVariableBound(layoutNode, "paddingLeft") || this.isVariableBound(layoutNode, "paddingTop") || this.isVariableBound(layoutNode, "paddingRight") || this.isVariableBound(layoutNode, "paddingBottom");
             if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
-              this.addIssue(issuesMap, "Padding", `${paddingLeft}px`, node, "Layout");
+              this.addIssue(issuesMap, "Padding", this.formatValue(paddingLeft), node, "Layout");
             } else {
               if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, "paddingLeft")) {
-                this.addIssue(issuesMap, "Padding Left", `${paddingLeft}px`, node, "Layout");
+                this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout");
               }
               if (paddingTop !== 0 && !this.isVariableBound(layoutNode, "paddingTop")) {
-                this.addIssue(issuesMap, "Padding Top", `${paddingTop}px`, node, "Layout");
+                this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout");
               }
               if (paddingRight !== 0 && !this.isVariableBound(layoutNode, "paddingRight")) {
-                this.addIssue(issuesMap, "Padding Right", `${paddingRight}px`, node, "Layout");
+                this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout");
               }
               if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, "paddingBottom")) {
-                this.addIssue(issuesMap, "Padding Bottom", `${paddingBottom}px`, node, "Layout");
+                this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout");
               }
             }
           }
@@ -7266,7 +7362,7 @@ ${Object.keys(cssProperties).map((property) => {
           const strokeWeightValue = hasNumericStrokeWeight ? node.strokeWeight : 0;
           const anyStrokeWeightBound = this.isVariableBound(node, "strokeWeight") || this.isVariableBound(node, "strokeTopWeight") || this.isVariableBound(node, "strokeRightWeight") || this.isVariableBound(node, "strokeBottomWeight") || this.isVariableBound(node, "strokeLeftWeight");
           if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
-            this.addIssue(issuesMap, "Stroke Weight", `${strokeWeightValue}px`, node, "Stroke");
+            this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke");
           }
         }
         /**
@@ -7285,19 +7381,19 @@ ${Object.keys(cssProperties).map((property) => {
             const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
             const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
             if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
-              this.addIssue(issuesMap, "Corner Radius", `${topLeft}px`, node, "Appearance");
+              this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance");
             } else {
               if (topLeft > 0 && !this.isVariableBound(rectNode, "topLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Top Left)", `${topLeft}px`, node, "Appearance");
+                this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance");
               }
               if (topRight > 0 && !this.isVariableBound(rectNode, "topRightRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Top Right)", `${topRight}px`, node, "Appearance");
+                this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance");
               }
               if (bottomLeft > 0 && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Bottom Left)", `${bottomLeft}px`, node, "Appearance");
+                this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance");
               }
               if (bottomRight > 0 && !this.isVariableBound(rectNode, "bottomRightRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Bottom Right)", `${bottomRight}px`, node, "Appearance");
+                this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance");
               }
             }
           }
@@ -8856,6 +8952,46 @@ ${Object.keys(cssProperties).map((property) => {
       function collectDocumentData() {
         return __awaiter(this, void 0, void 0, function* () {
           try {
+            const usageMap = /* @__PURE__ */ new Map();
+            try {
+              const usageNodes = figma.currentPage.findAll((node) => true);
+              for (const node of usageNodes) {
+                if ("boundVariables" in node && node.boundVariables) {
+                  const bounds = node.boundVariables;
+                  for (const key in bounds) {
+                    const val = bounds[key];
+                    if (val) {
+                      if (Array.isArray(val)) {
+                        val.forEach((v) => {
+                          if (v.type === "VARIABLE_ALIAS") {
+                            usageMap.set(v.id, (usageMap.get(v.id) || 0) + 1);
+                          }
+                        });
+                      } else if (val.type === "VARIABLE_ALIAS") {
+                        usageMap.set(val.id, (usageMap.get(val.id) || 0) + 1);
+                      }
+                    }
+                  }
+                }
+                const checkStyle = (styleId) => {
+                  if (typeof styleId === "string" && styleId.length > 0) {
+                    usageMap.set(styleId, (usageMap.get(styleId) || 0) + 1);
+                  }
+                };
+                if ("fillStyleId" in node)
+                  checkStyle(node.fillStyleId);
+                if ("strokeStyleId" in node)
+                  checkStyle(node.strokeStyleId);
+                if ("textStyleId" in node)
+                  checkStyle(node.textStyleId);
+                if ("effectStyleId" in node)
+                  checkStyle(node.effectStyleId);
+                if ("gridStyleId" in node)
+                  checkStyle(node.gridStyleId);
+              }
+            } catch (e) {
+              console.warn("Error counting usages:", e);
+            }
             const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
             const variablesData = [];
             const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
@@ -8877,7 +9013,8 @@ ${Object.keys(cssProperties).map((property) => {
                   id: variable.id,
                   name: variable.name,
                   resolvedType: variable.resolvedType,
-                  valuesByMode: valuesByModeEntries
+                  valuesByMode: valuesByModeEntries,
+                  usageCount: usageMap.get(variable.id) || 0
                 };
               }));
               const variablesResult = yield Promise.all(variablesPromises);
@@ -8905,7 +9042,8 @@ ${Object.keys(cssProperties).map((property) => {
                 letterSpacing: textStyle.letterSpacing,
                 textCase: textStyle.textCase,
                 textDecoration: textStyle.textDecoration,
-                boundVariables: textStyle.boundVariables
+                boundVariables: textStyle.boundVariables,
+                usageCount: usageMap.get(textStyle.id) || 0
               });
             }
             const paintStyles = yield figma.getLocalPaintStylesAsync();
@@ -8915,7 +9053,8 @@ ${Object.keys(cssProperties).map((property) => {
                 name: paintStyle.name,
                 description: paintStyle.description,
                 paints: paintStyle.paints,
-                boundVariables: paintStyle.boundVariables
+                boundVariables: paintStyle.boundVariables,
+                usageCount: usageMap.get(paintStyle.id) || 0
               });
             }
             const effectStyles = yield figma.getLocalEffectStylesAsync();
@@ -8925,7 +9064,8 @@ ${Object.keys(cssProperties).map((property) => {
                 name: effectStyle.name,
                 description: effectStyle.description,
                 effects: effectStyle.effects,
-                boundVariables: effectStyle.boundVariables
+                boundVariables: effectStyle.boundVariables,
+                usageCount: usageMap.get(effectStyle.id) || 0
               });
             }
             const gridStyles = yield figma.getLocalGridStylesAsync();
@@ -8936,7 +9076,8 @@ ${Object.keys(cssProperties).map((property) => {
                 name: gridStyle.name,
                 description: gridStyle.description,
                 layoutGrids: gridStyle.layoutGrids,
-                boundVariables: gridStyle.boundVariables
+                boundVariables: gridStyle.boundVariables,
+                usageCount: usageMap.get(gridStyle.id) || 0
               });
             }
             const componentsData = yield componentService_1.ComponentService.collectComponents();
@@ -9533,6 +9674,7 @@ ${Object.keys(cssProperties).map((property) => {
                   name: def.name,
                   type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
                   count: def.instances.length,
+                  variantCount: def.isSet ? def.node.children.length : 1,
                   instances: def.instances
                 })).sort((a, b) => b.count - a.count);
                 console.log(`Stats generated. Found ${statsData.length} definitions.`);
@@ -10002,19 +10144,13 @@ ${Object.keys(cssProperties).map((property) => {
                 if (!collection || !collection.id) {
                   throw new Error("Failed to resolve valid collection");
                 }
-                const colId = collection.id;
-                console.log(`DEBUG: Executing createVariable('${name}', '${colId}', '${resolvedType}')`);
+                console.log(`DEBUG: Executing createVariable('${name}', collection object, '${resolvedType}')`);
                 let variable;
                 try {
-                  variable = figma.variables.createVariable(name, colId, resolvedType);
+                  variable = figma.variables.createVariable(name, collection, resolvedType);
                 } catch (err) {
-                  console.warn("Standard createVariable failed:", err.message);
-                  if (err.message && err.message.includes("collection node")) {
-                    console.log("DEBUG: Retrying with collection object...");
-                    variable = figma.variables.createVariable(name, collection, resolvedType);
-                  } else {
-                    throw err;
-                  }
+                  console.error("createVariable failed:", err);
+                  throw err;
                 }
                 if (!variable)
                   throw new Error("Variable creation returned undefined");
