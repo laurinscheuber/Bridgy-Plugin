@@ -4079,20 +4079,40 @@ window.toggleComponent = (id) => {
           // Function to render an issue card (helper string builder)
             const renderIssueCard = (issue, issueIdx, realIdx) => {
             const issueId = `issue-${category}-${realIdx}`;
-            // Check if we have exact matches locally or if they were passed with matchType
-            // The backend now returns matchingVariables with matchType ('EXACT' | 'NEAR')
             
             // Group matches
             const exactMatches = (issue.matchingVariables || []).filter(v => v.matchType === 'EXACT' || !v.matchType);
             const nearMatches = (issue.matchingVariables || []).filter(v => v.matchType === 'NEAR');
             
-            const hasMatchingVars = (issue.matchingVariables && issue.matchingVariables.length > 0);
+            // Auto-selection Logic
+            let selectedId = "";
+            let autoSelectedType = ""; 
             
+            if (exactMatches.length === 1) {
+              selectedId = exactMatches[0].id; // Select the single exact match
+              autoSelectedType = "exact";
+            } else if (exactMatches.length === 0 && nearMatches.length === 0) {
+              selectedId = "create-new"; // Default to create new if no matches
+              autoSelectedType = "create-new";
+            }
+            
+            // Generate Badges
+            let badgesHtml = "";
+            if (exactMatches.length > 0) {
+               badgesHtml += `<span class="match-badge match-badge-exact">${exactMatches.length} Exact</span>`;
+            }
+            if (nearMatches.length > 0) {
+               badgesHtml += `<span class="match-badge match-badge-near">${nearMatches.length} Near</span>`;
+            }
+
             let cardHtml = `
               <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px; display: block; min-height: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px;">${issue.property}</div>
+                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px;">
+                      ${issue.property}
+                      ${badgesHtml}
+                    </div>
                     <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px;">${SecurityUtils.escapeHTML(issue.value)}</div>
                   </div>
                   <div class="list-badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.2);">
@@ -4109,14 +4129,15 @@ window.toggleComponent = (id) => {
                     <span style="font-size: 11px; color: rgba(255, 255, 255, 0.7); font-weight: 500; text-transform: uppercase;">Fix Available</span>
                   </div>
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="${issueId}-var-select" class="token-fix-select" style="flex: 1; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;">
+                    <select id="${issueId}-var-select" class="token-fix-select" onchange="updateApplyButtonState('${issueId}')" style="flex: 1; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;">
                       <option value="">Select a token...</option>
             `;
             
             if (exactMatches.length > 0) {
               cardHtml += `<optgroup label="Exact Matches">`;
               exactMatches.forEach(v => {
-                 cardHtml += `<option value="${v.id}">${v.collectionName} / ${v.name}</option>`;
+                 const isSelected = v.id === selectedId ? 'selected' : '';
+                 cardHtml += `<option value="${v.id}" ${isSelected}>${v.collectionName} / ${v.name}</option>`;
               });
               cardHtml += `</optgroup>`;
             }
@@ -4130,9 +4151,10 @@ window.toggleComponent = (id) => {
             }
 
             // Create new variable option
+            const createNewSelected = selectedId === 'create-new' ? 'selected' : '';
             cardHtml += `
                       <option value="" disabled>──────────</option>
-                      <option value="create-new" style="font-weight: bold; color: #a78bfa;">+ Create new variable...</option>
+                      <option value="create-new" style="font-weight: bold; color: #a78bfa;" ${createNewSelected}>+ Create new variable...</option>
                     </select>
                     <button 
                       id="${issueId}-apply-btn" 
@@ -4147,6 +4169,13 @@ window.toggleComponent = (id) => {
                   </div>
                 </div>
             `;
+            
+            // Trigger update of button state slightly after rendering if auto-selected
+            if (selectedId) {
+                setTimeout(() => {
+                    updateApplyButtonState(issueId);
+                }, 0);
+            }
 
             cardHtml += `
                 <div style="border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; margin-top: 8px;">
@@ -4215,6 +4244,7 @@ window.toggleComponent = (id) => {
             `;
             return cardHtml;
           };
+
 
           // Render initial batch
           issuesToRender.forEach((issue, idx) => {
