@@ -238,6 +238,15 @@ export class TokenCoverageService {
   }
 
   /**
+   * Helper to format numeric values to max 2 decimal places
+   */
+  private static formatValue(value: number): string {
+    // Round to 2 decimal places
+    const rounded = Math.round(value * 100) / 100;
+    return `${rounded}px`;
+  }
+
+  /**
    * Checks layout properties (spacing, sizing)
    */
   private static checkLayoutProperties(
@@ -251,43 +260,43 @@ export class TokenCoverageService {
 
     // Check minWidth - exclude zero values
     if (layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, 'minWidth')) {
-      this.addIssue(issuesMap, 'Min Width', `${layoutNode.minWidth}px`, node, 'Layout');
+      this.addIssue(issuesMap, 'Min Width', this.formatValue(layoutNode.minWidth), node, 'Layout');
     }
 
     // Check maxWidth - exclude zero values
     if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, 'maxWidth')) {
-      this.addIssue(issuesMap, 'Max Width', `${layoutNode.maxWidth}px`, node, 'Layout');
+      this.addIssue(issuesMap, 'Max Width', this.formatValue(layoutNode.maxWidth), node, 'Layout');
     }
 
     // Check width (if not auto) - exclude zero values and dynamic sizing
     if (layoutNode.width && typeof layoutNode.width === 'number' && layoutNode.width !== 0 
         && !this.isVariableBound(layoutNode, 'width')
         && !this.isWidthDynamic(layoutNode)) {
-      this.addIssue(issuesMap, 'Width', `${Math.round(layoutNode.width * 100) / 100}px`, node, 'Layout');
+      this.addIssue(issuesMap, 'Width', this.formatValue(layoutNode.width), node, 'Layout');
     }
 
     // Check height (if not auto) - exclude zero values and dynamic sizing
     if (layoutNode.height && typeof layoutNode.height === 'number' && layoutNode.height !== 0 
         && !this.isVariableBound(layoutNode, 'height')
         && !this.isHeightDynamic(layoutNode)) {
-      this.addIssue(issuesMap, 'Height', `${Math.round(layoutNode.height * 100) / 100}px`, node, 'Layout');
+      this.addIssue(issuesMap, 'Height', this.formatValue(layoutNode.height), node, 'Layout');
     }
 
     // Check minHeight - exclude zero values
     if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, 'minHeight')) {
-      this.addIssue(issuesMap, 'Min Height', `${layoutNode.minHeight}px`, node, 'Layout');
+      this.addIssue(issuesMap, 'Min Height', this.formatValue(layoutNode.minHeight), node, 'Layout');
     }
 
     // Check maxHeight - exclude zero values
     if (layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, 'maxHeight')) {
-      this.addIssue(issuesMap, 'Max Height', `${layoutNode.maxHeight}px`, node, 'Layout');
+      this.addIssue(issuesMap, 'Max Height', this.formatValue(layoutNode.maxHeight), node, 'Layout');
     }
 
     // Check auto-layout properties
     if ('layoutMode' in layoutNode && layoutNode.layoutMode !== 'NONE') {
       // Check gap (itemSpacing) - exclude zero values
       if (typeof layoutNode.itemSpacing === 'number' && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, 'itemSpacing')) {
-        this.addIssue(issuesMap, 'Gap', `${layoutNode.itemSpacing}px`, node, 'Layout');
+        this.addIssue(issuesMap, 'Gap', this.formatValue(layoutNode.itemSpacing), node, 'Layout');
       }
 
       // Check padding - consolidate if all values are the same, exclude zero values
@@ -305,20 +314,20 @@ export class TokenCoverageService {
       
       if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
         // Report as consolidated "Padding"
-        this.addIssue(issuesMap, 'Padding', `${paddingLeft}px`, node, 'Layout');
+        this.addIssue(issuesMap, 'Padding', this.formatValue(paddingLeft), node, 'Layout');
       } else {
         // Report individual padding values (only non-zero and non-bound)
         if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, 'paddingLeft')) {
-          this.addIssue(issuesMap, 'Padding Left', `${paddingLeft}px`, node, 'Layout');
+          this.addIssue(issuesMap, 'Padding Left', this.formatValue(paddingLeft), node, 'Layout');
         }
         if (paddingTop !== 0 && !this.isVariableBound(layoutNode, 'paddingTop')) {
-          this.addIssue(issuesMap, 'Padding Top', `${paddingTop}px`, node, 'Layout');
+          this.addIssue(issuesMap, 'Padding Top', this.formatValue(paddingTop), node, 'Layout');
         }
         if (paddingRight !== 0 && !this.isVariableBound(layoutNode, 'paddingRight')) {
-          this.addIssue(issuesMap, 'Padding Right', `${paddingRight}px`, node, 'Layout');
+          this.addIssue(issuesMap, 'Padding Right', this.formatValue(paddingRight), node, 'Layout');
         }
         if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, 'paddingBottom')) {
-          this.addIssue(issuesMap, 'Padding Bottom', `${paddingBottom}px`, node, 'Layout');
+          this.addIssue(issuesMap, 'Padding Bottom', this.formatValue(paddingBottom), node, 'Layout');
         }
       }
     }
@@ -382,7 +391,7 @@ export class TokenCoverageService {
                                  this.isVariableBound(node as any, 'strokeLeftWeight');
 
     if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
-      this.addIssue(issuesMap, 'Stroke Weight', `${strokeWeightValue}px`, node, 'Stroke');
+      this.addIssue(issuesMap, 'Stroke Weight', this.formatValue(strokeWeightValue), node, 'Stroke');
     }
   }
 
@@ -417,20 +426,20 @@ export class TokenCoverageService {
       
       if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
         // Report as consolidated "Corner Radius"
-        this.addIssue(issuesMap, 'Corner Radius', `${topLeft}px`, node, 'Appearance');
+        this.addIssue(issuesMap, 'Corner Radius', this.formatValue(topLeft), node, 'Appearance');
       } else {
         // Report individual corner radii (only non-zero and non-bound)
         if (topLeft > 0 && !this.isVariableBound(rectNode, 'topLeftRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Top Left)', `${topLeft}px`, node, 'Appearance');
+          this.addIssue(issuesMap, 'Corner Radius (Top Left)', this.formatValue(topLeft), node, 'Appearance');
         }
         if (topRight > 0 && !this.isVariableBound(rectNode, 'topRightRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Top Right)', `${topRight}px`, node, 'Appearance');
+          this.addIssue(issuesMap, 'Corner Radius (Top Right)', this.formatValue(topRight), node, 'Appearance');
         }
         if (bottomLeft > 0 && !this.isVariableBound(rectNode, 'bottomLeftRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Bottom Left)', `${bottomLeft}px`, node, 'Appearance');
+          this.addIssue(issuesMap, 'Corner Radius (Bottom Left)', this.formatValue(bottomLeft), node, 'Appearance');
         }
         if (bottomRight > 0 && !this.isVariableBound(rectNode, 'bottomRightRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius (Bottom Right)', `${bottomRight}px`, node, 'Appearance');
+          this.addIssue(issuesMap, 'Corner Radius (Bottom Right)', this.formatValue(bottomRight), node, 'Appearance');
         }
       }
     }
