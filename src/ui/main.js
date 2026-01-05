@@ -1130,7 +1130,7 @@
       
 // Render component stats
 function renderStats(statsData) {
-  const container = document.getElementById("stats-results");
+  const container = document.getElementById("stats-container");
   if (!container) return;
 
   if (!statsData || statsData.length === 0) {
@@ -1468,19 +1468,25 @@ window.toggleComponent = (id) => {
           }, 500);
           
           // Auto-resize disabled to maintain consistent plugin size
-        } else if (message.type === "component-usage-data") {
-          console.log("UI: Received component usage data", message.data);
+        } else if (message.type === "component-stats-data") {
+          console.log("UI: Received component stats data", message.stats);
           const statsContainer = document.getElementById('stats-container');
           
           if (statsContainer) {
              statsContainer.innerHTML = '';
              if (typeof renderStats === 'function') {
-                renderStats(message.data);
+                renderStats(message.stats);
              } else {
                 console.error("renderStats function not found!");
                 statsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--error-500);">Error: Stats renderer not initialized.</div>';
              }
           }
+        } else if (message.type === "component-stats-error") {
+           console.error("UI: Component stats error", message.error);
+           const statsContainer = document.getElementById('stats-container');
+           if (statsContainer) {
+              statsContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--error-500);">Error: ${message.error}</div>`;
+           }
         } else if (message.type === "document-data-error") {
           console.error('Error loading components:', message.error);
           
@@ -2555,11 +2561,12 @@ window.toggleComponent = (id) => {
 
       function renderStyleTable(styles, type, isGrouped = false) {
         let html = `
-            <div class="variable-list">
+                <div class="variable-list">
                 <div class="unified-list-header variable-header">
                     <div class="variable-cell">Name</div>
                     <div class="variable-cell">Type</div>
                     <div class="variable-cell">Values</div>
+                    <div class="variable-cell" style="text-align: center;">Usage</div>
                     <div class="variable-cell"></div>
                 </div>
         `;
@@ -2712,6 +2719,9 @@ window.toggleComponent = (id) => {
                         type === 'grid' ? 'Layout guide' : type
                     }</div>
                     <div class="variable-cell">${valuePreview}</div>
+                    <div class="variable-cell" style="display: flex; justify-content: center;">
+                        <span class="subgroup-stats" title="Used in ${style.usageCount || 0} layers">${style.usageCount || 0}</span>
+                    </div>
                     <div class="variable-cell"></div>
                 </div>
             `;
@@ -2784,6 +2794,7 @@ window.toggleComponent = (id) => {
                   <div class="variable-cell">Name</div>
                   <div class="variable-cell">Type</div>
                   <div class="variable-cell">Values</div>
+                  <div class="variable-cell" style="text-align: center;">Usage</div>
                   <div class="variable-cell"></div>
               </div>
         `;
@@ -2792,6 +2803,7 @@ window.toggleComponent = (id) => {
           const sanitizedId = variable.name
             .replace(/[^a-zA-Z0-9]/g, "-")
             .toLowerCase();
+          const safeVariableName = variable.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             
           html += `
             <div class="unified-list-item variable-row" id="var-${sanitizedId}">
@@ -2850,16 +2862,16 @@ window.toggleComponent = (id) => {
             }
           });
 
-          html += `
-              </div>
+          html += `</div>
+              
+              <!-- Usage badge -->
               <div class="variable-cell" style="display: flex; justify-content: center;">
-                <button 
-                  class="compact-action-btn" 
-                  style="color: rgba(255, 255, 255, 0.4); background: transparent; border: none; cursor: pointer; padding: 4px;"
-                  onclick="deleteVariable('${variable.id}', '${variable.name.replace(/'/g, "\\'")}')"
-                  title="Delete ${variable.name}"
-                >
-                  <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+                 <span class="subgroup-stats" title="Used in ${variable.usageCount || 0} layers">${variable.usageCount || 0}</span>
+              </div>
+              
+              <div class="variable-cell" style="display: flex; justify-content: flex-end;">
+                <button class="icon-button delete-btn" onclick="deleteVariable('${variable.id}', '${safeVariableName}')" title="Delete variable">
+                  <span class="material-symbols-outlined">delete</span>
                 </button>
               </div>
             </div>
@@ -4042,6 +4054,145 @@ window.toggleComponent = (id) => {
         analyzeTokenCoverage();
       }
 
+// Render component stats
+function renderStats(statsData) {
+  const container = document.getElementById("stats-container");
+  if (!container) return;
+
+  if (!statsData || statsData.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">No local components found in this file</div>
+        <div class="empty-subtext">Components defined in this file will appear here</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Calculate totals
+  const totalComponents = statsData.length;
+  const totalInstances = statsData.reduce((sum, item) => sum + item.count, 0);
+
+  // Metrics: Unused
+  const unusedComponents = statsData.filter(item => item.count === 0).length;
+  
+  // Metrics: Most Used (Top 3)
+  const sortedByUsage = [...statsData].sort((a, b) => b.count - a.count);
+  const mostUsed = sortedByUsage.slice(0, 3);
+
+  let html = `
+    <!-- Top Summary Cards -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${totalComponents}</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${totalInstances}</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
+      </div>
+    </div>
+
+    <!-- Secondary Metrics -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+       <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px;">
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">UNUSED COMPONENTS</div>
+          <div style="font-size: 16px; font-weight: 500; color: ${unusedComponents > 0 ? '#ef4444' : '#22c55e'};">${unusedComponents}</div>
+       </div>
+       <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px;">
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">MOST USED</div>
+          <div style="font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+             ${mostUsed.length > 0 ? mostUsed[0].name : '-'}
+          </div>
+       </div>
+    </div>
+
+    <!-- Stats Table -->
+    <div class="stats-table">
+        <!-- Table Header -->
+        <div style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; padding: 0 12px 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; align-items: center;">
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase;">Component Name ↓</div>
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right;">Variants</div>
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right;">Instances</div>
+            <div></div> <!-- Actions spacer -->
+        </div>
+
+        <div class="component-list" style="display: flex; flex-direction: column; gap: 4px;">
+  `;
+
+  statsData.forEach((item) => {
+    // Determine icon based on type
+    const icon = item.type === 'COMPONENT_SET' ? 
+      `<svg width="14" height="14" viewBox="0 0 12 12" fill="none" class="component-icon set"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>` : 
+      `<svg width="14" height="14" viewBox="0 0 12 12" fill="none" class="component-icon"><path d="M6 1l5 5-5 5-5-5 5-5z" stroke="currentColor" stroke-width="1"/></svg>`;
+
+    const variantLabel = item.variantCount > 1 ? item.variantCount : '-';
+
+    // Render Component Row
+    html += `
+      <div class="unified-list-item component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; align-items: center; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+        
+        <!-- Name Column -->
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+            <div class="component-icon-wrapper" style="display: flex; align-items: center; justify-content: center; color: ${item.type === 'COMPONENT_SET' ? '#a855f7' : '#3b82f6'}; flex-shrink: 0;">
+                ${icon}
+            </div>
+            <span class="component-name text-truncate" title="${item.name}" style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9);">
+                ${item.name}
+            </span>
+        </div>
+
+        <!-- Variants Column -->
+        <div style="text-align: right; font-size: 12px; color: rgba(255,255,255,0.6);">
+            ${variantLabel}
+        </div>
+
+        <!-- Instances Column -->
+        <div style="text-align: right; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9);">
+            ${item.count.toLocaleString()}
+        </div>
+
+        <!-- Actions Column -->
+        <div class="component-actions" style="display: flex; justify-content: flex-end; gap: 2px;">
+          ${item.count > 0 ? `
+            <button class="icon-button expand-btn" onclick="toggleComponent('${item.id}')" title="Show Instances" style="padding: 4px; border-radius: 4px; color: rgba(255,255,255,0.6);">
+              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    // Render Instances (Hidden by default)
+    if (item.count > 0) {
+      html += `<div id="children-${item.id}" class="component-instances hidden" style="margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.1); margin-top: 4px;">`;
+      
+      item.instances.forEach(instance => {
+        html += `
+          <div class="unified-list-item instance-item" style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 2px;">
+            <div class="instance-info" style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+              <span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.4); flex-shrink: 0;">subdirectory_arrow_right</span>
+              <span class="instance-name text-truncate" style="font-size: 12px; color: rgba(255,255,255,0.7);">
+                <span class="instance-parent" style="opacity: 0.5;">${instance.parentName}</span>
+                <span class="separator" style="margin: 0 4px; opacity: 0.3;">/</span>
+                <span class="name">${instance.name}</span>
+              </span>
+            </div>
+             <button class="icon-button" onclick="UIHelper.requestFocus('${instance.id}')" title="Focus Instance" style="padding: 4px; color: rgba(255,255,255,0.4);">
+                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+             </button>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+    }
+  });
+
+  html += `</div></div>`;
+  container.innerHTML = html;
+}
       // Function to display token coverage results
       function displayTokenCoverageResults(result) {
         const resultsContainer = document.getElementById("token-coverage-results");
@@ -4066,46 +4217,106 @@ window.toggleComponent = (id) => {
         const issuesByCategory = result.issuesByCategory;
 
         let html = `
-          <div style="margin-bottom: 24px; padding: 16px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                 <div style="font-size: 13px; color: rgba(255, 255, 255, 0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Design Quality Score</div>
-                 ${result.totalNodes <= 0 ? '' : `
-                 <div style="font-size: 11px; color: rgba(255, 255, 255, 0.4); background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;">
-                    ${result.totalNodes} Scanned Nodes
-                 </div>`}
+          <!-- Quality Score Card -->
+          <div style="margin-bottom: 24px; padding: 20px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
+            <!-- Card Header with Toggle -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; cursor: pointer;" onclick="toggleQualityBreakdown()">
+                 <div style="font-size: 13px; color: rgba(255, 255, 255, 0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+                    Design Quality Score
+                    <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">info</span>
+                 </div>
+                 <div style="display: flex; align-items: center; gap: 8px;">
+                     ${result.totalNodes <= 0 ? '' : `
+                     <div style="font-size: 11px; color: rgba(255, 255, 255, 0.4); background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;">
+                        ${result.totalNodes} Nodes
+                     </div>`}
+                     <span id="breakdown-toggle-icon" class="material-symbols-outlined" style="font-size: 20px; color: rgba(255,255,255,0.5); transition: transform 0.2s;">expand_more</span>
+                 </div>
             </div>
             
-            <div style="display: flex; align-items: center; gap: 20px;">
-                <!-- Ring Chart -->
-                <div style="position: relative; width: 80px; height: 80px;">
-                    <svg width="80" height="80" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
-                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="12" fill="none" />
-                        <circle cx="50" cy="50" r="40" stroke="${getScoreColor(result.qualityScore)}" stroke-width="12" fill="none" 
-                                stroke-dasharray="${2 * Math.PI * 40}" 
-                                stroke-dashoffset="${2 * Math.PI * 40 * (1 - (result.qualityScore || 100) / 100)}" 
+            <div style="display: flex; align-items: center; gap: 32px;">
+                <!-- Gauge (Left) -->
+                <div style="position: relative; width: 100px; height: 100px; flex-shrink: 0;">
+                    <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+                        <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.1)" stroke-width="12" fill="none" />
+                        <circle cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="12" fill="none" 
+                                stroke-dasharray="${2 * Math.PI * 42}" 
+                                stroke-dashoffset="${2 * Math.PI * 42 * (1 - (result.qualityScore !== undefined ? result.qualityScore : 100) / 100)}" 
                                 style="transition: stroke-dashoffset 1s ease-in-out;" />
                     </svg>
                     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <span style="font-size: 24px; font-weight: 700; color: white;">${result.qualityScore || 100}</span>
+                        <span style="font-size: 28px; font-weight: 700; color: white;">${result.qualityScore !== undefined ? result.qualityScore : 100}</span>
+                        <span style="font-size: 11px; color: ${getScoreColor(result.qualityScore)}; font-weight: 500;">
+                            ${result.qualityScore >= 90 ? 'Excellent' : result.qualityScore >= 70 ? 'Good' : 'Needs Work'}
+                        </span>
                     </div>
                 </div>
 
-                <!-- Summary Stats -->
-                <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px;">
-                        <div style="font-size: 20px; font-weight: 600; color: #f59e0b; margin-bottom: 2px;">${result.totalIssues}</div>
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.5);">Issues Found</div>
+                <!-- Stats (Right) -->
+                <div style="flex: 1; display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    <div style="display: flex; flex-direction: column; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                             <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Total Issues</span>
+                             <span class="material-symbols-outlined" style="font-size: 16px; color: #f59e0b;">warning</span>
+                        </div>
+                        <span style="font-size: 20px; font-weight: 600; color: #f59e0b; margin-top: 4px;">${result.totalIssues}</span>
                     </div>
-                    <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px;">
-                         <div style="font-size: 20px; font-weight: 600; color: #a855f7; margin-bottom: 2px;">${result.totalNodes}</div>
-                         <div style="font-size: 11px; color: rgba(255,255,255,0.5);">Scanned Nodes</div>
+                    <div style="display: flex; flex-direction: column; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                             <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Scanned Nodes</span>
+                             <span class="material-symbols-outlined" style="font-size: 16px; color: #a855f7;">view_in_ar</span>
+                        </div>
+                         <span style="font-size: 20px; font-weight: 600; color: #a855f7; margin-top: 4px;">${result.totalNodes}</span>
                     </div>
                 </div>
             </div>
-          </div>
-                <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase;">Issues</div>
-              </div>
+
+            <!-- Detailed Breakdown (Collapsible) -->
+            ${result.subScores ? `
+            <div id="quality-breakdown-content" style="display: none; margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; animation: fadeIn 0.3s ease;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    ${(() => {
+                        const renderRow = (label, score, weight, description) => {
+                             const color = getScoreColor(score);
+                             return `
+                                <div title="${description}" style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; cursor: help;">
+                                    <div style="flex: 1;">
+                                        <div style="color: rgba(255,255,255,0.9); margin-bottom: 2px;">${label}</div>
+                                        <div style="color: rgba(255,255,255,0.4); font-size: 10px;">${weight} Weight</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight: 600; color: ${color}; font-size: 13px;">${score}%</div>
+                                        <div style="width: 60px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 4px; margin-left: auto;">
+                                            <div style="width: ${score}%; height: 100%; background: ${color}; border-radius: 2px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                             `;
+                        };
+                        return `
+                            ${renderRow('Token Coverage', result.subScores.tokenCoverage, '35%', 'Percentage of styling properties using variables instead of hardcoded values.')}
+                            ${renderRow('Tailwind Readiness', result.subScores.tailwindReadiness, '20%', 'Variable names following kebab-case convention for easy Tailwind CSS export.')}
+                            ${renderRow('Component Hygiene', result.subScores.componentHygiene, '15%', 'Usage of reusable Components and Instances versus raw Frames.')}
+                            ${renderRow('Variable Hygiene', result.subScores.variableHygiene, '15%', 'Organization of variables into logical groups using slashes (e.g. color/primary).')}
+                        `;
+                        // Removed Layout Best Practices as requested
+                    })()}
+                </div>
             </div>
+            ` : ''}
+          </div>
+
+          <!-- Token Coverage Header -->
+          <div class="tab-header" style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
+               <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">fact_check</span>
+                Token Coverage
+              </h2>
+            </div>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
+              Identify elements using hard-coded values instead of design tokens.
+            </p>
           </div>
         `;
 
@@ -4175,35 +4386,40 @@ window.toggleComponent = (id) => {
                badgesHtml += `<span class="match-badge match-badge-near">${nearMatches.length} Near</span>`;
             }
 
-            let cardHtml = `
-              <div id="${issueId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; min-height: auto; padding: 0;">
+              let cardHtml = `
+              <div id="${issueId}-card" class="quality-issue-card" style="margin-bottom: 4px; display: block; min-height: auto; padding: 0;">
                 <!-- Accordion Header -->
-                <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
-                  <div style="flex: 1;">
-                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; min-height: 48px;">
+                  <div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">
+                    <!-- Property Name -->
+                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; white-space: nowrap;">
                       ${issue.property}
-                      ${badgesHtml}
                     </div>
-                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+
+                    <!-- Value (Inline) -->
+                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${SecurityUtils.escapeHTML(issue.value)}
                         ${(function() {
                             const val = issue.value;
                             // Basic check for Hex, RGB, RGBA
                             const isColor = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(val);
                             if (isColor) {
-                                return `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${val}; border: 1px solid rgba(255,255,255,0.2);"></div>`;
+                                return `<div style="width: 16px; height: 16px; border-radius: 4px; background: ${val}; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-left: 6px;"></div>`;
                             }
                             return '';
                         })()}
-                        ${SecurityUtils.escapeHTML(issue.value)}
                     </div>
+
+                    <!-- Badges (Toggleable via CSS) -->
+                    ${badgesHtml ? `<div class="match-badges-container" style="display: flex; gap: 4px; margin-left: 4px;">${badgesHtml}</div>` : ''}
                   </div>
                   
                   <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="display: flex; align-items: center; gap: 4px; opacity: 0.7;">
+                    <div style="display: flex; align-items: center; gap: 4px; opacity: 0.5;">
                         <span class="material-symbols-outlined" style="font-size: 14px;">layers</span>
-                        <span style="font-size: 12px; font-weight: 500;">${issue.totalNodes || issue.count}</span>
+                        <span style="font-size: 11px; font-weight: 500;">${issue.totalNodes || issue.count}</span>
                     </div>
-                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 20px;">chevron_right</span>
+                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 18px; opacity: 0.7;">chevron_right</span>
                   </div>
                 </div>
 
@@ -4250,6 +4466,7 @@ window.toggleComponent = (id) => {
                       id="${issueId}-apply-btn" 
                       class="token-fix-apply-btn" 
                       onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
+                      data-original-onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
                       style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
                       disabled
                     >
@@ -4278,51 +4495,52 @@ window.toggleComponent = (id) => {
                   <div class="quality-nodes-list">
             `;
 
-            // Nodes list logic (same as before)
-            const nodeGroups = {};
+            // Nodes list logic - Group by Component/Frame
+            const componentGroups = {};
             issue.nodeNames.forEach((nodeName, idx) => {
-              const frameName = issue.nodeFrames ? issue.nodeFrames[idx] : 'Unknown';
-              if (!nodeGroups[nodeName]) {
-                nodeGroups[nodeName] = { count: 0, ids: [], name: nodeName, frames: [] };
+              const frameName = issue.nodeFrames ? issue.nodeFrames[idx] : 'Unknown Frame';
+              if (!componentGroups[frameName]) {
+                componentGroups[frameName] = { count: 0, ids: [], frame: frameName, instances: [] };
               }
-              nodeGroups[nodeName].count++;
-              nodeGroups[nodeName].ids.push(issue.nodeIds[idx]);
-              nodeGroups[nodeName].frames.push(frameName);
+              componentGroups[frameName].count++;
+              componentGroups[frameName].ids.push(issue.nodeIds[idx]);
+              componentGroups[frameName].instances.push({
+                id: issue.nodeIds[idx],
+                name: nodeName
+              });
             });
 
-            Object.values(nodeGroups).forEach((data, groupIdx) => {
-              const groupId = `node-group-${category}-${realIdx}-${groupIdx}`;
-              const hasMultiple = data.count > 1;
-              const headerFrameInfo = !hasMultiple ? `<span style="opacity: 0.5; font-weight: normal; margin-left: 4px; font-size: 10px;">in ${data.frames[0]}</span>` : '';
-              const displayName = `${data.name} ${headerFrameInfo}`;
+            Object.values(componentGroups).forEach((data, groupIdx) => {
+              const groupId = `component-group-${category}-${realIdx}-${groupIdx}`;
+              const hasMultiple = data.count > 0; // Always show header for consistency, or check > 1 if desired.
               
+              // Determine icon based on name (approximate check)
+              const isComponent = data.frame.includes('Component') || data.frame === 'Unknown Frame';
+              const icon = isComponent ? 'grid_view' : 'frame';
+
               cardHtml += `
                 <div class="quality-node-item" data-issue-id="${issueId}">
-                  <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''} style="display: flex; align-items: center; padding: 4px 0;">
+                  <div class="node-header" onclick="toggleQualityNodeGroup('${groupId}')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
                     <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
-                    <span class="material-symbols-outlined node-icon" style="font-size: 16px; margin-right: 8px; opacity: 0.7;">layers</span>
-                    <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}" style="flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${displayName}</span>
-                    ${hasMultiple ? `
-                      <span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px;">${data.count}</span>
-                      <button class="nav-icon" style="width: 24px; height: 24px; border: none;" id="${groupId}-toggle">
-                         <span class="material-symbols-outlined" style="font-size: 16px;">expand_more</span>
-                      </button>
-                    ` : `
-                      <button class="node-focus-btn" onclick="event.stopPropagation(); window.focusOnNode('${data.ids[0]}')" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">target</span>
-                      </button>
-                    `}
+                    <span class="material-symbols-outlined node-icon" style="font-size: 16px; margin-right: 8px; opacity: 0.7; color: #a78bfa;">${icon}</span>
+                    <span class="node-name" title="${SecurityUtils.escapeHTML(data.frame)}" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">${data.frame}</span>
+                    <span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);">${data.count}</span>
+                    <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4);" id="${groupId}-toggle">
+                         <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
+                    </button>
                   </div>
-                  ${hasMultiple ? `
-                    <div id="${groupId}" class="node-instances" style="display: none; padding-left: 24px; margin-top: 4px;">
-                      ${data.ids.map((id, i) => `
-                        <div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 2px 0;">
-                          <span class="instance-label" style="font-size: 11px; color: rgba(255,255,255,0.6);">Instance ${i + 1} <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span></span>
-                          <button class="node-focus-btn" onclick="window.focusOnNode('${id}')"><span class="material-symbols-outlined">zoom_in</span></button>
+                  
+                  <div id="${groupId}" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">
+                      ${data.instances.map((inst, i) => `
+                        <div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0;">
+                          <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                              <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>
+                              <span class="instance-label" title="${SecurityUtils.escapeHTML(inst.name)}" style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${SecurityUtils.escapeHTML(inst.name)}</span>
+                          </div>
+                          <button class="node-focus-btn" onclick="window.focusOnNode('${inst.id}')" style="opacity: 0.5; hover: opacity: 1;"><span class="material-symbols-outlined" style="font-size: 16px;">target</span></button>
                         </div>
                       `).join('')}
-                    </div>
-                  ` : ''}
+                  </div>
                 </div>
               `;
             });
@@ -4398,7 +4616,71 @@ window.toggleComponent = (id) => {
             setupIssueListeners(issueId);
           });
         });
+
+        // Restore state if we have a pending issue fix
+        if (window.pendingFixIssueId) {
+            console.log('Restoring view for pending issue:', window.pendingFixIssueId);
+            setTimeout(() => {
+                const pendingId = window.pendingFixIssueId;
+                const element = document.querySelector(`[data-issue-id="${pendingId}"]`);
+                
+                if (element) {
+                    // 1. Expand all parent accordions/groups
+                    let parent = element.parentElement;
+                    while (parent) {
+                        // Expand Component Groups
+                        if (parent.classList.contains('component-group-content')) {
+                            parent.classList.add('expanded');
+                            const groupHeader = parent.previousElementSibling;
+                            if (groupHeader && groupHeader.classList.contains('component-group-header')) {
+                                groupHeader.classList.add('expanded');
+                            }
+                        }
+                        // Expand Collection Content
+                        if (parent.classList.contains('collection-content')) {
+                            parent.classList.remove('collapsed');
+                            const collectionHeader = parent.previousElementSibling;
+                            if (collectionHeader && collectionHeader.classList.contains('collection-header')) {
+                                collectionHeader.classList.remove('collapsed');
+                                // Fix icon rotation
+                                const icon = collectionHeader.querySelector('.collection-toggle-icon');
+                                if (icon) icon.style.transform = 'rotate(0deg)';
+                            }
+                        }
+                        
+                        parent = parent.parentElement;
+                        if (parent === document.body) break;
+                    }
+                    
+                    // 2. Scroll into view
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // 3. Highlight briefly
+                    element.style.transition = 'background-color 0.5s ease';
+                    const originalBg = element.style.backgroundColor;
+                    element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
+                    setTimeout(() => {
+                        element.style.backgroundColor = originalBg;
+                    }, 1500);
+                }
+                
+                // Clear state
+                window.pendingFixIssueId = null;
+            }, 300); // Small delay to ensure render is complete
+        }
       }
+
+      // Helper to toggle Quality Breakdown visibility
+      window.toggleQualityBreakdown = function() {
+        const content = document.getElementById('quality-breakdown-content');
+        const icon = document.getElementById('breakdown-toggle-icon');
+        
+        if (content && icon) {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+      };
 
       // Helper to setup listeners
       function setupIssueListeners(issueId) {
@@ -4495,9 +4777,13 @@ window.toggleComponent = (id) => {
         }
 
         // Try to find value display
-        const valueDisplay = card?.querySelector('.issue-value-display')?.textContent || 
+        let valueDisplay = card?.querySelector('.issue-value-display')?.textContent || 
                              card?.querySelector('div[style*="SF Mono"]')?.textContent ||
                              card?.querySelector('div[style*="monospace"]')?.textContent;
+        
+        if (valueDisplay) {
+            valueDisplay = valueDisplay.trim();
+        }
         
         console.log('Found value to create:', valueDisplay);
         
@@ -4638,6 +4924,11 @@ window.toggleComponent = (id) => {
           if (modal) {
               modal.style.display = 'none';
               document.body.classList.remove('modal-open');
+              // Only clear pending state if we are NOT submitting (submit sets it again/keeps it)
+              // Actually, submit calls close, so we should be careful.
+              // Let's NOT clear it here. Let the render logic consume and clear it.
+              // Or clear it if we are cancelling? 
+              // If user closes modal manually, we don't expect a reload, so it doesn't matter.
           }
           
           const issueId = document.getElementById('create-var-issue-id').value;
@@ -4651,7 +4942,7 @@ window.toggleComponent = (id) => {
 
       window.submitCreateVariable = function() {
           const nameInput = document.getElementById('create-var-name').value.trim();
-          const value = document.getElementById('create-var-value-display').textContent;
+          const value = document.getElementById('create-var-value-display').textContent.trim();
           const issueId = document.getElementById('create-var-issue-id').value;
           
           // Collection Logic
@@ -4689,6 +4980,10 @@ window.toggleComponent = (id) => {
           }
           
           console.log('Creating variable:', { fullVariableName, value, collectionName });
+          
+          // Set pending state to persist expansion after reload
+          window.pendingFixIssueId = issueId;
+          
           
           // Send to backend
           parent.postMessage({
@@ -9291,19 +9586,70 @@ function updateApplyButtonState(issueId) {
   // Check if any occurrence is selected
   const hasSelection = Array.from(occurrenceCheckboxes).some(cb => cb.checked);
   
-  // Check if a variable is selected
-  const hasVariable = varSelect && varSelect.value !== '' && varSelect.value !== 'create-new';
+  // Check if a variable is selected (including create-new)
+  const isCreateNew = varSelect && varSelect.value === 'create-new';
+  const hasVariable = varSelect && varSelect.value !== '';
   
   // Enable button only if both conditions are met
   if (hasSelection && hasVariable) {
     applyBtn.disabled = false;
     applyBtn.style.opacity = '1';
     applyBtn.style.pointerEvents = 'auto';
+
+    if (isCreateNew) {
+        // Transform to "Create" button
+        applyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span> Create';
+        applyBtn.onclick = (e) => {
+            e.stopPropagation();
+            handleCreateNewVariable(issueId);
+        };
+        applyBtn.title = "Create a new variable for this value";
+        // Optional: Different style for create button
+        applyBtn.style.background = 'linear-gradient(135deg, #059669 0%, #10b981 100%)'; 
+    } else {
+        // Reset to "Apply" button
+        applyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
+        // Remove direct onclick to revert to inline HTML attribute or re-attach default
+        // Since we overwrote it, we should explicitly set it back to the apply function
+        // We need to retrieve property and category from the issue card context or pass them in?
+        // Wait, issueId works for lookup. But applyTokenToSelection needs property/category.
+        // We can't easily get them here directly without DOM traversal or scope.
+        // BETTER: Use data attributes on the button to store property/category!
+        
+        // Let's assume the button has data attributes or we can use the original logic.
+        // Check renderIssueCard:
+        // onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
+        // This is set in the HTML string. If we overwrite onclick, it's gone.
+        // So for "Create", we overwrite. For "Apply", we need to restore it.
+        // But `updateApplyButtonState` doesn't know property/category.
+        
+        // Alternative: Don't change onclick for Apply, only for Create.
+        // But we need to *revert* it if user switches back from Create to a variable.
+        // We can store the original onclick in a data attribute?
+        
+        if (applyBtn.dataset.originalOnclick) {
+            applyBtn.setAttribute('onclick', applyBtn.dataset.originalOnclick);
+        } else {
+             // Fallback: This might break if we don't store it.
+             // Let's modify renderIssueCard to store these in data attributes first.
+             // Or better: Checking this function, we can just use the global function call string if we can reconstruct it?
+             // No.
+             
+             // Quick Fix: modifying this function assuming we can access the data-original-onclick.
+             // We need to set data-original-onclick when rendering!
+        }
+        
+        applyBtn.title = "Apply selected variable";
+        applyBtn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+    }
+
   } else {
-    // If create-new is selected, it should be treated as "not ready to apply" until created
+    // Disabled state
     applyBtn.disabled = true;
     applyBtn.style.opacity = '0.5';
     applyBtn.style.pointerEvents = 'none';
+    applyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
+    applyBtn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
   }
   
   // Update select-all checkbox state
