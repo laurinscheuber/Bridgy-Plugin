@@ -228,7 +228,7 @@ export class GitController {
       });
     } catch (error: any) {
       // Send specific error information to UI
-      let errorMessage = "Unknown error occurred";
+      let errorMessage: string;
       let errorType = "unknown";
 
       if (error.name === 'GitLabAuthError') {
