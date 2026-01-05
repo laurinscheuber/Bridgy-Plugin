@@ -1,5 +1,4 @@
 // Navigation.ts
-import { MessageBus } from './MessageBus';
 
 export class Navigation {
   static init() {
