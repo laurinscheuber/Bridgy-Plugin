@@ -1476,21 +1476,16 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
 
           // 3. Create variable
-          const colId = collection.id;
-          console.log(`DEBUG: Executing createVariable('${name}', '${colId}', '${resolvedType}')`);
+          // 3. Create variable
+          console.log(`DEBUG: Executing createVariable('${name}', collection object, '${resolvedType}')`);
           
           let variable;
           try {
-             variable = figma.variables.createVariable(name, colId, resolvedType);
+             // Pass collection object directly as per best practice and to avoid "incremental mode" errors
+             variable = figma.variables.createVariable(name, collection, resolvedType);
           } catch (err: any) {
-             console.warn("Standard createVariable failed:", err.message);
-             if (err.message && err.message.includes("collection node")) {
-                 console.log("DEBUG: Retrying with collection object...");
-                 // Fallback: pass collection object instead of ID (as suggested by error)
-                 variable = (figma.variables as any).createVariable(name, collection, resolvedType);
-             } else {
-                 throw err;
-             }
+             console.error("createVariable failed:", err);
+             throw err;
           }
           
           if (!variable) throw new Error("Variable creation returned undefined");
