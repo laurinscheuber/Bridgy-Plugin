@@ -1943,7 +1943,6 @@
 
       /* ===== MODERN COMPONENT LISTS ===== */
       .component-list {
-        max-height: 700px;
         overflow-y: auto;
       }
       
@@ -2112,7 +2111,8 @@
       .badge,
       .subgroup-stats,
       .component-meta .badge,
-      .quality-issue-count {
+      .quality-issue-count,
+      .component-count-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -2128,6 +2128,18 @@
         line-height: 1;
       }
       
+      .component-stats-badges {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .component-count-badge.variant-badge {
+        background: var(--glass-white-10);
+        color: var(--glass-white-70);
+        border: 1px solid var(--glass-white-20);
+      }
+
       .badge-component-set {
         background: var(--glass-purple-heavy);
         color: var(--neutral-0);
@@ -5400,3 +5412,67 @@ input[type="checkbox"]:indeterminate {
   color: var(--warning-500);
   border: 1px solid rgba(234, 179, 8, 0.2);
 }
+
+/* Stats Tab Styles */
+.stats-summary {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--glass-white-light);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--glass-white-10);
+}
+
+.stat-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  background: var(--glass-purple-10);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-purple-20);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--purple-light);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--glass-white-60);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.component-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.component-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.component-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.component-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
