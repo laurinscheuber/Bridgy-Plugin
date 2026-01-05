@@ -7181,11 +7181,52 @@ ${Object.keys(cssProperties).map((property) => {
               const penalty = Math.round(issueDensity * 100);
               tokenCoverageScore = Math.max(0, 100 - penalty);
             }
-            const tailwindRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
+            const TAILWIND_PREFIXES = [
+              "color",
+              // Color utilities (bg-red-500, text-sky-300)
+              "font",
+              // Font family utilities (font-sans)
+              "text",
+              // Font size utilities (text-xl)
+              "font-weight",
+              // Font weight utilities (font-bold)
+              "tracking",
+              // Letter spacing utilities (tracking-wide)
+              "leading",
+              // Line height utilities (leading-tight)
+              "breakpoint",
+              // Responsive breakpoint variants (sm:*)
+              "container",
+              // Container query variants (@sm:*, max-w-md)
+              "spacing",
+              // Spacing and sizing utilities (px-4, max-h-16)
+              "radius",
+              // Border radius utilities (rounded-sm)
+              "shadow",
+              // Box shadow utilities (shadow-md)
+              "inset-shadow",
+              // Inset box shadow utilities (inset-shadow-xs)
+              "drop-shadow",
+              // Drop shadow filter utilities (drop-shadow-md)
+              "blur",
+              // Blur filter utilities (blur-md)
+              "perspective",
+              // Perspective utilities (perspective-near)
+              "aspect",
+              // Aspect ratio utilities (aspect-video)
+              "ease",
+              // Transition timing function utilities (ease-out)
+              "animate"
+              // Animation utilities (animate-spin)
+            ];
+            const isTailwindCompatible = (name) => {
+              const normalizedName = name.replace(/\//g, "-");
+              return TAILWIND_PREFIXES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
+            };
             let validTailwindNames = 0;
             let totalVarsToCheck = allVariables.length;
             if (totalVarsToCheck > 0) {
-              console.log(`[Coverage Debug] Checking Tailwind regex for ${allVariables.length} vars`);
+              console.log(`[Coverage Debug] Checking Tailwind compatibility for ${allVariables.length} vars`);
               allVariables.forEach((v, idx) => {
                 if (!v) {
                   console.warn(`[Coverage Debug] v is null at ${idx}`);
@@ -7199,7 +7240,7 @@ ${Object.keys(cssProperties).map((property) => {
                   console.warn(`[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`);
                   return;
                 }
-                if (v.variable && v.variable.name && tailwindRegex.test(v.variable.name)) {
+                if (v.variable && v.variable.name && isTailwindCompatible(v.variable.name)) {
                   validTailwindNames++;
                 }
               });
@@ -10034,6 +10075,49 @@ ${Object.keys(cssProperties).map((property) => {
                 figma.ui.postMessage({
                   type: "delete-error",
                   error: deleteError.message || "Failed to delete variable"
+                });
+              }
+              break;
+            case "delete-style":
+              try {
+                const deleteStyleMsg = msg;
+                if (!deleteStyleMsg.styleId || !deleteStyleMsg.styleType) {
+                  throw new Error("Style ID and type are required for deletion");
+                }
+                let styleToDelete = null;
+                const styleType = deleteStyleMsg.styleType;
+                const styleId = deleteStyleMsg.styleId;
+                if (styleType === "paint") {
+                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
+                } else if (styleType === "text") {
+                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
+                } else if (styleType === "effect") {
+                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
+                } else if (styleType === "grid") {
+                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
+                }
+                if (!styleToDelete) {
+                  throw new Error("Style not found");
+                }
+                const styleName = styleToDelete.name;
+                styleToDelete.remove();
+                console.log(`Successfully deleted style: ${styleName} (${styleId})`);
+                figma.ui.postMessage({
+                  type: "style-deleted",
+                  styleId,
+                  styleName
+                });
+                const refreshedData = yield collectDocumentData();
+                figma.ui.postMessage({
+                  type: "data-refreshed",
+                  variables: refreshedData.variables,
+                  components: refreshedData.components
+                });
+              } catch (deleteError) {
+                console.error("Error deleting style:", deleteError);
+                figma.ui.postMessage({
+                  type: "delete-error",
+                  error: deleteError.message || "Failed to delete style"
                 });
               }
               break;
