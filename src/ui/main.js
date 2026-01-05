@@ -4161,7 +4161,7 @@ window.toggleComponent = (id) => {
                         <span class="material-symbols-outlined" style="font-size: 14px;">layers</span>
                         <span style="font-size: 12px; font-weight: 500;">${issue.totalNodes || issue.count}</span>
                     </div>
-                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 20px;">expand_more</span>
+                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 20px;">chevron_right</span>
                   </div>
                 </div>
 

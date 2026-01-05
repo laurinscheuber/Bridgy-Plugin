@@ -5001,6 +5001,36 @@
   height: 32px;
 }
 
+/* Accordion for Quality Issues */
+.quality-issue-header {
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-radius: 6px;
+}
+
+.quality-issue-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.quality-issue-chevron {
+  transition: transform 0.2s ease;
+  color: rgba(255, 255, 255, 0.5);
+  /* Default: points right (chevron_right) */
+  transform: rotate(0deg); 
+}
+
+.quality-issue-card.expanded .quality-issue-chevron {
+  /* Expanded: points down */
+  transform: rotate(90deg);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.quality-issue-card.expanded .quality-issue-header {
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
 .node-icon {
   font-size: 16px;
   color: var(--glass-white-40);
