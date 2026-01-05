@@ -847,8 +847,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             // Helper to map variant IDs to their Set ID
             const variantToSetId = new Map<string, string>();
 
-            // 1. Scan Definitions
-            const localNodes = figma.currentPage.findAll(n => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
+            // 1. Scan Definitions - scan all pages in the file
+            const localNodes = figma.root.findAll(n => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
             
             for (const node of localNodes) {
                 if (node.type === "COMPONENT_SET") {
@@ -878,8 +878,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 }
             }
 
-            // 2. Scan Instances
-            const allInstances = figma.currentPage.findAll(n => n.type === "INSTANCE");
+            // 2. Scan Instances - scan all pages in the file
+            const allInstances = figma.root.findAll(n => n.type === "INSTANCE");
             
             // 3. Match Instances to Definitions
             for (const instance of allInstances) {

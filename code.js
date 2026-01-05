@@ -9662,7 +9662,7 @@ ${Object.keys(cssProperties).map((property) => {
                 const usageMap = {};
                 const localDefinitions = /* @__PURE__ */ new Map();
                 const variantToSetId = /* @__PURE__ */ new Map();
-                const localNodes = figma.currentPage.findAll((n) => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
+                const localNodes = figma.root.findAll((n) => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
                 for (const node of localNodes) {
                   if (node.type === "COMPONENT_SET") {
                     localDefinitions.set(node.id, {
@@ -9687,7 +9687,7 @@ ${Object.keys(cssProperties).map((property) => {
                     }
                   }
                 }
-                const allInstances = figma.currentPage.findAll((n) => n.type === "INSTANCE");
+                const allInstances = figma.root.findAll((n) => n.type === "INSTANCE");
                 for (const instance of allInstances) {
                   const mainId = instance.mainComponentId;
                   if (!mainId)
