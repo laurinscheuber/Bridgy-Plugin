@@ -312,39 +312,75 @@ async function applyVariableToNode(
 
     const figmaProperty = propertyMap[property];
     if (!figmaProperty) {
-      console.warn(`Unknown property: ${property}`);
+      console.warn(`[BRIDGY] Unknown property: ${property}`);
       return false;
     }
 
+    console.log(`[BRIDGY] Apply logic for ${property} on ${node.name} (ID: ${node.id})`);
+    console.log(`[BRIDGY] Variable: ${variable.name} (Type: ${variable.resolvedType}), Figma Prop: ${figmaProperty}`);
+
     // Check if node supports this property
     if (!(figmaProperty in node)) {
-      console.warn(`Node does not support property: ${figmaProperty}`);
+      console.warn(`[BRIDGY] Node ${node.name} (${node.type}) does not support property: ${figmaProperty}`);
       return false;
     }
 
     // Special handling for consolidated properties (Padding, Corner Radius)
+    if (property === 'Padding' || property === 'Padding Left' || property === 'Padding Right' || property === 'Padding Top' || property === 'Padding Bottom') {
+       // Note: The map redirects specific paddings to 'paddingLeft' etc, but 'Padding' hits this block logic if we check property name
+       // Actually, we should check checks based on the *category* or specific need. 
+       // Existing logic uses `property === 'Padding'`. But the map handles 'Padding Left' -> 'paddingLeft'.
+       // If user applies 'Padding Left', it hits the 'else' block (default), which is correct.
+       // If user applies 'Padding' (all sides), it hits this block.
+       
+       if (property === 'Padding') {
+          console.log(`[BRIDGY] Applying Consolidated Padding`);
+          const paddingNode = node as any;
+          if ('paddingLeft' in paddingNode && typeof paddingNode.setBoundVariable === 'function') {
+            try {
+                paddingNode.setBoundVariable('paddingLeft', variable);
+                paddingNode.setBoundVariable('paddingTop', variable);
+                paddingNode.setBoundVariable('paddingRight', variable);
+                paddingNode.setBoundVariable('paddingBottom', variable);
+                console.log(`[BRIDGY] Set padding variables success`);
+            } catch (e) {
+                console.error(`[BRIDGY] Failed to set padding variable:`, e);
+            }
+          } else {
+             console.warn(`[BRIDGY] Node missing paddingLeft or setBoundVariable`);
+          }
+       } else {
+           // Specific padding side, fall through to default
+           // But wait, the original code had:
+           // if (property === 'Padding') { ... } else if (property === 'Corner Radius') { ... } 
+           // So specific paddings fell through to default. Correct.
+           
+           // Replicating fall-through for specific sides by NOT putting them in this big if-block unless we want special logic.
+           // The replacement content must validly replace the target.
+           // I will simply stick to the original structure but add logs.
+       }
+    } 
+    
     if (property === 'Padding') {
-      // Apply to all padding properties
-      // Using 'as any' here is safe because we check for property existence first
       const paddingNode = node as any;
       if ('paddingLeft' in paddingNode && typeof paddingNode.setBoundVariable === 'function') {
         paddingNode.setBoundVariable('paddingLeft', variable);
         paddingNode.setBoundVariable('paddingTop', variable);
         paddingNode.setBoundVariable('paddingRight', variable);
         paddingNode.setBoundVariable('paddingBottom', variable);
+        console.log(`[BRIDGY] Applied Padding to all sides`);
       }
     } else if (property === 'Corner Radius') {
-      // Apply to all corner radius properties
-      // Using 'as any' here is safe because we check for property existence first
       const radiusNode = node as any;
       if ('topLeftRadius' in radiusNode && typeof radiusNode.setBoundVariable === 'function') {
         radiusNode.setBoundVariable('topLeftRadius', variable);
         radiusNode.setBoundVariable('topRightRadius', variable);
         radiusNode.setBoundVariable('bottomLeftRadius', variable);
         radiusNode.setBoundVariable('bottomRightRadius', variable);
+        console.log(`[BRIDGY] Applied Corner Radius to all corners`);
       }
     } else if (property === 'Fill Color') {
-      // Special handling for fills - must bind to paint object, not fills array
+      console.log(`[BRIDGY] Applying Fill Color`);
       const fillNode = node as any;
       if ('fills' in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
         const fills = [...fillNode.fills];
@@ -356,13 +392,19 @@ async function applyVariableToNode(
           fills[solidFillIndex] = { ...targetPaint, boundVariables: nextBound };
           try {
             fillNode.fills = fills;
+            console.log(`[BRIDGY] Set fills success`);
           } catch (err) {
-            console.warn(`Failed to set fills on node ${fillNode.id}:`, err);
+            console.warn(`[BRIDGY] Failed to set fills on node ${fillNode.id}:`, err);
+            throw err; 
           }
+        } else {
+             console.warn(`[BRIDGY] No solid fill found to apply color`);
         }
+      } else {
+         console.warn(`[BRIDGY] Node has no fills`);
       }
     } else if (property === 'Stroke Color') {
-      // Special handling for strokes - must bind to paint object, not strokes array
+      console.log(`[BRIDGY] Applying Stroke Color`);
       const strokeNode = node as any;
       if ('strokes' in strokeNode && Array.isArray(strokeNode.strokes) && strokeNode.strokes.length > 0) {
         const strokes = [...strokeNode.strokes];
@@ -374,23 +416,63 @@ async function applyVariableToNode(
           strokes[solidStrokeIndex] = { ...targetPaint, boundVariables: nextBound };
           try {
             strokeNode.strokes = strokes;
+            console.log(`[BRIDGY] Set strokes success`);
           } catch (err) {
-            console.warn(`Failed to set strokes on node ${strokeNode.id}:`, err);
+            console.warn(`[BRIDGY] Failed to set strokes on node ${strokeNode.id}:`, err);
+            throw err;
           }
+        } else {
+            console.warn(`[BRIDGY] No solid stroke found to apply color`);
         }
       }
     } else {
       // Apply to single property
-      // Using 'as any' here is safe because we checked property existence above
       const bindableNode = node as any;
       if (typeof bindableNode.setBoundVariable === 'function') {
+        
+        // Fix for Width/Height binding issues: 
+        if (figmaProperty === 'width' && 'layoutSizingHorizontal' in bindableNode) {
+          if (bindableNode.layoutSizingHorizontal !== 'FIXED') {
+            console.log(`Switching ${node.name} layoutSizingHorizontal from ${bindableNode.layoutSizingHorizontal} to FIXED for width binding`);
+            try {
+              bindableNode.layoutSizingHorizontal = 'FIXED';
+            } catch (e) {
+              console.warn(`Could not set layoutSizingHorizontal to FIXED:`, e);
+            }
+          }
+        }
+        
+        if (figmaProperty === 'height' && 'layoutSizingVertical' in bindableNode) {
+          if (bindableNode.layoutSizingVertical !== 'FIXED') {
+            console.log(`Switching ${node.name} layoutSizingVertical from ${bindableNode.layoutSizingVertical} to FIXED for height binding`);
+            try {
+              bindableNode.layoutSizingVertical = 'FIXED';
+            } catch (e) {
+               console.warn(`Could not set layoutSizingVertical to FIXED:`, e);
+            }
+          }
+        }
+
+        console.log(`[BRIDGY] calling setBoundVariable(${figmaProperty}, ${variable.name})`);
         bindableNode.setBoundVariable(figmaProperty, variable);
+        
+        // VERIFY: Check if it actually stuck
+        const check = bindableNode.boundVariables && bindableNode.boundVariables[figmaProperty];
+        if (!check) {
+           console.warn(`[BRIDGY] WARNING: setBoundVariable for ${figmaProperty} appeared to succeed but property is not in boundVariables immediately after!`);
+           console.log(`[BRIDGY] Node: ${node.name}, Type: ${node.type}, Property: ${figmaProperty}, Bound: ${JSON.stringify(bindableNode.boundVariables)}`);
+        } else {
+           console.log(`[BRIDGY] SUCCESS: Verified binding for ${figmaProperty}`);
+        }
+      } else {
+        console.warn(`[BRIDGY] Node ${node.name} has property ${figmaProperty} but NO setBoundVariable method`);
+        return false;
       }
     }
 
     return true;
-  } catch (error) {
-    console.error('Error applying variable to node:', error);
+  } catch (error: any) {
+    console.error(`Error applying variable to node ${node.name} (${node.id}):`, error);
     return false;
   }
 }
@@ -699,6 +781,119 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
         
+      case "get-component-usage":
+        try {
+            console.log("Counting component usage...");
+            const usageMap: Record<string, number> = {};
+            
+            // STRATEGY: Local Components Only
+            // 1. Find all local component definitions (Component and ComponentSet)
+            // 2. Find all instances
+            // 3. Map instances to local definitions synchronously
+            
+            const localDefinitions = new Map<string, {
+                node: ComponentNode | ComponentSetNode,
+                name: string,
+                isSet: boolean,
+                instances: any[]
+            }>();
+
+            // Helper to map variant IDs to their Set ID
+            const variantToSetId = new Map<string, string>();
+
+            // 1. Scan Definitions
+            const localNodes = figma.currentPage.findAll(n => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
+            
+            for (const node of localNodes) {
+                if (node.type === "COMPONENT_SET") {
+                    localDefinitions.set(node.id, {
+                        node: node as ComponentSetNode,
+                        name: node.name,
+                        isSet: true,
+                        instances: []
+                    });
+                    
+                    // Map children ID to Set ID
+                    for (const child of (node as ComponentSetNode).children) {
+                        if (child.type === "COMPONENT") {
+                            variantToSetId.set(child.id, node.id);
+                        }
+                    }
+                } else if (node.type === "COMPONENT") {
+                    // Only add standalone components (if they are not part of a set)
+                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
+                        localDefinitions.set(node.id, {
+                            node: node as ComponentNode,
+                            name: node.name,
+                            isSet: false,
+                            instances: []
+                        });
+                    }
+                }
+            }
+
+            // 2. Scan Instances
+            const allInstances = figma.currentPage.findAll(n => n.type === "INSTANCE");
+            
+            // 3. Match Instances to Definitions
+            for (const instance of allInstances) {
+                // mainComponentId is available synchronously at runtime
+                // Cast to any because typings might be missing it on InstanceNode depending on version
+                const mainId = (instance as any).mainComponentId;
+                
+                if (!mainId) continue;
+
+                // Determine target ID (Handle Variants)
+                let targetId = mainId;
+                if (variantToSetId.has(mainId)) {
+                    targetId = variantToSetId.get(mainId);
+                }
+
+                // Check if it's a known local component
+                if (localDefinitions.has(targetId)) {
+                    const def = localDefinitions.get(targetId);
+                    
+                    // Get parent name for context
+                    let parentName = "Page";
+                    if (instance.parent) {
+                        parentName = instance.parent.name;
+                    }
+
+                    def.instances.push({
+                        id: instance.id,
+                        name: instance.name, // Instance name might differ from component name
+                        parentName: parentName
+                    });
+                }
+            }
+
+            // 4. Format for UI
+            const statsData = Array.from(localDefinitions.values())
+                .map(def => ({
+                    id: def.node.id,
+                    name: def.name,
+                    type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
+                    count: def.instances.length,
+                    instances: def.instances
+                }))
+                .sort((a, b) => b.count - a.count); // Sort by usage count descending
+
+            console.log(`Stats generated. Found ${statsData.length} definitions.`);
+
+            figma.ui.postMessage({
+                type: 'component-stats-data',
+                stats: statsData
+            });
+
+        } catch (err) {
+            console.error("Error generating stats:", err);
+            figma.ui.postMessage({
+                type: 'component-stats-error',
+                error: (err as Error).message
+            });
+        }
+        break;
+
       case "start-oauth-flow":
         try {
           const { OAuthService } = await import("../services/oauthService");
@@ -1220,6 +1415,140 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+
+      case "create-variable":
+        try {
+          const { name, value, collectionName } = msg as any;
+          if (!name || !value) {
+            throw new Error("Name and value are required");
+          }
+
+          console.log(`Creating variable: ${name} = ${value} in ${collectionName || 'Primitives'}`);
+
+          // 1. Parse value
+          let resolvedValue: any = null;
+          let resolvedType: VariableResolvedDataType = 'FLOAT';
+
+          // Try parsing Color
+          const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (colorMatch) {
+            resolvedType = 'COLOR';
+            resolvedValue = {
+              r: parseInt(colorMatch[1]) / 255,
+              g: parseInt(colorMatch[2]) / 255,
+              b: parseInt(colorMatch[3]) / 255
+            };
+          } else {
+            // Try parsing Float
+            const floatMatch = value.match(/^([\d.]+)/);
+            if (floatMatch) {
+              resolvedType = 'FLOAT';
+              resolvedValue = parseFloat(floatMatch[1]);
+            }
+          }
+
+          if (resolvedValue === null) {
+            throw new Error(`Could not parse value: ${value}`);
+          }
+
+          // 2. Find or create collection
+          const targetCollectionName = collectionName || 'Primitives';
+          console.log(`DEBUG: Finding collection '${targetCollectionName}'...`);
+          const collections = await figma.variables.getLocalVariableCollectionsAsync();
+          
+          let collection = collections.find(c => c.name === targetCollectionName);
+          
+          if (!collection) {
+            console.log(`DEBUG: Creating new collection '${targetCollectionName}'...`);
+            try {
+                collection = figma.variables.createVariableCollection(targetCollectionName);
+                console.log('DEBUG: Collection created:', collection ? collection.id : 'null');
+            } catch (colError) {
+                console.error('DEBUG: Failed to create collection:', colError);
+                throw colError;
+            }
+          } else {
+             console.log(`DEBUG: Found existing collection: ${collection.id}`);
+          }
+          
+          if (!collection || !collection.id) {
+             throw new Error("Failed to resolve valid collection");
+          }
+
+          // 3. Create variable
+          const colId = collection.id;
+          console.log(`DEBUG: Executing createVariable('${name}', '${colId}', '${resolvedType}')`);
+          
+          let variable;
+          try {
+             variable = figma.variables.createVariable(name, colId, resolvedType);
+          } catch (err: any) {
+             console.warn("Standard createVariable failed:", err.message);
+             if (err.message && err.message.includes("collection node")) {
+                 console.log("DEBUG: Retrying with collection object...");
+                 // Fallback: pass collection object instead of ID (as suggested by error)
+                 variable = (figma.variables as any).createVariable(name, collection, resolvedType);
+             } else {
+                 throw err;
+             }
+          }
+          
+          if (!variable) throw new Error("Variable creation returned undefined");
+          
+          console.log('DEBUG: Variable created successfully:', variable.id);
+          
+          // 4. Set value for default mode (or all modes?)
+          // For simplicity, set for default mode
+          const modeId = collection.defaultModeId;
+          variable.setValueForMode(modeId, resolvedValue);
+
+          // 5. Notify success and refresh
+          figma.notify(`Created variable ${variable.name}`);
+          
+          // Trigger refresh to update UI lists
+          await collectDocumentData();
+          
+          // Also re-analyze token coverage so the new variable appears as a match?
+          // The UI might want to simply apply it immediately.
+          // Since we refreshed data, the list of variables sent to UI will include it.
+          // But the token coverage UI needs to know about it.
+          // Let's re-run analyzeCurrentPage to update the "Found Matches" list?
+          // Or just let the user re-scan?
+          // Best UX: Re-scan coverage + Refresh Data.
+          
+          // Send explicit success message with new variable details
+          figma.ui.postMessage({
+            type: 'variable-created',
+            variable: {
+                id: variable.id,
+                name: variable.name,
+                key: variable.key,
+                valuesByMode: variable.valuesByMode
+            },
+            context: (msg as any).context
+          });
+
+          // Send explicit success message with new variable ID
+          figma.ui.postMessage({
+            type: "variable-created",
+            variable: {
+              id: variable.id,
+              name: variable.name,
+              collectionName: collection.name,
+              resolvedValue: value // Return the original string as resolved value for display match
+            }
+          });
+
+        } catch (createError: any) {
+          console.error("Error creating variable:", createError);
+          figma.ui.postMessage({
+            type: "create-variable-error",
+            error: createError.message
+          });
+          figma.notify(`Failed to create variable: ${createError.message}`, { error: true });
+        }
+        break;
+
       case "apply-token-to-nodes":
         try {
           const applyMsg = msg as any;
@@ -1229,6 +1558,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             throw new Error('Missing required parameters for applying token');
           }
 
+          console.log(`Applying token: ${variableId} to ${nodeIds.length} nodes (Property: ${property})`);
+
           // Get the variable
           const variable = await figma.variables.getVariableByIdAsync(variableId);
           if (!variable) {
@@ -1237,6 +1568,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           let successCount = 0;
           let failCount = 0;
+          const errors: string[] = [];
           
           // Apply variable to each node
           for (const nodeId of nodeIds) {
@@ -1245,6 +1577,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               if (!node) {
                 console.warn(`Node not found: ${nodeId}`);
                 failCount++;
+                errors.push(`Node ${nodeId}: Not found`);
                 continue;
               }
 
@@ -1252,6 +1585,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               if (node.type === 'DOCUMENT' || node.type === 'PAGE') {
                 console.warn(`Cannot apply variable to ${node.type}: ${nodeId}`);
                 failCount++;
+                errors.push(`Node ${nodeId}: Invalid type ${node.type}`);
                 continue;
               }
 
@@ -1261,19 +1595,27 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 successCount++;
               } else {
                 failCount++;
+                errors.push(`Node ${nodeId}: Apply returned false`);
               }
-            } catch (nodeError) {
+            } catch (nodeError: any) {
               console.error(`Error applying variable to node ${nodeId}:`, nodeError);
               failCount++;
+              errors.push(`Node ${nodeId}: ${nodeError.message}`);
             }
+          }
+
+          console.log(`Apply token result: ${successCount} success, ${failCount} failed`);
+          if (errors.length > 0) {
+            console.log('Sample errors:', errors.slice(0, 5));
           }
 
           // Send result back to UI
           figma.ui.postMessage({
             type: 'apply-token-result',
-            success: true,
+            success: true, // Completed attempts
             successCount,
-            failCount
+            failCount,
+            errors
           });
 
           // Show notification
