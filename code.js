@@ -9474,6 +9474,80 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
+            case "get-component-usage":
+              try {
+                console.log("Counting component usage...");
+                const usageMap = {};
+                const localDefinitions = /* @__PURE__ */ new Map();
+                const variantToSetId = /* @__PURE__ */ new Map();
+                const localNodes = figma.currentPage.findAll((n) => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
+                for (const node of localNodes) {
+                  if (node.type === "COMPONENT_SET") {
+                    localDefinitions.set(node.id, {
+                      node,
+                      name: node.name,
+                      isSet: true,
+                      instances: []
+                    });
+                    for (const child of node.children) {
+                      if (child.type === "COMPONENT") {
+                        variantToSetId.set(child.id, node.id);
+                      }
+                    }
+                  } else if (node.type === "COMPONENT") {
+                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
+                      localDefinitions.set(node.id, {
+                        node,
+                        name: node.name,
+                        isSet: false,
+                        instances: []
+                      });
+                    }
+                  }
+                }
+                const allInstances = figma.currentPage.findAll((n) => n.type === "INSTANCE");
+                for (const instance of allInstances) {
+                  const mainId = instance.mainComponentId;
+                  if (!mainId)
+                    continue;
+                  let targetId = mainId;
+                  if (variantToSetId.has(mainId)) {
+                    targetId = variantToSetId.get(mainId);
+                  }
+                  if (localDefinitions.has(targetId)) {
+                    const def = localDefinitions.get(targetId);
+                    let parentName = "Page";
+                    if (instance.parent) {
+                      parentName = instance.parent.name;
+                    }
+                    def.instances.push({
+                      id: instance.id,
+                      name: instance.name,
+                      // Instance name might differ from component name
+                      parentName
+                    });
+                  }
+                }
+                const statsData = Array.from(localDefinitions.values()).map((def) => ({
+                  id: def.node.id,
+                  name: def.name,
+                  type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
+                  count: def.instances.length,
+                  instances: def.instances
+                })).sort((a, b) => b.count - a.count);
+                console.log(`Stats generated. Found ${statsData.length} definitions.`);
+                figma.ui.postMessage({
+                  type: "component-stats-data",
+                  stats: statsData
+                });
+              } catch (err) {
+                console.error("Error generating stats:", err);
+                figma.ui.postMessage({
+                  type: "component-stats-error",
+                  error: err.message
+                });
+              }
+              break;
             case "start-oauth-flow":
               try {
                 const { OAuthService } = yield Promise.resolve().then(() => __importStar(require_oauthService()));
