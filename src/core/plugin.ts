@@ -1387,6 +1387,63 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      case "delete-style":
+        try {
+          const deleteStyleMsg = msg as any;
+          if (!deleteStyleMsg.styleId || !deleteStyleMsg.styleType) {
+            throw new Error("Style ID and type are required for deletion");
+          }
+
+          let styleToDelete: PaintStyle | TextStyle | EffectStyle | GridStyle | null = null;
+          const styleType = deleteStyleMsg.styleType;
+          const styleId = deleteStyleMsg.styleId;
+          
+          // Get the style based on type
+          if (styleType === 'paint') {
+            styleToDelete = await figma.getStyleByIdAsync(styleId) as PaintStyle;
+          } else if (styleType === 'text') {
+            styleToDelete = await figma.getStyleByIdAsync(styleId) as TextStyle;
+          } else if (styleType === 'effect') {
+            styleToDelete = await figma.getStyleByIdAsync(styleId) as EffectStyle;
+          } else if (styleType === 'grid') {
+            styleToDelete = await figma.getStyleByIdAsync(styleId) as GridStyle;
+          }
+          
+          if (!styleToDelete) {
+            throw new Error("Style not found");
+          }
+
+          const styleName = styleToDelete.name;
+          
+          // Delete the style from Figma
+          styleToDelete.remove();
+          
+          console.log(`Successfully deleted style: ${styleName} (${styleId})`);
+          
+          // Send success confirmation back to UI
+          figma.ui.postMessage({
+            type: "style-deleted",
+            styleId: styleId,
+            styleName: styleName
+          });
+          
+          // Refresh the data
+          const refreshedData = await collectDocumentData();
+          figma.ui.postMessage({
+            type: "data-refreshed",
+            variables: refreshedData.variables,
+            components: refreshedData.components
+          });
+          
+        } catch (deleteError: any) {
+          console.error("Error deleting style:", deleteError);
+          figma.ui.postMessage({
+            type: "delete-error",
+            error: deleteError.message || "Failed to delete style"
+          });
+        }
+        break;
+
       case "analyze-token-coverage":
         try {
           const scope = msg.scope || 'PAGE';

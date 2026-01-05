@@ -12,7 +12,7 @@
             .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('deleteStyle(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(') || match.includes('dismissFeedback(') || match.includes('closeNotification(') || 
                   match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(') || match.includes('scrollToVariable(')) {
                 return match;
@@ -21,11 +21,11 @@
             })
             .replace(/on\w+\s*=\s*[^>\s]+/gi, (match) => {
               // Allow onclick for specific safe functions
-              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('console.log(') || match.includes('alert(') || 
+              if (match.includes('toggleSubgroup(') || match.includes('toggleComponentSet(') || match.includes('toggleStyles(') || match.includes('scrollToGroupById(') || match.includes('generateTest(') || match.includes('deleteVariable(') || match.includes('deleteStyle(') || match.includes('console.log(') || match.includes('alert(') || 
                   match.includes('simulateImport(') || match.includes('clearInput(') || match.includes('handleFileUpload(') || match.includes('switchToQualityTab(') || match.includes('dismissFeedback(') || match.includes('closeNotification(') || 
                   match.includes('toggleCollection(') || match.includes('expandAllSubgroups(') || match.includes('collapseAllSubgroups(') || match.includes('toggleSubgroup(') || match.includes('clearSearch(') ||
                   match.includes('expandAllVariables(') || match.includes('collapseAllVariables(') || match.includes('toggleSearchBar(') ||
-                  match.includes('expandAllComponents(') || match.includes('collapseAllComponents(') || match.includes('toggleFeedback(') || match.includes('scrollToVariable(')) {
+                  match.includes('expandAllComponents(') || match.includes('collapseAllComponents(') || match.includes('toggleFeedback(') || match.includes('scrollToVariable(') || match.includes('deleteStyle(')) {
                 return match;
               }
               return '';
@@ -1531,6 +1531,10 @@ window.toggleComponent = (id) => {
           // Handle successful variable deletion
           console.log(`Variable deleted successfully: ${message.variableName}`);
           showNotification('success', 'Variable Deleted', `Variable "${message.variableName}" deleted successfully`);
+        } else if (message.type === "style-deleted") {
+          // Handle successful style deletion
+          console.log(`Style deleted successfully: ${message.styleName}`);
+          showNotification('success', 'Style Deleted', `Style "${message.styleName}" deleted successfully`);
         } else if (message.type === "delete-error") {
           // Handle variable deletion error
           console.error("Error deleting variable:", message.error);
@@ -2722,7 +2726,11 @@ window.toggleComponent = (id) => {
                     <div class="variable-cell" style="display: flex; justify-content: center;">
                         <span class="subgroup-stats" title="Used in ${style.usageCount || 0} layers">${style.usageCount || 0}</span>
                     </div>
-                    <div class="variable-cell"></div>
+                    <div class="variable-cell" style="display: flex; justify-content: flex-end;">
+                      <button class="icon-button delete-btn" onclick="deleteStyle('${style.id}', '${style.name.replace(/'/g, "\\'")}', '${type}')" title="Delete style">
+                        <span class="material-symbols-outlined">delete</span>
+                      </button>
+                    </div>
                 </div>
             `;
         });
@@ -3102,6 +3110,27 @@ window.toggleComponent = (id) => {
           
           // Show loading feedback
           const button = document.querySelector(`[onclick*="${variableId}"]`);
+          if (button) {
+            button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+            button.disabled = true;
+            button.style.cursor = 'not-allowed';
+          }
+        }
+      }
+
+      function deleteStyle(styleId, styleName, styleType) {
+        if (confirm(`Are you sure you want to delete the style "${styleName}"?`)) {
+          // Send message to plugin to delete the style from Figma
+          parent.postMessage({
+            pluginMessage: {
+              type: 'delete-style',
+              styleId: styleId,
+              styleType: styleType
+            }
+          }, '*');
+          
+          // Show loading feedback
+          const button = document.querySelector(`[onclick*="${styleId}"]`);
           if (button) {
             button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
             button.disabled = true;
@@ -4042,9 +4071,12 @@ window.toggleComponent = (id) => {
 
       function getScoreColor(score) {
           if (!score && score !== 0) return '#22c55e'; // Default to green
-          if (score >= 90) return '#22c55e'; // Green
-          if (score >= 70) return '#f59e0b'; // Orange/Yellow
-          return '#ef4444'; // Red
+          // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
+          // Hue: 0 = red, 60 = yellow, 120 = green
+          // Map score 0-100 to hue 0-120
+          const hue = Math.min(120, Math.max(0, (score / 100) * 120));
+          // Keep saturation and lightness consistent for vibrant colors
+          return `hsl(${hue}, 70%, 50%)`;
       }
 
       // Update analysis scope
@@ -4131,7 +4163,7 @@ function renderStats(statsData) {
 
     // Render Component Row
     html += `
-      <div class="unified-list-item component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; align-items: center; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+      <div class="unified-list-item component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
         
         <!-- Name Column -->
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
@@ -4170,7 +4202,7 @@ function renderStats(statsData) {
       
       item.instances.forEach(instance => {
         html += `
-          <div class="unified-list-item instance-item" style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 2px;">
+          <div class="unified-list-item instance-item" style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 6px 12px; margin-bottom: 2px;">
             <div class="instance-info" style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
               <span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.4); flex-shrink: 0;">subdirectory_arrow_right</span>
               <span class="instance-name text-truncate" style="font-size: 12px; color: rgba(255,255,255,0.7);">
@@ -4238,8 +4270,8 @@ function renderStats(statsData) {
                 <!-- Gauge (Left) -->
                 <div style="position: relative; width: 100px; height: 100px; flex-shrink: 0;">
                     <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
-                        <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.1)" stroke-width="12" fill="none" />
-                        <circle cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="12" fill="none" 
+                        <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.1)" stroke-width="6" fill="none" />
+                        <circle cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="6" fill="none" 
                                 stroke-dasharray="${2 * Math.PI * 42}" 
                                 stroke-dashoffset="${2 * Math.PI * 42 * (1 - (result.qualityScore !== undefined ? result.qualityScore : 100) / 100)}" 
                                 style="transition: stroke-dashoffset 1s ease-in-out;" />
@@ -4387,9 +4419,9 @@ function renderStats(statsData) {
             }
 
               let cardHtml = `
-              <div id="${issueId}-card" class="quality-issue-card" style="margin-bottom: 4px; display: block; min-height: auto; padding: 0;">
+              <div id="${issueId}-card" class="quality-issue-card" style="margin-bottom: 4px; display: block; padding: 0; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
                 <!-- Accordion Header -->
-                <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; min-height: 48px;">
+                <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;">
                   <div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">
                     <!-- Property Name -->
                     <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; white-space: nowrap;">
@@ -8853,6 +8885,7 @@ window.clearInput = function() {
       window.expandAllSubgroups = expandAllSubgroups;
       window.collapseAllSubgroups = collapseAllSubgroups;
       window.deleteVariable = deleteVariable;
+      window.deleteStyle = deleteStyle;
       window.scrollToVariable = scrollToVariable;
 
       window.expandAllImportGroups = expandAllImportGroups;
