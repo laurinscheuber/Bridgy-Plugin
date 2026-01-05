@@ -781,6 +781,119 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
         
+      case "get-component-usage":
+        try {
+            console.log("Counting component usage...");
+            const usageMap: Record<string, number> = {};
+            
+            // STRATEGY: Local Components Only
+            // 1. Find all local component definitions (Component and ComponentSet)
+            // 2. Find all instances
+            // 3. Map instances to local definitions synchronously
+            
+            const localDefinitions = new Map<string, {
+                node: ComponentNode | ComponentSetNode,
+                name: string,
+                isSet: boolean,
+                instances: any[]
+            }>();
+
+            // Helper to map variant IDs to their Set ID
+            const variantToSetId = new Map<string, string>();
+
+            // 1. Scan Definitions
+            const localNodes = figma.currentPage.findAll(n => n.type === "COMPONENT" || n.type === "COMPONENT_SET");
+            
+            for (const node of localNodes) {
+                if (node.type === "COMPONENT_SET") {
+                    localDefinitions.set(node.id, {
+                        node: node as ComponentSetNode,
+                        name: node.name,
+                        isSet: true,
+                        instances: []
+                    });
+                    
+                    // Map children ID to Set ID
+                    for (const child of (node as ComponentSetNode).children) {
+                        if (child.type === "COMPONENT") {
+                            variantToSetId.set(child.id, node.id);
+                        }
+                    }
+                } else if (node.type === "COMPONENT") {
+                    // Only add standalone components (if they are not part of a set)
+                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
+                        localDefinitions.set(node.id, {
+                            node: node as ComponentNode,
+                            name: node.name,
+                            isSet: false,
+                            instances: []
+                        });
+                    }
+                }
+            }
+
+            // 2. Scan Instances
+            const allInstances = figma.currentPage.findAll(n => n.type === "INSTANCE");
+            
+            // 3. Match Instances to Definitions
+            for (const instance of allInstances) {
+                // mainComponentId is available synchronously at runtime
+                // Cast to any because typings might be missing it on InstanceNode depending on version
+                const mainId = (instance as any).mainComponentId;
+                
+                if (!mainId) continue;
+
+                // Determine target ID (Handle Variants)
+                let targetId = mainId;
+                if (variantToSetId.has(mainId)) {
+                    targetId = variantToSetId.get(mainId);
+                }
+
+                // Check if it's a known local component
+                if (localDefinitions.has(targetId)) {
+                    const def = localDefinitions.get(targetId);
+                    
+                    // Get parent name for context
+                    let parentName = "Page";
+                    if (instance.parent) {
+                        parentName = instance.parent.name;
+                    }
+
+                    def.instances.push({
+                        id: instance.id,
+                        name: instance.name, // Instance name might differ from component name
+                        parentName: parentName
+                    });
+                }
+            }
+
+            // 4. Format for UI
+            const statsData = Array.from(localDefinitions.values())
+                .map(def => ({
+                    id: def.node.id,
+                    name: def.name,
+                    type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
+                    count: def.instances.length,
+                    instances: def.instances
+                }))
+                .sort((a, b) => b.count - a.count); // Sort by usage count descending
+
+            console.log(`Stats generated. Found ${statsData.length} definitions.`);
+
+            figma.ui.postMessage({
+                type: 'component-stats-data',
+                stats: statsData
+            });
+
+        } catch (err) {
+            console.error("Error generating stats:", err);
+            figma.ui.postMessage({
+                type: 'component-stats-error',
+                error: (err as Error).message
+            });
+        }
+        break;
+
       case "start-oauth-flow":
         try {
           const { OAuthService } = await import("../services/oauthService");

@@ -106,8 +106,8 @@
 
       <div class="tabs">
         <div class="tab active" data-tab="variables">Variables</div>
-        <div class="tab" data-tab="components">Components</div>
         <div class="tab" data-tab="quality">Quality</div>
+        <div class="tab" data-tab="stats">Stats</div>
       </div>
 
       <div class="tab-content active" id="variables-content">
@@ -245,60 +245,35 @@
         </div>
       </div>
 
-      <div class="tab-content" id="components-content">
+      <div class="tab-content" id="stats-content">
         <div class="content-padding">
           <!-- Tab Header -->
           <div class="tab-header" style="margin-bottom: var(--space-2);">
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
               <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
-                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">widgets</span>
-                Components
+                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">analytics</span>
+                Component Stats
               </h2>
-              <div id="components-summary" class="header-summary">
-                <span id="components-count">0 comps</span> • <span id="component-sets-count">0 sets</span>
-              </div>
             </div>
             <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-              Browse your component library. Generate CSS or commit component styles to your repository.
+              Overview of all components and their usage frequency in the current document.
             </p>
           </div>
 
-          <div class="toolbar">
-            <div class="toolbar-group">
-              <div style="width: 8px;"></div>
-            </div>
-
-            <div id="component-search-wrapper" class="search-wrapper-collapsible">
-              <div class="search-input-wrapper" style="flex: 1;">
-                <input
-                  type="text"
-                  class="search-input"
-                  id="component-search"
-                  placeholder="Search components..."
-                />
-                <button class="search-clear-btn" id="clear-component-search" onclick="clearSearch('component-search')">
+          <div class="toolbar" style="margin-bottom: 12px;">
+             <!-- Search only -->
+             <div class="search-input-wrapper" style="flex: 1;">
+                <input type="text" class="search-input" id="stats-search" placeholder="Search stats..." oninput="filterStats(this.value)"> 
+                <button class="search-clear-btn" onclick="document.getElementById('stats-search').value=''; filterStats('');">
                   <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
                 </button>
-              </div>
-            </div>
-
-            <div class="toolbar-group">
-              <button class="icon-btn-wide" onclick="toggleSearchBar('component-search-wrapper')" data-tooltip="Toggle Search">
-                <span class="material-symbols-outlined">search</span>
-              </button>
-              <button class="icon-btn-wide" onclick="expandAllComponents()" data-tooltip="Expand all component sets">
-                <span class="material-symbols-outlined">unfold_more</span>
-              </button>
-              <button class="icon-btn-wide" onclick="collapseAllComponents()" data-tooltip="Collapse all component sets">
-                <span class="material-symbols-outlined">unfold_less</span>
-              </button>
-            </div>
+             </div>
           </div>
 
-          <div id="components-container">
+          <div id="stats-container">
             <div class="content-loading">
-              <div class="content-loading-spinner"></div>
-              <div class="content-loading-text">Scanning document for components...</div>
+              <div class="plugin-loading-spinner"></div>
+              <div class="content-loading-text">Loading stats...</div>
             </div>
           </div>
         </div>
