@@ -80,10 +80,10 @@ export class TokenCoverageService {
   static async analyzeCurrentPage(): Promise<TokenCoverageResult> {
     const currentPage = figma.currentPage;
     const allNodes = currentPage.findAll(node => 
-      node.type === 'FRAME' || 
+      // node.type === 'FRAME' || 
       node.type === 'COMPONENT' || 
-      node.type === 'COMPONENT_SET' ||
-      node.type === 'INSTANCE'
+      node.type === 'COMPONENT_SET'
+      // node.type === 'INSTANCE'
     );
     
     return this.analyzeNodes(allNodes as SceneNode[]);
@@ -99,10 +99,10 @@ export class TokenCoverageService {
     // Iterate through all pages
     for (const page of allPages) {
       const pageNodes = page.findAll(node => 
-        node.type === 'FRAME' || 
+        // node.type === 'FRAME' || 
         node.type === 'COMPONENT' || 
-        node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE'
+        node.type === 'COMPONENT_SET'
+        // node.type === 'INSTANCE'
       );
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
@@ -133,10 +133,10 @@ export class TokenCoverageService {
       if (page.id === currentPageId) continue;
 
       const pageNodes = page.findAll(node => 
-        node.type === 'FRAME' || 
+        // node.type === 'FRAME' || 
         node.type === 'COMPONENT' || 
-        node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE'
+        node.type === 'COMPONENT_SET'
+        // node.type === 'INSTANCE'
       );
       
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[]);
