@@ -4016,7 +4016,7 @@ function renderStats(statsData) {
 
   let html = `
     <!-- Top Summary Cards -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${totalComponents}</div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
@@ -4025,20 +4025,10 @@ function renderStats(statsData) {
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${totalInstances}</div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
       </div>
-    </div>
-
-    <!-- Secondary Metrics -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
-       <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px;">
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">UNUSED COMPONENTS</div>
-          <div style="font-size: 16px; font-weight: 500; color: ${unusedComponents > 0 ? '#ef4444' : '#22c55e'};">${unusedComponents}</div>
-       </div>
-       <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px;">
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">MOST USED</div>
-          <div style="font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-             ${mostUsed.length > 0 ? mostUsed[0].name : '-'}
-          </div>
-       </div>
+      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${unusedComponents}</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
+      </div>
     </div>
 
     <!-- Stats Table -->
@@ -4065,7 +4055,7 @@ function renderStats(statsData) {
         
         <!-- Name Column -->
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-            <div class="component-icon-wrapper" style="display: flex; align-items: center; justify-content: center; color: ${item.type === 'COMPONENT_SET' ? '#a855f7' : '#3b82f6'}; flex-shrink: 0;">
+            <div class="component-icon-wrapper" style="display: flex; align-items: center; justify-content: center; color:  #a855f7; flex-shrink: 0;">
                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"  style="rotate: 45deg"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>
 
   </div>
