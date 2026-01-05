@@ -197,12 +197,12 @@
       // ===== UI HELPERS =====
       class UIHelper {
         static createBadge(text, type = 'default') {
-          return `<span class="badge badge-${type}">${text}</span>`;
+          return `<span class="list-badge badge-${type}">${text}</span>`;
         }
 
         static createNavIcon(id, title = 'Navigate', icon = 'filter_center_focus') {
           return `
-            <button class="nav-icon" data-component-id="${id}" title="${title}">
+            <button class="nav-icon node-focus-btn" data-component-id="${id}" title="${title}">
               <span class="material-symbols-outlined">${icon}</span>
             </button>
           `;
@@ -484,6 +484,10 @@
       // ===== REFRESH FUNCTIONALITY =====
       window.refreshData = function() {
         console.log('Refreshing variables and components data...');
+        
+        // Reset Quality scan cache so next visit triggers a fresh scan
+        window.qualityScanPerformed = false;
+        window.statsScanPerformed = false;
         
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) {
@@ -1027,6 +1031,10 @@
         }
       };
 
+      // Flags for caching
+      window.qualityScanPerformed = false;
+      window.statsScanPerformed = false;
+
       // Main tab switching logic
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => {
@@ -1035,22 +1043,54 @@
 
           tab.classList.add("active");
           const tabContent = document.getElementById(tab.dataset.tab + "-content");
-          tabContent.classList.add("active");
-          
-          // Auto-scan when Quality tab is opened
-          if (tab.dataset.tab === "quality") {
-            // Use SMART_SCAN for auto-trigger to find issues across pages if current is clean
-            // Add small delay to ensure UI handles update
-            setTimeout(() => {
-              console.log("Auto-triggering Smart Scan...");
-              analyzeTokenCoverage('SMART_SCAN');
-            }, 100);
+          if (tabContent) {
+             tabContent.classList.add("active");
           }
           
-          // Auto-resize disabled to maintain consistent plugin size
-          // setTimeout(() => {
-          //   resizeForCurrentContent();
-          // }, 100);
+          // Auto-scan when Quality tab is opened - OPTIMIZED: Scan Once
+          if (tab.dataset.tab === "quality") {
+            if (!window.qualityScanPerformed) {
+              console.log("First visit to Quality tab - Triggering initial scan...");
+              
+              const container = document.getElementById('token-coverage-results'); // FIXED: Correct ID
+              if (container) {
+                 // Manual spinner injection to ensure it shows immediately
+                 container.innerHTML = `
+                  <div class="content-loading">
+                    <div class="plugin-loading-spinner"></div>
+                    <div class="content-loading-text">Analyzing design for issues...</div>
+                  </div>
+                 `;
+              }
+
+              // Defer actual scan slightly to allow UI paint
+              setTimeout(() => {
+                analyzeTokenCoverage('SMART_SCAN');
+                window.qualityScanPerformed = true; // Mark as scanned
+              }, 50);
+            }
+          }
+          
+          // Auto-scan for Stats tab
+          if (tab.dataset.tab === "stats") {
+             if (!window.statsScanPerformed) {
+                 console.log("First visit to Stats tab - Triggering scan...");
+                 const container = document.getElementById('stats-container');
+                 if (container) {
+                     container.innerHTML = `
+                      <div class="content-loading">
+                        <div class="plugin-loading-spinner"></div>
+                        <div class="content-loading-text">Counting component usage...</div>
+                      </div>
+                     `;
+                 }
+                 
+                 setTimeout(() => {
+                     parent.postMessage({ pluginMessage: { type: 'get-component-usage' } }, '*');
+                     window.statsScanPerformed = true;
+                 }, 50);
+             }
+          }
         });
       });
 
@@ -1060,6 +1100,7 @@
       let stylesData = {};
       let variableReferences = {}; // Map of ID -> Name for aliases
       let componentsData = [];
+      let componentUsageData = {}; // ID -> Count
       let currentCSSData = null;
       let componentSetsData = [];
       let selectionData = null;
@@ -1086,6 +1127,105 @@
         "fr",
         "none",
       ];
+      
+// Render component stats
+function renderStats(statsData) {
+  const container = document.getElementById("stats-results");
+  if (!container) return;
+
+  if (!statsData || statsData.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">No local components found in this file</div>
+        <div class="empty-subtext">Components defined in this file will appear here</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Calculate totals
+  const totalComponents = statsData.length;
+  const totalInstances = statsData.reduce((sum, item) => sum + item.count, 0);
+
+  let html = `
+    <div class="stats-summary">
+      <div class="stat-box">
+        <div class="stat-value">${totalComponents}</div>
+        <div class="stat-label">Components</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${totalInstances}</div>
+        <div class="stat-label">Local Instances</div>
+      </div>
+    </div>
+    <div class="component-list">
+  `;
+
+  statsData.forEach((item) => {
+    // Determine icon based on type
+    const icon = item.type === 'COMPONENT_SET' ? 
+      `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="component-icon set"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>` : 
+      `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="component-icon"><path d="M6 1l5 5-5 5-5-5 5-5z" stroke="currentColor" stroke-width="1"/></svg>`; // Diamond for component
+
+    // Render Component Row
+    html += `
+      <div class="unified-list-item component-item" data-id="${item.id}">
+        <div class="component-info">
+          <div class="component-icon-wrapper">${icon}</div>
+          <span class="component-name text-truncate" title="${item.name}">${item.name}</span>
+          <span class="component-count-badge">${item.count}</span>
+        </div>
+        <div class="component-actions">
+          ${UIHelper.createNavIcon(item.id, null, "Focus Component")}
+          ${item.count > 0 ? `
+            <button class="icon-button expand-btn" onclick="toggleComponent('${item.id}')" title="Show Instances">
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    // Render Instances (Hidden by default)
+    if (item.count > 0) {
+      html += `<div id="children-${item.id}" class="component-instances hidden">`;
+      
+      item.instances.forEach(instance => {
+        html += `
+          <div class="unified-list-item instance-item">
+            <div class="instance-info">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" class="instance-icon"><path d="M5 1L9 5L5 9L1 5L5 1Z" stroke="currentColor" width="8" height="8"/></svg>
+              <span class="instance-name text-truncate">
+                <span class="instance-parent">${instance.parentName}</span>
+                <span class="separator">/</span>
+                <span class="name">${instance.name}</span>
+              </span>
+            </div>
+            ${UIHelper.createNavIcon(instance.id, null, "Focus Instance")}
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+    }
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// Helper to toggle component instances visibility
+window.toggleComponent = (id) => {
+  const children = document.getElementById(`children-${id}`);
+  const btn = document.querySelector(`.component-item[data-id="${id}"] .expand-btn`);
+  
+  if (children) {
+    children.classList.toggle('hidden');
+    if (btn) btn.classList.toggle('expanded');
+  }
+};
+
 
       function findVariableNameById(variableId) {
         // Fast lookup from references map (includes external vars)
@@ -1291,7 +1431,8 @@
           window.globalVariablesData = message.variablesData;
           
           renderVariables(message.variablesData, stylesData);
-          renderComponents(componentsData);
+          // renderComponents(componentsData); // Components tab replaced by Stats
+
 
 
           // Handle feedback dismissal state
@@ -1327,6 +1468,19 @@
           }, 500);
           
           // Auto-resize disabled to maintain consistent plugin size
+        } else if (message.type === "component-usage-data") {
+          console.log("UI: Received component usage data", message.data);
+          const statsContainer = document.getElementById('stats-container');
+          
+          if (statsContainer) {
+             statsContainer.innerHTML = '';
+             if (typeof renderStats === 'function') {
+                renderStats(message.data);
+             } else {
+                console.error("renderStats function not found!");
+                statsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--error-500);">Error: Stats renderer not initialized.</div>';
+             }
+          }
         } else if (message.type === "document-data-error") {
           console.error('Error loading components:', message.error);
           
@@ -2367,15 +2521,13 @@
 
       function renderStyleTable(styles, type, isGrouped = false) {
         let html = `
-            <table class="variable-table" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr>
-                        <th style="width: 40%; text-align: left; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-weight: 500;">Name</th>
-                        <th style="width: 15%; text-align: left; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-weight: 500;">Type</th>
-                        <th style="text-align: left; padding: 4px 8px; color: var(--text-secondary); font-size: 11px; font-weight: 500;">Values</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="variable-list">
+                <div class="unified-list-header variable-header">
+                    <div class="variable-cell">Name</div>
+                    <div class="variable-cell">Type</div>
+                    <div class="variable-cell">Values</div>
+                    <div class="variable-cell"></div>
+                </div>
         `;
 
         styles.forEach(style => {
@@ -2517,20 +2669,21 @@
             }
 
             html += `
-                <tr id="style-${sanitizedId}">
-                    <td style="font-weight: 500; color: #fff; padding: 4px 8px; font-size: 11px;">${displayName}</td>
-                    <td style="color: rgba(255, 255, 255, 0.4); font-size: 11px; letter-spacing: 0.5px; padding: 4px 8px;">${
+                <div class="unified-list-item variable-row" id="style-${sanitizedId}">
+                    <div class="variable-cell" style="font-weight: 500; color: #fff;">${displayName}</div>
+                    <div class="variable-cell" style="color: rgba(255, 255, 255, 0.4); font-size: 11px; letter-spacing: 0.5px;">${
                         type === 'paint' ? 'Color' : 
                         type === 'text' ? 'Text' : 
                         type === 'effect' ? 'Effect' : 
                         type === 'grid' ? 'Layout guide' : type
-                    }</td>
-                    <td style="padding: 4px 8px; font-size: 11px;">${valuePreview}</td>
-                </tr>
+                    }</div>
+                    <div class="variable-cell">${valuePreview}</div>
+                    <div class="variable-cell"></div>
+                </div>
             `;
         });
 
-        html += `</tbody></table>`;
+        html += `</div>`;
         return html;
       }
 
@@ -2592,27 +2745,25 @@
       // Render a group of variables with a title
       function renderVariableTable(variables) {
         let html = `
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 30%;">Name</th>
-                  <th style="width: 15%;">Type</th>
-                  <th>Values</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
+            <div class="variable-list">
+              <div class="unified-list-header variable-header">
+                  <div class="variable-cell">Name</div>
+                  <div class="variable-cell">Type</div>
+                  <div class="variable-cell">Values</div>
+                  <div class="variable-cell"></div>
+              </div>
         `;
 
         variables.forEach((variable) => {
           const sanitizedId = variable.name
             .replace(/[^a-zA-Z0-9]/g, "-")
             .toLowerCase();
+            
           html += `
-            <tr id="var-${sanitizedId}">
-              <td style="font-weight: 500; color: #fff;">${variable.name}</td>
-              <td style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</td>
-              <td>
+            <div class="unified-list-item variable-row" id="var-${sanitizedId}">
+              <div class="variable-cell" style="font-weight: 500; color: #fff; display: flex; align-items: center;">${variable.name}</div>
+              <div class="variable-cell" style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</div>
+              <div class="variable-cell">
           `;
 
           variable.valuesByMode.forEach((mode) => {
@@ -2649,11 +2800,11 @@
               const a = value.a ?? 1;
 
               html += `
-                <div>
-                  <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a})"></span>
-                  ${
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a}); width: 14px; height: 14px; border-radius: 4px; display: inline-block;"></span>
+                  <span>${
                     showModeName ? mode.modeName + ": " : ""
-                  }rgba(${r},${g},${b},${formatDecimal(a)})
+                  }rgba(${r},${g},${b},${formatDecimal(a)})</span>
                 </div>
               `;
             } else {
@@ -2666,24 +2817,23 @@
           });
 
           html += `
-              </td>
-              <td>
+              </div>
+              <div class="variable-cell" style="display: flex; justify-content: center;">
                 <button 
                   class="compact-action-btn" 
-                  style="color: rgba(255, 255, 255, 0.4); background: transparent; border: none; cursor: pointer;"
+                  style="color: rgba(255, 255, 255, 0.4); background: transparent; border: none; cursor: pointer; padding: 4px;"
                   onclick="deleteVariable('${variable.id}', '${variable.name.replace(/'/g, "\\'")}')"
                   title="Delete ${variable.name}"
                 >
                   <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
                 </button>
-              </td>
-            </tr>
+              </div>
+            </div>
           `;
         });
 
         html += `
-              </tbody>
-            </table>
+            </div>
         `;
 
         return html;
@@ -3927,7 +4077,7 @@
           const remainingIssues = issues.slice(initialRenderCount);
 
           // Function to render an issue card (helper string builder)
-          const renderIssueCard = (issue, issueIdx, realIdx) => {
+            const renderIssueCard = (issue, issueIdx, realIdx) => {
             const issueId = `issue-${category}-${realIdx}`;
             // Check if we have exact matches locally or if they were passed with matchType
             // The backend now returns matchingVariables with matchType ('EXACT' | 'NEAR')
@@ -3939,13 +4089,13 @@
             const hasMatchingVars = (issue.matchingVariables && issue.matchingVariables.length > 0);
             
             let cardHtml = `
-              <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px;">
+              <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px; display: block; min-height: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                   <div style="flex: 1;">
                     <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px;">${issue.property}</div>
                     <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px;">${SecurityUtils.escapeHTML(issue.value)}</div>
                   </div>
-                  <div style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; padding: 3px 10px; border-radius: 4px; font-weight: 600; font-size: 12px; white-space: nowrap; margin-left: 12px;">
+                  <div class="list-badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.2);">
                     ${issue.count}×
                   </div>
                 </div>
@@ -4000,11 +4150,10 @@
 
             cardHtml += `
                 <div style="border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; margin-top: 8px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 500; text-transform: uppercase;">Found in:</div>
-                    <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+                  <div style="display: flex; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7); flex: 1;">
                         <input type="checkbox" id="${issueId}-select-all" onchange="toggleAllOccurrences('${issueId}')" style="cursor: pointer;">
-                        Select all
+                        <span style="font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Select All (${issue.nodeNames.length} nodes)</span>
                     </label>
                   </div>
                   <div class="quality-nodes-list">
@@ -4030,24 +4179,26 @@
               
               cardHtml += `
                 <div class="quality-node-item" data-issue-id="${issueId}">
-                  <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''}>
+                  <div class="node-header" ${hasMultiple ? `onclick="toggleQualityNodeGroup('${groupId}')"` : ''} style="display: flex; align-items: center; padding: 4px 0;">
                     <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
-                    <span class="material-symbols-outlined node-icon">layers</span>
-                    <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}">${displayName}</span>
+                    <span class="material-symbols-outlined node-icon" style="font-size: 16px; margin-right: 8px; opacity: 0.7;">layers</span>
+                    <span class="node-name" title="${SecurityUtils.escapeHTML(data.name)}" style="flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${displayName}</span>
                     ${hasMultiple ? `
-                      <span class="node-count">${data.count}</span>
-                      <span class="material-symbols-outlined node-toggle-icon" id="${groupId}-toggle">expand_more</span>
+                      <span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px;">${data.count}</span>
+                      <button class="nav-icon" style="width: 24px; height: 24px; border: none;" id="${groupId}-toggle">
+                         <span class="material-symbols-outlined" style="font-size: 16px;">expand_more</span>
+                      </button>
                     ` : `
-                      <button class="node-focus-btn" onclick="event.stopPropagation(); window.focusOnNode('${data.ids[0]}')">
-                        <span class="material-symbols-outlined">zoom_in</span>
+                      <button class="node-focus-btn" onclick="event.stopPropagation(); window.focusOnNode('${data.ids[0]}')" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">target</span>
                       </button>
                     `}
                   </div>
                   ${hasMultiple ? `
-                    <div id="${groupId}" class="node-instances" style="display: none;">
+                    <div id="${groupId}" class="node-instances" style="display: none; padding-left: 24px; margin-top: 4px;">
                       ${data.ids.map((id, i) => `
-                        <div class="instance-row">
-                          <span class="instance-label">Instance ${i + 1} <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span></span>
+                        <div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 2px 0;">
+                          <span class="instance-label" style="font-size: 11px; color: rgba(255,255,255,0.6);">Instance ${i + 1} <span style="opacity: 0.5; font-size: 10px; margin-left: 4px;">in ${data.frames[i]}</span></span>
                           <button class="node-focus-btn" onclick="window.focusOnNode('${id}')"><span class="material-symbols-outlined">zoom_in</span></button>
                         </div>
                       `).join('')}
@@ -4150,6 +4301,13 @@
         // Append to container
         while (tempDiv.firstChild) {
           const child = tempDiv.firstChild;
+          tempDiv.removeChild(child); // Remove from tempDiv to progress loop
+          
+          if (child.nodeType !== 1) { // Skip text nodes / comments
+             container.appendChild(child);
+             continue;
+          }
+
           container.appendChild(child);
           
           // Setup listeners for new elements
@@ -4162,6 +4320,7 @@
              // Actually, we can just select by ID after append
            }
         }
+
         
         // Setup listeners for the new batch
         batch.forEach((_, idx) => {
