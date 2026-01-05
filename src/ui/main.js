@@ -1168,7 +1168,7 @@ function renderStats(statsData) {
       `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="component-icon set"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>` : 
       `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="component-icon"><path d="M6 1l5 5-5 5-5-5 5-5z" stroke="currentColor" stroke-width="1"/></svg>`; // Diamond for component
 
-    // Render Component Row
+    // Render Component Row (without expand button for instances)
     html += `
       <div class="unified-list-item component-item" data-id="${item.id}">
         <div class="component-info">
@@ -1178,53 +1178,16 @@ function renderStats(statsData) {
         </div>
         <div class="component-actions">
           ${UIHelper.createNavIcon(item.id, null, "Focus Component")}
-          ${item.count > 0 ? `
-            <button class="icon-button expand-btn" onclick="toggleComponent('${item.id}')" title="Show Instances">
-              <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          ` : ''}
         </div>
       </div>
     `;
-
-    // Render Instances (Hidden by default)
-    if (item.count > 0) {
-      html += `<div id="children-${item.id}" class="component-instances hidden">`;
-      
-      item.instances.forEach(instance => {
-        html += `
-          <div class="unified-list-item instance-item">
-            <div class="instance-info">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" class="instance-icon"><path d="M5 1L9 5L5 9L1 5L5 1Z" stroke="currentColor" width="8" height="8"/></svg>
-              <span class="instance-name text-truncate">
-                <span class="instance-parent">${instance.parentName}</span>
-                <span class="separator">/</span>
-                <span class="name">${instance.name}</span>
-              </span>
-            </div>
-            ${UIHelper.createNavIcon(instance.id, null, "Focus Instance")}
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-    }
   });
 
   html += `</div>`;
   container.innerHTML = html;
 }
 
-// Helper to toggle component instances visibility
-window.toggleComponent = (id) => {
-  const children = document.getElementById(`children-${id}`);
-  const btn = document.querySelector(`.component-item[data-id="${id}"] .expand-btn`);
-  
-  if (children) {
-    children.classList.toggle('hidden');
-    if (btn) btn.classList.toggle('expanded');
-  }
-};
+
 
 
       function findVariableNameById(variableId) {
