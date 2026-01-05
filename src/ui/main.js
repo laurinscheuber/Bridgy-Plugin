@@ -2060,6 +2060,7 @@ window.toggleComponent = (id) => {
             // Re-run analysis to update the UI
             analyzeTokenCoverage();
           }
+        }
         } catch (error) {
           console.error('Error handling plugin message:', error);
           
