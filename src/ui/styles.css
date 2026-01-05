@@ -2070,7 +2070,6 @@
       .child-header,
       .quality-issue-card {
         padding: var(--space-2) var(--space-3); /* Standard padding */
-        min-height: 48px; /* Force 48px match */
         display: flex;
         align-items: center;
       }
