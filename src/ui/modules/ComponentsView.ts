@@ -1,5 +1,4 @@
 // ComponentsView.ts
-import { MessageBus } from './MessageBus';
 
 export class ComponentsView {
   static render(components: any[]) {
