@@ -6057,7 +6057,7 @@ ${Object.keys(cssProperties).map((property) => {
                 mergeRequestUrl: result && result.pullRequestUrl
               });
             } catch (error) {
-              let errorMessage = "Unknown error occurred";
+              let errorMessage;
               let errorType = "unknown";
               if (error.name === "GitAuthError" || error.name === "GitLabAuthError") {
                 errorType = "auth";
