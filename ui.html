@@ -5265,11 +5265,10 @@ function renderStats(statsData) {
     <!-- Stats Table -->
     <div class="stats-table">
         <!-- Table Header -->
-        <div style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; padding: 0 12px 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; align-items: center;">
+        <div style="display: grid; grid-template-columns: 1fr 60px 100px; gap: 12px; padding: 0 12px 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; align-items: center;">
             <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase;">Component Name ↓</div>
             <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right;">Variants</div>
             <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right;">Instances</div>
-            <div></div> <!-- Actions spacer -->
         </div>
 
         <div class="component-list" style="display: flex; flex-direction: column; gap: 4px;">
@@ -5283,9 +5282,9 @@ function renderStats(statsData) {
 
     const variantLabel = item.variantCount > 1 ? item.variantCount : '-';
 
-    // Render Component Row
+    // Render Component Row (without expand button for instances)
     html += `
-      <div class="unified-list-item component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+      <div class="unified-list-item component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px; gap: 12px; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
         
         <!-- Name Column -->
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
@@ -5306,42 +5305,8 @@ function renderStats(statsData) {
         <div style="text-align: right; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9);">
             ${item.count.toLocaleString()}
         </div>
-
-        <!-- Actions Column -->
-        <div class="component-actions" style="display: flex; justify-content: flex-end; gap: 2px;">
-          ${item.count > 0 ? `
-            <button class="icon-button expand-btn" onclick="toggleComponent('${item.id}')" title="Show Instances" style="padding: 4px; border-radius: 4px; color: rgba(255,255,255,0.6);">
-              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
-            </button>
-          ` : ''}
-        </div>
       </div>
     `;
-
-    // Render Instances (Hidden by default)
-    if (item.count > 0) {
-      html += `<div id="children-${item.id}" class="component-instances hidden" style="margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.1); margin-top: 4px;">`;
-      
-      item.instances.forEach(instance => {
-        html += `
-          <div class="unified-list-item instance-item" style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 6px 12px; margin-bottom: 2px;">
-            <div class="instance-info" style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
-              <span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.4); flex-shrink: 0;">subdirectory_arrow_right</span>
-              <span class="instance-name text-truncate" style="font-size: 12px; color: rgba(255,255,255,0.7);">
-                <span class="instance-parent" style="opacity: 0.5;">${instance.parentName}</span>
-                <span class="separator" style="margin: 0 4px; opacity: 0.3;">/</span>
-                <span class="name">${instance.name}</span>
-              </span>
-            </div>
-             <button class="icon-button" onclick="UIHelper.requestFocus('${instance.id}')" title="Focus Instance" style="padding: 4px; color: rgba(255,255,255,0.4);">
-                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
-             </button>
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-    }
   });
 
   html += `</div></div>`;
