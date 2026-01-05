@@ -1,5 +1,4 @@
 import { ComponentService } from "../../services/componentService";
-import { objectEntries } from "../../utils/es2015-helpers";
 
 export class DocumentController {
   static async collectDocumentData() {
