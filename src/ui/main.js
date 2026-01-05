@@ -1303,26 +1303,11 @@ const AVAILABLE_UNITS = [
   'none',
 ];
 
-      const AVAILABLE_UNITS = [
-        "",
-        "px",
-        "rem",
-        "em",
-        "%",
-        "vw",
-        "vh",
-        "vmin",
-        "vmax",
-        "pt",
-        "pc",
-        "in",
-        "cm",
-        "mm",
-        "ex",
-        "ch",
-        "fr",
-        "none",
-      ];
+function findVariableNameById(variableId) {
+  if (variableReferences && variableReferences[variableId]) {
+    return variableReferences[variableId];
+  }
+  
   // Fallback: check local variables
   for (const collection of variablesData) {
     for (const variable of collection.variables) {
