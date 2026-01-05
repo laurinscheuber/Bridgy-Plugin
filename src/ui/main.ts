@@ -70,7 +70,6 @@ globals.clearSearch = (inputId: string) => {
 };
 
 globals.commitToGitLab = () => {
-  const msg = (document.getElementById('commit-message') as HTMLTextAreaElement).value;
   // This requires state from GitController or UI cache which we need to wire up
   // For now, let's assume direct MessageBus send if we had the context
   // But typically this requires knowing current project ID/token etc.
