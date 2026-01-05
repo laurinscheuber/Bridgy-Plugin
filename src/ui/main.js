@@ -4122,7 +4122,7 @@ window.toggleComponent = (id) => {
           };
 
           const groupId = `coverage-${category}`;
-          const isExpanded = issues.length < 5; // Auto-expand if few issues
+          const isExpanded = false; // Always collapsed by default
 
           html += `
             <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
