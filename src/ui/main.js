@@ -4115,6 +4115,7 @@ window.toggleComponent = (id) => {
           const remainingIssues = issues.slice(initialRenderCount);
 
           // Function to render an issue card (helper string builder)
+            // Function to render an issue card (helper string builder)
             const renderIssueCard = (issue, issueIdx, realIdx) => {
             const issueId = `issue-${category}-${realIdx}`;
             
@@ -4144,24 +4145,33 @@ window.toggleComponent = (id) => {
             }
 
             let cardHtml = `
-              <div class="quality-issue-card" style="padding: 12px; margin-bottom: 8px; display: block; min-height: auto;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+              <div id="${issueId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; min-height: auto; padding: 0;">
+                <!-- Accordion Header -->
+                <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px;">
+                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
                       ${issue.property}
                       ${badgesHtml}
                     </div>
                     <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 13px;">${SecurityUtils.escapeHTML(issue.value)}</div>
                   </div>
-                  <div class="list-badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.2);">
-                    ${issue.count}×
+                  
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 4px; opacity: 0.7;">
+                        <span class="material-symbols-outlined" style="font-size: 14px;">layers</span>
+                        <span style="font-size: 12px; font-weight: 500;">${issue.totalNodes || issue.count}</span>
+                    </div>
+                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 20px;">expand_more</span>
                   </div>
                 </div>
+
+                <!-- Accordion Body (Hidden by default) -->
+                <div id="${issueId}-body" class="quality-issue-body" style="display: none; padding: 0 12px 12px 12px; border-top: 1px solid rgba(255,255,255,0.05);">
             `;
 
             // Fix section
             cardHtml += `
-                <div style="border-top: 1px solid rgba(139, 92, 246, 0.2); padding-top: 8px; margin-top: 8px; margin-bottom: 8px; background: rgba(139, 92, 246, 0.05); padding: 8px; border-radius: 6px;">
+                <div style="margin-top: 12px; margin-bottom: 8px; background: rgba(139, 92, 246, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.1);">
                   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                     <span class="material-symbols-outlined" style="font-size: 16px; color: #a78bfa;">auto_fix_high</span>
                     <span style="font-size: 11px; color: rgba(255, 255, 255, 0.7); font-weight: 500; text-transform: uppercase;">Fix Available</span>
@@ -4216,7 +4226,7 @@ window.toggleComponent = (id) => {
             }
 
             cardHtml += `
-                <div style="border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; margin-top: 8px;">
+                <div style="margin-top: 8px;">
                   <div style="display: flex; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7); flex: 1;">
                         <input type="checkbox" id="${issueId}-select-all" onchange="toggleAllOccurrences('${issueId}')" style="cursor: pointer;">
@@ -4276,11 +4286,29 @@ window.toggleComponent = (id) => {
             });
 
             cardHtml += `
-                  </div>
-                </div>
-              </div>
+                  </div> <!-- End quality-nodes-list -->
+                </div> <!-- End Accordion Body Wrapper -->
+              </div> <!-- End Accordion Body -->
+              </div> <!-- End Card -->
             `;
             return cardHtml;
+          };
+          
+          // Make toggle function available globally
+          window.toggleIssueCard = function(issueId) {
+              const card = document.getElementById(`${issueId}-card`);
+              const body = document.getElementById(`${issueId}-body`);
+              
+              if (card && body) {
+                  const isHidden = body.style.display === 'none';
+                  body.style.display = isHidden ? 'block' : 'none';
+                  
+                  if (isHidden) {
+                      card.classList.add('expanded');
+                  } else {
+                      card.classList.remove('expanded');
+                  }
+              }
           };
 
 
