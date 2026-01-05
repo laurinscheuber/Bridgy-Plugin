@@ -4065,6 +4065,7 @@ window.toggleComponent = (id) => {
         const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
         const issuesByCategory = result.issuesByCategory;
 
+        let html = `
           <div style="margin-bottom: 24px; padding: 16px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                  <div style="font-size: 13px; color: rgba(255, 255, 255, 0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Design Quality Score</div>
