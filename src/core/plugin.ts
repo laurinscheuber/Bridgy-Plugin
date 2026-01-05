@@ -18,6 +18,47 @@ let componentMap = new Map<string, any>();
 // Collect all variables and components from the document
 async function collectDocumentData() {
   try {
+    // 1. Count Usages First (Async)
+    const usageMap = new Map<string, number>();
+    try {
+        const usageNodes = figma.currentPage.findAll(node => true);
+        for (const node of usageNodes) {
+            // Check bound variables
+            if ('boundVariables' in node && node.boundVariables) {
+                const bounds = node.boundVariables as any; // Type casting for easier access
+                for (const key in bounds) {
+                    const val = bounds[key];
+                    if (val) {
+                        if (Array.isArray(val)) {
+                             val.forEach((v: any) => {
+                                 if (v.type === 'VARIABLE_ALIAS') {
+                                     usageMap.set(v.id, (usageMap.get(v.id) || 0) + 1);
+                                 }
+                             });
+                        } else if (val.type === 'VARIABLE_ALIAS') {
+                             usageMap.set(val.id, (usageMap.get(val.id) || 0) + 1);
+                        }
+                    }
+                }
+            }
+            
+            // Check styles
+            const checkStyle = (styleId: any) => {
+                if (typeof styleId === 'string' && styleId.length > 0) {
+                    usageMap.set(styleId, (usageMap.get(styleId) || 0) + 1);
+                }
+            };
+
+            if ('fillStyleId' in node) checkStyle(node.fillStyleId);
+            if ('strokeStyleId' in node) checkStyle(node.strokeStyleId);
+            if ('textStyleId' in node) checkStyle(node.textStyleId);
+            if ('effectStyleId' in node) checkStyle(node.effectStyleId);
+            if ('gridStyleId' in node) checkStyle(node.gridStyleId);
+        }
+    } catch (e) {
+        console.warn('Error counting usages:', e);
+    }
+    
     // Collection variables
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
     const variablesData = [];
@@ -49,6 +90,7 @@ async function collectDocumentData() {
         name: variable.name,
         resolvedType: variable.resolvedType,
         valuesByMode: valuesByModeEntries,
+        usageCount: usageMap.get(variable.id) || 0
       };
     });
 
@@ -83,6 +125,7 @@ async function collectDocumentData() {
         textCase: textStyle.textCase,
         textDecoration: textStyle.textDecoration,
         boundVariables: textStyle.boundVariables,
+        usageCount: usageMap.get(textStyle.id) || 0
       });
     }
 
@@ -95,6 +138,7 @@ async function collectDocumentData() {
         description: paintStyle.description,
         paints: paintStyle.paints,
         boundVariables: paintStyle.boundVariables,
+        usageCount: usageMap.get(paintStyle.id) || 0
       });
     }
 
@@ -107,6 +151,7 @@ async function collectDocumentData() {
         description: effectStyle.description,
         effects: effectStyle.effects,
         boundVariables: effectStyle.boundVariables,
+        usageCount: usageMap.get(effectStyle.id) || 0
       });
     }
 
@@ -123,6 +168,7 @@ async function collectDocumentData() {
         description: gridStyle.description,
         layoutGrids: gridStyle.layoutGrids,
         boundVariables: gridStyle.boundVariables,
+        usageCount: usageMap.get(gridStyle.id) || 0
       });
     }
 
@@ -874,6 +920,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                     name: def.name,
                     type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
                     count: def.instances.length,
+                    variantCount: def.isSet ? (def.node as ComponentSetNode).children.length : 1,
                     instances: def.instances
                 }))
                 .sort((a, b) => b.count - a.count); // Sort by usage count descending

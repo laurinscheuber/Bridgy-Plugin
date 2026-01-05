@@ -39,6 +39,13 @@ export interface TokenCoverageResult {
     Appearance: TokenCoverageIssue[];
   };
   qualityScore: number;
+  subScores?: {
+    tokenCoverage: number;
+    tailwindReadiness: number;
+    componentHygiene: number;
+    variableHygiene: number;
+    layoutHygiene: number;
+  };
 }
 
 /**
@@ -160,6 +167,11 @@ export class TokenCoverageService {
     const issuesMap: Map<string, TokenCoverageIssue> = new Map();
     let totalNodes = 0;
 
+    // DSQ Metrics
+    let frameCount = 0;
+    let instanceCount = 0;
+    let autoLayoutCount = 0;
+
     // Optimization: Fetch all variables once
     console.log('Fetching variables for analysis...');
     const allVariables = await this.getAllVariables();
@@ -167,6 +179,21 @@ export class TokenCoverageService {
 
     for (const node of nodes) {
       totalNodes++;
+
+      // DSQ Metrics Collection (Node Level)
+      if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'COMPONENT_SET' || node.type === 'INSTANCE') {
+          // Check for auto-layout (applies to Frame-like nodes)
+          if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+              autoLayoutCount++;
+          }
+          
+          if (node.type === 'INSTANCE') {
+              instanceCount++;
+          } else {
+              frameCount++; // Treat Component/Set/Frame as "frames" for this ratio
+          }
+      }
+
       await this.analyzeNode(node, issuesMap);
     }
 
@@ -192,32 +219,102 @@ export class TokenCoverageService {
       issuesByCategory[category].sort((a, b) => b.count - a.count);
     }
 
-    // Calculate Design Quality Score
-    // Heuristic: Start at 100.
-    // Deduct based on "Issue Density": (Total Issue Occurrences / (Total Nodes * 3))
-    // We assume ~3 properties per node on average could be tokenized.
-    
-    let totalIssueOccurrences = 0;
-    for (const issue of issuesMap.values()) {
-        totalIssueOccurrences += issue.count;
+    // --- DSQ-Score Calculation ---
+
+    // 1. Token Coverage Score (35%)
+    // Base logic: 100 - penalty based on density
+    let tokenCoverageScore = 100;
+    if (totalNodes > 0) {
+        let totalIssueOccurrences = 0;
+        for (const issue of issuesMap.values()) {
+            totalIssueOccurrences += issue.count;
+        }
+        const issueDensity = totalIssueOccurrences / (totalNodes * 3); // Assume ~3 checkable props per node
+        const penalty = Math.round(issueDensity * 100);
+        tokenCoverageScore = Math.max(0, 100 - penalty);
     }
 
-    let qualityScore = 100;
-    if (totalNodes > 0) {
-        // Calculate penalty info
-        const issueDensity = totalIssueOccurrences / (totalNodes * 3);
-        const penalty = Math.round(issueDensity * 100);
-        qualityScore = Math.max(0, 100 - penalty);
-    } else {
-        // No nodes analyzed -> Perfect score (or N/A, but 100 is safer for UI)
-        qualityScore = 100;
+    // 2. Tailwind Readiness Score (20%)
+    // Logic: % of variables that match kebab-case naming convention
+    // Regex: starts with lowercase/number, contains only lowercase, numbers, hyphens, and slashes (for groups)
+    const tailwindRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
+    let validTailwindNames = 0;
+    let totalVarsToCheck = allVariables.length;
+    
+    if (totalVarsToCheck > 0) {
+        console.log(`[Coverage Debug] Checking Tailwind regex for ${allVariables.length} vars`);
+        allVariables.forEach((v, idx) => {
+            if (!v) { console.warn(`[Coverage Debug] v is null at ${idx}`); return; }
+            if (!v.variable) { console.warn(`[Coverage Debug] v.variable is null at ${idx}`); return; }
+            if (!v.variable.name) { console.warn(`[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`); return; }
+            
+            if (v.variable && v.variable.name && tailwindRegex.test(v.variable.name)) {
+                validTailwindNames++;
+            }
+        });
     }
+    // If no variables exist, we give a neutral score (100) or 0? 
+    // Let's go with 100 if 0 variables (nothing wrong), otherwise calculate %
+    const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round((validTailwindNames / totalVarsToCheck) * 100);
+
+    // 3. Variable Hygiene Score (15%)
+    // Logic: % of variables that use grouping (contain '/')
+    let groupedVariables = 0;
+    if (totalVarsToCheck > 0) {
+        console.log(`[Coverage Debug] Checking Variable Hygiene for ${allVariables.length} vars`);
+        allVariables.forEach((v, idx) => {
+            if (!v || !v.variable || !v.variable.name) return; // Silent skip for safety
+            
+            if (v.variable && v.variable.name && v.variable.name.includes('/')) {
+                groupedVariables++;
+            }
+        });
+    }
+    const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round((groupedVariables / totalVarsToCheck) * 100);
+
+    // 4. Component Hygiene Score (15%)
+    // Logic: Ratio of Instances vs Raw Frames/Components. We want to encourage using Instances (composition).
+    // If we only scan Components (library file), this measures "Atomic Design" depth (using atoms in molecules).
+    // If we scan a Product file, this measures "Detachment" avoidance.
+    const totalContainerNodes = instanceCount + frameCount;
+    // If total containers is 0, defaults to 100.
+    // If we only have roots (Components), instanceCount might be 0.
+    // NOTE: Since the current scan finds *only* Components (roots), this score will likely be 0 unless we scan deeper.
+    // However, we stick to the metric defined for now.
+    const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round((instanceCount / totalContainerNodes) * 100);
+
+    // 5. Layout Hygiene Score (15%)
+    // Logic: % of frames/components using Auto Layout
+    const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round((autoLayoutCount / totalContainerNodes) * 100);
+
+    // Weighted Total Score
+    // Weights:
+    // Token: 35%
+    // Tailwind: 20%
+    // Comp Hygiene: 15%
+    // Var Hygiene: 15%
+    // Layout: 15%
+    
+    const weightedScore = Math.round(
+        (tokenCoverageScore * 0.35) +
+        (tailwindScore * 0.20) +
+        (componentHygieneScore * 0.15) +
+        (variableHygieneScore * 0.15) +
+        (layoutHygieneScore * 0.15)
+    );
 
     return {
       totalNodes,
       totalIssues: issuesMap.size,
       issuesByCategory,
-      qualityScore
+      qualityScore: weightedScore,
+      subScores: {
+          tokenCoverage: tokenCoverageScore,
+          tailwindReadiness: tailwindScore,
+          componentHygiene: componentHygieneScore,
+          variableHygiene: variableHygieneScore,
+          layoutHygiene: layoutHygieneScore
+      }
     };
   }
 
