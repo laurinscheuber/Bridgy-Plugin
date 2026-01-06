@@ -4302,6 +4302,7 @@ function analyzeTokenCoverage(scopeOverride) {
       pluginMessage: {
         type: 'analyze-token-coverage',
         scope: scopeOverride || analysisScope,
+        exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css'
       },
     },
     '*',
