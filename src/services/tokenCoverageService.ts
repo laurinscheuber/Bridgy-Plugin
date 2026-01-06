@@ -46,6 +46,12 @@ export interface TokenCoverageResult {
     variableHygiene: number;
     layoutHygiene: number;
   };
+  weights?: {
+    tokenCoverage: string;
+    tailwindReadiness: string;
+    componentHygiene: string;
+    variableHygiene: string;
+  };
 }
 
 /**
@@ -80,7 +86,7 @@ export class TokenCoverageService {
   /**
    * Analyzes the current page for token coverage
    */
-  static async analyzeCurrentPage(): Promise<TokenCoverageResult> {
+  static async analyzeCurrentPage(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
     const currentPage = figma.currentPage;
     const allNodes = currentPage.findAll(
       (node) =>
@@ -89,13 +95,13 @@ export class TokenCoverageService {
       // node.type === 'INSTANCE'
     );
 
-    return this.analyzeNodes(allNodes as SceneNode[]);
+    return this.analyzeNodes(allNodes as SceneNode[], exportFormat);
   }
 
   /**
    * Analyzes the entire document for token coverage
    */
-  static async analyzeDocument(): Promise<TokenCoverageResult> {
+  static async analyzeDocument(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
     const allPages = figma.root.children;
     let allNodes: SceneNode[] = [];
 
@@ -110,7 +116,7 @@ export class TokenCoverageService {
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
 
-    return this.analyzeNodes(allNodes);
+    return this.analyzeNodes(allNodes, exportFormat);
   }
 
   /**
@@ -118,9 +124,9 @@ export class TokenCoverageService {
    * If current page has 0 issues, it searches other pages.
    * If another page has issues, it switches to that page and returns its results.
    */
-  static async analyzeSmart(): Promise<TokenCoverageResult> {
+  static async analyzeSmart(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
     // 1. Analyze current page
-    const currentPageResult = await this.analyzeCurrentPage();
+    const currentPageResult = await this.analyzeCurrentPage(exportFormat);
 
     // 2. If issues found, stick with current page
     if (currentPageResult.totalIssues > 0) {
@@ -142,7 +148,7 @@ export class TokenCoverageService {
         // node.type === 'INSTANCE'
       );
 
-      const pageResult = await this.analyzeNodes(pageNodes as SceneNode[]);
+      const pageResult = await this.analyzeNodes(pageNodes as SceneNode[], exportFormat);
 
       if (pageResult.totalIssues > 0) {
         // Found a page with issues! Switch to it.
@@ -158,7 +164,10 @@ export class TokenCoverageService {
   /**
    * Helper to analyze a list of nodes
    */
-  private static async analyzeNodes(nodes: SceneNode[]): Promise<TokenCoverageResult> {
+  private static async analyzeNodes(
+    nodes: SceneNode[],
+    exportFormat: string = 'css',
+  ): Promise<TokenCoverageResult> {
     const issuesMap: Map<string, TokenCoverageIssue> = new Map();
     let totalNodes = 0;
 
@@ -337,20 +346,48 @@ export class TokenCoverageService {
       totalContainerNodes === 0 ? 100 : Math.round((autoLayoutCount / totalContainerNodes) * 100);
 
     // Weighted Total Score
-    // Weights:
-    // Token: 35%
-    // Tailwind: 20%
-    // Comp Hygiene: 15%
-    // Var Hygiene: 15%
-    // Layout: 15%
+    // Weighted Total Score
+    // Layout Hygiene is omitted from the visible weight but calculated.
+    // However, to make the score reflect the visible weights summing to 100%,
+    // we should use the new dynamic weights.
 
-    const weightedScore = Math.round(
-      tokenCoverageScore * 0.35 +
-        tailwindScore * 0.2 +
-        componentHygieneScore * 0.15 +
-        variableHygieneScore * 0.15 +
-        layoutHygieneScore * 0.15,
-    );
+    const isTailwindV4 = exportFormat === 'tailwind-v4';
+    let weightedScore = 0;
+    let weights = {
+      tokenCoverage: '0%',
+      tailwindReadiness: '0%',
+      componentHygiene: '0%',
+      variableHygiene: '0%',
+    };
+
+    if (isTailwindV4) {
+      // Scenario A: Tailwind Enabled (4 Active)
+      // Token: 40%, Tailwind: 20%, Component: 20%, Variable: 20%
+      weightedScore = Math.round(
+        tokenCoverageScore * 0.4 +
+          tailwindScore * 0.2 +
+          componentHygieneScore * 0.2 +
+          variableHygieneScore * 0.2,
+      );
+      weights = {
+        tokenCoverage: '40%',
+        tailwindReadiness: '20%',
+        componentHygiene: '20%',
+        variableHygiene: '20%',
+      };
+    } else {
+      // Scenario B: Tailwind Disabled (3 Active)
+      // Token: 50%, Component: 25%, Variable: 25%
+      weightedScore = Math.round(
+        tokenCoverageScore * 0.5 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25,
+      );
+      weights = {
+        tokenCoverage: '50%',
+        tailwindReadiness: '0%', // Not shown
+        componentHygiene: '25%',
+        variableHygiene: '25%',
+      };
+    }
 
     return {
       totalNodes,
@@ -364,6 +401,7 @@ export class TokenCoverageService {
         variableHygiene: variableHygieneScore,
         layoutHygiene: layoutHygieneScore,
       },
+      weights,
     };
   }
 
