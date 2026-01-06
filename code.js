@@ -1119,13 +1119,13 @@
           if (typeof data !== "string" || typeof key !== "string") {
             throw new Error("Data and key must be strings");
           }
-          const keyBytes = new TextEncoder().encode(key);
-          const dataBytes = new TextEncoder().encode(data);
+          const keyBytes = _SecurityUtils.stringToBytes(key);
+          const dataBytes = _SecurityUtils.stringToBytes(data);
           const encrypted = new Uint8Array(dataBytes.length);
           for (let i = 0; i < dataBytes.length; i++) {
             encrypted[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
           }
-          return btoa(String.fromCharCode(...encrypted));
+          return _SecurityUtils.toBase64(String.fromCharCode(...encrypted));
         }
         /**
          * Decrypt data encrypted with encryptData
@@ -1138,13 +1138,17 @@
             throw new Error("Encrypted data and key must be strings");
           }
           try {
-            const encrypted = new Uint8Array(atob(encryptedData).split("").map((char) => char.charCodeAt(0)));
-            const keyBytes = new TextEncoder().encode(key);
+            const decodedString = _SecurityUtils.fromBase64(encryptedData);
+            const encrypted = new Uint8Array(decodedString.length);
+            for (let k = 0; k < decodedString.length; k++) {
+              encrypted[k] = decodedString.charCodeAt(k);
+            }
+            const keyBytes = _SecurityUtils.stringToBytes(key);
             const decrypted = new Uint8Array(encrypted.length);
             for (let i = 0; i < encrypted.length; i++) {
               decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
             }
-            return new TextDecoder().decode(decrypted);
+            return _SecurityUtils.bytesToString(decrypted);
           } catch (error) {
             throw new Error("Failed to decrypt data - invalid format or key");
           }
@@ -1158,7 +1162,7 @@
           const fileId = ((_b = (_a = globalThis.figma) === null || _a === void 0 ? void 0 : _a.root) === null || _b === void 0 ? void 0 : _b.id) || "default";
           const sessionId = Math.random().toString(36).substring(2, 15);
           const timestamp = Math.floor(Date.now() / (1e3 * 60 * 60 * 24));
-          return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
+          return _SecurityUtils.toBase64(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
         }
         static btoaPolyfill(input) {
           let str = input;
@@ -1189,6 +1193,64 @@
           } catch (ignore) {
           }
           return _SecurityUtils.btoaPolyfill(binaryString);
+        }
+        /**
+         * Safe Base64 decoding
+         */
+        static fromBase64(str) {
+          try {
+            if (typeof atob === "function") {
+              return atob(str);
+            }
+          } catch (e) {
+          }
+          return _SecurityUtils.atobPolyfill(str);
+        }
+        static atobPolyfill(input) {
+          const chars = _SecurityUtils.b64chars;
+          let str = input.replace(/=+$/, "");
+          let output = "";
+          if (str.length % 4 === 1) {
+            throw new Error("'atob' failed: The string to be decoded is not correctly encoded.");
+          }
+          for (let bc = 0, bs = 0, buffer, i = 0; buffer = str.charAt(i++); ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer, bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0) {
+            buffer = chars.indexOf(buffer);
+          }
+          return output;
+        }
+        /**
+         * Helper to convert string to byte array (replacing TextEncoder)
+         */
+        static stringToBytes(str) {
+          if (typeof TextEncoder !== "undefined") {
+            return new TextEncoder().encode(str);
+          }
+          const binaryStr = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16)));
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          return bytes;
+        }
+        /**
+         * Helper to convert byte array to string (replacing TextDecoder)
+         */
+        static bytesToString(bytes) {
+          if (typeof TextDecoder !== "undefined") {
+            return new TextDecoder().decode(bytes);
+          }
+          let binaryStr = "";
+          for (let i = 0; i < bytes.length; i++) {
+            binaryStr += String.fromCharCode(bytes[i]);
+          }
+          try {
+            return decodeURIComponent(binaryStr.split("").map(function(c) {
+              return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(""));
+          } catch (e) {
+            console.warn("SecurityUtils: TextDecoder polyfill failed", e);
+            return binaryStr;
+          }
         }
       };
       exports.SecurityUtils = SecurityUtils;
@@ -7047,20 +7109,20 @@ ${Object.keys(cssProperties).map((property) => {
          * Analyzes the current page for token coverage
          */
         static analyzeCurrentPage() {
-          return __awaiter(this, void 0, void 0, function* () {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const currentPage = figma.currentPage;
             const allNodes = currentPage.findAll((node) => (
               // node.type === 'FRAME' ||
               node.type === "COMPONENT" || node.type === "COMPONENT_SET"
             ));
-            return this.analyzeNodes(allNodes);
+            return this.analyzeNodes(allNodes, exportFormat);
           });
         }
         /**
          * Analyzes the entire document for token coverage
          */
         static analyzeDocument() {
-          return __awaiter(this, void 0, void 0, function* () {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const allPages = figma.root.children;
             let allNodes = [];
             for (const page of allPages) {
@@ -7070,7 +7132,7 @@ ${Object.keys(cssProperties).map((property) => {
               ));
               allNodes = [...allNodes, ...pageNodes];
             }
-            return this.analyzeNodes(allNodes);
+            return this.analyzeNodes(allNodes, exportFormat);
           });
         }
         /**
@@ -7079,8 +7141,8 @@ ${Object.keys(cssProperties).map((property) => {
          * If another page has issues, it switches to that page and returns its results.
          */
         static analyzeSmart() {
-          return __awaiter(this, void 0, void 0, function* () {
-            const currentPageResult = yield this.analyzeCurrentPage();
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
+            const currentPageResult = yield this.analyzeCurrentPage(exportFormat);
             if (currentPageResult.totalIssues > 0) {
               return currentPageResult;
             }
@@ -7093,7 +7155,7 @@ ${Object.keys(cssProperties).map((property) => {
                 // node.type === 'FRAME' ||
                 node.type === "COMPONENT" || node.type === "COMPONENT_SET"
               ));
-              const pageResult = yield this.analyzeNodes(pageNodes);
+              const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
               if (pageResult.totalIssues > 0) {
                 yield figma.setCurrentPageAsync(page);
                 return pageResult;
@@ -7105,8 +7167,8 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Helper to analyze a list of nodes
          */
-        static analyzeNodes(nodes) {
-          return __awaiter(this, void 0, void 0, function* () {
+        static analyzeNodes(nodes_1) {
+          return __awaiter(this, arguments, void 0, function* (nodes, exportFormat = "css") {
             const issuesMap = /* @__PURE__ */ new Map();
             let totalNodes = 0;
             let frameCount = 0;
@@ -7234,7 +7296,32 @@ ${Object.keys(cssProperties).map((property) => {
             const totalContainerNodes = instanceCount + frameCount;
             const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(instanceCount / totalContainerNodes * 100);
             const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
-            const weightedScore = Math.round(tokenCoverageScore * 0.35 + tailwindScore * 0.2 + componentHygieneScore * 0.15 + variableHygieneScore * 0.15 + layoutHygieneScore * 0.15);
+            const isTailwindV4 = exportFormat === "tailwind-v4";
+            let weightedScore = 0;
+            let weights = {
+              tokenCoverage: "0%",
+              tailwindReadiness: "0%",
+              componentHygiene: "0%",
+              variableHygiene: "0%"
+            };
+            if (isTailwindV4) {
+              weightedScore = Math.round(tokenCoverageScore * 0.4 + tailwindScore * 0.2 + componentHygieneScore * 0.2 + variableHygieneScore * 0.2);
+              weights = {
+                tokenCoverage: "40%",
+                tailwindReadiness: "20%",
+                componentHygiene: "20%",
+                variableHygiene: "20%"
+              };
+            } else {
+              weightedScore = Math.round(tokenCoverageScore * 0.5 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25);
+              weights = {
+                tokenCoverage: "50%",
+                tailwindReadiness: "0%",
+                // Not shown
+                componentHygiene: "25%",
+                variableHygiene: "25%"
+              };
+            }
             return {
               totalNodes,
               totalIssues: issuesMap.size,
@@ -7246,7 +7333,8 @@ ${Object.keys(cssProperties).map((property) => {
                 componentHygiene: componentHygieneScore,
                 variableHygiene: variableHygieneScore,
                 layoutHygiene: layoutHygieneScore
-              }
+              },
+              weights
             };
           });
         }
@@ -9643,6 +9731,7 @@ ${Object.keys(cssProperties).map((property) => {
               try {
                 console.log("Counting component usage...");
                 const usageMap = {};
+                yield figma.loadAllPagesAsync();
                 const localDefinitions = /* @__PURE__ */ new Map();
                 const variantToSetId = /* @__PURE__ */ new Map();
                 const localNodes = [];
@@ -9677,8 +9766,18 @@ ${Object.keys(cssProperties).map((property) => {
                     }
                   }
                 }
+                console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
                 for (const instance of allInstances) {
-                  const mainId = instance.mainComponentId;
+                  let mainId = instance.mainComponentId;
+                  if (!mainId) {
+                    try {
+                      const mainComponent = yield instance.getMainComponentAsync();
+                      if (mainComponent) {
+                        mainId = mainComponent.id;
+                      }
+                    } catch (e) {
+                    }
+                  }
                   if (!mainId)
                     continue;
                   let targetId = mainId;
@@ -10114,13 +10213,15 @@ ${Object.keys(cssProperties).map((property) => {
               try {
                 const scope = msg.scope || "PAGE";
                 console.log(`Analyzing token coverage (Scope: ${scope})...`);
+                const settings = yield gitlabService_1.GitLabService.loadSettings();
+                const exportFormat = (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
                 let coverageResult;
                 if (scope === "ALL") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument();
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat);
                 } else if (scope === "SMART_SCAN") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart();
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat);
                 } else {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage();
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
                 }
                 figma.ui.postMessage({
                   type: "token-coverage-result",
