@@ -192,8 +192,8 @@ export class SecurityUtils {
 
     // Simple XOR encryption for basic obfuscation
     // Note: This is not cryptographically secure but provides basic protection
-    const keyBytes = new TextEncoder().encode(key);
-    const dataBytes = new TextEncoder().encode(data);
+    const keyBytes = SecurityUtils.stringToBytes(key);
+    const dataBytes = SecurityUtils.stringToBytes(data);
     const encrypted = new Uint8Array(dataBytes.length);
 
     for (let i = 0; i < dataBytes.length; i++) {
@@ -201,7 +201,7 @@ export class SecurityUtils {
     }
 
     // Convert to base64 for storage
-    return btoa(String.fromCharCode(...encrypted));
+    return SecurityUtils.toBase64(String.fromCharCode(...encrypted));
   }
 
   /**
@@ -217,20 +217,20 @@ export class SecurityUtils {
 
     try {
       // Decode from base64
-      const encrypted = new Uint8Array(
-        atob(encryptedData)
-          .split('')
-          .map((char) => char.charCodeAt(0)),
-      );
+      const decodedString = SecurityUtils.fromBase64(encryptedData);
+      const encrypted = new Uint8Array(decodedString.length);
+      for (let k = 0; k < decodedString.length; k++) {
+        encrypted[k] = decodedString.charCodeAt(k);
+      }
 
-      const keyBytes = new TextEncoder().encode(key);
+      const keyBytes = SecurityUtils.stringToBytes(key);
       const decrypted = new Uint8Array(encrypted.length);
 
       for (let i = 0; i < encrypted.length; i++) {
         decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
       }
 
-      return new TextDecoder().decode(decrypted);
+      return SecurityUtils.bytesToString(decrypted);
     } catch (error) {
       throw new Error('Failed to decrypt data - invalid format or key');
     }
@@ -246,7 +246,7 @@ export class SecurityUtils {
     const sessionId = Math.random().toString(36).substring(2, 15); // Random session identifier
     const timestamp = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // Daily rotation
 
-    return btoa(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
+    return SecurityUtils.toBase64(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
   }
 
   /**
@@ -294,7 +294,6 @@ export class SecurityUtils {
       binaryString = str; // best effort
     }
 
-    // 2. Encode Binary String to Base64
     try {
       if (typeof btoa === 'function') {
         return btoa(binaryString);
@@ -305,5 +304,86 @@ export class SecurityUtils {
 
     // Fallback to polyfill
     return SecurityUtils.btoaPolyfill(binaryString);
+  }
+
+  /**
+   * Safe Base64 decoding
+   */
+  static fromBase64(str: string): string {
+    try {
+      if (typeof atob === 'function') {
+        return atob(str);
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return SecurityUtils.atobPolyfill(str);
+  }
+
+  private static atobPolyfill(input: string): string {
+    const chars = SecurityUtils.b64chars;
+    let str = input.replace(/=+$/, '');
+    let output = '';
+
+    if (str.length % 4 === 1) {
+      throw new Error("'atob' failed: The string to be decoded is not correctly encoded.");
+    }
+
+    for (
+      let bc = 0, bs = 0, buffer, i = 0;
+      (buffer = str.charAt(i++));
+      ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer), bc++ % 4)
+        ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
+        : 0
+    ) {
+      buffer = chars.indexOf(buffer);
+    }
+
+    return output;
+  }
+
+  /**
+   * Helper to convert string to byte array (replacing TextEncoder)
+   */
+  private static stringToBytes(str: string): Uint8Array {
+    if (typeof TextEncoder !== 'undefined') {
+      return new TextEncoder().encode(str);
+    }
+    // Polyfill using encodeURIComponent to get UTF-8 bytes
+    const binaryStr = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) =>
+      String.fromCharCode(parseInt(p1, 16)),
+    );
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  /**
+   * Helper to convert byte array to string (replacing TextDecoder)
+   */
+  private static bytesToString(bytes: Uint8Array): string {
+    if (typeof TextDecoder !== 'undefined') {
+      return new TextDecoder().decode(bytes);
+    }
+    // Polyfill
+    let binaryStr = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binaryStr += String.fromCharCode(bytes[i]);
+    }
+    try {
+      return decodeURIComponent(
+        binaryStr
+          .split('')
+          .map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          })
+          .join(''),
+      );
+    } catch (e) {
+      console.warn('SecurityUtils: TextDecoder polyfill failed', e);
+      return binaryStr; // Fallback to raw bytes as string
+    }
   }
 }
