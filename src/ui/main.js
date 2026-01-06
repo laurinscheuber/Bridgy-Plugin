@@ -660,7 +660,7 @@ window.filterStats = function(query) {
     return parentMatch || childrenMatch;
   });
   
-  renderStats(filtered);
+  renderStats(componentStatsData, filtered);
 };
 
 // ===== FEEDBACK SYSTEM =====
@@ -2217,204 +2217,205 @@ window.onmessage = (event) => {
 };
 
 // Render variables
-function renderVariables(data, stylesData = null) {
-  console.log('DEBUG: renderVariables called', {
-    dataLength: data ? data.length : 0,
-    hasStylesData: !!stylesData,
-    stylesKeys: stylesData ? Object.keys(stylesData) : [],
-  });
-
-  if (stylesData) {
-    console.log('DEBUG: stylesData counts:', {
-      paint: stylesData.paintStyles ? stylesData.paintStyles.length : 0,
-      text: stylesData.textStyles ? stylesData.textStyles.length : 0,
-      effect: stylesData.effectStyles ? stylesData.effectStyles.length : 0,
-      grid: stylesData.gridStyles ? stylesData.gridStyles.length : 0,
-    });
-  }
-
-  // Calculate totals for summary
-  let totalVariables = 0;
-  const collectionsCount = data.length;
-  data.forEach((collection) => {
-    totalVariables += collection.variables ? collection.variables.length : 0;
-  });
-
-  // Update summary
-  if (typeof updateVariablesSummary === 'function') {
-    updateVariablesSummary(totalVariables, collectionsCount);
-  } else if (window.updateVariablesSummary) {
-    window.updateVariablesSummary(totalVariables, collectionsCount);
-  }
-
-  const container = document.getElementById('variables-container');
-
-  // Check if both variables and styles are empty
-  const hasStyles =
-    stylesData &&
-    ((stylesData.textStyles && stylesData.textStyles.length > 0) ||
-      (stylesData.paintStyles && stylesData.paintStyles.length > 0) ||
-      (stylesData.effectStyles && stylesData.effectStyles.length > 0) ||
-      (stylesData.gridStyles && stylesData.gridStyles.length > 0));
-
-  if (data.length === 0 && !hasStyles) {
-    container.innerHTML = '';
-    const noItemsDiv = document.createElement('div');
-    noItemsDiv.className = 'no-items';
-    noItemsDiv.textContent = 'No variables or styles found.';
-    container.appendChild(noItemsDiv);
-    return;
-  }
-
-  let html = '';
-
-  // ... existing validation logic ...
-  // Analyze data for validation issues
-  const validationIssues = [];
-  let tailwindIssues = [];
-
-  // Render each collection as it comes from Figma
-  data.forEach((collection) => {
-    if (collection.variables.length > 0) {
-      const groupedVars = new Map();
-      const standaloneVars = [];
-
-      collection.variables.forEach((variable) => {
-        const pathMatch = variable.name.match(/^([^\/]+)\//);
-        if (pathMatch) {
-          const prefix = pathMatch[1];
-          if (!groupedVars.has(prefix)) {
-            groupedVars.set(prefix, []);
-          }
-          groupedVars.get(prefix).push(variable);
-        } else {
-          standaloneVars.push(variable);
-        }
-      });
-
-      groupedVars.forEach((variables, prefix) => {
-        let hasDirectValues = false;
-        let hasLinks = false;
-
-        variables.forEach((variable) => {
-          variable.valuesByMode.forEach((mode) => {
-            if (typeof mode.value === 'object' && mode.value.type === 'VARIABLE_ALIAS') {
-              hasLinks = true;
-            } else {
-              hasDirectValues = true;
-            }
-          });
+      function renderVariables(data, stylesData = null) {
+        console.log('DEBUG: renderVariables called', { 
+            dataLength: data ? data.length : 0, 
+            hasStylesData: !!stylesData,
+            stylesKeys: stylesData ? Object.keys(stylesData) : [] 
         });
 
-        if (hasDirectValues && hasLinks) {
-          const sanitizedId = `group-${collection.name.replace(
-            /[^a-zA-Z0-9]/g,
-            '-',
-          )}-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
-          validationIssues.push({
-            collection: collection.name,
-            group: prefix,
-            displayName: prefix.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-            issue: 'mixed-values-and-links',
-            sanitizedId: sanitizedId,
-          });
+        if (stylesData) {
+             console.log('DEBUG: stylesData counts:', {
+                 paint: stylesData.paintStyles ? stylesData.paintStyles.length : 0,
+                 text: stylesData.textStyles ? stylesData.textStyles.length : 0,
+                 effect: stylesData.effectStyles ? stylesData.effectStyles.length : 0,
+                 grid: stylesData.gridStyles ? stylesData.gridStyles.length : 0
+             });
         }
-      });
-    }
-  });
+        
+        // Calculate totals for summary
+        let totalVariables = 0;
+        const collectionsCount = data.length;
+        data.forEach(collection => {
+          totalVariables += collection.variables ? collection.variables.length : 0;
+        });
+        
+        // Update summary
+        if (typeof updateVariablesSummary === 'function') {
+          updateVariablesSummary(totalVariables, collectionsCount);
+        } else if (window.updateVariablesSummary) {
+          window.updateVariablesSummary(totalVariables, collectionsCount);
+        }
 
-  // Add Tailwind v4 validation issues if present
-  if (
-    tailwindV4Validation &&
-    !tailwindV4Validation.isValid &&
-    tailwindV4Validation.invalidGroups.length > 0
-  ) {
-    // ... (keep existing tailwind logic)
-    tailwindIssues = [];
+        const container = document.getElementById("variables-container");
+        
+        // Check if both variables and styles are empty
+        const hasStyles = stylesData && (
+             (stylesData.textStyles && stylesData.textStyles.length > 0) || 
+             (stylesData.paintStyles && stylesData.paintStyles.length > 0) || 
+             (stylesData.effectStyles && stylesData.effectStyles.length > 0) || 
+             (stylesData.gridStyles && stylesData.gridStyles.length > 0)
+        );
 
-    // Build list of invalid groups with their sanitized IDs
-    data.forEach((collection) => {
-      const groupedVars = new Map();
+        if (data.length === 0 && !hasStyles) {
+          container.innerHTML = '';
+          const noItemsDiv = document.createElement('div');
+          noItemsDiv.className = 'no-items';
+          noItemsDiv.textContent = 'No variables or styles found.';
+          container.appendChild(noItemsDiv);
+          return;
+        }
 
-      collection.variables.forEach((variable) => {
-        const pathMatch = variable.name.match(/^([^\/]+)\//);
-        if (pathMatch) {
-          const prefix = pathMatch[1];
-          if (!groupedVars.has(prefix)) {
-            groupedVars.set(prefix, []);
+        let html = "";
+
+        // ... existing validation logic ...
+        // Analyze data for validation issues
+        const validationIssues = [];
+        let tailwindIssues = [];
+
+        // Render each collection as it comes from Figma
+        data.forEach((collection) => {
+          if (collection.variables.length > 0) {
+            const groupedVars = new Map();
+            const standaloneVars = [];
+
+            collection.variables.forEach((variable) => {
+              const pathMatch = variable.name.match(/^([^\/]+)\//);
+              if (pathMatch) {
+                const prefix = pathMatch[1];
+                if (!groupedVars.has(prefix)) {
+                  groupedVars.set(prefix, []);
+                }
+                groupedVars.get(prefix).push(variable);
+              } else {
+                standaloneVars.push(variable);
+              }
+            });
+
+            groupedVars.forEach((variables, prefix) => {
+              let hasDirectValues = false;
+              let hasLinks = false;
+
+              variables.forEach((variable) => {
+                variable.valuesByMode.forEach((mode) => {
+                  if (
+                    typeof mode.value === "object" &&
+                    mode.value.type === "VARIABLE_ALIAS"
+                  ) {
+                    hasLinks = true;
+                  } else {
+                    hasDirectValues = true;
+                  }
+                });
+              });
+
+              if (hasDirectValues && hasLinks) {
+                const sanitizedId = `group-${collection.name.replace(
+                  /[^a-zA-Z0-9]/g,
+                  "-"
+                )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+                validationIssues.push({
+                  collection: collection.name,
+                  group: prefix,
+                  displayName: prefix
+                    .replace(/-/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()),
+                  issue: "mixed-values-and-links",
+                  sanitizedId: sanitizedId,
+                });
+              }
+            });
           }
-          groupedVars.get(prefix).push(variable);
+        });
+
+        // Add Tailwind v4 validation issues if present
+        if (tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.length > 0) {
+             // ... (keep existing tailwind logic)
+             tailwindIssues = [];
+             
+             // Build list of invalid groups with their sanitized IDs
+             data.forEach(collection => {
+                  const groupedVars = new Map();
+                  
+                  collection.variables.forEach(variable => {
+                       const pathMatch = variable.name.match(/^([^\/]+)\//);
+                       if (pathMatch) {
+                            const prefix = pathMatch[1];
+                            if(!groupedVars.has(prefix)) {
+                                 groupedVars.set(prefix, []);
+                            }
+                            groupedVars.get(prefix).push(variable);
+                       }
+                  });
+                  
+                  groupedVars.forEach((variables, prefix) => {
+                       // Check if this group is invalid for Tailwind v4
+                       if (tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1) {
+                            const sanitizedId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, "-")}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+                            tailwindIssues.push({
+                                 collection: collection.name,
+                                 group: prefix,
+                                 displayName: prefix.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+                                 sanitizedId: sanitizedId
+                            });
+                       }
+                  });
+             });
         }
-      });
-
-      groupedVars.forEach((variables, prefix) => {
-        // Check if this group is invalid for Tailwind v4
-        if (tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1) {
-          const sanitizedId = `group-${collection.name.replace(
-            /[^a-zA-Z0-9]/g,
-            '-',
-          )}-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
-          tailwindIssues.push({
-            collection: collection.name,
-            group: prefix,
-            displayName: prefix.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-            sanitizedId: sanitizedId,
-          });
-        }
-      });
-    });
-  }
-
-  // Render warnings to separate container
-  const warningContainer = document.getElementById('variables-warning-container');
-  if (warningContainer) {
-    warningContainer.innerHTML = '';
-    let warningHtml = '';
-
-    // Show a single combined warning if there are any issues
-    const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
-    if (hasAnyIssues) {
-      warningHtml += `
-                <div class="validation-alert validation-alert-warning">
-                  <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 24px;">⚠️</span>
-                    <div>
-                      <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
-                      <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+        
+        // Render warnings to separate container
+        const warningContainer = document.getElementById('variables-warning-container');
+        if (warningContainer) {
+             warningContainer.innerHTML = '';
+             let warningHtml = '';
+             
+             // Show a single combined warning if there are any issues
+             const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
+             if (hasAnyIssues) {
+                  warningHtml += `
+                    <div class="validation-alert validation-alert-warning">
+                      <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">⚠️</span>
+                        <div>
+                          <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
+                          <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+                        </div>
+                      </div>
+                      <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
+                        Go to warnings
+                      </button>
                     </div>
-                  </div>
-                  <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
-                    Go to warnings
-                  </button>
-                </div>
-              `;
-    }
-
-    warningContainer.innerHTML = warningHtml;
-  }
-
-  // Render each collection as it comes from Figma
-  data.forEach((collection) => {
-    if (collection.variables.length > 0) {
-      const groupedVars = new Map();
-      const standaloneVars = [];
-
-      collection.variables.forEach((variable) => {
-        const pathMatch = variable.name.match(/^([^\/]+)\//);
-        if (pathMatch) {
-          const prefix = pathMatch[1];
-          if (!groupedVars.has(prefix)) {
-            groupedVars.set(prefix, []);
-          }
-          groupedVars.get(prefix).push(variable);
-        } else {
-          standaloneVars.push(variable);
+                  `;
+             }
+             
+             warningContainer.innerHTML = warningHtml;
         }
-      });
 
-      // Build collection HTML
-      const collectionId = `collection-${collection.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
-      html += `
+        // Render each collection as it comes from Figma
+        data.forEach((collection) => {
+          if (collection.variables.length > 0) {
+            const groupedVars = new Map();
+            const standaloneVars = [];
+
+            collection.variables.forEach((variable) => {
+              const pathMatch = variable.name.match(/^([^\/]+)\//);
+              if (pathMatch) {
+                const prefix = pathMatch[1];
+                if (!groupedVars.has(prefix)) {
+                  groupedVars.set(prefix, []);
+                }
+                groupedVars.get(prefix).push(variable);
+              } else {
+                standaloneVars.push(variable);
+              }
+            });
+
+            // Build collection HTML
+            const collectionId = `collection-${collection.name.replace(
+              /[^a-zA-Z0-9]/g,
+              "-"
+            )}`;
+            html += `
               <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
                 <div class="collection-header" onclick="toggleCollection('${collectionId}')">
                   <div class="collection-info">
@@ -2427,12 +2428,12 @@ function renderVariables(data, stylesData = null) {
                 <div class="collection-content" id="${collectionId}-content">
             `;
 
-      // Render standalone variables as "Ungrouped" group
-      if (standaloneVars.length > 0) {
-        const ungroupedName = 'Ungrouped';
-        const groupId = `group-${collectionId}-ungrouped`;
-
-        html += `
+            // Render standalone variables as "Ungrouped" group
+            if (standaloneVars.length > 0) {
+              const ungroupedName = "Ungrouped";
+              const groupId = `group-${collectionId}-ungrouped`;
+              
+              html += `
                 <div class="variable-subgroup">
                   <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -2444,166 +2445,112 @@ function renderVariables(data, stylesData = null) {
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
-
-        const varsWithCollection = standaloneVars.map((v) => ({
-          ...v,
-          collection: collection.name,
-        }));
-        html += renderVariableTable(varsWithCollection);
-        html += `
+              
+              const varsWithCollection = standaloneVars.map((v) => ({
+                ...v,
+                collection: collection.name,
+              }));
+              html += renderVariableTable(varsWithCollection);
+              html += `
                   </div>
                 </div>
               `;
-      }
-
-      // Render grouped variables
-      groupedVars.forEach((variables, prefix) => {
-        const displayName = prefix.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-
-        // Check if this group has mixed values and links
-        let hasDirectValues = false;
-        let hasLinks = false;
-
-        variables.forEach((variable) => {
-          variable.valuesByMode.forEach((mode) => {
-            if (typeof mode.value === 'object' && mode.value.type === 'VARIABLE_ALIAS') {
-              hasLinks = true;
-            } else {
-              hasDirectValues = true;
             }
-          });
-        });
 
-        // Determine minority type for Mixed Values
-        let mixedMinorityType = null;
-        let linkCount = 0;
-        let directCount = 0;
-        
-        variables.forEach((variable) => {
-          let hasLink = false;
-          variable.valuesByMode.forEach((mode) => {
-             if (typeof mode.value === 'object' && mode.value.type === 'VARIABLE_ALIAS') {
-               hasLink = true;
-             }
-          });
-          if (hasLink) linkCount++;
-          else directCount++;
-        });
+            // Render grouped variables
+            groupedVars.forEach((variables, prefix) => {
+              const displayName = prefix
+                .replace(/-/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase());
 
-        if (linkCount > 0 && directCount > 0) {
-             if (linkCount < directCount) mixedMinorityType = 'link';
-             else mixedMinorityType = 'direct';
-        }
+              // Check if this group has mixed values and links
+              let hasDirectValues = false;
+              let hasLinks = false;
 
-        const hasMixedValues = hasDirectValues && hasLinks;
-        const shouldShowTailwind = window.gitlabSettings?.exportFormat === 'tailwind-v4';
-        
-        const isTailwindInvalid =
-          shouldShowTailwind &&
-          tailwindV4Validation &&
-          !tailwindV4Validation.isValid &&
-          tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
-        const isTailwindValid =
-          shouldShowTailwind &&
-          tailwindV4Validation &&
-          tailwindV4Validation.groups.some((g) => g.name === prefix && g.isValid);
+              variables.forEach((variable) => {
+                variable.valuesByMode.forEach((mode) => {
+                  if (
+                    typeof mode.value === "object" &&
+                    mode.value.type === "VARIABLE_ALIAS"
+                  ) {
+                    hasLinks = true;
+                  } else {
+                    hasDirectValues = true;
+                  }
+                });
+              });
 
-        const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              const hasMixedValues = hasDirectValues && hasLinks;
+              
+              const isTailwindEnabled = window.gitlabSettings?.exportFormat === 'tailwind-v4';
+              const isTailwindInvalid = isTailwindEnabled && tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
+              const isTailwindValid = isTailwindEnabled && tailwindV4Validation && tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
+              
+              const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
-        html += `
+              html += `
                 <div class="variable-subgroup ${
-                  hasMixedValues ? 'has-mixed-values' : ''
+                  hasMixedValues || isTailwindInvalid ? "has-validation-issues" : ""
                 }" id="${groupId}">
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <div class="subgroup-title">
                       ${displayName}
                       <span class="subgroup-stats">${variables.length}</span>
-                      ${
-                        shouldShowTailwind && isTailwindValid
-                          ? `<span class="tailwind-icon" title="Valid Tailwind v4 namespace">
+                      ${isTailwindValid ? `<span class="tailwind-icon" title="Valid Tailwind v4 namespace">
                               <svg viewBox="0 0 54 33" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M27 0C19.8 0 15.3 3.6 13.5 10.8C16.2 7.2 19.35 5.85 22.95 6.75C25.004 7.263 26.472 8.754 28.097 10.403C30.744 13.09 33.808 16.2 40.5 16.2C47.7 16.2 52.2 12.6 54 5.4C51.3 9 48.15 10.35 44.55 9.45C42.496 8.937 41.028 7.446 39.403 5.797C36.756 3.11 33.692 0 27 0ZM13.5 16.2C6.3 16.2 1.8 19.8 0 27C2.7 23.4 5.85 22.05 9.45 22.95C11.504 23.464 12.972 24.954 14.597 26.603C17.244 29.29 20.308 32.4 27 32.4C34.2 32.4 38.7 28.8 40.5 21.6C37.8 25.2 34.65 26.55 31.05 25.65C28.996 25.137 27.528 23.646 25.903 21.997C23.256 19.31 20.192 16.2 13.5 16.2Z" fill="#38bdf8"/>
                               </svg>
-                             </span>`
-                          : ''
-                      }
-                      ${
-                        hasMixedValues
-                          ? '<span class="material-symbols-outlined mixed-value-icon" title="Mixed values and links">alt_route</span>'
-                          : ''
-                      }
-                      ${
-                        shouldShowTailwind && isTailwindInvalid
-                          ? `<span class="tailwind-icon" title="Invalid Tailwind namespace">
+                             </span>` : ""}
+                      ${hasMixedValues ? '<span class="material-symbols-outlined mixed-value-icon" title="Mixed values and links">alt_route</span>' : ""}
+                      ${isTailwindInvalid ? `<span class="tailwind-icon" title="Invalid Tailwind namespace">
                               <svg viewBox="0 0 54 33" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M27 0C19.8 0 15.3 3.6 13.5 10.8C16.2 7.2 19.35 5.85 22.95 6.75C25.004 7.263 26.472 8.754 28.097 10.403C30.744 13.09 33.808 16.2 40.5 16.2C47.7 16.2 52.2 12.6 54 5.4C51.3 9 48.15 10.35 44.55 9.45C42.496 8.937 41.028 7.446 39.403 5.797C36.756 3.11 33.692 0 27 0ZM13.5 16.2C6.3 16.2 1.8 19.8 0 27C2.7 23.4 5.85 22.05 9.45 22.95C11.504 23.464 12.972 24.954 14.597 26.603C17.244 29.29 20.308 32.4 27 32.4C34.2 32.4 38.7 28.8 40.5 21.6C37.8 25.2 34.65 26.55 31.05 25.65C28.996 25.137 27.528 23.646 25.903 21.997C23.256 19.31 20.192 16.2 13.5 16.2Z" fill="#f87171"/>
                               </svg>
-                             </span>`
-                          : ''
-                      }
-                    </div>
+                             </span>` : ""}                    </div>
                     <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
-        const varsWithCollection = variables.map((v) => {
-          // Check if this variable belongs to the minority type (for mixed values)
-          let isMinority = false;
-          if (mixedMinorityType) {
-             let isLink = false;
-             v.valuesByMode.forEach((mode) => {
-                if (typeof mode.value === 'object' && mode.value.type === 'VARIABLE_ALIAS') {
-                   isLink = true;
-                }
-             });
-             if (mixedMinorityType === 'link' && isLink) isMinority = true;
-             if (mixedMinorityType === 'direct' && !isLink) isMinority = true;
-          }
-          
-          return {
-            ...v,
-            collection: collection.name,
-            isMixedValueMinority: isMinority
-          };
-        });
-        html += renderVariableTable(varsWithCollection);
-        html += `
+              const varsWithCollection = variables.map((v) => ({
+                ...v,
+                collection: collection.name,
+              }));
+              html += renderVariableTable(varsWithCollection);
+              html += `
                   </div>
                 </div>
               `;
-      });
+            });
 
-      html += `
+            html += `
                 </div>
               </div>
             `;
-    }
-  });
+          }
+        });
+        
+        // Render Styles as a Virtual Collection
+        if (stylesData) {
+            // Check if we have any styles
+             const hasStyles = (stylesData.textStyles?.length > 0) || 
+                              (stylesData.paintStyles?.length > 0) || 
+                              (stylesData.effectStyles?.length > 0) || 
+                              (stylesData.gridStyles?.length > 0);
+            
+            if (hasStyles) {
+                // Calculate detailed stats
+                const totalStyles = (stylesData.textStyles?.length || 0) + 
+                                  (stylesData.paintStyles?.length || 0) + 
+                                  (stylesData.effectStyles?.length || 0) + 
+                                  (stylesData.gridStyles?.length || 0);
+                
+                let categories = 0;
+                if (stylesData.paintStyles?.length) categories++;
+                if (stylesData.textStyles?.length) categories++;
+                if (stylesData.effectStyles?.length) categories++;
+                if (stylesData.gridStyles?.length) categories++;
 
-  // Render Styles as a Virtual Collection
-  if (stylesData) {
-    // Check if we have any styles
-    const hasStyles =
-      stylesData.textStyles?.length > 0 ||
-      stylesData.paintStyles?.length > 0 ||
-      stylesData.effectStyles?.length > 0 ||
-      stylesData.gridStyles?.length > 0;
-
-    if (hasStyles) {
-      // Calculate detailed stats
-      const totalStyles =
-        (stylesData.textStyles?.length || 0) +
-        (stylesData.paintStyles?.length || 0) +
-        (stylesData.effectStyles?.length || 0) +
-        (stylesData.gridStyles?.length || 0);
-
-      let categories = 0;
-      if (stylesData.paintStyles?.length) categories++;
-      if (stylesData.textStyles?.length) categories++;
-      if (stylesData.effectStyles?.length) categories++;
-      if (stylesData.gridStyles?.length) categories++;
-
-      html += `
+                html += `
                     <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
                         <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
                             <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
@@ -2623,17 +2570,17 @@ function renderVariables(data, stylesData = null) {
                         </div>
                     </div>
                 `;
-      html += renderStylesAsCollection(stylesData);
-    }
-  }
+                html += renderStylesAsCollection(stylesData);
+            }
+        }
 
-  container.innerHTML = SecurityUtils.sanitizeHTML(html);
-
-  // Collapse all by default
-  if (window.collapseAllVariables) {
-    window.collapseAllVariables();
-  }
-}
+        container.innerHTML = SecurityUtils.sanitizeHTML(html);
+        
+        // Collapse all by default
+        if (window.collapseAllVariables) {
+          window.collapseAllVariables();
+        }
+      }
 
 function renderStylesAsCollection(data) {
   if (
@@ -3029,8 +2976,8 @@ function findVariableMatchingValue(valueToMatch, type) {
 }
 
 // Render a group of variables with a title
-function renderVariableTable(variables) {
-  let html = `
+      function renderVariableTable(variables) {
+        let html = `
             <div class="variable-list">
               <div class="unified-list-header variable-header">
                   <div class="variable-cell">Name</div>
@@ -3041,75 +2988,70 @@ function renderVariableTable(variables) {
               </div>
         `;
 
-  variables.forEach((variable) => {
-    const sanitizedId = variable.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-    const safeVariableName = variable.name
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/"/g, '&quot;');
-
-    html += `
+        variables.forEach((variable) => {
+          const sanitizedId = variable.name
+            .replace(/[^a-zA-Z0-9]/g, "-")
+            .toLowerCase();
+          const safeVariableName = variable.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            
+          html += `
             <div class="unified-list-item variable-row" id="var-${sanitizedId}">
-              <div class="variable-cell" title="${safeVariableName}" style="font-weight: 500; color: #fff; display: flex; align-items: center;">
-                ${variable.name}
-                ${variable.isMixedValueMinority ? '<span class="material-symbols-outlined mixed-value-warning-variable" title="Format mismatch in group">warning</span>' : ''}
-              </div>
+              <div class="variable-cell" style="font-weight: 500; color: #fff; display: flex; align-items: center;">${variable.name}</div>
               <div class="variable-cell" style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</div>
               <div class="variable-cell">
           `;
 
-    variable.valuesByMode.forEach((mode) => {
-      const value = mode.value;
-      const showModeName = variable.valuesByMode.length > 1;
+          variable.valuesByMode.forEach((mode) => {
+            const value = mode.value;
+            const showModeName = variable.valuesByMode.length > 1;
 
-      // Check if this is a variable alias
-      if (typeof value === 'object' && value.type === 'VARIABLE_ALIAS') {
-        const referencedVariableName = findVariableNameById(value.id);
-        const sanitizedName = referencedVariableName
-          ? referencedVariableName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-          : null;
-        html += `
+            // Check if this is a variable alias
+            if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
+              const referencedVariableName = findVariableNameById(value.id);
+              const sanitizedName = referencedVariableName
+                ? referencedVariableName
+                    .replace(/[^a-zA-Z0-9]/g, "-")
+                    .toLowerCase()
+                : null;
+              html += `
                 <div>
-                  ${showModeName ? `<span style="opacity:0.5; font-size:11px;">${mode.modeName}:</span> ` : ''}<span 
+                  ${showModeName ? `<span style="opacity:0.5; font-size:11px;">${mode.modeName}:</span> ` : ""}<span 
                     style="color: rgba(255,255,255,0.9); cursor: pointer; border-bottom: 1px dashed rgba(255,255,255,0.4);" 
                     onclick="scrollToVariable('${sanitizedName}')"
                     title="Click to jump to ${referencedVariableName}"
                   >${referencedVariableName || value.id}</span>
                 </div>
               `;
-      }
-      // Display color values with a preview
-      else if (
-        variable.resolvedType === 'COLOR' &&
-        typeof value === 'object' &&
-        value.r !== undefined
-      ) {
-        const r = Math.round(value.r * 255);
-        const g = Math.round(value.g * 255);
-        const b = Math.round(value.b * 255);
-        const a = value.a ?? 1;
+            }
+            // Display color values with a preview
+            else if (
+              variable.resolvedType === "COLOR" &&
+              typeof value === "object" &&
+              value.r !== undefined
+            ) {
+              const r = Math.round(value.r * 255);
+              const g = Math.round(value.g * 255);
+              const b = Math.round(value.b * 255);
+              const a = value.a ?? 1;
 
-        html += `
-                <div style="display: flex; align-items: center; gap: 6px;" title="${showModeName ? mode.modeName + ': ' : ''}rgba(${r},${g},${b},${formatDecimal(a)})">
+              html += `
+                <div style="display: flex; align-items: center; gap: 6px;">
                   <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a}); width: 14px; height: 14px; border-radius: 4px; display: inline-block;"></span>
                   <span>${
-                    showModeName ? mode.modeName + ': ' : ''
+                    showModeName ? mode.modeName + ": " : ""
                   }rgba(${r},${g},${b},${formatDecimal(a)})</span>
                 </div>
               `;
-      } else {
-        // Fix for string formatting: don't stringify strings
-        const displayValue =
-          typeof value === 'string'
-            ? value
-            : typeof value === 'number'
-              ? formatDecimal(value)
-              : JSON.stringify(value);
-        html += `<div title="${displayValue}">${showModeName ? mode.modeName + ': ' : ''}${displayValue}</div>`;
-      }
-    });
+            } else {
+               // Fix for string formatting: don't stringify strings
+              const displayValue = typeof value === 'string' ? value : (typeof value === 'number' ? formatDecimal(value) : JSON.stringify(value));
+              html += `<div>${
+                showModeName ? mode.modeName + ": " : ""
+              }${displayValue}</div>`;
+            }
+          });
 
-    html += `</div>
+          html += `</div>
               
               <!-- Usage badge -->
               <div class="variable-cell" style="display: flex; justify-content: center;">
@@ -3123,14 +3065,14 @@ function renderVariableTable(variables) {
               </div>
             </div>
           `;
-  });
+        });
 
-  html += `
+        html += `
             </div>
         `;
 
-  return html;
-}
+        return html;
+      }
 
 // Extract component type and state from name
 function parseComponentName(name) {
@@ -4368,7 +4310,7 @@ function updateAnalysisScope(scope) {
 }
 
 // Render component stats
-function renderStats(statsData) {
+function renderStats(statsData, filteredData = null) {
   const container = document.getElementById('stats-container');
   if (!container) return;
 
@@ -4383,30 +4325,46 @@ function renderStats(statsData) {
     return;
   }
 
-  // Calculate totals
+  // Calculate totals from the FULL dataset (statsData)
   const totalComponents = statsData.length;
   const totalInstances = statsData.reduce((sum, item) => sum + item.count, 0);
 
   // Metrics: Unused
   const unusedComponents = statsData.filter((item) => item.count === 0).length;
 
-  // Metrics: Most Used (Top 3)
-  const sortedByUsage = [...statsData].sort((a, b) => b.count - a.count);
-  const mostUsed = sortedByUsage.slice(0, 3);
+  // Calculate filtered stats if provided
+  let filteredComponents = 0;
+  let filteredInstances = 0;
+  let filteredUnused = 0;
+  
+  if (filteredData) {
+      filteredComponents = filteredData.length;
+      filteredInstances = filteredData.reduce((sum, item) => sum + item.count, 0);
+      filteredUnused = filteredData.filter((item) => item.count === 0).length;
+  }
 
   let html = `
     <!-- Top Summary Cards -->
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${totalComponents}</div>
+        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
+            ${totalComponents}
+            ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredComponents})</span>` : ''}
+        </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${totalInstances}</div>
+        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
+            ${totalInstances}
+             ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredInstances})</span>` : ''}
+        </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">${unusedComponents}</div>
+        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
+            ${unusedComponents}
+             ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredUnused})</span>` : ''}
+        </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
       </div>
     </div>
@@ -4424,21 +4382,24 @@ function renderStats(statsData) {
         <div class="component-list" style="display: flex; flex-direction: column; gap: 4px;">
   `;
 
-  statsData.forEach((item) => {
+  // Use filteredData for the list if present, otherwise statsData
+  const listData = filteredData || statsData;
+
+  listData.forEach((item) => {
     // Determine icon based on type
 
     const variantLabel = item.variantCount > 1 ? item.variantCount : '-';
 
     // Render Component Row
     html += `
-      <div class="unified-list-item component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+      <div class="unified-list-item variable-row component-item" data-id="${item.id}" style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; align-items: center; padding: 0 12px; height: 28px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 4px; margin-bottom: 4px;">
         
         <!-- Name Column -->
-        <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
             <div class="component-icon-wrapper" style="display: flex; align-items: center; justify-content: center; color:  #a855f7; flex-shrink: 0;">
                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"  style="rotate: 45deg"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>
 
-  </div>
+            </div>
             <span class="component-name text-truncate" title="${item.name}" style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9);">
                 ${item.name}
             </span>

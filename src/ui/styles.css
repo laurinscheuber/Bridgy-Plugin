@@ -3717,10 +3717,7 @@ input[type='password']:focus {
   font-weight: var(--font-medium);
 }
 
-.has-validation-issues {
-  border-left: 4px solid var(--error-500) !important;
-  background: linear-gradient(135deg, var(--error-50) 0%, var(--error-100) 100%) !important;
-}
+/* .has-validation-issues removed as per user request */
 
 .has-validation-issues .subgroup-title {
   color: var(--error-200) !important;
