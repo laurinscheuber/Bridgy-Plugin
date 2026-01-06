@@ -872,6 +872,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // 1. Find all local component definitions (Component and ComponentSet)
           // 2. Find all instances
           // 3. Map instances to local definitions synchronously
+          
+          // Ensure all pages are loaded for accurate stats
+          await figma.loadAllPagesAsync();
 
           const localDefinitions = new Map<
             string,
@@ -932,10 +935,23 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
 
           // 3. Match Instances to Definitions
+          console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
+          
           for (const instance of allInstances) {
-            // mainComponentId is available synchronously at runtime
-            // Cast to any because typings might be missing it on InstanceNode depending on version
-            const mainId = (instance as any).mainComponentId;
+            // mainComponentId is typically available synchronously
+            let mainId = (instance as any).mainComponentId;
+
+            // Fallback: If mainId is missing use async lookup (slower but reliable)
+            if (!mainId) {
+               try {
+                   const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
+                   if (mainComponent) {
+                       mainId = mainComponent.id;
+                   }
+               } catch (e) {
+                   // Ignore error, skip instance
+               }
+            }
 
             if (!mainId) continue;
 
@@ -959,7 +975,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 id: instance.id,
                 name: instance.name, // Instance name might differ from component name
                 parentName: parentName,
-              });            }
+              });            
+            }
           }
 
           // 4. Format for UI
@@ -1499,14 +1516,18 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           const scope = msg.scope || 'PAGE';
           console.log(`Analyzing token coverage (Scope: ${scope})...`);
 
+          // Get settings to determine export format (for dynamic weighting)
+          const settings = await GitLabService.loadSettings();
+          const exportFormat = settings?.exportFormat || 'css';
+
           let coverageResult;
 
           if (scope === 'ALL') {
-            coverageResult = await TokenCoverageService.analyzeDocument();
+            coverageResult = await TokenCoverageService.analyzeDocument(exportFormat);
           } else if (scope === 'SMART_SCAN') {
-            coverageResult = await TokenCoverageService.analyzeSmart();
+            coverageResult = await TokenCoverageService.analyzeSmart(exportFormat);
           } else {
-            coverageResult = await TokenCoverageService.analyzeCurrentPage();
+            coverageResult = await TokenCoverageService.analyzeCurrentPage(exportFormat);
           }
 
           figma.ui.postMessage({
