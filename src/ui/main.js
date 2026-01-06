@@ -663,6 +663,20 @@ window.filterStats = function(query) {
   renderStats(componentStatsData, filtered);
 };
 
+window.toggleStatsSort = function(column) {
+  if (statsSortState.column === column) {
+    statsSortState.direction = statsSortState.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    statsSortState.column = column;
+    statsSortState.direction = column === 'name' ? 'asc' : 'desc';
+  }
+  
+  // Re-apply filter which triggers render with new sort
+  const searchInput = document.getElementById('stats-search-input'); // Assuming ID, fallback to global filter
+  const query = searchInput ? searchInput.value : '';
+  window.filterStats(query);
+};
+
 // ===== FEEDBACK SYSTEM =====
 window.dismissFeedback = function () {
   const feedbackSection = document.querySelector('.feedback-section');
@@ -1281,6 +1295,7 @@ let selectionData = null;
 let tailwindV4Validation = null;
 let analysisScope = 'PAGE';
 let componentStatsData = []; // Store stats for filtering
+let statsSortState = { column: 'count', direction: 'desc' }; // Default sort state
 
 const AVAILABLE_UNITS = [
   '',
@@ -2482,7 +2497,8 @@ window.onmessage = (event) => {
 
               const hasMixedValues = hasDirectValues && hasLinks;
               
-              const isTailwindEnabled = window.gitlabSettings?.exportFormat === 'tailwind-v4';
+              const isTailwindEnabled = (window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4');
+              console.log('[DEBUG] isTailwindEnabled:', isTailwindEnabled, 'Format:', (window.gitSettings?.exportFormat || window.gitlabSettings?.exportFormat));
               const isTailwindInvalid = isTailwindEnabled && tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
               const isTailwindValid = isTailwindEnabled && tailwindV4Validation && tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
               
@@ -4309,6 +4325,25 @@ function updateAnalysisScope(scope) {
   analyzeTokenCoverage();
 }
 
+// Toggle sort order
+window.toggleStatsSort = function(column) {
+  if (statsSortState.column === column) {
+    statsSortState.direction = statsSortState.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    statsSortState.column = column;
+    statsSortState.direction = column === 'name' ? 'asc' : 'desc';
+  }
+  
+  // Re-apply filter which triggers render with new sort
+  const searchInput = document.getElementById('stats-search-input'); // Assuming ID, fallback to global filter
+  const query = searchInput ? searchInput.value : '';
+  if (window.filterStats) {
+      window.filterStats(query);
+  } else {
+      renderStats(componentStatsData);
+  }
+};
+
 // Render component stats
 function renderStats(statsData, filteredData = null) {
   const container = document.getElementById('stats-container');
@@ -4373,9 +4408,15 @@ function renderStats(statsData, filteredData = null) {
     <div class="stats-table">
         <!-- Table Header -->
         <div style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; padding: 0 12px 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; align-items: center;">
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase;">Component Name ↓</div>
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right;">Variants</div>
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right;">Instances</div>
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="toggleStatsSort('name')">
+              Component Name ${statsSortState.column === 'name' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px;" onclick="toggleStatsSort('variantCount')">
+              Variants ${statsSortState.column === 'variantCount' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px;" onclick="toggleStatsSort('count')">
+              Instances ${statsSortState.column === 'count' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            </div>
             <div></div> <!-- Actions spacer -->
         </div>
 
@@ -4383,7 +4424,21 @@ function renderStats(statsData, filteredData = null) {
   `;
 
   // Use filteredData for the list if present, otherwise statsData
-  const listData = filteredData || statsData;
+  // Clone to avoid mutation of source if reused
+  let listData = filteredData ? [...filteredData] : [...statsData];
+
+  // Apply Sorting
+  listData.sort((a, b) => {
+    let valA = a[statsSortState.column];
+    let valB = b[statsSortState.column];
+    
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    
+    if (valA < valB) return statsSortState.direction === 'asc' ? -1 : 1;
+    if (valA > valB) return statsSortState.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   listData.forEach((item) => {
     // Determine icon based on type
@@ -4523,20 +4578,29 @@ function displayTokenCoverageResults(result) {
                                 </div>
                              `;
                       };
+
+                      // Get weights (dynamic or fallback)
+                      const weights = result.weights || {
+                          tokenCoverage: '35%',
+                          tailwindReadiness: '20%',
+                          componentHygiene: '15%',
+                          variableHygiene: '15%'
+                      };
+
                       return `
-                            ${renderRow('Token Coverage', result.subScores.tokenCoverage, '35%', 'Percentage of styling properties using variables instead of hardcoded values.')}
+                            ${renderRow('Token Coverage', result.subScores.tokenCoverage, weights.tokenCoverage, 'Percentage of styling properties using variables instead of hardcoded values.')}
                             ${
                               window.gitlabSettings?.exportFormat === 'tailwind-v4'
                                 ? renderRow(
                                     'Tailwind Readiness',
                                     result.subScores.tailwindReadiness,
-                                    '20%',
+                                    weights.tailwindReadiness,
                                     'Variable names following kebab-case convention for easy Tailwind CSS export.',
                                   )
                                 : ''
                             }
-                            ${renderRow('Component Hygiene', result.subScores.componentHygiene, '15%', 'Usage of reusable Components and Instances versus raw Frames.')}
-                            ${renderRow('Variable Hygiene', result.subScores.variableHygiene, '15%', 'Organization of variables into logical groups using slashes (e.g. color/primary).')}
+                            ${renderRow('Component Hygiene', result.subScores.componentHygiene, weights.componentHygiene, 'Usage of reusable Components and Instances versus raw Frames.')}
+                            ${renderRow('Variable Hygiene', result.subScores.variableHygiene, weights.variableHygiene, 'Organization of variables into logical groups using slashes (e.g. color/primary).')}
                         `;
                       // Removed Layout Best Practices as requested
                     })()}
@@ -6103,7 +6167,8 @@ function handleOAuthCallback(authData) {
   }
 }
 
-function saveConfiguration() {
+// Helper to persist settings with optional silence
+function persistSettings(silent = false) {
   try {
     // Get provider first
     const provider = document.getElementById('config-provider').value;
@@ -6170,19 +6235,19 @@ function saveConfiguration() {
 
     // Enhanced validation
     if (!projectId) {
-      showError('Validation Error', 'Please provide a Project ID');
+      if (!silent) showError('Validation Error', 'Please provide a Project ID');
       return;
     }
 
     if (!token) {
-      showError('Validation Error', 'Please provide a Project Access Token');
+      if (!silent) showError('Validation Error', 'Please provide a Project Access Token');
       return;
     }
 
     // Validate project ID format
     const projectIdPattern = /^(\d+|[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)$/;
     if (!projectIdPattern.test(projectId)) {
-      showError(
+      if (!silent) showError(
         'Validation Error',
         'Invalid project ID format. Use numeric ID or namespace/project format.',
       );
@@ -6191,26 +6256,26 @@ function saveConfiguration() {
 
     // Validate token format - very lenient, just check length and basic characters
     if (token.length < 8) {
-      showError('Validation Error', 'GitLab token must be at least 8 characters long.');
+      if (!silent) showError('Validation Error', 'GitLab token must be at least 8 characters long.');
       return;
     }
 
     // Only reject tokens with obviously invalid characters (spaces, quotes, etc.)
     if (/[\s"'<>]/.test(token)) {
-      showError('Validation Error', 'GitLab token contains invalid characters.');
+      if (!silent) showError('Validation Error', 'GitLab token contains invalid characters.');
       return;
     }
 
     // Validate file paths
     if (filePath.includes('..') || filePath.includes('\\') || filePath.startsWith('/')) {
-      showError('Validation Error', 'Invalid file path - path traversal detected');
+      if (!silent) showError('Validation Error', 'Invalid file path - path traversal detected');
       return;
     }
 
     // Validate URL based on provider
     if (provider === 'gitlab') {
       if (baseUrl && !SecurityUtils.isValidGitLabURL(baseUrl)) {
-        showError(
+        if (!silent) showError(
           'Validation Error',
           "Invalid GitLab URL. Must be HTTPS and contain 'gitlab' in the domain",
         );
@@ -6219,7 +6284,7 @@ function saveConfiguration() {
     } else {
       // GitHub URL validation
       if (baseUrl && !baseUrl.includes('github')) {
-        showError('Validation Error', "Invalid GitHub URL. Must contain 'github' in the domain");
+        if (!silent) showError('Validation Error', "Invalid GitHub URL. Must contain 'github' in the domain");
         return;
       }
     }
@@ -6242,24 +6307,23 @@ function saveConfiguration() {
       savedBy: 'Current user',
     };
 
-    // Keep backward compatibility
-    if (provider === 'gitlab') {
-      window.gitlabSettings = {
-        gitlabUrl: baseUrl,
-        projectId: projectId,
-        filePath: filePath,
-        exportFormat: exportFormat,
-        testFilePath: testFilePath,
-        gitlabToken: token,
-        strategy: strategy,
-        branchName: branch,
-        testBranchName: testBranch,
-        saveToken: saveToken,
-        isPersonal: !shareTeam,
-        savedAt: new Date().toISOString(),
-        savedBy: 'Current user',
-      };
-    }
+    // Keep backward compatibility - Update gitlabSettings for UI components that rely on it
+    // This ensures exportFormat changes are reflected even if provider is not gitlab
+    window.gitlabSettings = {
+      gitlabUrl: baseUrl,
+      projectId: projectId,
+      filePath: filePath,
+      exportFormat: exportFormat,
+      testFilePath: testFilePath,
+      gitlabToken: token,
+      strategy: strategy,
+      branchName: branch,
+      testBranchName: testBranch,
+      saveToken: saveToken,
+      isPersonal: !shareTeam,
+      savedAt: new Date().toISOString(),
+      savedBy: 'Current user',
+    };
 
     parent.postMessage(
       {
@@ -6282,27 +6346,47 @@ function saveConfiguration() {
       '*',
     );
 
+    // Common updates
     displayConfigMetadata();
     updateExportButtonText();
     updateRepositoryLink();
 
-    showSuccess('Settings Saved', 'Configuration saved successfully!', 4000);
-    closeSettingsModal();
+    console.log('[DEBUG] persistSettings: exportFormat set to:', exportFormat); // Debug log
 
-    // Trigger full refresh of all tabs
-    if (typeof window.refreshData === 'function') {
-      window.refreshData();
+    if (!silent) {
+       showSuccess('Settings Saved', 'Configuration saved successfully!', 4000);
+       closeSettingsModal();
+
+       // Trigger full refresh of all tabs for manual save
+       if (typeof window.refreshData === 'function') {
+         window.refreshData();
+       }
+       if (typeof window.refreshStats === 'function') {
+         window.refreshStats();
+       }
+    } else {
+        // Silent update - Reactive UI Refresh
+        console.log('[DEBUG] Silent persist. Re-rendering variables...'); // Debug log
+        // Re-render variables immediately to reflect settings like Tailwind Icons
+        if (window.globalVariablesData) {
+            // Re-render Variables
+            renderVariables(window.globalVariablesData, window.stylesData || null);
+        }
     }
-    if (typeof window.refreshStats === 'function') {
-      window.refreshStats();
-    }
+
   } catch (error) {
     console.error('Error saving configuration:', error);
-    showError(
-      'Configuration Error',
-      'Failed to save configuration: ' + (error.message || 'Unknown error'),
-    );
+    if (!silent) {
+        showError(
+          'Configuration Error',
+          error.message || 'An unexpected error occurred while saving the configuration.',
+        );
+    }
   }
+}
+
+function saveConfiguration() {
+  persistSettings(false);
 }
 
 function loadConfigurationTab() {
@@ -7065,11 +7149,11 @@ if (configStrategyElement) {
 const configExportFormatElement = document.getElementById('config-export-format');
 if (configExportFormatElement) {
   configExportFormatElement.addEventListener('change', function () {
-    if (window.gitlabSettings) {
-      window.gitlabSettings.exportFormat = this.value;
+    // Auto-save styles (silent) and refresh UI
+    if (typeof persistSettings === 'function') {
+        persistSettings(true);
     }
-    updateExportButtonText();
-    // Update button states when format changes
+    // Update button states
     updateCommitButtonStates();
   });
 }
@@ -9203,7 +9287,7 @@ window.scrollToVariable = scrollToVariable;
 window.expandAllImportGroups = expandAllImportGroups;
 
 // Styles Functions
-window.toggleStyles = toggleStyles;
+// window.toggleStyles is already defined above
 window.expandAllStyles = () => {
   document.querySelectorAll('#styles-container .collection-content').forEach((el) => {
     el.classList.add('expanded');
