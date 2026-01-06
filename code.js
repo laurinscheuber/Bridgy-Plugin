@@ -10214,7 +10214,7 @@ ${Object.keys(cssProperties).map((property) => {
                 const scope = msg.scope || "PAGE";
                 console.log(`Analyzing token coverage (Scope: ${scope})...`);
                 const settings = yield gitlabService_1.GitLabService.loadSettings();
-                const exportFormat = (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
+                const exportFormat = msg.exportFormat || (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
                 let coverageResult;
                 if (scope === "ALL") {
                   coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat);
