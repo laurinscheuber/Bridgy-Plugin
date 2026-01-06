@@ -1810,7 +1810,7 @@ window.onmessage = (event) => {
         newOption.value = id;
         newOption.text = name;
         newOption.selected = true; // Ensure it is marked selected in DOM
-        targetSelect.add(newOption, targetSelect.options[1]);
+        targetSelect.add(newOption, null); // Append to end to avoid "node is not a child" error if index 1 is in an optgroup
 
         // Select it
         targetSelect.value = id;
