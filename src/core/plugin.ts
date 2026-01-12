@@ -1720,43 +1720,80 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case 'rename-variable-group':
         try {
-          const { oldGroupName, newGroupName } = msg as any;
-          if (!oldGroupName || !newGroupName) {
-            throw new Error('Old and new group names are required');
+          const { oldGroupName, newGroupName, action, variableId } = msg as any;
+          if (!newGroupName) {
+            throw new Error('New group name is required');
           }
 
-          console.log(`Renaming variable group: ${oldGroupName} → ${newGroupName}`);
+          // action can be "replace" (default) or "add-prefix"
+          const renameAction = action || 'replace';
+
+          console.log(`Renaming variable group: ${oldGroupName || 'standalone'} → ${newGroupName} (action: ${renameAction})`);
 
           // Get all collections
           const collections = await figma.variables.getLocalVariableCollectionsAsync();
           let renamedCount = 0;
           
-          // Find all variables that start with the old group name
-          for (const collection of collections) {
-            for (const variableId of collection.variableIds) {
-              const variable = await figma.variables.getVariableByIdAsync(variableId);
-              if (!variable) continue;
-              
-              // Check if variable belongs to the group to rename
-              const pathMatch = variable.name.match(/^([^\/]+)\/(.*)/);
-              if (pathMatch && pathMatch[1] === oldGroupName) {
-                const remainder = pathMatch[2];
-                const newName = `${newGroupName}/${remainder}`;
+          // If variableId is provided, only rename that specific variable (for standalone variables)
+          if (variableId) {
+            const variable = await figma.variables.getVariableByIdAsync(variableId);
+            if (!variable) {
+              throw new Error(`Variable with ID ${variableId} not found`);
+            }
+
+            const oldName = variable.name;
+            const newName = `${newGroupName}/${variable.name}`;
+
+            try {
+              variable.name = newName;
+              renamedCount = 1;
+              console.log(`Renamed: ${oldName} → ${newName}`);
+            } catch (renameError) {
+              console.error(`Failed to rename variable ${oldName}:`, renameError);
+              throw renameError;
+            }
+          } else {
+            // Find all variables that match the criteria (grouped variables)
+            for (const collection of collections) {
+              for (const collectionVariableId of collection.variableIds) {
+                const variable = await figma.variables.getVariableByIdAsync(collectionVariableId);
+                if (!variable) continue;
+
+                let newName: string | null = null;
                 const oldName = variable.name;
-                
-                try {
-                  variable.name = newName;
-                  renamedCount++;
-                  console.log(`Renamed: ${oldName} → ${newName}`);
-                } catch (renameError) {
-                  console.error(`Failed to rename variable ${oldName}:`, renameError);
+
+                // Check if variable belongs to the group to rename
+                const pathMatch = variable.name.match(/^([^\/]+)\/(.*)/);
+
+                if (pathMatch && pathMatch[1] === oldGroupName) {
+                  // Handle grouped variables
+                  const currentGroup = pathMatch[1];
+                  const remainder = pathMatch[2];
+
+                  if (renameAction === 'add-prefix') {
+                    // Add namespace as prefix: "group/variable" → "namespace/group/variable"
+                    newName = `${newGroupName}/${currentGroup}/${remainder}`;
+                  } else {
+                    // Replace: "group/variable" → "namespace/variable"
+                    newName = `${newGroupName}/${remainder}`;
+                  }
+                }
+
+                if (newName) {
+                  try {
+                    variable.name = newName;
+                    renamedCount++;
+                    console.log(`Renamed: ${oldName} → ${newName}`);
+                  } catch (renameError) {
+                    console.error(`Failed to rename variable ${oldName}:`, renameError);
+                  }
                 }
               }
             }
           }
 
           if (renamedCount === 0) {
-            throw new Error(`No variables found with group name "${oldGroupName}"`);
+            throw new Error(`No variables found matching the criteria`);
           }
 
           // Trigger validation refresh
@@ -1771,14 +1808,16 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           await collectDocumentData();
 
           // Notify success
-          figma.notify(`Renamed ${renamedCount} variable${renamedCount !== 1 ? 's' : ''} from "${oldGroupName}" to "${newGroupName}"`);
-          
+          const actionLabel = renameAction === 'add-prefix' ? 'prefixed with' : 'renamed to';
+          figma.notify(`${renamedCount} variable${renamedCount !== 1 ? 's' : ''} ${actionLabel} "${newGroupName}"`);
+
           figma.ui.postMessage({
             type: 'variable-group-renamed',
             success: true,
             oldGroupName,
             newGroupName,
             renamedCount,
+            action: renameAction,
           });
         } catch (renameError: any) {
           console.error('Error renaming variable group:', renameError);

@@ -1909,8 +1909,8 @@ class SecurityUtils {
           match.includes('toggleFeedback(') ||
           match.includes('scrollToVariable(') ||
           match.includes('deleteStyle(') ||
-          match.includes('updateTailwindRenameButtonState(') ||
-          match.includes('openRenameTailwindVariableDialog(')
+          match.includes('updateTailwindActionButtonsState(') ||
+          match.includes('applyTailwindNamespace(')
         ) {
           return match;
         }
@@ -6348,10 +6348,12 @@ function renderTailwindReadinessSection(validation) {
     return '';
   }
 
-  // Use invalidGroups directly instead of filtering
+  // Separate standalone variables from grouped variables
   const invalidGroupNames = validation.invalidGroups;
-  const invalidGroups = validation.groups.filter(g => invalidGroupNames.includes(g.name));
-  
+  const allInvalidGroups = validation.groups.filter(g => invalidGroupNames.includes(g.name));
+  const standaloneVariables = allInvalidGroups.filter(g => g.isStandalone);
+  const groupedVariables = allInvalidGroups.filter(g => !g.isStandalone);
+
   let html = `
     <!-- Tailwind Readiness Header -->
     <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
@@ -6362,7 +6364,7 @@ function renderTailwindReadinessSection(validation) {
         </h2>
       </div>
       <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-        Variables that don't use valid Tailwind v4 namespaces. Rename them to make your design system compatible.
+        Variables that need Tailwind v4 compatible namespaces. Fix them individually or by group.
       </p>
     </div>
   `;
@@ -6376,8 +6378,8 @@ function renderTailwindReadinessSection(validation) {
         <div class="collection-info">
           <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
             <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
-            Invalid Namespaces
-            <span class="subgroup-stats">${invalidGroups.length}</span>
+            Compatibility Issues
+            <span class="subgroup-stats">${allInvalidGroups.length}</span>
           </div>
         </div>
         <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
@@ -6386,46 +6388,128 @@ function renderTailwindReadinessSection(validation) {
         <div style="padding: 12px;">
   `;
 
-  // Render each invalid group
-  invalidGroups.forEach((group, idx) => {
-    const itemId = `tailwind-item-${idx}`;
-    
+  // Render standalone variables first (each as a separate entry)
+  if (standaloneVariables.length > 0) {
     html += `
-      <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="flex: 1;">
-            <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; margin-bottom: 4px;">
-              ${SecurityUtils.escapeHTML(group.name)}
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+          Standalone Variables (${standaloneVariables.length})
+        </div>
+    `;
+
+    standaloneVariables.forEach((variable, idx) => {
+      const itemId = `tailwind-standalone-${idx}`;
+      const displayName = SecurityUtils.escapeHTML(variable.name);
+
+      html += `
+        <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${displayName}
+              </div>
+              <div style="font-size: 10px; color: rgba(255, 255, 255, 0.4); margin-top: 2px;">
+                Missing namespace
+              </div>
             </div>
-            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">
-              ${group.variableCount} variable${group.variableCount !== 1 ? 's' : ''}
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <select 
+                id="${itemId}-namespace-select" 
+                class="token-fix-select" 
+                style="padding: 5px 6px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 11px; cursor: pointer; min-width: 120px;"
+                onchange="updateTailwindActionButtonsState('${itemId}', true)"
+                data-variable-id="${variable.variableId}"
+              >
+                <option value="">Select namespace...</option>
+                ${getTailwindNamespaceOptions(variable.name)}
+              </select>
+              <button 
+                id="${itemId}-add-prefix-btn" 
+                class="token-fix-apply-btn" 
+                onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}')"
+                style="padding: 5px 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 4px; color: white; font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                disabled
+                title="Add namespace prefix"
+              >
+                <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">add</span>
+                Fix
+              </button>
             </div>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <select 
-              id="${itemId}-namespace-select" 
-              class="token-fix-select" 
-              style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
-              onchange="updateTailwindRenameButtonState('${itemId}')"
-            >
-              <option value="">Select namespace...</option>
-              ${getTailwindNamespaceOptions(group.name)}
-            </select>
-            <button 
-              id="${itemId}-rename-btn" 
-              class="token-fix-apply-btn" 
-              onclick="openRenameTailwindVariableDialog('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount})"
-              style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
-              disabled
-            >
-              <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">edit</span>
-              Rename
-            </button>
           </div>
         </div>
-      </div>
+      `;
+    });
+
+    html += `</div>`;
+  }
+
+  // Render grouped variables
+  if (groupedVariables.length > 0) {
+    html += `
+      <div style="margin-bottom: 8px;">
+        <div style="font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+          Invalid Groups (${groupedVariables.length})
+        </div>
     `;
-  });
+
+    groupedVariables.forEach((group, idx) => {
+      const itemId = `tailwind-group-${idx}`;
+      const displayName = SecurityUtils.escapeHTML(group.name);
+      const description = `${group.variableCount} variable${group.variableCount !== 1 ? 's' : ''}`;
+
+      html += `
+        <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; margin-bottom: 4px;">
+                ${displayName}
+              </div>
+              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">
+                ${description}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; min-width: 300px;">
+              <select 
+                id="${itemId}-namespace-select" 
+                class="token-fix-select" 
+                style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
+                onchange="updateTailwindActionButtonsState('${itemId}', false)"
+              >
+                <option value="">Select namespace...</option>
+                ${getTailwindNamespaceOptions(group.name)}
+              </select>
+              <div style="display: flex; gap: 8px;">
+                <button 
+                  id="${itemId}-add-prefix-btn" 
+                  class="token-fix-apply-btn" 
+                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'add-prefix', null)"
+                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                  disabled
+                  title="Add namespace as additional prefix (e.g., group/var → namespace/group/var)"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span>
+                  Add Prefix
+                </button>
+                <button 
+                  id="${itemId}-replace-btn" 
+                  class="token-fix-apply-btn" 
+                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'replace', null)"
+                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                  disabled
+                  title="Replace existing group with namespace (e.g., group/var → namespace/var)"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span>
+                  Replace
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+  }
 
   html += `
         </div>
@@ -6486,24 +6570,6 @@ function getTailwindNamespaceOptions(currentName) {
   
   return html;
 }
-
-// Update rename button state based on namespace selection
-window.updateTailwindRenameButtonState = function(itemId) {
-  const select = document.getElementById(`${itemId}-namespace-select`);
-  const button = document.getElementById(`${itemId}-rename-btn`);
-  
-  if (select && button) {
-    if (select.value) {
-      button.disabled = false;
-      button.style.opacity = '1';
-      button.style.pointerEvents = 'auto';
-    } else {
-      button.disabled = true;
-      button.style.opacity = '0.5';
-      button.style.pointerEvents = 'none';
-    }
-  }
-};
 
 // Function to display token coverage results
 function displayTokenCoverageResults(result) {
@@ -7369,7 +7435,41 @@ window.submitCreateVariable = function () {
 };
 
 // Function to open rename dialog for Tailwind variables
-window.openRenameTailwindVariableDialog = function(currentGroupName, itemId, variableCount) {
+// Update button states when namespace is selected
+window.updateTailwindActionButtonsState = function(itemId, isStandalone) {
+  const select = document.getElementById(`${itemId}-namespace-select`);
+  const addPrefixBtn = document.getElementById(`${itemId}-add-prefix-btn`);
+  const replaceBtn = document.getElementById(`${itemId}-replace-btn`);
+
+  const hasSelection = select && select.value;
+
+  if (addPrefixBtn) {
+    if (hasSelection) {
+      addPrefixBtn.disabled = false;
+      addPrefixBtn.style.opacity = '1';
+      addPrefixBtn.style.pointerEvents = 'auto';
+    } else {
+      addPrefixBtn.disabled = true;
+      addPrefixBtn.style.opacity = '0.5';
+      addPrefixBtn.style.pointerEvents = 'none';
+    }
+  }
+
+  if (replaceBtn) {
+    if (hasSelection) {
+      replaceBtn.disabled = false;
+      replaceBtn.style.opacity = '1';
+      replaceBtn.style.pointerEvents = 'auto';
+    } else {
+      replaceBtn.disabled = true;
+      replaceBtn.style.opacity = '0.5';
+      replaceBtn.style.pointerEvents = 'none';
+    }
+  }
+};
+
+// Apply Tailwind namespace action
+window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount, action, variableId) {
   const select = document.getElementById(`${itemId}-namespace-select`);
   if (!select || !select.value) {
     alert('Please select a namespace first.');
@@ -7377,29 +7477,74 @@ window.openRenameTailwindVariableDialog = function(currentGroupName, itemId, var
   }
   
   const newNamespace = select.value;
-  
-  // Show confirmation dialog with details
-  const message = `This will rename all variables in the "${currentGroupName}" group to use the "${newNamespace}" namespace.\n\nExample: "${currentGroupName}/primary" → "${newNamespace}/primary"\n\nThis action will affect ${variableCount} variable(s).\n\nContinue?`;
-  
+
+  // For individual standalone variables, get the variable ID from the select if not provided
+  const actualVariableId = variableId || select.dataset.variableId || null;
+  const isIndividualVariable = actualVariableId !== null;
+
+  // Build appropriate confirmation message
+  let message = '';
+  let exampleBefore = '';
+  let exampleAfter = '';
+
+  if (isIndividualVariable) {
+    // Individual standalone variable
+    exampleBefore = currentGroupName;
+    exampleAfter = `${newNamespace}/${currentGroupName}`;
+    message = `This will add the "${newNamespace}" namespace to this variable.\n\n"${exampleBefore}" → "${exampleAfter}"\n\nContinue?`;
+  } else if (action === 'add-prefix') {
+    exampleBefore = `${currentGroupName}/primary`;
+    exampleAfter = `${newNamespace}/${currentGroupName}/primary`;
+    message = `This will add "${newNamespace}" as an additional prefix to all variables in the "${currentGroupName}" group.\n\nExample: "${exampleBefore}" → "${exampleAfter}"\n\nThis action will affect ${variableCount} variable(s).\n\nContinue?`;
+  } else {
+    exampleBefore = `${currentGroupName}/primary`;
+    exampleAfter = `${newNamespace}/primary`;
+    message = `This will replace the "${currentGroupName}" group with the "${newNamespace}" namespace.\n\nExample: "${exampleBefore}" → "${exampleAfter}"\n\nThis action will affect ${variableCount} variable(s).\n\nContinue?`;
+  }
+
   if (!confirm(message)) {
     return;
   }
   
-  // Disable button and show loading state
-  const button = document.getElementById(`${itemId}-rename-btn`);
-  if (button) {
-    button.disabled = true;
-    button.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Renaming...';
+  // Disable buttons and show loading state
+  const addPrefixBtn = document.getElementById(`${itemId}-add-prefix-btn`);
+  const replaceBtn = document.getElementById(`${itemId}-replace-btn`);
+
+  if (addPrefixBtn) {
+    addPrefixBtn.disabled = true;
+    addPrefixBtn.style.opacity = '0.5';
+    addPrefixBtn.style.pointerEvents = 'none';
+    if (action === 'add-prefix' || isIndividualVariable) {
+      addPrefixBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Processing...';
+    }
   }
-  
+
+  if (replaceBtn) {
+    replaceBtn.disabled = true;
+    replaceBtn.style.opacity = '0.5';
+    replaceBtn.style.pointerEvents = 'none';
+    if (action === 'replace') {
+      replaceBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Processing...';
+    }
+  }
+
+  // Build message payload
+  const payload = {
+    type: 'rename-variable-group',
+    oldGroupName: currentGroupName,
+    newGroupName: newNamespace,
+    action: action,
+  };
+
+  // Add variableId for individual variable operations
+  if (actualVariableId) {
+    payload.variableId = actualVariableId;
+  }
+
   // Send rename request to plugin
   parent.postMessage(
     {
-      pluginMessage: {
-        type: 'rename-variable-group',
-        oldGroupName: currentGroupName,
-        newGroupName: newNamespace,
-      },
+      pluginMessage: payload,
     },
     '*',
   );

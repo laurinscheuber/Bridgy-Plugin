@@ -35,12 +35,16 @@ interface VariableGroup {
   isValid: boolean;
   namespace?: string;
   variableCount: number;
+  isStandalone?: boolean; // True if this represents a standalone variable
+  variableId?: string; // ID of the standalone variable for individual operations
+  collectionId?: string; // Collection ID for standalone variables
 }
 
 interface ValidationResult {
   isValid: boolean;
   groups: VariableGroup[];
   invalidGroups: string[];
+  standaloneVariables?: VariableGroup; // Info about standalone variables
 }
 
 export class TailwindV4Service {
@@ -70,11 +74,12 @@ export class TailwindV4Service {
 
         const allGroups: VariableGroup[] = [];
         const invalidGroups: string[] = [];
+        const standaloneVariables: VariableGroup[] = [];
 
         for (const collection of collections) {
           const groupMap = new Map<string, number>();
 
-          // Count variables per group
+          // Count variables per group AND track standalone variables individually
           for (const variableId of collection.variableIds) {
             const variable = await figma.variables.getVariableByIdAsync(variableId);
             if (!variable) continue;
@@ -83,6 +88,19 @@ export class TailwindV4Service {
             if (pathMatch) {
               const groupName = pathMatch[1];
               groupMap.set(groupName, (groupMap.get(groupName) || 0) + 1);
+            } else {
+              // This is a standalone variable - track it individually
+              const standaloneInfo: VariableGroup = {
+                name: variable.name,
+                isValid: false,
+                variableCount: 1,
+                isStandalone: true,
+                variableId: variable.id,
+                collectionId: collection.id,
+              };
+              standaloneVariables.push(standaloneInfo);
+              allGroups.push(standaloneInfo);
+              invalidGroups.push(variable.name);
             }
           }
 
@@ -94,6 +112,7 @@ export class TailwindV4Service {
               isValid,
               namespace: isValid ? groupName.toLowerCase() : undefined,
               variableCount: count,
+              isStandalone: false,
             };
 
             allGroups.push(groupInfo);
@@ -108,6 +127,7 @@ export class TailwindV4Service {
           isValid: invalidGroups.length === 0,
           groups: allGroups,
           invalidGroups,
+          standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : undefined, // Keep for backward compatibility
         };
       },
       {
