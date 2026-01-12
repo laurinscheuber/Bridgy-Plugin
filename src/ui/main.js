@@ -33,7 +33,9 @@ class SecurityUtils {
           match.includes('collapseAllSubgroups(') ||
           match.includes('toggleSubgroup(') ||
           match.includes('clearSearch(') ||
-          match.includes('scrollToVariable(')
+          match.includes('scrollToVariable(') ||
+          match.includes('updateTailwindRenameButtonState(') ||
+          match.includes('openRenameTailwindVariableDialog(')
         ) {
           return match;
         }
@@ -69,7 +71,9 @@ class SecurityUtils {
           match.includes('collapseAllComponents(') ||
           match.includes('toggleFeedback(') ||
           match.includes('scrollToVariable(') ||
-          match.includes('deleteStyle(')
+          match.includes('deleteStyle(') ||
+          match.includes('updateTailwindRenameButtonState(') ||
+          match.includes('openRenameTailwindVariableDialog(')
         ) {
           return match;
         }
@@ -1845,6 +1849,30 @@ window.onmessage = (event) => {
       } else {
         console.warn('Could not find target select for created variable');
       }
+    } else if (message.type === 'variable-group-renamed') {
+      console.log('Variable group renamed successfully:', message);
+      
+      // Show success notification
+      if (typeof showNotification === 'function') {
+        showNotification(
+          'success',
+          'Variables Renamed',
+          `${message.renamedCount} variable${message.renamedCount !== 1 ? 's' : ''} renamed from "${message.oldGroupName}" to "${message.newGroupName}".`,
+        );
+      }
+      
+      // The validation will be automatically refreshed via the tailwind-v4-validation message
+      // which is sent by the plugin after renaming
+    } else if (message.type === 'variable-group-rename-error') {
+      console.error('Error renaming variable group:', message.error);
+      
+      if (typeof showNotification === 'function') {
+        showNotification(
+          'error',
+          'Rename Failed',
+          message.error || 'Failed to rename variable group',
+        );
+      }
     } else if (message.type === 'error') {
       console.error('Plugin Error:', message.message);
       showError('Plugin Error', message.message);
@@ -2091,6 +2119,7 @@ window.onmessage = (event) => {
     } else if (message.type === 'tailwind-v4-validation') {
       // Store Tailwind v4 validation result
       tailwindV4Validation = message.validation;
+      window.tailwindV4Validation = message.validation;
       // Re-render variables to show validation issues
       if (variablesData && variablesData.length > 0) {
         renderVariables(variablesData, stylesData);
@@ -4475,6 +4504,168 @@ function renderStats(statsData, filteredData = null) {
   html += `</div></div>`;
   container.innerHTML = html;
 }
+
+// Function to render Tailwind Readiness section
+function renderTailwindReadinessSection(validation) {
+  if (!validation || !validation.invalidGroups || validation.invalidGroups.length === 0) {
+    return '';
+  }
+
+  const invalidGroups = validation.groups.filter(g => !g.isValid);
+  
+  let html = `
+    <!-- Tailwind Readiness Header -->
+    <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
+        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+          <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">verified</span>
+          Tailwind Readiness
+        </h2>
+      </div>
+      <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
+        Variables that don't use valid Tailwind v4 namespaces. Rename them to make your design system compatible.
+      </p>
+    </div>
+  `;
+
+  const groupId = 'tailwind-readiness-group';
+  const isExpanded = false;
+
+  html += `
+    <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
+      <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupId}')">
+        <div class="collection-info">
+          <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
+            Invalid Namespaces
+            <span class="subgroup-stats">${invalidGroups.length}</span>
+          </div>
+        </div>
+        <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+      </div>
+      <div id="${groupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
+        <div style="padding: 12px;">
+  `;
+
+  // Render each invalid group
+  invalidGroups.forEach((group, idx) => {
+    const itemId = `tailwind-item-${idx}`;
+    
+    html += `
+      <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; margin-bottom: 4px;">
+              ${SecurityUtils.escapeHTML(group.name)}
+            </div>
+            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">
+              ${group.variableCount} variable${group.variableCount !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select 
+              id="${itemId}-namespace-select" 
+              class="token-fix-select" 
+              style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
+              onchange="updateTailwindRenameButtonState('${itemId}')"
+            >
+              <option value="">Select namespace...</option>
+              ${getTailwindNamespaceOptions(group.name)}
+            </select>
+            <button 
+              id="${itemId}-rename-btn" 
+              class="token-fix-apply-btn" 
+              onclick="openRenameTailwindVariableDialog('${SecurityUtils.escapeHTML(group.name)}', '${itemId}')"
+              style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+              disabled
+            >
+              <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">edit</span>
+              Rename
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  return html;
+}
+
+// Helper function to get Tailwind namespace options
+function getTailwindNamespaceOptions(currentName) {
+  const namespaces = [
+    'color', 'font', 'text', 'font-weight', 'tracking', 'leading',
+    'breakpoint', 'container', 'spacing', 'radius', 'shadow',
+    'inset-shadow', 'drop-shadow', 'blur', 'perspective', 'aspect',
+    'ease', 'animate'
+  ];
+  
+  // Try to suggest the best match
+  const normalized = currentName.toLowerCase().trim();
+  const suggestions = {
+    'colors': 'color',
+    'colour': 'color',
+    'fonts': 'font',
+    'font-family': 'font',
+    'font-size': 'text',
+    'text-size': 'text',
+    'size': 'text',
+    'weight': 'font-weight',
+    'letter-spacing': 'tracking',
+    'line-height': 'leading',
+    'line': 'leading',
+    'space': 'spacing',
+    'padding': 'spacing',
+    'margin': 'spacing',
+    'gap': 'spacing',
+    'border-radius': 'radius',
+    'rounded': 'radius',
+    'shadows': 'shadow',
+    'box-shadow': 'shadow',
+    'timing': 'ease',
+    'timing-function': 'ease',
+    'transition': 'ease',
+    'animation': 'animate',
+    'aspect-ratio': 'aspect',
+    'breakpoints': 'breakpoint',
+    'screen': 'breakpoint'
+  };
+  
+  const suggested = suggestions[normalized];
+  
+  let html = '';
+  namespaces.forEach(ns => {
+    const selected = ns === suggested ? 'selected' : '';
+    html += `<option value="${ns}" ${selected}>${ns}</option>`;
+  });
+  
+  return html;
+}
+
+// Update rename button state based on namespace selection
+window.updateTailwindRenameButtonState = function(itemId) {
+  const select = document.getElementById(`${itemId}-namespace-select`);
+  const button = document.getElementById(`${itemId}-rename-btn`);
+  
+  if (select && button) {
+    if (select.value) {
+      button.disabled = false;
+      button.style.opacity = '1';
+      button.style.pointerEvents = 'auto';
+    } else {
+      button.disabled = true;
+      button.style.opacity = '0.5';
+      button.style.pointerEvents = 'none';
+    }
+  }
+};
+
 // Function to display token coverage results
 function displayTokenCoverageResults(result) {
   const resultsContainer = document.getElementById('token-coverage-results');
@@ -4919,6 +5110,17 @@ function displayTokenCoverageResults(result) {
           `;
   });
 
+  // Add Tailwind Readiness section if Tailwind v4 is selected
+  const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
+  
+  if (isTailwindV4Selected && window.tailwindV4Validation) {
+    const invalidGroups = window.tailwindV4Validation.invalidGroups || [];
+    
+    if (invalidGroups.length > 0) {
+      html += renderTailwindReadinessSection(window.tailwindV4Validation);
+    }
+  }
+
   resultsContainer.innerHTML = html;
 
   // Add event listeners for variable dropdowns
@@ -5329,6 +5531,43 @@ window.submitCreateVariable = function () {
   }
 
   closeCreateVariableModal();
+};
+
+// Function to open rename dialog for Tailwind variables
+window.openRenameTailwindVariableDialog = function(currentGroupName, itemId) {
+  const select = document.getElementById(`${itemId}-namespace-select`);
+  if (!select || !select.value) {
+    alert('Please select a namespace first.');
+    return;
+  }
+  
+  const newNamespace = select.value;
+  
+  // Show confirmation dialog with details
+  const message = `This will rename all variables in the "${currentGroupName}" group to use the "${newNamespace}" namespace.\n\nExample: "${currentGroupName}/primary" → "${newNamespace}/primary"\n\nThis action will affect ${window.tailwindV4Validation.groups.find(g => g.name === currentGroupName)?.variableCount || 0} variable(s).\n\nContinue?`;
+  
+  if (!confirm(message)) {
+    return;
+  }
+  
+  // Disable button and show loading state
+  const button = document.getElementById(`${itemId}-rename-btn`);
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Renaming...';
+  }
+  
+  // Send rename request to plugin
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'rename-variable-group',
+        oldGroupName: currentGroupName,
+        newGroupName: newNamespace,
+      },
+    },
+    '*',
+  );
 };
 
 function expandAllQuality() {

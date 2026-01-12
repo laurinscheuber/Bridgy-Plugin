@@ -1718,6 +1718,77 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      case 'rename-variable-group':
+        try {
+          const { oldGroupName, newGroupName } = msg as any;
+          if (!oldGroupName || !newGroupName) {
+            throw new Error('Old and new group names are required');
+          }
+
+          console.log(`Renaming variable group: ${oldGroupName} → ${newGroupName}`);
+
+          // Get all collections
+          const collections = await figma.variables.getLocalVariableCollectionsAsync();
+          let renamedCount = 0;
+          
+          // Find all variables that start with the old group name
+          for (const collection of collections) {
+            for (const variableId of collection.variableIds) {
+              const variable = await figma.variables.getVariableByIdAsync(variableId);
+              if (!variable) continue;
+              
+              // Check if variable belongs to the group to rename
+              const pathMatch = variable.name.match(/^([^\/]+)\/(.*)/);
+              if (pathMatch && pathMatch[1] === oldGroupName) {
+                const remainder = pathMatch[2];
+                const newName = `${newGroupName}/${remainder}`;
+                
+                try {
+                  variable.name = newName;
+                  renamedCount++;
+                  console.log(`Renamed: ${variable.name} → ${newName}`);
+                } catch (renameError) {
+                  console.error(`Failed to rename variable ${variable.name}:`, renameError);
+                }
+              }
+            }
+          }
+
+          if (renamedCount === 0) {
+            throw new Error(`No variables found with group name "${oldGroupName}"`);
+          }
+
+          // Trigger validation refresh
+          const validation = await CSSExportService.getTailwindV4ValidationStatus();
+          
+          figma.ui.postMessage({
+            type: 'tailwind-v4-validation',
+            validation: validation,
+          });
+
+          // Refresh document data
+          await collectDocumentData();
+
+          // Notify success
+          figma.notify(`Renamed ${renamedCount} variable${renamedCount !== 1 ? 's' : ''} from "${oldGroupName}" to "${newGroupName}"`);
+          
+          figma.ui.postMessage({
+            type: 'variable-group-renamed',
+            success: true,
+            oldGroupName,
+            newGroupName,
+            renamedCount,
+          });
+        } catch (renameError: any) {
+          console.error('Error renaming variable group:', renameError);
+          figma.ui.postMessage({
+            type: 'variable-group-rename-error',
+            error: renameError.message,
+          });
+          figma.notify(`Failed to rename variable group: ${renameError.message}`, { error: true });
+        }
+        break;
+
       case 'apply-token-to-nodes':
         try {
           const applyMsg = msg as any;
