@@ -550,7 +550,42 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     };
   }
+
+  // Initialize Search Features (Clear buttons etc.)
+  initSearchFeatures();
 });
+
+// ===== SEARCH FEATURES =====
+function initSearchFeatures() {
+  const searches = [
+    { inputId: 'variable-search', clearBtnId: 'clear-variable-search' },
+    { inputId: 'quality-search', clearBtnId: 'clear-quality-search' },
+    { inputId: 'stats-search', clearBtnId: 'clear-stats-search' }
+  ];
+
+  searches.forEach(({ inputId, clearBtnId }) => {
+    const input = document.getElementById(inputId);
+    const clearBtn = document.getElementById(clearBtnId);
+
+    if (input && clearBtn) {
+      // Input event listener to toggle button visibility
+      input.addEventListener('input', function() {
+        if (this.value && this.value.length > 0) {
+          clearBtn.style.display = 'flex';
+        } else {
+          clearBtn.style.display = 'none';
+        }
+      });
+      
+      // Initialize state
+      if (input.value && input.value.length > 0) {
+        clearBtn.style.display = 'flex';
+      } else {
+        clearBtn.style.display = 'none';
+      }
+    }
+  });
+}
 
 // ===== COMPONENT NAVIGATION =====
 let lastNavigationTime = 0;
@@ -4287,7 +4322,7 @@ window.toggleStatsSort = function(column) {
   }
   
   // Re-apply filter which triggers render with new sort
-  const searchInput = document.getElementById('stats-search-input'); // Assuming ID, fallback to global filter
+  const searchInput = document.getElementById('stats-search');
   const query = searchInput ? searchInput.value : '';
   if (window.filterStats) {
       window.filterStats(query);
@@ -4335,22 +4370,19 @@ function renderStats(statsData, filteredData = null) {
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${totalComponents}
-            ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredComponents})</span>` : ''}
+            ${filteredData ? `${filteredComponents} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalComponents}</span>` : totalComponents}
         </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${totalInstances}
-             ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredInstances})</span>` : ''}
+            ${filteredData ? `${filteredInstances} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalInstances}</span>` : totalInstances}
         </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${unusedComponents}
-             ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredUnused})</span>` : ''}
+             ${filteredData ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
         </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
       </div>
@@ -4360,14 +4392,14 @@ function renderStats(statsData, filteredData = null) {
     <div class="stats-table">
         <!-- Table Header -->
         <div style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; padding: 0 12px 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; align-items: center;">
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="toggleStatsSort('name')">
-              Component Name ${statsSortState.column === 'name' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;" onclick="toggleStatsSort('name')">
+              Component Name ${statsSortState.column === 'name' ? (statsSortState.direction === 'asc' ? '<span style="display:inline-block">↑</span>' : '<span style="display:inline-block">↓</span>') : ''}
             </div>
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px;" onclick="toggleStatsSort('variantCount')">
-              Variants ${statsSortState.column === 'variantCount' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap;" onclick="toggleStatsSort('variantCount')">
+              Variants ${statsSortState.column === 'variantCount' ? (statsSortState.direction === 'asc' ? '<span style="display:inline-block">↑</span>' : '<span style="display:inline-block">↓</span>') : ''}
             </div>
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px;" onclick="toggleStatsSort('count')">
-              Instances ${statsSortState.column === 'count' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap;" onclick="toggleStatsSort('count')">
+              Instances ${statsSortState.column === 'count' ? (statsSortState.direction === 'asc' ? '<span style="display:inline-block">↑</span>' : '<span style="display:inline-block">↓</span>') : ''}
             </div>
             <div></div> <!-- Actions spacer -->
         </div>
@@ -4703,15 +4735,15 @@ function displayTokenCoverageResults(result) {
                 </div>
 
                 <!-- Accordion Body (Hidden by default) -->
-                <div id="${issueId}-body" class="quality-issue-body" style="display: none; padding: 0 12px 12px 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div id="${issueId}-body" class="quality-issue-body issue-body">
             `;
 
       // Fix section
       cardHtml += `
-                <div style="margin-top: 12px; margin-bottom: 8px; background: rgba(139, 92, 246, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.1);">
-                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                    <span class="material-symbols-outlined" style="font-size: 16px; color: #a78bfa;">auto_fix_high</span>
-                    <span style="font-size: 11px; color: rgba(255, 255, 255, 0.7); font-weight: 500; text-transform: uppercase;">Fix Available</span>
+                <div class="issue-fix-section">
+                  <div class="issue-fix-header">
+                    <span class="material-symbols-outlined issue-fix-icon">auto_fix_high</span>
+                    <span class="issue-fix-label">Fix Available</span>
                   </div>
             `;
 
@@ -4722,8 +4754,7 @@ function displayTokenCoverageResults(result) {
                   <div style="display: flex; gap: 8px; align-items: center;">
                     <button 
                       onclick="handleCreateNewVariable('${issueId}')"
-                      class="primary-action-btn"
-                      style="width: 100%; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px;"
+                      class="btn-create-variable"
                     >
                       <span class="material-symbols-outlined" style="font-size: 16px;">add_circle</span>
                       Create New Variable
@@ -4734,8 +4765,8 @@ function displayTokenCoverageResults(result) {
       } else {
         // HAVE Matches - Show Dropdown
         cardHtml += `
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="${issueId}-var-select" class="token-fix-select" onchange="updateApplyButtonState('${issueId}')" style="flex: 1; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;">
+                  <div class="fix-actions-row">
+                    <select id="${issueId}-var-select" class="token-fix-select select-fix-variable" onchange="updateApplyButtonState('${issueId}')">
                       <option value="">Select a token...</option>
             `;
 
@@ -4763,10 +4794,9 @@ function displayTokenCoverageResults(result) {
                     </select>
                     <button 
                       id="${issueId}-apply-btn" 
-                      class="token-fix-apply-btn" 
+                      class="token-fix-apply-btn btn-apply-fix" 
                       onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
                       data-original-onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
-                      style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
                       disabled
                     >
                       <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span>
@@ -4786,10 +4816,10 @@ function displayTokenCoverageResults(result) {
 
        cardHtml += `
                 <div style="margin-top: 8px;">
-                  <div style="display: flex; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7); flex: 1;">
+                  <div class="nodes-list-header">
+                    <label class="label-checkbox">
                         <input type="checkbox" id="${issueId}-select-all" onchange="toggleAllOccurrences('${issueId}')" style="cursor: pointer;">
-                        <span style="font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Select All (${issue.nodeNames.length} nodes)</span>
+                        <span class="label-text-uppercase">Select All (${issue.nodeNames.length} nodes)</span>
                     </label>
                   </div>
                   <div class="quality-nodes-list">
