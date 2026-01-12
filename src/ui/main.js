@@ -4511,7 +4511,9 @@ function renderTailwindReadinessSection(validation) {
     return '';
   }
 
-  const invalidGroups = validation.groups.filter(g => !g.isValid);
+  // Use invalidGroups directly instead of filtering
+  const invalidGroupNames = validation.invalidGroups;
+  const invalidGroups = validation.groups.filter(g => invalidGroupNames.includes(g.name));
   
   let html = `
     <!-- Tailwind Readiness Header -->
@@ -4575,7 +4577,7 @@ function renderTailwindReadinessSection(validation) {
             <button 
               id="${itemId}-rename-btn" 
               class="token-fix-apply-btn" 
-              onclick="openRenameTailwindVariableDialog('${SecurityUtils.escapeHTML(group.name)}', '${itemId}')"
+              onclick="openRenameTailwindVariableDialog('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount})"
               style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
               disabled
             >
@@ -5113,12 +5115,8 @@ function displayTokenCoverageResults(result) {
   // Add Tailwind Readiness section if Tailwind v4 is selected
   const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
   
-  if (isTailwindV4Selected && window.tailwindV4Validation) {
-    const invalidGroups = window.tailwindV4Validation.invalidGroups || [];
-    
-    if (invalidGroups.length > 0) {
-      html += renderTailwindReadinessSection(window.tailwindV4Validation);
-    }
+  if (isTailwindV4Selected && window.tailwindV4Validation && window.tailwindV4Validation.invalidGroups && window.tailwindV4Validation.invalidGroups.length > 0) {
+    html += renderTailwindReadinessSection(window.tailwindV4Validation);
   }
 
   resultsContainer.innerHTML = html;
@@ -5534,7 +5532,7 @@ window.submitCreateVariable = function () {
 };
 
 // Function to open rename dialog for Tailwind variables
-window.openRenameTailwindVariableDialog = function(currentGroupName, itemId) {
+window.openRenameTailwindVariableDialog = function(currentGroupName, itemId, variableCount) {
   const select = document.getElementById(`${itemId}-namespace-select`);
   if (!select || !select.value) {
     alert('Please select a namespace first.');
@@ -5544,7 +5542,7 @@ window.openRenameTailwindVariableDialog = function(currentGroupName, itemId) {
   const newNamespace = select.value;
   
   // Show confirmation dialog with details
-  const message = `This will rename all variables in the "${currentGroupName}" group to use the "${newNamespace}" namespace.\n\nExample: "${currentGroupName}/primary" → "${newNamespace}/primary"\n\nThis action will affect ${window.tailwindV4Validation.groups.find(g => g.name === currentGroupName)?.variableCount || 0} variable(s).\n\nContinue?`;
+  const message = `This will rename all variables in the "${currentGroupName}" group to use the "${newNamespace}" namespace.\n\nExample: "${currentGroupName}/primary" → "${newNamespace}/primary"\n\nThis action will affect ${variableCount} variable(s).\n\nContinue?`;
   
   if (!confirm(message)) {
     return;

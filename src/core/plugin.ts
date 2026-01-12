@@ -1742,13 +1742,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               if (pathMatch && pathMatch[1] === oldGroupName) {
                 const remainder = pathMatch[2];
                 const newName = `${newGroupName}/${remainder}`;
+                const oldName = variable.name;
                 
                 try {
                   variable.name = newName;
                   renamedCount++;
-                  console.log(`Renamed: ${variable.name} → ${newName}`);
+                  console.log(`Renamed: ${oldName} → ${newName}`);
                 } catch (renameError) {
-                  console.error(`Failed to rename variable ${variable.name}:`, renameError);
+                  console.error(`Failed to rename variable ${oldName}:`, renameError);
                 }
               }
             }
