@@ -2532,7 +2532,7 @@ tr:last-child td {
   position: fixed;
   top: var(--space-4);
   right: var(--space-4);
-  z-index: 1000;
+  z-index: 2147483647; /* Max Z-Index to strictly enforce top layer */
   max-width: 400px;
 }
 
@@ -2541,7 +2541,7 @@ tr:last-child td {
   backdrop-filter: var(--blur-intense);
   border: 1px solid var(--glass-white-medium);
   border-radius: var(--radius-modal);
-  padding: var(--space-4);
+  padding: 12px; /* Reduced from var(--space-4) for compactness */
   margin-bottom: var(--space-3);
   box-shadow: 0 4px 12px var(--glass-dark-50);
   border-left: 3px solid;
