@@ -2532,7 +2532,7 @@ tr:last-child td {
   position: fixed;
   top: var(--space-4);
   right: var(--space-4);
-  z-index: 1000;
+  z-index: 10000;
   max-width: 400px;
 }
 

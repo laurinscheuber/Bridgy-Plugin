@@ -4571,17 +4571,14 @@ function renderTailwindReadinessSection(validation) {
               <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 ${displayName}
               </div>
-              <div style="font-size: 10px; color: rgba(255, 255, 255, 0.4); margin-top: 2px;">
-                Missing namespace
-              </div>
+   
             </div>
-            <div style="display: flex; gap: 6px; align-items: center;">
-              <select 
+            <div style="display: flex; gap: 6px; align-items: stretch;">
+               <select 
                 id="${itemId}-namespace-select" 
                 class="token-fix-select" 
-                style="padding: 5px 6px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 11px; cursor: pointer; min-width: 120px;"
+                style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
                 onchange="updateTailwindActionButtonsState('${itemId}', true)"
-                data-variable-id="${variable.variableId}"
               >
                 <option value="">Select namespace...</option>
                 ${getTailwindNamespaceOptions(variable.name)}
@@ -4590,12 +4587,12 @@ function renderTailwindReadinessSection(validation) {
                 id="${itemId}-add-prefix-btn" 
                 class="token-fix-apply-btn" 
                 onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}')"
-                style="padding: 5px 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 4px; color: white; font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
                 disabled
                 title="Add namespace prefix"
               >
-                <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle;">add</span>
-                Fix
+                <span class="material-symbols-outlined">add</span>
+                Add prefix
               </button>
             </div>
           </div>
@@ -4631,7 +4628,7 @@ function renderTailwindReadinessSection(validation) {
                 ${description}
               </div>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; min-width: 300px;">
+            <div style="display: flex; flex-direction: row; gap: 8px; align-items: stretch; min-width: 300px;">
               <select 
                 id="${itemId}-namespace-select" 
                 class="token-fix-select" 
@@ -4646,7 +4643,7 @@ function renderTailwindReadinessSection(validation) {
                   id="${itemId}-add-prefix-btn" 
                   class="token-fix-apply-btn" 
                   onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'add-prefix', null)"
-                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
                   disabled
                   title="Add namespace as additional prefix (e.g., group/var → namespace/group/var)"
                 >
