@@ -1727,24 +1727,13 @@
 
       <!-- Collection Section -->
       <div class="form-group">
+      <!-- Collection Section -->
+      <div class="form-group">
         <label for="create-var-collection">Collection</label>
         <select
           id="create-var-collection"
           onchange="handleCollectionChange()"
-          style="
-            width: 100%;
-            padding: 12px 16px;
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 12px;
-            color: var(--text-primary);
-            font-size: 14px;
-            margin-bottom: 8px;
-            outline: none;
-            transition: all 0.2s;
-          "
-          onfocus="this.style.borderColor='#8b5cf6'; this.style.background='rgba(30, 41, 59, 0.8)';"
-          onblur="this.style.borderColor='rgba(139, 92, 246, 0.3)'; this.style.background='rgba(30, 41, 59, 0.6)';"
+          class="select-field"
         >
           <!-- Populated by JS -->
         </select>
@@ -1752,7 +1741,8 @@
           type="text"
           id="create-var-new-collection"
           placeholder="New Collection Name"
-          style="display: none; width: 100%; margin-top: 4px; padding: 12px; border-radius: 12px; border: 1px solid #8b5cf6; background: rgba(30, 41, 59, 0.8); color: white;"
+          class="input-field"
+          style="display: none; margin-top: 4px;"
         />
         <div class="settings-helper">Select target collection</div>
       </div>
@@ -1763,20 +1753,7 @@
         <select
           id="create-var-group"
           onchange="handleGroupChange()"
-          style="
-            width: 100%;
-            padding: 12px 16px;
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 12px;
-            color: var(--text-primary);
-            font-size: 14px;
-            margin-bottom: 8px;
-            outline: none;
-            transition: all 0.2s;
-          "
-          onfocus="this.style.borderColor='#8b5cf6'; this.style.background='rgba(30, 41, 59, 0.8)';"
-          onblur="this.style.borderColor='rgba(139, 92, 246, 0.3)'; this.style.background='rgba(30, 41, 59, 0.6)';"
+          class="select-field"
         >
           <option value="">(No Group)</option>
           <option value="create-new">Create New Group...</option>
@@ -1784,13 +1761,13 @@
         <input
           type="text"
           id="create-var-new-group"
+          class="input-field"
           placeholder="New Group Name (e.g. colors/primary)"
-          style="display: none; width: 100%; margin-top: 4px; padding: 12px; border-radius: 12px; border: 1px solid #8b5cf6; background: rgba(30, 41, 59, 0.8); color: white;"
+          style="display: none; margin-top: 4px;"
         />
         <div class="settings-helper">Select existing group or create new</div>
       </div>
 
-      <!-- Variable Name Section -->
       <!-- Variable Name Section -->
       <div class="form-group">
         <label for="create-var-name">Variable Name</label>
@@ -1799,30 +1776,16 @@
               id="create-var-name" 
               placeholder="e.g. primary-500" 
               oninput="this.value = this.value.replace(/\./g, '-')"
-              style="
-                width: 100%;
-                background: linear-gradient(135deg, rgba(46, 32, 80, 0.8) 0%, rgba(35, 25, 60, 0.8) 100%);
-                background-clip: padding-box; /* Fix background bleeding */
-                border: 2px solid #8b5cf6;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                border-radius: 12px;
-                padding: 14px 16px;
-                font-size: 16px;
-                font-weight: 500;
-                color: white;
-                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-              "
-              onfocus="this.style.boxShadow='0 0 0 4px rgba(139, 92, 246, 0.3), 0 8px 24px rgba(139, 92, 246, 0.15)'; this.style.borderColor='#a78bfa'; this.style.background='linear-gradient(135deg, rgba(56, 38, 95, 0.9) 0%, rgba(45, 32, 75, 0.9) 100%)';"
-              onblur="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'; this.style.borderColor='#8b5cf6'; this.style.background='linear-gradient(135deg, rgba(46, 32, 80, 0.8) 0%, rgba(35, 25, 60, 0.8) 100%)';"
+              class="input-variable-name"
             />
         <div class="settings-helper" style="margin-top: 8px;">Final variable name (will be combined with group)</div>
       </div>
 
       <input type="hidden" id="create-var-issue-id" />
     </div>
-    <div class="modal-footer" style="padding-top: 0; border-top: none;">
-      <button onclick="closeCreateVariableModal()" class="btn-secondary" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">Cancel</button>
-      <button onclick="submitCreateVariable()" class="primary-action-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4); border: none; padding: 10px 24px;">Create Variable</button>
+    <div class="modal-footer modal-footer-seamless">
+      <button onclick="closeCreateVariableModal()" class="btn-secondary-glass">Cancel</button>
+      <button onclick="submitCreateVariable()" class="btn-primary-gradient">Create Variable</button>
     </div>
   </div>
   </div>

@@ -5731,3 +5731,205 @@ input[type='checkbox']:indeterminate {
   width: 100%;
 }
 
+
+/* ===== REFACTORED COMPONENT STYLES ===== */
+
+/* Forms & Inputs */
+.form-group {
+  margin-bottom: var(--space-4);
+}
+
+.input-field,
+.select-field {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  color: var(--neutral-0);
+  font-size: 14px;
+  outline: none;
+  transition: var(--transition-fast);
+}
+
+.input-field:focus,
+.select-field:focus {
+  border-color: var(--primary-400);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+/* Variable Name Special Input */
+.input-variable-name {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(46, 32, 80, 0.8) 0%, rgba(35, 25, 60, 0.8) 100%);
+  background-clip: padding-box;
+  border: 2px solid var(--primary-400);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--neutral-0);
+  transition: var(--transition-normal);
+}
+
+.input-variable-name:focus {
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.3), 0 8px 24px rgba(139, 92, 246, 0.15);
+  border-color: #a78bfa; /* Slightly lighter purple */
+  background: linear-gradient(135deg, rgba(56, 38, 95, 0.9) 0%, rgba(45, 32, 75, 0.9) 100%);
+}
+
+.modal-footer-seamless {
+  padding-top: 0;
+  border-top: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.btn-secondary-glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--neutral-300);
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-secondary-glass:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--neutral-0);
+}
+
+.btn-primary-gradient {
+  background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-500) 100%);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+  border: none;
+  padding: 10px 24px;
+  color: white;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-primary-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.5);
+}
+
+/* Issue Cards (for Main.js generation) */
+.issue-body {
+  display: none;
+  padding: 0 12px 12px 12px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.issue-fix-section {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  background: rgba(139, 92, 246, 0.05);
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.issue-fix-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.issue-fix-icon {
+  font-size: 16px;
+  color: #a78bfa;
+}
+
+.issue-fix-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.btn-create-variable {
+  width: 100%;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  background: var(--primary-500);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-create-variable:hover {
+  background: var(--primary-600);
+}
+
+.fix-actions-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.select-fix-variable {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-apply-fix {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-500) 100%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-fast);
+}
+
+.btn-apply-fix:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.nodes-list-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+}
+
+.label-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    flex: 1;
+}
+
+.label-text-uppercase {
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
