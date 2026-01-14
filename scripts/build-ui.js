@@ -61,7 +61,35 @@ async function buildUI() {
     // Read source files
     const template = fs.readFileSync(path.join(__dirname, '../src/ui/template.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../src/ui/styles.css'), 'utf8');
-    const js = fs.readFileSync(path.join(__dirname, '../src/ui/main.js'), 'utf8');
+
+
+    // Read Modules in Order
+    const modulesDir = path.join(__dirname, '../src/ui/modules');
+    const moduleOrder = [
+      'constants.js',
+      'utils.js',
+      'state.js',
+      'navigation.js',
+      'search.js',
+      'stats.js',
+      'variables.js',
+      'quality.js'
+    ];
+
+    let combinedJs = '';
+    
+    // Concatenate modules
+    moduleOrder.forEach(file => {
+      const filePath = path.join(modulesDir, file);
+      if (fs.existsSync(filePath)) {
+        combinedJs += fs.readFileSync(filePath, 'utf8') + '\n\n';
+      }
+    });
+
+    // Append main.js (Entry Point)
+    combinedJs += fs.readFileSync(path.join(__dirname, '../src/ui/main.js'), 'utf8');
+    
+    const js = combinedJs;
     const bodyHtml = fs.readFileSync(path.join(__dirname, '../src/ui/body.html'), 'utf8');
 
     console.log('📦 Source file sizes:');
