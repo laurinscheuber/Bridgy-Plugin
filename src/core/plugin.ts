@@ -240,6 +240,7 @@ async function collectDocumentData() {
     // Return the data for internal use
     return {
       variables: variablesData,
+      styles: stylesData,
       components: componentsData || [],
     };
   } catch (error) {
@@ -1398,12 +1399,17 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           console.log('Refreshing document data...');
 
           // Re-run the data collection
-          await collectDocumentData();
+          const refreshedData = await collectDocumentData();
 
+          console.log('[DEBUG] refresh-data: Data collected, sending refresh-success');
           figma.ui.postMessage({
-            type: 'refresh-complete',
+            type: 'refresh-success',
+            variables: refreshedData.variables,
+            styles: refreshedData.styles,
+            components: refreshedData.components,
             message: 'Data refreshed successfully',
           });
+          console.log('[DEBUG] refresh-data: refresh-success message sent');
         } catch (refreshError: any) {
           console.error('Error refreshing data:', refreshError);
           figma.ui.postMessage({
@@ -1530,10 +1536,13 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             coverageResult = await TokenCoverageService.analyzeCurrentPage(exportFormat);
           }
 
+          console.log('[Plugin Debug] Analysis finished, result obtained. Posting message...');
+
           figma.ui.postMessage({
             type: 'token-coverage-result',
             result: coverageResult,
           });
+          console.log('[Plugin Debug] Message posted successfully.');
         } catch (coverageError: any) {
           console.error('Error analyzing token coverage:', coverageError);
           figma.ui.postMessage({
@@ -1805,7 +1814,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           });
 
           // Refresh document data
-          await collectDocumentData();
+          // REMOVED: await collectDocumentData(); - The UI will trigger a refresh via window.refreshData() -> refresh-data message
+
 
           // Notify success
           const actionLabel = renameAction === 'add-prefix' ? 'prefixed with' : 'renamed to';
@@ -1905,7 +1915,38 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             errors,
           });
 
-          // Show notification
+          // Listen for variable changes to auto-refresh
+  // This handles changes made in the Figma UI outside the plugin
+  // We use a debounce to avoid spamming refreshes during rapid edits
+  let refreshTimeout: number | undefined;
+  
+  // @ts-ignore - 'change' event might not be in all typings yet or requires specific strictness
+  if (figma.variables && typeof (figma.variables as any).on === 'function') {
+    (figma.variables as any).on('change', (event: any) => {
+      console.log('Variable change detected in Figma:', event);
+      
+      // Clear existing timeout
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+      
+      // Debounce refresh (1 second)
+      refreshTimeout = setTimeout(() => {
+        console.log('Triggering auto-refresh due to variable changes...');
+        collectDocumentData().then((refreshedData) => {
+          figma.ui.postMessage({
+            type: 'refresh-success',
+            variables: refreshedData.variables,
+            styles: refreshedData.styles,
+            components: refreshedData.components,
+            message: 'Auto-refreshed from Figma changes',
+          });
+        });
+      }, 1000) as unknown as number;
+    });
+  }
+
+  // Show UInotification
           if (successCount > 0) {
             figma.notify(`✓ Applied token to ${successCount} node${successCount !== 1 ? 's' : ''}`);
           }

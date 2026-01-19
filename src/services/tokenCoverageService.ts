@@ -325,6 +325,7 @@ export class TokenCoverageService {
         }
       });
     }
+    console.log('[Coverage Debug] Variable Hygiene check complete');
     const variableHygieneScore =
       totalVarsToCheck === 0 ? 100 : Math.round((groupedVariables / totalVarsToCheck) * 100);
 
@@ -389,6 +390,7 @@ export class TokenCoverageService {
       };
     }
 
+    console.log(`[Coverage Debug] Analysis complete. Returning ${issuesMap.size} issues.`);
     return {
       totalNodes,
       totalIssues: issuesMap.size,
