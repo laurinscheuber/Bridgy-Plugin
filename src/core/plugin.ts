@@ -1518,7 +1518,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Get settings to determine export format (for dynamic weighting)
           const settings = await GitLabService.loadSettings();
-          const exportFormat = settings?.exportFormat || 'css';
+          const exportFormat = msg.exportFormat || settings?.exportFormat || 'css';
 
           let coverageResult;
 

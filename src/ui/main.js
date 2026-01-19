@@ -554,7 +554,42 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     };
   }
+
+  // Initialize Search Features (Clear buttons etc.)
+  initSearchFeatures();
 });
+
+// ===== SEARCH FEATURES =====
+function initSearchFeatures() {
+  const searches = [
+    { inputId: 'variable-search', clearBtnId: 'clear-variable-search' },
+    { inputId: 'quality-search', clearBtnId: 'clear-quality-search' },
+    { inputId: 'stats-search', clearBtnId: 'clear-stats-search' }
+  ];
+
+  searches.forEach(({ inputId, clearBtnId }) => {
+    const input = document.getElementById(inputId);
+    const clearBtn = document.getElementById(clearBtnId);
+
+    if (input && clearBtn) {
+      // Input event listener to toggle button visibility
+      input.addEventListener('input', function() {
+        if (this.value && this.value.length > 0) {
+          clearBtn.style.display = 'flex';
+        } else {
+          clearBtn.style.display = 'none';
+        }
+      });
+      
+      // Initialize state
+      if (input.value && input.value.length > 0) {
+        clearBtn.style.display = 'flex';
+      } else {
+        clearBtn.style.display = 'none';
+      }
+    }
+  });
+}
 
 // ===== COMPONENT NAVIGATION =====
 let lastNavigationTime = 0;
@@ -1783,71 +1818,22 @@ window.onmessage = (event) => {
       const { name, id, key } = message.variable;
       const issueId = message.context && message.context.issueId;
 
-      // Find the pending dropdown (marked with value='creating') or by issueId
-      let targetSelect = null;
-
+      // Ensure pending state is set for post-analysis view restoration
       if (issueId) {
-        targetSelect = document.getElementById(`${issueId}-var-select`);
+        window.pendingFixIssueId = issueId;
       }
 
-      // Fallback to finding by value if issueId didn't work (legacy path)
-      if (!targetSelect) {
-        const pendingSelects = document.querySelectorAll('select.token-fix-select');
-        pendingSelects.forEach((select) => {
-          if (select.value === 'creating') {
-            targetSelect = select;
-          }
-        });
-      }
+      // Re-analyze coverage to reflect changes and update UI using the new variable
+      // This will eventually trigger displayTokenCoverageResults which consumes pendingFixIssueId
+      analyzeTokenCoverage();
 
-      if (targetSelect) {
-        // Remove placeholder if it exists
-        for (let i = 0; i < targetSelect.options.length; i++) {
-          if (targetSelect.options[i].value === 'creating') {
-            targetSelect.remove(i);
-            break;
-          }
-        }
-
-        // Add new variable option
-        const newOption = document.createElement('option');
-        newOption.value = id;
-        newOption.text = name;
-        newOption.selected = true; // Ensure it is marked selected in DOM
-        targetSelect.add(newOption, targetSelect.options[1]);
-
-        // Select it
-        targetSelect.value = id;
-        targetSelect.disabled = false;
-
-        // Trigger change event to update Apply button state
-        targetSelect.dispatchEvent(new Event('change'));
-
-        // Notify user
-        if (typeof showNotification === 'function') {
-          showNotification(
-            'success',
-            'Variable Created',
-            `Variable '${name}' created and selected.`,
-          );
-        }
-
-        // Auto-apply logic REMOVED as per user request
-        // We just enable the button and let the user click it
-        if (issueId) {
-          const applyBtn = document.getElementById(`${issueId}-apply-btn`);
-          if (applyBtn) {
-            console.log('Enabling apply button for issue:', issueId);
-            // Update button state immediately to enabled (in case change event didn't propagate fast enough)
-            applyBtn.disabled = false;
-            applyBtn.style.opacity = '1';
-            applyBtn.style.pointerEvents = 'auto';
-          } else {
-            console.warn('Could not find apply button for issue:', issueId);
-          }
-        }
-      } else {
-        console.warn('Could not find target select for created variable');
+      // Notify user
+      if (typeof showNotification === 'function') {
+        showNotification(
+          'success',
+          'Variable Created',
+          `Variable '${name}' created.`,
+        );
       }
     } else if (message.type === 'variable-group-renamed') {
       console.log('Variable group renamed successfully:', message);
@@ -4331,6 +4317,7 @@ function analyzeTokenCoverage(scopeOverride) {
       pluginMessage: {
         type: 'analyze-token-coverage',
         scope: scopeOverride || analysisScope,
+        exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css'
       },
     },
     '*',
@@ -4364,7 +4351,7 @@ window.toggleStatsSort = function(column) {
   }
   
   // Re-apply filter which triggers render with new sort
-  const searchInput = document.getElementById('stats-search-input'); // Assuming ID, fallback to global filter
+  const searchInput = document.getElementById('stats-search');
   const query = searchInput ? searchInput.value : '';
   if (window.filterStats) {
       window.filterStats(query);
@@ -4412,22 +4399,19 @@ function renderStats(statsData, filteredData = null) {
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${totalComponents}
-            ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredComponents})</span>` : ''}
+            ${filteredData ? `${filteredComponents} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalComponents}</span>` : totalComponents}
         </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${totalInstances}
-             ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredInstances})</span>` : ''}
+            ${filteredData ? `${filteredInstances} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalInstances}</span>` : totalInstances}
         </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${unusedComponents}
-             ${filteredData ? `<span style="font-size: 14px; color: #a855f7; margin-left: 4px;">(${filteredUnused})</span>` : ''}
+             ${filteredData ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
         </div>
         <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
       </div>
@@ -4437,14 +4421,14 @@ function renderStats(statsData, filteredData = null) {
     <div class="stats-table">
         <!-- Table Header -->
         <div style="display: grid; grid-template-columns: 1fr 60px 100px 40px; gap: 12px; padding: 0 12px 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; align-items: center;">
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="toggleStatsSort('name')">
-              Component Name ${statsSortState.column === 'name' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;" onclick="toggleStatsSort('name')">
+              Component Name ${statsSortState.column === 'name' ? (statsSortState.direction === 'asc' ? '<span style="display:inline-block">↑</span>' : '<span style="display:inline-block">↓</span>') : ''}
             </div>
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px;" onclick="toggleStatsSort('variantCount')">
-              Variants ${statsSortState.column === 'variantCount' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap;" onclick="toggleStatsSort('variantCount')">
+              Variants ${statsSortState.column === 'variantCount' ? (statsSortState.direction === 'asc' ? '<span style="display:inline-block">↑</span>' : '<span style="display:inline-block">↓</span>') : ''}
             </div>
-            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px;" onclick="toggleStatsSort('count')">
-              Instances ${statsSortState.column === 'count' ? (statsSortState.direction === 'asc' ? '↑' : '↓') : ''}
+            <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: right; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap;" onclick="toggleStatsSort('count')">
+              Instances ${statsSortState.column === 'count' ? (statsSortState.direction === 'asc' ? '<span style="display:inline-block">↑</span>' : '<span style="display:inline-block">↓</span>') : ''}
             </div>
             <div></div> <!-- Actions spacer -->
         </div>
@@ -4881,6 +4865,19 @@ function displayTokenCoverageResults(result) {
           </div>
         `;
 
+  // SNAPSHOT STATE: Before wiping innerHTML, capture current state
+  const prevScrollY = window.scrollY;
+  const prevExpandedCategories = new Set();
+  document.querySelectorAll('.quality-collection:not(.collapsed) .collection-header:not(.collapsed)').forEach(el => {
+      const parent = el.closest('.quality-collection');
+      if (parent && parent.id) prevExpandedCategories.add(parent.id);
+  });
+  
+  // If we have a pending fix, ensure its category is also marked as expanded
+  if (window.pendingFixContext && window.pendingFixContext.category) {
+      prevExpandedCategories.add(`coverage-${window.pendingFixContext.category}`);
+  }
+
   // Display issues by category
   categories.forEach((category) => {
     const issues = issuesByCategory[category] || [];
@@ -4897,7 +4894,8 @@ function displayTokenCoverageResults(result) {
     };
 
     const groupId = `coverage-${category}`;
-    const isExpanded = false; // Always collapsed by default
+    // Determine initial expanded state based on snapshot
+    const isExpanded = prevExpandedCategories.has(groupId); 
 
     html += `
             <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
@@ -4908,7 +4906,8 @@ function displayTokenCoverageResults(result) {
                     <span class="subgroup-stats">${issues.length}</span>
                   </div>
                 </div>
-                <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+                <!-- Fix rotation based on state -->
+                <span class="material-symbols-outlined collection-toggle-icon" style="transform: ${isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.2s;">expand_more</span>
               </div>
               <div id="${groupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
                 <div style="padding: 12px;">
@@ -4992,50 +4991,68 @@ function displayTokenCoverageResults(result) {
                 </div>
 
                 <!-- Accordion Body (Hidden by default) -->
-                <div id="${issueId}-body" class="quality-issue-body" style="display: none; padding: 0 12px 12px 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div id="${issueId}-body" class="quality-issue-body issue-body">
             `;
 
       // Fix section
       cardHtml += `
-                <div style="margin-top: 12px; margin-bottom: 8px; background: rgba(139, 92, 246, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.1);">
-                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                    <span class="material-symbols-outlined" style="font-size: 16px; color: #a78bfa;">auto_fix_high</span>
-                    <span style="font-size: 11px; color: rgba(255, 255, 255, 0.7); font-weight: 500; text-transform: uppercase;">Fix Available</span>
+                <div class="issue-fix-section">
+                  <div class="issue-fix-header">
+                    <span class="material-symbols-outlined issue-fix-icon">auto_fix_high</span>
+                    <span class="issue-fix-label">Fix Available</span>
                   </div>
+            `;
+
+      // Check if we have ANY matches
+      if (exactMatches.length === 0 && nearMatches.length === 0) {
+        // NO Matches - Show "Create New Variable" Button directly
+        cardHtml += `
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="${issueId}-var-select" class="token-fix-select" onchange="updateApplyButtonState('${issueId}')" style="flex: 1; padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;">
+                    <button 
+                      onclick="handleCreateNewVariable('${issueId}')"
+                      class="btn-create-variable"
+                    >
+                      <span class="material-symbols-outlined" style="font-size: 16px;">add_circle</span>
+                      Create New Variable
+                    </button>
+                  </div>
+                </div>
+            `;
+      } else {
+        // HAVE Matches - Show Dropdown
+        cardHtml += `
+                  <div class="fix-actions-row">
+                    <select id="${issueId}-var-select" class="token-fix-select select-fix-variable" onchange="updateApplyButtonState('${issueId}')">
                       <option value="">Select a token...</option>
             `;
 
-      if (exactMatches.length > 0) {
-        cardHtml += `<optgroup label="Exact Matches">`;
-        exactMatches.forEach((v) => {
-          const isSelected = v.id === selectedId ? 'selected' : '';
-          cardHtml += `<option value="${v.id}" ${isSelected}>${v.collectionName} / ${v.name}</option>`;
-        });
-        cardHtml += `</optgroup>`;
-      }
+        if (exactMatches.length > 0) {
+          cardHtml += `<optgroup label="Exact Matches">`;
+          exactMatches.forEach((v) => {
+            const isSelected = v.id === selectedId ? 'selected' : '';
+            cardHtml += `<option value="${v.id}" ${isSelected}>${v.collectionName} / ${v.name}</option>`;
+          });
+          cardHtml += `</optgroup>`;
+        }
 
-      if (nearMatches.length > 0) {
-        cardHtml += `<optgroup label="Near Matches (±2px)">`;
-        nearMatches.forEach((v) => {
-          cardHtml += `<option value="${v.id}">~ ${v.collectionName} / ${v.name} (${v.resolvedValue})</option>`;
-        });
-        cardHtml += `</optgroup>`;
-      }
+        if (nearMatches.length > 0) {
+          cardHtml += `<optgroup label="Near Matches (±2px)">`;
+          nearMatches.forEach((v) => {
+            cardHtml += `<option value="${v.id}">~ ${v.collectionName} / ${v.name} (${v.resolvedValue})</option>`;
+          });
+          cardHtml += `</optgroup>`;
+        }
 
-      // Create new variable option
-      const createNewSelected = selectedId === 'create-new' ? 'selected' : '';
-      cardHtml += `
+        // Create new variable option (still keep it in dropdown for consistency if matches exist)
+        cardHtml += `
                       <option value="" disabled>──────────</option>
-                      <option value="create-new" style="font-weight: bold; color: #a78bfa;" ${createNewSelected}>+ Create new variable...</option>
+                      <option value="create-new" style="font-weight: bold; color: #a78bfa;">+ Create new variable...</option>
                     </select>
                     <button 
                       id="${issueId}-apply-btn" 
-                      class="token-fix-apply-btn" 
+                      class="token-fix-apply-btn btn-apply-fix" 
                       onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
                       data-original-onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
-                      style="padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
                       disabled
                     >
                       <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span>
@@ -5044,20 +5061,21 @@ function displayTokenCoverageResults(result) {
                   </div>
                 </div>
             `;
+      }
 
       // Trigger update of button state slightly after rendering if auto-selected
-      if (selectedId) {
+      if (selectedId && selectedId !== 'create-new') {
         setTimeout(() => {
           updateApplyButtonState(issueId);
         }, 0);
       }
 
-      cardHtml += `
+       cardHtml += `
                 <div style="margin-top: 8px;">
-                  <div style="display: flex; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; color: rgba(255, 255, 255, 0.7); flex: 1;">
+                  <div class="nodes-list-header">
+                    <label class="label-checkbox">
                         <input type="checkbox" id="${issueId}-select-all" onchange="toggleAllOccurrences('${issueId}')" style="cursor: pointer;">
-                        <span style="font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Select All (${issue.nodeNames.length} nodes)</span>
+                        <span class="label-text-uppercase">Select All (${issue.nodeNames.length} nodes)</span>
                     </label>
                   </div>
                   <div class="quality-nodes-list">
@@ -5183,6 +5201,11 @@ function displayTokenCoverageResults(result) {
   }
 
   resultsContainer.innerHTML = html;
+  
+  // RESTORE STATE: Immediately restore scroll position
+  if (prevScrollY > 0) {
+      window.scrollTo(0, prevScrollY);
+  }
 
   // Add event listeners for variable dropdowns
   categories.forEach((category) => {
@@ -5196,25 +5219,88 @@ function displayTokenCoverageResults(result) {
   });
 
   // Restore state if we have a pending issue fix
+  // Restore state if we have a pending issue fix
   if (window.pendingFixIssueId) {
     console.log('Restoring view for pending issue:', window.pendingFixIssueId);
     setTimeout(() => {
-      const pendingId = window.pendingFixIssueId;
-      const element = document.querySelector(`[data-issue-id="${pendingId}"]`);
+      let pendingId = window.pendingFixIssueId;
+      
+      // UPGRADE: Attempt to find better pendingId using context if available
+      if (window.pendingFixContext) {
+          const { category, value } = window.pendingFixContext;
+          if (category && value && result && result.issuesByCategory && result.issuesByCategory[category]) {
+              const issues = result.issuesByCategory[category];
+              // Find index of issue with matching value
+              const foundIdx = issues.findIndex(i => i.value === value);
+              if (foundIdx !== -1) {
+                  pendingId = `issue-${category}-${foundIdx}`;
+                  console.log(`Found equivalent issue for restoration: ${pendingId} (Context match)`);
+              }
+          }
+      }
+      
+      // Attempt to find the card. If not found, try to force lazy load.
+      let card = document.getElementById(`${pendingId}-card`);
+      
+      if (!card) {
+          // Parse ID to deduce category and index
+          // ID format: issue-{Category}-{Index}
+          const parts = pendingId.split('-');
+          
+          if (parts.length >= 3) {
+             const indexStr = parts[parts.length - 1];
+             const targetIndex = parseInt(indexStr);
+             const category = parts.slice(1, parts.length - 1).join('-');
+             
+             if (!isNaN(targetIndex) && category && window.remainingIssuesRaw && window.remainingIssuesRaw[category]) {
+                 console.log(`Pending issue ${pendingId} not found. Attempting to force load for category ${category}, target index ${targetIndex}`);
+                 
+                 // Keep loading until we cover the index
+                 let safetyCounter = 0;
+                 while (!document.getElementById(`${pendingId}-card`) && safetyCounter < 50) {
+                     const container = document.getElementById(`coverage-${category}-issues-container`);
+                     if (!container) break;
+                     const renderedCount = container.querySelectorAll('.quality-issue-card').length;
+                     
+                     // If we have rendered past the target index, stop (it should be there if it exists)
+                     if (renderedCount > targetIndex) break; 
+                     
+                     // If no more issues to load, break
+                     if (!window.remainingIssuesRaw[category] || window.remainingIssuesRaw[category].length === 0) break;
+
+                     // Trigger load more
+                     window.loadMoreIssues(category, renderedCount);
+                     safetyCounter++;
+                 }
+                 
+                 // Update card reference
+                 card = document.getElementById(`${pendingId}-card`);
+             }
+          }
+      }
+      
+      
+      // 1. Expand the specific Issue Card
+      // card variable is already defined and updated above
+      const body = document.getElementById(`${pendingId}-body`);
+      if (card && body) {
+          body.style.display = 'block';
+          card.classList.add('expanded');
+          const chevron = document.getElementById(`${pendingId}-chevron`);
+          if (chevron) {
+               chevron.style.transform = 'rotate(90deg)';
+               chevron.style.color = 'rgba(255, 255, 255, 0.9)';
+          }
+      }
+
+      // 2. Find element to scroll to (either the card or a specific node inside)
+      const element = card || document.querySelector(`[data-issue-id="${pendingId}"]`);
 
       if (element) {
-        // 1. Expand all parent accordions/groups
+        // 3. Expand all parent accordions/groups (Categories)
         let parent = element.parentElement;
         while (parent) {
-          // Expand Component Groups
-          if (parent.classList.contains('component-group-content')) {
-            parent.classList.add('expanded');
-            const groupHeader = parent.previousElementSibling;
-            if (groupHeader && groupHeader.classList.contains('component-group-header')) {
-              groupHeader.classList.add('expanded');
-            }
-          }
-          // Expand Collection Content
+          // Expand Collection Content (Category)
           if (parent.classList.contains('collection-content')) {
             parent.classList.remove('collapsed');
             const collectionHeader = parent.previousElementSibling;
@@ -5230,16 +5316,41 @@ function displayTokenCoverageResults(result) {
           if (parent === document.body) break;
         }
 
-        // 2. Scroll into view
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-        // 3. Highlight briefly
-        element.style.transition = 'background-color 0.5s ease';
-        const originalBg = element.style.backgroundColor;
-        element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
+        // 4. Scroll into view
         setTimeout(() => {
-          element.style.backgroundColor = originalBg;
-        }, 1500);
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             // 5. Highlight briefly
+            element.style.transition = 'background-color 0.5s ease';
+            const originalBg = element.style.backgroundColor;
+            element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
+            setTimeout(() => {
+            element.style.backgroundColor = originalBg;
+            }, 1500);
+
+            // 6. Auto-select the newly created variable if available
+            if (window.pendingFixContext && window.pendingFixContext.fullVariableName) {
+                const targetName = window.pendingFixContext.fullVariableName;
+                // Find the dropdown in this card
+                const selectId = `${pendingId}-var-select`;
+                const select = document.getElementById(selectId);
+                
+                if (select) {
+                     // Iterate options to find matching text or value (often ID is used as value, but we might have mapped it)
+                     // Since we don't know the exact ID of the new variable easily without a full re-scan mapping, 
+                     // we look for the option text which usually contains the name.
+                     for (let i = 0; i < select.options.length; i++) {
+                         if (select.options[i].text.includes(targetName)) {
+                             select.selectedIndex = i;
+                             // Trigger change event if needed
+                             const event = new Event('change');
+                             select.dispatchEvent(event);
+                             console.log(`Auto-selected variable: ${targetName}`);
+                             break;
+                         }
+                     }
+                }
+            }
+        }, 100);
       }
 
       // Clear state
@@ -5343,15 +5454,22 @@ window.loadMoreIssues = function (category, currentCount) {
 window.handleCreateNewVariable = function (issueId) {
   console.log('handleCreateNewVariable triggered for:', issueId);
 
-  const select = document.getElementById(`${issueId}-var-select`);
-
   // Robust finding of the card
   let card = null;
-  if (select) {
-    card = select.closest('.quality-issue-card');
+
+  // Try finding by ID first (most robust)
+  const cardElement = document.getElementById(`${issueId}-card`);
+  if (cardElement) {
+    card = cardElement;
   } else {
-    // Fallback
-    card = document.querySelector(`[data-issue-id="${issueId}"]`)?.closest('.quality-issue-card');
+    // Fallback to select lookup (if it exists)
+    const select = document.getElementById(`${issueId}-var-select`);
+    if (select) {
+      card = select.closest('.quality-issue-card');
+    } else {
+      // fallback to attribute
+      card = document.querySelector(`[data-issue-id="${issueId}"]`)?.closest('.quality-issue-card');
+    }
   }
 
   // Try to find value display
@@ -5362,6 +5480,10 @@ window.handleCreateNewVariable = function (issueId) {
 
   if (valueDisplay) {
     valueDisplay = valueDisplay.trim();
+  } else {
+      // Last resort: extract from the card content itself if structure is predictable,
+      // or rely on a data attribute if we added one (we didn't yet, but good idea for future).
+      // For now, looking for the mono-styled text is the best bet.
   }
 
   console.log('Found value to create:', valueDisplay);
@@ -5369,7 +5491,6 @@ window.handleCreateNewVariable = function (issueId) {
   if (!valueDisplay) {
     console.error('Could not find value display element');
     alert('Error: Could not determine the value to create a variable for.');
-    if (select) select.value = '';
     return;
   }
 
@@ -5554,6 +5675,18 @@ window.submitCreateVariable = function () {
     return;
   }
 
+  // VALIDATION: Check for invalid characters (dots)
+  if (nameInput.includes('.')) {
+    alert('Variable names cannot contain dots (.). Please use hyphens (-) or slashes (/) instead.');
+    // Optional: Auto-fix focus
+    const input = document.getElementById('create-var-name');
+    if (input) {
+        input.value = nameInput.replace(/\./g, '-');
+        input.focus();
+    }
+    return;
+  }
+
   // Construct full variable name
   let fullVariableName = nameInput;
   if (groupName) {
@@ -5565,6 +5698,20 @@ window.submitCreateVariable = function () {
 
   // Set pending state to persist expansion after reload
   window.pendingFixIssueId = issueId;
+  
+  // Extract category from issueId (format: issue-{Category}-{Index})
+  const parts = issueId.split('-');
+  let category = '';
+  if (parts.length >= 3) {
+      category = parts.slice(1, parts.length - 1).join('-');
+  }
+  
+  window.pendingFixContext = {
+      category: category,
+      value: value,
+      originalId: issueId,
+      fullVariableName: fullVariableName // Store for auto-selection
+  };
 
   // Send to backend
   parent.postMessage(
