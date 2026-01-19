@@ -114,12 +114,12 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="variables">Variables</div>
-    <div class="tab" data-tab="quality">Quality</div>
-    <div class="tab" data-tab="stats">Stats</div>
+    <div class="tab active" data-tab="quality">Quality</div>
+    <div class="tab" data-tab="variables">Variables</div>
+    <div class="tab" data-tab="stats">Components</div>
   </div>
 
-  <div class="tab-content active" id="variables-content">
+  <div class="tab-content" id="variables-content">
     <div class="content-padding">
       <div id="variables-warning-container"></div>
 
@@ -223,7 +223,7 @@
     </div>
   </div>
 
-  <div class="tab-content" id="quality-content">
+  <div class="tab-content active" id="quality-content">
     <div class="content-padding">
       <!-- Tab Header -->
 
@@ -326,7 +326,7 @@
               style="font-size: 22px; color: var(--purple-light)"
               >analytics</span
             >
-            Component Stats
+            Components
           </h2>
         </div>
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0">
@@ -817,7 +817,7 @@
       </button>
       <div>
         <button onclick="closeSettingsModal()">Cancel</button>
-        <button onclick="saveConfiguration()" class="btn-primary">Save Configuration</button>
+        <button onclick="saveConfiguration()" class="btn-primary-gradient">Save Configuration</button>
       </div>
     </div>
   </div>

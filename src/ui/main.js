@@ -24,6 +24,7 @@ class SecurityUtils {
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
           match.includes('clearInput(') ||
+          match.includes('copyToClipboard(') ||
           match.includes('handleFileUpload(') ||
           match.includes('switchToQualityTab(') ||
           match.includes('dismissFeedback(') ||
@@ -31,11 +32,16 @@ class SecurityUtils {
           match.includes('toggleCollection(') ||
           match.includes('expandAllSubgroups(') ||
           match.includes('collapseAllSubgroups(') ||
-          match.includes('toggleSubgroup(') ||
           match.includes('clearSearch(') ||
           match.includes('scrollToVariable(') ||
           match.includes('updateTailwindRenameButtonState(') ||
-          match.includes('openRenameTailwindVariableDialog(')
+          match.includes('openRenameTailwindVariableDialog(') ||
+          match.includes('expandAllImportGroups(') ||
+          match.includes('collapseAllImportGroups(') ||
+          match.includes('selectAllVariables(') ||
+          match.includes('expandAllStyleGroups(') ||
+          match.includes('collapseAllStyleGroups(') ||
+          match.includes('selectAllStyles(')
         ) {
           return match;
         }
@@ -55,6 +61,7 @@ class SecurityUtils {
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
           match.includes('clearInput(') ||
+          match.includes('copyToClipboard(') ||
           match.includes('handleFileUpload(') ||
           match.includes('switchToQualityTab(') ||
           match.includes('dismissFeedback(') ||
@@ -62,7 +69,6 @@ class SecurityUtils {
           match.includes('toggleCollection(') ||
           match.includes('expandAllSubgroups(') ||
           match.includes('collapseAllSubgroups(') ||
-          match.includes('toggleSubgroup(') ||
           match.includes('clearSearch(') ||
           match.includes('expandAllVariables(') ||
           match.includes('collapseAllVariables(') ||
@@ -73,7 +79,13 @@ class SecurityUtils {
           match.includes('scrollToVariable(') ||
           match.includes('deleteStyle(') ||
           match.includes('updateTailwindActionButtonsState(') ||
-          match.includes('applyTailwindNamespace(')
+          match.includes('applyTailwindNamespace(') ||
+          match.includes('expandAllImportGroups(') ||
+          match.includes('collapseAllImportGroups(') ||
+          match.includes('selectAllVariables(') ||
+          match.includes('expandAllStyleGroups(') ||
+          match.includes('collapseAllStyleGroups(') ||
+          match.includes('selectAllStyles(')
         ) {
           return match;
         }
@@ -620,20 +632,76 @@ window.selectComponent = function (componentId) {
 };
 
 // ===== REFRESH FUNCTIONALITY =====
+// ===== REFRESH FUNCTIONALITY =====
 window.refreshData = function () {
-  console.log('Refreshing variables and components data...');
-
-  // Reset Quality scan cache so next visit triggers a fresh scan
-  window.qualityScanPerformed = false;
-  window.statsScanPerformed = false;
-
+  console.log('Refresh triggered');
+  
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.disabled = true;
     refreshBtn.style.opacity = '0.6';
+    
+    // Animate the icon
+    const icon = refreshBtn.querySelector('.material-symbols-outlined');
+    if (icon) icon.style.animation = 'spin 1s linear infinite';
   }
 
+  // Determine active tab
+  const activeTabContent = document.querySelector('.tab-content.active');
+  const activeTabId = activeTabContent ? activeTabContent.id : 'variables-content';
+
+  console.log('Active tab for refresh:', activeTabId);
+
+  // 1. STATS REFRESH
+  if (activeTabId === 'stats-content') {
+    if (typeof window.refreshStats === 'function') {
+      const notification = showLoading('Refreshing Stats', 'Updating component usage data...');
+      window.refreshStats(notification);
+    } else {
+      console.error('refreshStats function not found');
+    }
+    
+    resetRefreshButton(refreshBtn, 1000);
+    return;
+  }
+
+  // 2. QUALITY REFRESH
+  if (activeTabId === 'quality-content') {
+    console.log('[DEBUG] Quality Refresh: Triggering CHAINED refresh (Variables -> Analysis)');
+    
+    // Set flag so refresh-success handler knows to run analysis afterwards
+    window.pendingQualityRefresh = true;
+    
+    // Reset scan performed flags to force re-evaluation
+    window.qualityScanPerformed = false;
+    
+    // Send message to backend to collect fresh data FIRST
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'refresh-data',
+        },
+      },
+      '*',
+    );
+
+    // Show notification
+    window.currentRefreshNotification = showLoading('Analyzing', 'Syncing variables & running analysis...');
+    
+    // Re-enable button after a delay (safety net)
+    resetRefreshButton(refreshBtn, 3000);
+    return;
+  }
+
+  // 3. VARIABLES REFRESH (Default)
+  console.log('Refreshing variables and components data...');
+  
+  // Reset Quality/Stats scan cache so next visit triggers a fresh scan
+  window.qualityScanPerformed = false;
+  window.statsScanPerformed = false;
+
   // Send message to backend to collect fresh data
+  console.log('[DEBUG] refreshData sending refresh-data plugin message');
   parent.postMessage(
     {
       pluginMessage: {
@@ -644,19 +712,32 @@ window.refreshData = function () {
   );
 
   // Show notification
-  showNotification('info', 'Refreshing...', 'Updating variables and components data');
+  window.currentRefreshNotification = showLoading('Refreshing', 'Syncing variables from Figma...');
 
   // Re-enable button after a delay
-  setTimeout(() => {
-    if (refreshBtn) {
-      refreshBtn.disabled = false;
-      refreshBtn.style.opacity = '1';
-    }
-  }, 2000);
+  resetRefreshButton(refreshBtn, 2000);
 };
 
+function resetRefreshButton(btn, delay) {
+  if (!btn) return;
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (icon) icon.style.animation = 'none';
+  }, delay);
+}
+
 // Stats specific refresh
-window.refreshStats = function () {
+window.refreshStats = function (notificationElement) {
+  // Store notification reference if provided, or create new one if called directly
+  if (notificationElement) {
+    window.currentStatsNotification = notificationElement;
+  } else {
+    // If called directly (e.g. from toolbar button), create a notification
+    window.currentStatsNotification = showLoading('Refreshing Stats', 'Updating component usage data...');
+  }
+
   console.log('Refreshing stats...');
   const container = document.getElementById('stats-container');
   if (container) {
@@ -748,7 +829,8 @@ function showNotification(type, title, message, duration) {
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
 
-  const icon = type === 'success' ? '✓' : '✕';
+  let icon = type === 'success' ? '✓' : '✕';
+  if (type === 'loading') icon = '<span class="material-symbols-outlined spin">sync</span>';
 
   // Check if message contains safe HTML (only allow <a> tags)
   const isHTMLMessage = message.includes('<a ') && message.includes('</a>');
@@ -757,7 +839,7 @@ function showNotification(type, title, message, duration) {
     : SecurityUtils.escapeHTML(message);
 
   notification.innerHTML = SecurityUtils.sanitizeHTML(`
-          <div class="notification-icon">${SecurityUtils.escapeHTML(icon)}</div>
+          <div class="notification-icon">${type === 'loading' ? icon : SecurityUtils.escapeHTML(icon)}</div>
           <div class="notification-content">
             <div class="notification-title">${SecurityUtils.escapeHTML(title)}</div>
             <div class="notification-message">${safeMessage}</div>
@@ -777,8 +859,49 @@ function showNotification(type, title, message, duration) {
   return notification;
 }
 
+function showLoading(title, message) {
+  return showNotification('loading', title, message, 0); // 0 = no auto-dismiss
+}
+
+function updateNotification(notificationElement, type, title, message, duration) {
+  if (!notificationElement) return;
+
+  // Update class
+  notificationElement.className = `notification ${type}`;
+
+  // Update icon
+  let icon = 'ℹ'; // Default info
+  if (type === 'success') icon = '✓';
+  if (type === 'error') icon = '✕';
+  if (type === 'loading') icon = '<span class="material-symbols-outlined spin">sync</span>';
+
+  // Sanitize content
+  const isHTMLMessage = message.includes('<a ') && message.includes('</a>');
+  const safeMessage = isHTMLMessage
+    ? SecurityUtils.sanitizeHTML(message)
+    : SecurityUtils.escapeHTML(message);
+
+  // Update inner HTML logic (reuse structure)
+  notificationElement.querySelector('.notification-icon').innerHTML = SecurityUtils.escapeHTML(icon);
+  if (type === 'loading') {
+      notificationElement.querySelector('.notification-icon').innerHTML = icon; // Allow HTML for spinner
+  }
+  
+  notificationElement.querySelector('.notification-title').textContent = title;
+  notificationElement.querySelector('.notification-message').innerHTML = safeMessage;
+
+  // Handle auto-dismiss
+  if (duration > 0) {
+    setTimeout(() => {
+      closeNotification(notificationElement);
+    }, duration);
+  }
+  
+  return notificationElement;
+}
+
 function showSuccess(title, message, duration) {
-  duration = duration || 0; // 0 = no auto-dismiss
+  duration = duration || 5000;
   return showNotification('success', title, message, duration);
 }
 
@@ -1566,10 +1689,15 @@ window.onmessage = (event) => {
         },
         '*',
       );
-      // Store globally for validation logic
       window.globalVariablesData = message.variablesData;
-
-      renderVariables(message.variablesData, stylesData);
+      
+      try {
+        console.log('[DEBUG] document-data handler calling renderVariables');
+        renderVariables(message.variablesData, stylesData);
+        console.log('[DEBUG] document-data handler renderVariables completed');
+      } catch (err) {
+        console.error('[DEBUG] document-data renderVariables crashed:', err);
+      }
       // renderComponents(componentsData); // Components tab replaced by Stats
 
       // Handle feedback dismissal state
@@ -1599,11 +1727,21 @@ window.onmessage = (event) => {
       // Update commit button states based on both variables and settings
       updateCommitButtonStates();
 
-      // Complete loading and hide overlay
-      updatePluginLoadingProgress(loadingSteps[5], 100);
-      setTimeout(() => {
+      // Complete loading logic modified:
+      // Instead of hiding overlay here, we trigger quality analysis and wait for it
+      updatePluginLoadingProgress('Analyzing token coverage...', 90);
+      
+      // Initial Quality Analysis (Auto-Run)
+      console.log('[DEBUG] Triggering INITIAL_LOAD quality analysis');
+      if (typeof analyzeTokenCoverage === 'function') {
+        setTimeout(() => {
+             analyzeTokenCoverage('INITIAL_LOAD');
+        }, 100);
+      } else {
+        // Fallback if function missing
+        console.warn('analyzeTokenCoverage missing, hiding overlay manually');
         hidePluginLoadingOverlay();
-      }, 500);
+      }
 
       // Auto-resize disabled to maintain consistent plugin size
     } else if (message.type === 'component-stats-data') {
@@ -1980,12 +2118,19 @@ window.onmessage = (event) => {
           buttonFound = true;
 
           // Show success notification matching variable commit style
-          const notificationMessage = message.mergeRequestUrl
-            ? `Component test committed successfully! <a href="${message.mergeRequestUrl}" target="_blank" style="color: var(--success-600); text-decoration: underline;">View Merge Request</a>`
-            : 'Component test committed successfully!';
+          let notificationMessage = 'Component test committed successfully!';
+          if (message.mergeRequestUrl) {
+            notificationMessage += `
+              <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                <a href="${message.mergeRequestUrl}" target="_blank" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; height: auto; text-decoration: none;">View Merge Request</a>
+                <button onclick="copyToClipboard('${message.mergeRequestUrl}')" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; height: auto; display: flex; align-items: center; gap: 4px;">
+                  <span class="material-symbols-outlined" style="font-size: 14px;">content_copy</span> Copy Link
+                </button>
+              </div>`;
+          }
 
           const title = message.mergeRequestUrl ? 'Merge Request Created!' : 'Commit Successful';
-          showSuccess(title, notificationMessage, 8000); // Show for 8 seconds
+          showSuccess(title, notificationMessage, 10000); // Show for 10 seconds
         }
       });
 
@@ -2108,7 +2253,13 @@ window.onmessage = (event) => {
       window.tailwindV4Validation = message.validation;
       // Re-render variables to show validation issues
       if (variablesData && variablesData.length > 0) {
-        renderVariables(variablesData, stylesData);
+        try {
+          console.log('[DEBUG] tailwind-v4-validation handler calling renderVariables');
+          renderVariables(variablesData, stylesData);
+          console.log('[DEBUG] tailwind-v4-validation handler renderVariables completed');
+        } catch (err) {
+          console.error('[DEBUG] tailwind-v4-validation renderVariables crashed:', err);
+        }
       }
       // Update button states based on validation
       updateCommitButtonStates();
@@ -2141,19 +2292,98 @@ window.onmessage = (event) => {
       }
     } else if (message.type === 'refresh-complete') {
       // Handle successful refresh
-      showNotification(
-        'success',
-        'Refreshed!',
-        'Variables and components data updated successfully',
-      );
-      console.log('Data refresh completed successfully');
+      // Deprecated in favor of refresh-success
+    } else if (message.type === 'variable-group-renamed') {
+      // Group rename success (Tailwind Prefix fix)
+      if (message.success) {
+        showSuccess('Fix Applied', `Renamed to "${message.newGroupName}"`, 3000);
+        
+        // Trigger a full refresh to update the UI
+        // We set a flag to trigger quality analysis AFTER variables are refreshed
+        console.log('[DEBUG] variable-group-renamed triggering refreshData');
+        window.pendingQualityRefresh = true;
+        window.refreshData();
+        
+        // Restore expansion state logic
+        // We will store the fact that we just did a tailwind fix
+        // The renderTailwindReadinessSection function should check this
+        window.justFixedTailwind = true;
+      }
+    } else if (message.type === 'variable-group-rename-error') {
+      showNotification('error', 'Rename Failed', message.error || 'Failed to rename variable group');
     } else if (message.type === 'refresh-error') {
       // Handle refresh error
       showNotification('error', 'Refresh Failed', message.error || 'Failed to refresh data');
       console.error('Data refresh failed:', message.error);
+    } else if (message.type === 'refresh-success') {
+      // General data refresh success
+      if (window.currentRefreshNotification) {
+        updateNotification(window.currentRefreshNotification, 'success', 'Refreshed', 'Variables and styles synced successfully', 3000);
+        window.currentRefreshNotification = null;
+      } else {
+        showSuccess('Refreshed', 'Variables and styles synced successfully', 3000);
+      }
+      
+      // Update data references
+      if (message.variables) window.variablesData = message.variables;
+      if (message.styles) window.stylesData = message.styles;
+      if (message.components) window.componentsData = message.components;
+      
+      // Render variables (and styles are called within)
+      try {
+        console.log('[DEBUG] Calling renderVariables from refresh-success');
+        renderVariables(window.variablesData);
+        console.log('[DEBUG] renderVariables completed');
+      } catch (err) {
+        console.error('[DEBUG] renderVariables crashed:', err);
+      }
+
+      // Check for pending quality refresh (e.g. after Tailwind fix)
+      console.log('[DEBUG] Checking pendingQualityRefresh:', window.pendingQualityRefresh);
+      if (window.pendingQualityRefresh) {
+        console.log('Triggering pending quality analysis...');
+        window.pendingQualityRefresh = false;
+        if (typeof analyzeTokenCoverage === 'function') {
+           // We pass a dummy notification object or handle silent mode if needed
+           // But 'SMART_SCAN' usually shows its own notification or uses the one passed.
+           // Let's use silent mode or just a standard run. Standard run is better for feedback.
+           console.log('[DEBUG] Calling analyzeTokenCoverage with SMART_SCAN');
+           analyzeTokenCoverage('SMART_SCAN');
+        }
+      }
+      
     } else if (message.type === 'token-coverage-result') {
-      // Handle token coverage analysis result
+      console.log('UI received token-coverage-result', message);
+      // Quality Analysis success
       displayTokenCoverageResults(message.result);
+      
+      if (window.currentAnalysisNotification) {
+        updateNotification(window.currentAnalysisNotification, 'success', 'Analysis Complete', 'Token coverage analysis finished', 3000);
+        window.currentAnalysisNotification = null;
+      } else if (!message.silent) {
+        // Only show toast if not silent (INITIAL_LOAD might be silent or handled differently? Let's show it for clarity or suppress?)
+        // The user said "only show the plugin when it's loaded". 
+        // We'll update loading progress to 100% and hide overlay here.
+      }
+
+      // Finalize Loading (for Initial Load flow)
+      updatePluginLoadingProgress('Ready!', 100);
+      hidePluginLoadingOverlay();
+      
+    } else if (message.type === 'component-stats-data') {
+      // Stats refresh success
+      window.componentStatsData = message.stats;
+      renderStats(message.stats);
+      
+      if (window.currentStatsNotification) {
+        updateNotification(window.currentStatsNotification, 'success', 'Stats Refreshed', 'Component usage data updated', 3000);
+        window.currentStatsNotification = null;
+      } else {
+         showSuccess('Refreshed', 'Component usage data updated', 3000);
+      }
+      
+      const btn = document.getElementById('refresh-stats-btn');
+      if (btn) btn.disabled = false;
     } else if (message.type === 'token-coverage-error') {
       // Handle token coverage analysis error
       const resultsContainer = document.getElementById('token-coverage-results');
@@ -2169,10 +2399,11 @@ window.onmessage = (event) => {
             </div>
           `;
       showNotification(
-        'error',
-        'Analysis Failed',
         message.error || 'Failed to analyze token coverage',
       );
+      
+      // Ensure overlay is hidden even on error
+      hidePluginLoadingOverlay();
     } else if (message.type === 'apply-token-result') {
       // Handle token application result
 
@@ -2223,9 +2454,16 @@ window.onmessage = (event) => {
         }
       }
 
-      if (message.success) {
-        // Re-run analysis to update the UI
-        analyzeTokenCoverage();
+      if (window.qualityTabRendered) {
+        // If quality tab is active, analyzeTokenCoverage should have been called
+        // We can just re-render if needed, but analyzeTokenCoverage usually handles the UI update
+        // via callbacks or internal logic. 
+        // We principally just need to ensure the "Processing" state is cleared.
+        if (window.currentRefreshNotification) {
+             window.currentRefreshNotification.update('success', 'Analysis Complete', 'Quality analysis finished.');
+             // Clear the reference so we don't hold onto it
+             window.currentRefreshNotification = null;
+        }
       }
     }
   } catch (error) {
@@ -2248,7 +2486,7 @@ window.onmessage = (event) => {
 
 // Render variables
       function renderVariables(data, stylesData = null) {
-        console.log('DEBUG: renderVariables called', { 
+        console.log('[DEBUG] renderVariables ENTER', { 
             dataLength: data ? data.length : 0, 
             hasStylesData: !!stylesData,
             stylesKeys: stylesData ? Object.keys(stylesData) : [] 
@@ -2359,7 +2597,8 @@ window.onmessage = (event) => {
         });
 
         // Add Tailwind v4 validation issues if present
-        if (tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.length > 0) {
+        const tailwindValidation = window.tailwindV4Validation;
+        if (tailwindValidation && !tailwindValidation.isValid && tailwindValidation.invalidGroups.length > 0) {
              // ... (keep existing tailwind logic)
              tailwindIssues = [];
              
@@ -2380,7 +2619,7 @@ window.onmessage = (event) => {
                   
                   groupedVars.forEach((variables, prefix) => {
                        // Check if this group is invalid for Tailwind v4
-                       if (tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1) {
+                       if (tailwindValidation.invalidGroups.indexOf(prefix) !== -1) {
                             const sanitizedId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, "-")}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
                             tailwindIssues.push({
                                  collection: collection.name,
@@ -2514,8 +2753,9 @@ window.onmessage = (event) => {
               
               const isTailwindEnabled = (window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4');
               console.log('[DEBUG] isTailwindEnabled:', isTailwindEnabled, 'Format:', (window.gitSettings?.exportFormat || window.gitlabSettings?.exportFormat));
-              const isTailwindInvalid = isTailwindEnabled && tailwindV4Validation && !tailwindV4Validation.isValid && tailwindV4Validation.invalidGroups.indexOf(prefix) !== -1;
-              const isTailwindValid = isTailwindEnabled && tailwindV4Validation && tailwindV4Validation.groups.some(g => g.name === prefix && g.isValid);
+              const tailwindValidationLocal = window.tailwindV4Validation;
+              const isTailwindInvalid = isTailwindEnabled && tailwindValidationLocal && !tailwindValidationLocal.isValid && tailwindValidationLocal.invalidGroups.indexOf(prefix) !== -1;
+              const isTailwindValid = isTailwindEnabled && tailwindValidationLocal && tailwindValidationLocal.groups.some(g => g.name === prefix && g.isValid);
               
               const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
@@ -2605,11 +2845,15 @@ window.onmessage = (event) => {
             }
         }
 
+        console.log('[DEBUG] renderVariables updating DOM innerHTML (length: ' + html.length + ')');
         container.innerHTML = SecurityUtils.sanitizeHTML(html);
+        console.log('[DEBUG] renderVariables DOM update complete');
         
         // Collapse all by default
         if (window.collapseAllVariables) {
+          console.log('[DEBUG] calling collapseAllVariables from renderVariables');
           window.collapseAllVariables();
+          console.log('[DEBUG] collapseAllVariables returned');
         }
       }
 
@@ -3224,6 +3468,32 @@ function formatStyles(styles, textElements, componentName) {
     return String(styles);
   }
 }
+
+
+
+// Copy text to clipboard
+window.copyToClipboard = function(text) {
+  // Create a temporary textarea element
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  
+  // Select and copy
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showNotification('success', 'Copied!', 'Link copied to clipboard');
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    showNotification('error', 'Error', 'Failed to copy link');
+  }
+  
+  // Clean up
+  document.body.removeChild(textarea);
+};
 
 function highlightJson(json) {
   json = json.replace(/^\s*{\s*/, '{\n  ');
@@ -4300,11 +4570,15 @@ function switchToQualityTab() {
 }
 
 // Function to analyze token coverage
-/**
- * Analyzes token coverage for the current page or all pages
- * @param {string} [scopeOverride] - Optional scope to override the global setting (e.g. 'SMART_SCAN')
- */
-function analyzeTokenCoverage(scopeOverride) {
+
+function analyzeTokenCoverage(scopeOverride, notificationElement) {
+  console.log('[DEBUG] analyzeTokenCoverage called', { scopeOverride, notificationElement });
+  console.log('analyzeTokenCoverage called', { scopeOverride, hasNotification: !!notificationElement });
+  // Store notification reference if provided
+  if (notificationElement) {
+    window.currentAnalysisNotification = notificationElement;
+  }
+
   const resultsContainer = document.getElementById('token-coverage-results');
 
   if (resultsContainer) {
@@ -4492,8 +4766,11 @@ function renderStats(statsData, filteredData = null) {
 // Function to render Tailwind Readiness section
 function renderTailwindReadinessSection(validation) {
   if (!validation || !validation.invalidGroups || validation.invalidGroups.length === 0) {
+    console.log('[DEBUG] renderTailwindReadinessSection: No invalid groups found or validation missing');
     return '';
   }
+
+  console.log('[DEBUG] renderTailwindReadinessSection: Rendering with invalid groups:', validation.invalidGroups.length);
 
   // Separate standalone variables from grouped variables
   const invalidGroupNames = validation.invalidGroups;
@@ -4507,7 +4784,7 @@ function renderTailwindReadinessSection(validation) {
       <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
         <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
           <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">verified</span>
-          Tailwind Readiness
+          Tailwind Readiness <span style="font-size: 10px; opacity: 0.5;">(Rendered: ${new Date().toLocaleTimeString()})</span>
         </h2>
       </div>
       <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
@@ -4519,7 +4796,8 @@ function renderTailwindReadinessSection(validation) {
   // Render Standalone Variables collapsible (if any exist)
   if (standaloneVariables.length > 0) {
     const standaloneGroupId = 'tailwind-standalone-group';
-    const standaloneIsExpanded = false;
+    // Auto-expand if we just fixed a standalone variable or general fix
+    const standaloneIsExpanded = window.justFixedTailwind === true;
 
     html += `
       <div id="${standaloneGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
@@ -4563,7 +4841,7 @@ function renderTailwindReadinessSection(validation) {
               <button 
                 id="${itemId}-add-prefix-btn" 
                 class="token-fix-apply-btn" 
-                onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}')"
+                onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}');refreshData()"
                   style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
                 disabled
                 title="Add namespace prefix"
@@ -4587,7 +4865,8 @@ function renderTailwindReadinessSection(validation) {
   // Render Invalid Groups collapsible (if any exist)
   if (groupedVariables.length > 0) {
     const groupsGroupId = 'tailwind-invalid-groups';
-    const groupsIsExpanded = false;
+    // Auto-expand if we just fixed something or specifically this group type
+    const groupsIsExpanded = window.justFixedTailwind === true;
 
     html += `
       <div id="${groupsGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
@@ -5862,6 +6141,9 @@ window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount
     },
     '*',
   );
+  
+  // Save state for restoration
+  window.lastActiveTailwindGroup = currentGroupName;
 };
 
 function expandAllQuality() {
@@ -8358,7 +8640,7 @@ function initializeVariableImportTab() {
                 </svg>
                 Variable Import
               </h2>
-              <p>Import design tokens from CSS or JSON files and sync them with Figma Variables.</p>
+              <p>Import design tokens from CSS, SCSS or JSON files and sync them with Figma Variables.</p>
             </div>
 
             <div class="import-section">
@@ -8391,7 +8673,8 @@ function initializeVariableImportTab() {
                 <div id="parse-status" class="parse-status" style="display: none;"></div>
               </div>
               
-              <div class="input-content" id="file-input">
+              <!-- File Upload Input -->
+              <div id="upload-input" class="input-content">
                 <div class="file-upload-area" onclick="document.getElementById('file-picker').click()">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -8401,9 +8684,9 @@ function initializeVariableImportTab() {
                     <polyline points="10,9 9,9 8,9"/>
                   </svg>
                   <p>Click to select or drag & drop your token file</p>
-                  <small>Supports .css, .json files</small>
+                  <small>Supports .css, .scss, .json files</small>
                 </div>
-                <input type="file" id="file-picker" accept=".css,.json" style="display: none;" onchange="handleFileUpload(event)">
+                <input type="file" id="file-picker" accept=".css,.json,.scss" style="display: none;" onchange="handleFileUpload(event)">
               </div>
             </div>
 
@@ -8434,6 +8717,9 @@ function initializeVariableImportTab() {
       container.querySelector('#' + target).classList.add('active');
     });
   });
+
+  // Load existing collections for the dropdown
+  loadExistingCollections();
 }
 
 // Test function to verify JavaScript is working
@@ -8544,24 +8830,42 @@ window.clearInput = function () {
   if (importSection) importSection.style.display = 'none';
 };
 
-window.resetImportView = function () {
-  // Reset the entire import tab to initial state
-  const importTab = document.getElementById('import');
-  if (importTab) {
-    // Re-initialize the import tab content
-    setupImportTab();
-  }
-};
-
 window.handleFileUpload = function (event) {
   const file = event.target.files[0];
+  window.processFile(file);
+};
+
+window.processFile = function (file) {
   if (!file) return;
+
+  const fileName = file.name.toLowerCase();
+  if (!fileName.endsWith('.css') && !fileName.endsWith('.json') && !fileName.endsWith('.scss')) {
+    alert('Please upload a .css, .scss, or .json file');
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = function (e) {
-    document.getElementById('token-input').value = e.target.result;
-    // Switch to manual input tab to show the content
-    document.querySelector('.input-tab[data-input="manual"]').click();
+    const content = e.target.result;
+    const tokenInput = document.getElementById('token-input');
+    
+    if (tokenInput) {
+      tokenInput.value = content;
+      
+      // Auto-select the correct format based on extension
+      if (fileName.endsWith('.json')) {
+        const jsonRadio = document.querySelector('input[name="format"][value="json"]');
+        if (jsonRadio) jsonRadio.checked = true;
+      } else {
+        // CSS or SCSS
+        const cssRadio = document.querySelector('input[name="format"][value="css"]');
+        if (cssRadio) cssRadio.checked = true;
+      }
+      
+      // Switch to manual input tab to show the content
+      const manualTab = document.querySelector('.input-tab[data-input="manual"]');
+      if (manualTab) manualTab.click();
+    }
   };
   reader.readAsText(file);
 };
@@ -9276,6 +9580,9 @@ function showPreview(tokens) {
   if (collectionNameInput) {
     collectionNameInput.addEventListener('input', updateCollectionNamePreview);
   }
+
+  // Load existing collections to populate the dropdown
+  loadExistingCollections();
 }
 
 function checkDuplicate(tokenName) {
@@ -9301,17 +9608,25 @@ function updateCollectionNamePreview() {
 }
 
 window.toggleImportDestination = function (mode) {
+  console.log('[DEBUG] toggleImportDestination called with mode:', mode);
   const collectionNameGroup = document.getElementById('new-collection-group');
   const existingCollectionGroup = document.getElementById('existing-collection-group');
+
+  console.log('[DEBUG] Found elements:', {
+    collectionNameGroup: !!collectionNameGroup,
+    existingCollectionGroup: !!existingCollectionGroup
+  });
 
   if (mode === 'new') {
     // Show collection name input, hide existing collections dropdown
     if (collectionNameGroup) collectionNameGroup.style.display = 'block';
     if (existingCollectionGroup) existingCollectionGroup.style.display = 'none';
+    console.log('[DEBUG] Switched to NEW collection mode');
   } else {
     // Hide collection name input, show existing collections dropdown
     if (collectionNameGroup) collectionNameGroup.style.display = 'none';
     if (existingCollectionGroup) existingCollectionGroup.style.display = 'block';
+    console.log('[DEBUG] Switched to EXISTING collection mode, display should be:', existingCollectionGroup?.style.display);
     // Refresh existing collections list
     loadExistingCollections();
   }
@@ -9515,6 +9830,29 @@ function resetImportView() {
       return;
     }
 
+    // Remove the initialized class so it can be re-initialized
+    importContent.classList.remove('initialized');
+
+    // Reset the preview state
+    currentImportPreview = null;
+
+    // Re-initialize the import tab to restore initial state
+    initializeVariableImportTab();
+  } catch (e) {
+    console.error('[UI] Error resetting import view:', e);
+    showError('UI Error', 'Failed to reset import view. Please reload the plugin.');
+  }
+}
+
+function resetImportView_OLD() {
+  console.log('[UI] Resetting import view (OLD)');
+  try {
+    const importContent = document.getElementById('variable-import-container');
+    if (!importContent) {
+      console.error('[UI] Import content container not found');
+      return;
+    }
+
     // Re-render the initial import view structure
     importContent.innerHTML = `
               <div class="import-section">
@@ -9684,7 +10022,9 @@ function resetImportView() {
     document.getElementById('confirm-import-btn')?.addEventListener('click', function () {
       if (!currentImportPreview) return;
 
-      const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
+      // Use the overwrite-existing checkbox to determine strategy
+      const overwriteCheckbox = document.getElementById('overwrite-existing');
+      const strategy = overwriteCheckbox && overwriteCheckbox.checked ? 'overwrite' : 'skip';
       const collectionSelect = document.getElementById('import-collection-select');
       const collectionId = collectionSelect.value;
       const collectionName = collectionId
@@ -9758,36 +10098,46 @@ window.addEventListener('message', function (event) {
 });
 
 function updateExistingCollectionsDropdown(collections) {
-  const existingCollectionSelect = document.getElementById('existing-collection-select');
-  if (!existingCollectionSelect) return;
-
-  // Clear existing options
-  existingCollectionSelect.innerHTML = '';
-
   // Store globally for duplicate checking
   window.existingCollections = collections || [];
   console.log('[DEBUG] Stored existing collections:', window.existingCollections);
 
-  if (!collections || collections.length === 0) {
-    existingCollectionSelect.innerHTML = '<option value="">No existing collections found</option>';
-    return;
-  }
+  // Update both dropdowns
+  const dropdowns = [
+    { id: 'existing-collection-select', element: document.getElementById('existing-collection-select') },
+    { id: 'import-collection-select', element: document.getElementById('import-collection-select') },
+  ];
 
-  // Add default option
-  existingCollectionSelect.innerHTML = '<option value="">Select a collection...</option>';
+  dropdowns.forEach((dropdown) => {
+    if (!dropdown.element) return;
 
-  // Add existing collections
-  collections.forEach((collection) => {
-    const option = document.createElement('option');
-    option.value = collection.id;
-    option.textContent = collection.name;
-    // Try to update both potential select IDs
-    if (existingCollectionSelect) existingCollectionSelect.appendChild(option.cloneNode(true));
+    // Clear existing options
+    dropdown.element.innerHTML = '';
 
-    const importSelect = document.getElementById('import-collection-select');
-    if (importSelect && importSelect !== existingCollectionSelect) {
-      importSelect.appendChild(option.cloneNode(true));
+    if (!collections || collections.length === 0) {
+      dropdown.element.innerHTML = '<option value="">New Collection...</option>';
+      return;
     }
+
+    // Add "New Collection" option first
+    const newOption = document.createElement('option');
+    newOption.value = '';
+    newOption.textContent = 'New Collection...';
+    dropdown.element.appendChild(newOption);
+
+    // Add separator for clarity
+    const separator = document.createElement('option');
+    separator.disabled = true;
+    separator.textContent = '───── Existing Collections ─────';
+    dropdown.element.appendChild(separator);
+
+    // Add existing collections
+    collections.forEach((collection) => {
+      const option = document.createElement('option');
+      option.value = collection.id;
+      option.textContent = collection.name;
+      dropdown.element.appendChild(option);
+    });
   });
 
   // If we have parsed tokens and the preview is visible, re-render to show duplicate badges
@@ -10048,11 +10398,14 @@ function handleImportPreview(msg) {
   conflicts.forEach((c) => appendRow(c.token, 'conflict', c.existingValue));
   unchanged.forEach((t) => appendRow(t, 'ignore')); // Or 'unchanged'
 
-  // Show Preview
-  document.getElementById('import-preview-section').classList.remove('hidden');
-
-  // Scroll to preview
-  document.getElementById('import-preview-section').scrollIntoView({ behavior: 'smooth' });
+  // Show preview section
+  const previewSection = document.getElementById('import-preview-section');
+  previewSection.classList.remove('hidden');
+  
+  // Auto-scroll to preview section
+  setTimeout(() => {
+    previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
 }
 
 function handleImportComplete(msg) {
@@ -10475,12 +10828,18 @@ window.collapseAllQuality = collapseAllQuality;
 // ===== IMPORT PREVIEW HELPERS =====
 
 function toggleSubgroup(groupId) {
+  console.log('toggleSubgroup called for:', groupId);
   const group = document.getElementById(groupId);
-  if (!group) return;
+  if (!group) {
+    console.warn('Group not found:', groupId);
+    return;
+  }
 
   const header = group.querySelector('.subgroup-header');
   const content = document.getElementById(groupId + '-content');
-  const icon = header.querySelector('.subgroup-toggle-icon');
+  const icon = header ? header.querySelector('.subgroup-toggle-icon') : null;
+
+  console.log('Found elements:', { header: !!header, content: !!content, icon: !!icon });
 
   if (header && content) {
     header.classList.toggle('collapsed');
