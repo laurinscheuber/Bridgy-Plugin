@@ -32,7 +32,8 @@ export const buildGitLabApiUrl = async (gitlabUrl?: string): Promise<string> => 
 
 // Synchronous version for backward compatibility
 export const buildGitLabApiUrlSync = (gitlabUrl?: string): string => {
-  if (!gitlabUrl) return API_CONFIG.DEFAULT_GITLAB_BASE_URL;
+  // Use default if URL is not provided or is empty string
+  if (!gitlabUrl || gitlabUrl.trim() === '') return API_CONFIG.DEFAULT_GITLAB_BASE_URL;
 
   // Remove trailing slash if present
   const cleanUrl = gitlabUrl.replace(/\/+$/, '');
@@ -61,7 +62,8 @@ export const buildGitLabWebUrl = async (gitlabUrl?: string): Promise<string> => 
 
 // Synchronous version for backward compatibility
 export const buildGitLabWebUrlSync = (gitlabUrl?: string): string => {
-  if (!gitlabUrl) return API_CONFIG.DEFAULT_GITLAB_URL;
+  // Use default if URL is not provided or is empty string
+  if (!gitlabUrl || gitlabUrl.trim() === '') return API_CONFIG.DEFAULT_GITLAB_URL;
 
   // Remove trailing slash and /api/v4 if present
   const cleanUrl = gitlabUrl.replace(/\/+$/, '').replace(/\/api\/v4$/, '');

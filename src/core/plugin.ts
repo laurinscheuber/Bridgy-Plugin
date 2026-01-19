@@ -1075,7 +1075,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           const settings: GitSettings = {
             provider: provider,
-            baseUrl: msg.baseUrl || '',
+            baseUrl: msg.baseUrl || msg.gitlabUrl || '',
             projectId: msg.projectId,
             token: msg.token || msg.gitlabToken, // Accept either
             filePath: msg.filePath || 'src/variables.css',
@@ -1160,7 +1160,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           const settings: GitSettings = {
             provider: provider,
-            baseUrl: msg.baseUrl || '',
+            baseUrl: msg.baseUrl || msg.gitlabUrl || '',
             projectId: msg.projectId,
             token: msg.token || msg.gitlabToken,
             filePath: 'variables.css', // Default value

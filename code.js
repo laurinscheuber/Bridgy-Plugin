@@ -288,7 +288,7 @@
       });
       exports.buildGitLabApiUrl = buildGitLabApiUrl;
       var buildGitLabApiUrlSync = (gitlabUrl) => {
-        if (!gitlabUrl)
+        if (!gitlabUrl || gitlabUrl.trim() === "")
           return exports.API_CONFIG.DEFAULT_GITLAB_BASE_URL;
         const cleanUrl = gitlabUrl.replace(/\/+$/, "");
         if (cleanUrl.endsWith("/api/v4")) {
@@ -307,7 +307,7 @@
       });
       exports.buildGitLabWebUrl = buildGitLabWebUrl;
       var buildGitLabWebUrlSync = (gitlabUrl) => {
-        if (!gitlabUrl)
+        if (!gitlabUrl || gitlabUrl.trim() === "")
           return exports.API_CONFIG.DEFAULT_GITLAB_URL;
         const cleanUrl = gitlabUrl.replace(/\/+$/, "").replace(/\/api\/v4$/, "");
         return cleanUrl;
@@ -9886,7 +9886,7 @@ ${Object.keys(cssProperties).map((property) => {
                 const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
                 const settings = {
                   provider,
-                  baseUrl: msg.baseUrl || "",
+                  baseUrl: msg.baseUrl || msg.gitlabUrl || "",
                   projectId: msg.projectId,
                   token: msg.token || msg.gitlabToken,
                   // Accept either
@@ -9951,7 +9951,7 @@ ${Object.keys(cssProperties).map((property) => {
                 const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
                 const settings = {
                   provider,
-                  baseUrl: msg.baseUrl || "",
+                  baseUrl: msg.baseUrl || msg.gitlabUrl || "",
                   projectId: msg.projectId,
                   token: msg.token || msg.gitlabToken,
                   filePath: "variables.css",
