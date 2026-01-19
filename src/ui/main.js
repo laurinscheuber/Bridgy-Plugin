@@ -749,16 +749,7 @@ window.refreshStats = function (notificationElement) {
     `;
   }
   
-  // Disable button
-  const btn = document.getElementById('refresh-stats-btn');
-  if (btn) btn.disabled = true;
-
   parent.postMessage({ pluginMessage: { type: 'get-component-usage' } }, '*');
-  
-  // Re-enable button after short delay (data load will also do it if we hooked it up, but simple timeout is safe)
-  setTimeout(() => {
-    if (btn) btn.disabled = false;
-  }, 2000);
 };
 
 window.filterStats = function(query) {
@@ -2382,8 +2373,7 @@ window.onmessage = (event) => {
          showSuccess('Refreshed', 'Component usage data updated', 3000);
       }
       
-      const btn = document.getElementById('refresh-stats-btn');
-      if (btn) btn.disabled = false;
+
     } else if (message.type === 'token-coverage-error') {
       // Handle token coverage analysis error
       const resultsContainer = document.getElementById('token-coverage-results');
@@ -10705,11 +10695,22 @@ function filterQualityResults(query) {
     const content = group.querySelector('.collection-content');
     const header = group.querySelector('.collection-header');
 
+    // Check if Group Name matches (e.g. "Layout", "Stroke", "Tailwind Readiness")
+    let groupNameMatch = false;
+    if (header && normalizedQuery) {
+        const titleEl = header.querySelector('.collection-name-title');
+        // Search in title, but maybe exclude the stats number if possible? 
+        // titleEl.textContent includes the number. That's probably fine.
+        if (titleEl && titleEl.textContent.toLowerCase().includes(normalizedQuery)) {
+            groupNameMatch = true;
+        }
+    }
+
     issues.forEach((issue) => {
       totalIssueCards++;
       
-      // If query is empty, show everything
-      if (!normalizedQuery) {
+      // If query is empty OR Group Matches, show everything in this group
+      if (!normalizedQuery || groupNameMatch) {
         issue.style.setProperty('display', 'block', 'important');
         groupHasVisibleIssues = true;
         visibleIssueCards++;
@@ -10717,16 +10718,28 @@ function filterQualityResults(query) {
       }
 
       // Find the text content we want to search against
-      // The header typically contains "Property Name" and "Value"
+      // Refined Logic: Exclude "Near Match" suggestions from index
+      let textContent = '';
       const issueHeader = issue.querySelector('.quality-issue-header');
-      if (!issueHeader) {
-        // Fallback if header structure isn't found
-        issue.style.setProperty('display', 'none', 'important');
-        return;
+      
+      if (issueHeader) {
+        // Standard Quality Issue: Construct index selectively
+        // 1. Header (Title, Value, Badges)
+        textContent += issueHeader.textContent.toLowerCase();
+        
+        // 2. Node List (Node names)
+        const nodeList = issue.querySelector('.quality-nodes-list');
+        if (nodeList) {
+             textContent += ' ' + nodeList.textContent.toLowerCase();
+        }
+        
+        // EXPLICITLY OMIT: .issue-fix-section (Dropowns/Suggestions)
+      } else {
+         // Fallback: search entire card content (Tailwind Readiness, etc.)
+         textContent = issue.textContent.toLowerCase();
       }
 
       // Check text content
-      const textContent = issueHeader.textContent.toLowerCase();
       const isMatch = textContent.includes(normalizedQuery);
 
       if (isMatch) {
