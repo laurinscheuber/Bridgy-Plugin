@@ -2532,7 +2532,7 @@ tr:last-child td {
   position: fixed;
   top: var(--space-4);
   right: var(--space-4);
-  z-index: 2147483647; /* Max Z-Index to strictly enforce top layer */
+  z-index: 10000;
   max-width: 400px;
 }
 
@@ -2541,7 +2541,7 @@ tr:last-child td {
   backdrop-filter: var(--blur-intense);
   border: 1px solid var(--glass-white-medium);
   border-radius: var(--radius-modal);
-  padding: 12px; /* Reduced from var(--space-4) for compactness */
+  padding: var(--space-4);
   margin-bottom: var(--space-3);
   box-shadow: 0 4px 12px var(--glass-dark-50);
   border-left: 3px solid;
@@ -5395,6 +5395,7 @@ input[type='password']:focus {
   background-repeat: no-repeat;
   background-position: right 8px center;
   padding-right: 28px;
+  height: fit-content;
 }
 
 .token-fix-select:focus {
@@ -5403,7 +5404,25 @@ input[type='password']:focus {
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
-.token-fix-apply-btn {
+
+.secondary-action-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--purple-bright);
+  color: var(--glass-white-90)
+}
+
+.secondary-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  background: transparent;
+}
+
+.token-fix-apply-btn, .secondary-action-btn {
   transition: all 0.2s ease;
 }
 
