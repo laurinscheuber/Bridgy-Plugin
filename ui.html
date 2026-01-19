@@ -3812,66 +3812,54 @@ window.onmessage = (event) => {
           setTimeout(() => {
             itemCard.style.display = 'none';
 
-            // Update count badge for the collection
-            if (window.tailwindActiveCollectionId) {
-              const collection = document.getElementById(window.tailwindActiveCollectionId);
-              if (collection) {
-                // Count visible (non-hidden) issue cards in this collection
-                const allIssueCards = collection.querySelectorAll('.quality-issue-card');
-                const visibleIssueCards = Array.from(allIssueCards).filter(card => {
-                  return card.style.display !== 'none';
-                });
-                const visibleCount = visibleIssueCards.length;
+                  // Update count badge for the collection
+                  if (window.tailwindActiveCollectionId) {
+                    const collection = document.getElementById(window.tailwindActiveCollectionId);
+                    if (collection) {
+                      // Update the count badge - simply decrement by 1
+                      const countBadge = collection.querySelector('.subgroup-stats');
+                      if (countBadge) {
+                        const currentCount = parseInt(countBadge.textContent) || 0;
+                        const newCount = Math.max(0, currentCount - 1);
+                        countBadge.textContent = newCount.toString();
 
-                // Update the count badge
-                const countBadge = collection.querySelector('.subgroup-stats');
-                if (countBadge) {
-                  countBadge.textContent = visibleCount.toString();
+                        // Add a subtle animation to draw attention to the update
+                        countBadge.style.transition = 'transform 0.2s ease-out, background-color 0.2s ease-out';
+                        countBadge.style.transform = 'scale(1.2)';
+                        countBadge.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
 
-                  // Add a subtle animation to draw attention to the update
-                  countBadge.style.transition = 'transform 0.2s ease-out, background-color 0.2s ease-out';
-                  countBadge.style.transform = 'scale(1.2)';
-                  countBadge.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
+                        setTimeout(() => {
+                          countBadge.style.transform = 'scale(1)';
+                          countBadge.style.backgroundColor = '';
+                        }, 200);
 
-                  setTimeout(() => {
-                    countBadge.style.transform = 'scale(1)';
-                    countBadge.style.backgroundColor = '';
-                  }, 200);
-                }
-
-                // If no visible issues remain, show a success message
-                if (visibleCount === 0) {
-                  const contentDiv = collection.querySelector('.collection-content > div');
-                  if (contentDiv) {
-                    // Hide all the hidden cards completely
-                    allIssueCards.forEach(card => {
-                      if (card.style.display === 'none') {
-                        card.style.display = 'none';
+                        // If count reaches 0, show a success message
+                        if (newCount === 0) {
+                          const contentDiv = collection.querySelector('.collection-content > div');
+                          if (contentDiv && !contentDiv.querySelector('.tailwind-success-message')) {
+                            // Add success message
+                            const successMessage = document.createElement('div');
+                            successMessage.className = 'tailwind-success-message';
+                            successMessage.style.cssText = `
+                              text-align: center; 
+                              padding: 24px; 
+                              color: rgba(34, 197, 94, 0.9); 
+                              font-size: 13px;
+                              background: rgba(34, 197, 94, 0.1);
+                              border: 1px solid rgba(34, 197, 94, 0.2);
+                              border-radius: 8px;
+                              margin: 8px 0;
+                              animation: fadeIn 0.3s ease-in;
+                            `;
+                            successMessage.innerHTML = `
+                              <span class="material-symbols-outlined" style="font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.8;">check_circle</span>
+                              <strong>All issues resolved!</strong>
+                              <div style="font-size: 11px; margin-top: 4px; opacity: 0.7;">Great job! All variables in this section are now Tailwind v4 compatible.</div>
+                            `;
+                            contentDiv.appendChild(successMessage);
+                          }
+                        }
                       }
-                    });
-
-                    // Add success message
-                    const successMessage = document.createElement('div');
-                    successMessage.className = 'tailwind-success-message';
-                    successMessage.style.cssText = `
-                      text-align: center; 
-                      padding: 24px; 
-                      color: rgba(34, 197, 94, 0.9); 
-                      font-size: 13px;
-                      background: rgba(34, 197, 94, 0.1);
-                      border: 1px solid rgba(34, 197, 94, 0.2);
-                      border-radius: 8px;
-                      margin: 8px 0;
-                      animation: fadeIn 0.3s ease-in;
-                    `;
-                    successMessage.innerHTML = `
-                      <span class="material-symbols-outlined" style="font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.8;">check_circle</span>
-                      <strong>All issues resolved!</strong>
-                      <div style="font-size: 11px; margin-top: 4px; opacity: 0.7;">Great job! All variables in this section are now Tailwind v4 compatible.</div>
-                    `;
-                    contentDiv.appendChild(successMessage);
-                  }
-                }
 
                 // Ensure the collection stays open
                 const content = collection.querySelector('.collection-content');
@@ -4319,9 +4307,17 @@ window.onmessage = (event) => {
       
     } else if (message.type === 'token-coverage-result') {
       console.log('UI received token-coverage-result', message);
-      // Quality Analysis success
-      displayTokenCoverageResults(message.result);
-      
+
+      // Skip re-rendering if a token fix is in progress to prevent layout shift
+      if (window.tokenFixInProgress) {
+        console.log('[DEBUG] Skipping token coverage re-render during fix to prevent layout shift');
+        // Just store the result, don't re-render
+        window.lastTokenCoverageResult = message.result;
+      } else {
+        // Quality Analysis success - normal flow
+        displayTokenCoverageResults(message.result);
+      }
+
       if (window.currentAnalysisNotification) {
         updateNotification(window.currentAnalysisNotification, 'success', 'Analysis Complete', 'Token coverage analysis finished', 3000);
         window.currentAnalysisNotification = null;
@@ -4381,12 +4377,122 @@ window.onmessage = (event) => {
             btn.classList.add('btn-success');
             btn.innerHTML =
               '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Applied';
+
+            // Hide the fixed issue with CSS and update counts
+            if (window.tokenFixIssueId) {
+              const issueCard = document.getElementById(`${window.tokenFixIssueId}-card`);
+              if (issueCard) {
+                // Smoothly fade out and hide with CSS
+                issueCard.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+                issueCard.style.opacity = '0';
+                issueCard.style.maxHeight = '0';
+                issueCard.style.marginBottom = '0';
+                issueCard.style.paddingTop = '0';
+                issueCard.style.paddingBottom = '0';
+                issueCard.style.overflow = 'hidden';
+
+                // After animation completes, fully hide with display: none
+                setTimeout(() => {
+                  issueCard.style.display = 'none';
+
+                  // Update count badge for the collection
+                  if (window.tokenFixActiveCollectionId) {
+                    const collection = document.getElementById(window.tokenFixActiveCollectionId);
+                    if (collection) {
+                      // Update the count badge - simply decrement by 1
+                      const countBadge = collection.querySelector('.subgroup-stats');
+                      if (countBadge) {
+                        const currentCount = parseInt(countBadge.textContent) || 0;
+                        const newCount = Math.max(0, currentCount - 1);
+                        countBadge.textContent = newCount.toString();
+
+                        // Add a subtle animation to draw attention to the update
+                        countBadge.style.transition = 'transform 0.2s ease-out, background-color 0.2s ease-out';
+                        countBadge.style.transform = 'scale(1.2)';
+                        countBadge.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
+
+                        setTimeout(() => {
+                          countBadge.style.transform = 'scale(1)';
+                          countBadge.style.backgroundColor = '';
+                        }, 200);
+
+                        // If count reaches 0, show a success message
+                        if (newCount === 0) {
+                          const contentDiv = collection.querySelector('.collection-content > div');
+                          if (contentDiv && !contentDiv.querySelector('.token-coverage-success-message')) {
+                            // Add success message
+                            const successMessage = document.createElement('div');
+                            successMessage.className = 'token-coverage-success-message';
+                            successMessage.style.cssText = `
+                              text-align: center; 
+                              padding: 24px; 
+                              color: rgba(34, 197, 94, 0.9); 
+                              font-size: 13px;
+                              background: rgba(34, 197, 94, 0.1);
+                              border: 1px solid rgba(34, 197, 94, 0.2);
+                              border-radius: 8px;
+                              margin: 8px 0;
+                              animation: fadeIn 0.3s ease-in;
+                            `;
+                            successMessage.innerHTML = `
+                              <span class="material-symbols-outlined" style="font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.8;">check_circle</span>
+                              <strong>All issues in this category resolved!</strong>
+                              <div style="font-size: 11px; margin-top: 4px; opacity: 0.7;">Excellent work! All elements in this category now use design tokens.</div>
+                            `;
+                            contentDiv.appendChild(successMessage);
+                          }
+                        }
+                      }
+
+                      // Ensure the collection stays open
+                      const content = collection.querySelector('.collection-content');
+                      const header = collection.querySelector('.collection-header');
+                      if (content && content.classList.contains('collapsed')) {
+                        content.classList.remove('collapsed');
+                      }
+                      if (header && header.classList.contains('collapsed')) {
+                        header.classList.remove('collapsed');
+                      }
+                    }
+                  }
+
+                  // Restore scroll position
+                  if (window.tokenFixScrollPosition !== undefined) {
+                    window.scrollTo(0, window.tokenFixScrollPosition);
+                    delete window.tokenFixScrollPosition;
+                  }
+
+                  // Clean up saved state and allow re-rendering again
+                  delete window.tokenFixIssueId;
+                  delete window.tokenFixActiveCollectionId;
+                  delete window.tokenFixInProgress;
+                }, 300);
+              } else {
+                // If card not found, clean up immediately
+                delete window.tokenFixIssueId;
+                delete window.tokenFixActiveCollectionId;
+                delete window.tokenFixInProgress;
+                if (window.tokenFixScrollPosition !== undefined) {
+                  delete window.tokenFixScrollPosition;
+                }
+              }
+            }
+
           } else {
             // Revert on error so user can see it failed, but let the global notification show the error details
             btn.disabled = false;
             btn.innerHTML =
               '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
             updateApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
+
+            // Clean up token fix state on error
+            if (window.tokenFixScrollPosition !== undefined) {
+              window.scrollTo(0, window.tokenFixScrollPosition);
+              delete window.tokenFixScrollPosition;
+            }
+            delete window.tokenFixIssueId;
+            delete window.tokenFixActiveCollectionId;
+            delete window.tokenFixInProgress;
           }
 
           // Reset after delay
@@ -13086,6 +13192,34 @@ function applyTokenToSelection(issueId, property, category) {
   }
 
   console.log('Applying token:', { variableId, property, category, nodeIds });
+
+  // Save scroll position before processing
+  window.tokenFixScrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+  // Set flag to prevent re-rendering during the fix process
+  window.tokenFixInProgress = true;
+  window.tokenFixIssueId = issueId;
+
+  // Ensure the collapsible is open - find the parent collection
+  const issueCard = document.getElementById(`${issueId}-card`);
+  if (issueCard) {
+    const collection = issueCard.closest('.quality-collection');
+    if (collection) {
+      const content = collection.querySelector('.collection-content');
+      const header = collection.querySelector('.collection-header');
+
+      // Ensure it's expanded
+      if (content && content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+      }
+      if (header && header.classList.contains('collapsed')) {
+        header.classList.remove('collapsed');
+      }
+
+      // Save the collection ID for later restoration
+      window.tokenFixActiveCollectionId = collection.id;
+    }
+  }
 
   // Disable button during operation
   const applyBtn = document.getElementById(`${issueId}-apply-btn`);
