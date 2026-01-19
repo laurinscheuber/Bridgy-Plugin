@@ -3795,34 +3795,81 @@ window.onmessage = (event) => {
         );
       }
       
-      // Remove the fixed issue from the DOM
+      // Hide the fixed issue with CSS (no DOM removal, no re-rendering needed)
       if (window.tailwindProcessingItemId) {
         const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
         if (itemCard) {
-          // Fade out and remove
-          itemCard.style.transition = 'opacity 0.3s ease-out';
+          // Smoothly fade out and hide with CSS
+          itemCard.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
           itemCard.style.opacity = '0';
-          setTimeout(() => {
-            itemCard.remove();
+          itemCard.style.maxHeight = '0';
+          itemCard.style.marginBottom = '0';
+          itemCard.style.paddingTop = '0';
+          itemCard.style.paddingBottom = '0';
+          itemCard.style.overflow = 'hidden';
 
-            // After removal, check if the collection is empty
+          // After animation completes, fully hide with display: none
+          setTimeout(() => {
+            itemCard.style.display = 'none';
+
+            // Update count badge for the collection
             if (window.tailwindActiveCollectionId) {
               const collection = document.getElementById(window.tailwindActiveCollectionId);
               if (collection) {
-                const issuesContainer = collection.querySelector('.collection-content > div');
-                const remainingIssues = issuesContainer ? issuesContainer.querySelectorAll('.quality-issue-card').length : 0;
+                // Count visible (non-hidden) issue cards in this collection
+                const allIssueCards = collection.querySelectorAll('.quality-issue-card');
+                const visibleIssueCards = Array.from(allIssueCards).filter(card => {
+                  return card.style.display !== 'none';
+                });
+                const visibleCount = visibleIssueCards.length;
 
-                // If no issues remain in this collection, we might need to re-render
-                // But for now, just keep the collection open and empty
-                if (remainingIssues === 0) {
-                  // Optionally add an empty state message
-                  if (issuesContainer) {
-                    issuesContainer.innerHTML = `
-                      <div style="text-align: center; padding: 20px; color: rgba(255, 255, 255, 0.5); font-size: 13px;">
-                        <span class="material-symbols-outlined" style="font-size: 24px; display: block; margin-bottom: 8px; opacity: 0.5;">check_circle</span>
-                        All issues in this section have been resolved!
-                      </div>
+                // Update the count badge
+                const countBadge = collection.querySelector('.subgroup-stats');
+                if (countBadge) {
+                  countBadge.textContent = visibleCount.toString();
+
+                  // Add a subtle animation to draw attention to the update
+                  countBadge.style.transition = 'transform 0.2s ease-out, background-color 0.2s ease-out';
+                  countBadge.style.transform = 'scale(1.2)';
+                  countBadge.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
+
+                  setTimeout(() => {
+                    countBadge.style.transform = 'scale(1)';
+                    countBadge.style.backgroundColor = '';
+                  }, 200);
+                }
+
+                // If no visible issues remain, show a success message
+                if (visibleCount === 0) {
+                  const contentDiv = collection.querySelector('.collection-content > div');
+                  if (contentDiv) {
+                    // Hide all the hidden cards completely
+                    allIssueCards.forEach(card => {
+                      if (card.style.display === 'none') {
+                        card.style.display = 'none';
+                      }
+                    });
+
+                    // Add success message
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'tailwind-success-message';
+                    successMessage.style.cssText = `
+                      text-align: center; 
+                      padding: 24px; 
+                      color: rgba(34, 197, 94, 0.9); 
+                      font-size: 13px;
+                      background: rgba(34, 197, 94, 0.1);
+                      border: 1px solid rgba(34, 197, 94, 0.2);
+                      border-radius: 8px;
+                      margin: 8px 0;
+                      animation: fadeIn 0.3s ease-in;
                     `;
+                    successMessage.innerHTML = `
+                      <span class="material-symbols-outlined" style="font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.8;">check_circle</span>
+                      <strong>All issues resolved!</strong>
+                      <div style="font-size: 11px; margin-top: 4px; opacity: 0.7;">Great job! All variables in this section are now Tailwind v4 compatible.</div>
+                    `;
+                    contentDiv.appendChild(successMessage);
                   }
                 }
 
@@ -3841,14 +3888,24 @@ window.onmessage = (event) => {
             // Restore scroll position
             if (window.tailwindScrollPosition !== undefined) {
               window.scrollTo(0, window.tailwindScrollPosition);
-              // Clean up
               delete window.tailwindScrollPosition;
             }
 
-            // Clean up saved state
+            // Clean up saved state and allow re-rendering again
             delete window.tailwindProcessingItemId;
             delete window.tailwindActiveCollectionId;
+            delete window.tailwindFixInProgress;
+            delete window.tailwindFixedGroupName;
           }, 300);
+        } else {
+          // If item card not found, clean up immediately
+          delete window.tailwindProcessingItemId;
+          delete window.tailwindActiveCollectionId;
+          delete window.tailwindFixInProgress;
+          delete window.tailwindFixedGroupName;
+          if (window.tailwindScrollPosition !== undefined) {
+            delete window.tailwindScrollPosition;
+          }
         }
       }
 
@@ -3856,7 +3913,7 @@ window.onmessage = (event) => {
       // which is sent by the plugin after renaming
     } else if (message.type === 'variable-group-rename-error') {
       console.error('Error renaming variable group:', message.error);
-      
+
       if (typeof showNotification === 'function') {
         showNotification(
           'error',
@@ -3889,11 +3946,13 @@ window.onmessage = (event) => {
           replaceBtn.style.pointerEvents = 'auto';
           replaceBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span> Replace';
         }
-
-        // Clean up saved state
-        delete window.tailwindProcessingItemId;
-        delete window.tailwindActiveCollectionId;
       }
+
+      // Clean up saved state and allow re-rendering again
+      delete window.tailwindProcessingItemId;
+      delete window.tailwindActiveCollectionId;
+      delete window.tailwindFixInProgress;
+      delete window.tailwindFixedGroupName;
     } else if (message.type === 'error') {
       console.error('Plugin Error:', message.message);
       showError('Plugin Error', message.message);
@@ -4148,16 +4207,25 @@ window.onmessage = (event) => {
       // Store Tailwind v4 validation result
       tailwindV4Validation = message.validation;
       window.tailwindV4Validation = message.validation;
-      // Re-render variables to show validation issues
-      if (variablesData && variablesData.length > 0) {
-        try {
-          console.log('[DEBUG] tailwind-v4-validation handler calling renderVariables');
-          renderVariables(variablesData, stylesData);
-          console.log('[DEBUG] tailwind-v4-validation handler renderVariables completed');
-        } catch (err) {
-          console.error('[DEBUG] tailwind-v4-validation renderVariables crashed:', err);
+
+      // Skip re-rendering if a Tailwind fix is in progress to prevent layout shift
+      if (window.tailwindFixInProgress) {
+        console.log('[DEBUG] Skipping re-render during Tailwind fix to prevent layout shift');
+        // Just update the validation data, don't re-render
+        // The CSS hiding animation will complete smoothly
+      } else {
+        // Normal flow: re-render variables to show validation issues
+        if (variablesData && variablesData.length > 0) {
+          try {
+            console.log('[DEBUG] tailwind-v4-validation handler calling renderVariables');
+            renderVariables(variablesData, stylesData);
+            console.log('[DEBUG] tailwind-v4-validation handler renderVariables completed');
+          } catch (err) {
+            console.error('[DEBUG] tailwind-v4-validation renderVariables crashed:', err);
+          }
         }
       }
+
       // Update button states based on validation
       updateCommitButtonStates();
     } else if (message.type === 'component-styles-loaded') {
@@ -7997,6 +8065,11 @@ window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount
   
   // Save scroll position before processing
   window.tailwindScrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+  // Set flag to prevent re-rendering during the fix process
+  // This prevents layout shift when tailwind-v4-validation message arrives
+  window.tailwindFixInProgress = true;
+  window.tailwindFixedGroupName = currentGroupName;
 
   // Ensure the collapsible is open - find the parent collection
   const itemCard = document.getElementById(`${itemId}-card`);
