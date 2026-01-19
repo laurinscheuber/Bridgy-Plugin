@@ -2056,7 +2056,7 @@ window.onmessage = (event) => {
       // Generate appropriate help message based on error type
       let helpMessage = '';
       if (message.errorType === 'auth') {
-        helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
+        helpMessage = `This is a permission issue. Please check your config.`
       } else if (message.errorType === 'network') {
         // Add link to GitLab project for network errors
         // Add link to project for network errors
@@ -2087,7 +2087,7 @@ window.onmessage = (event) => {
       showModalError(
         'gitlab-modal',
         'Commit Failed',
-        `${message.error}<br><br><small>${helpMessage}</small>`,
+        `${message.error} ${helpMessage}`,
       );
       resetCommitButton();
     } else if (message.type === 'test-commit-success') {
@@ -2152,7 +2152,7 @@ window.onmessage = (event) => {
           // Generate appropriate help message based on error type
           let helpMessage = '';
           if (message.errorType === 'auth') {
-            helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
+            helpMessage = `This is a permission issue. Please check your config`
           } else if (message.errorType === 'network') {
             // Add link to GitLab project for network errors
             // Add link to project for network errors
@@ -2189,7 +2189,7 @@ window.onmessage = (event) => {
       if (!buttonFound) {
         let helpMessage = '';
         if (message.errorType === 'auth') {
-          helpMessage = `This is a permission issue. Please check your <strong>Project ID</strong> and <strong>Access Token</strong> in <a href="#" onclick="openSettingsModal(); return false;" style="color: var(--primary-600); text-decoration: underline; font-weight: 500;">Settings</a>.`;
+          helpMessage = `This is a permission issue. Please check your config`;
         } else if (message.errorType === 'network') {
           // Add link to GitLab project for network errors
           // Add link to project for network errors
