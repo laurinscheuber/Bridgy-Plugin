@@ -7308,6 +7308,7 @@ ${Object.keys(cssProperties).map((property) => {
                 }
               });
             }
+            console.log("[Coverage Debug] Variable Hygiene check complete");
             const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round(groupedVariables / totalVarsToCheck * 100);
             const totalContainerNodes = instanceCount + frameCount;
             const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(instanceCount / totalContainerNodes * 100);
@@ -7338,6 +7339,7 @@ ${Object.keys(cssProperties).map((property) => {
                 variableHygiene: "25%"
               };
             }
+            console.log(`[Coverage Debug] Analysis complete. Returning ${issuesMap.size} issues.`);
             return {
               totalNodes,
               totalIssues: issuesMap.size,
@@ -9264,6 +9266,7 @@ ${Object.keys(cssProperties).map((property) => {
             });
             return {
               variables: variablesData,
+              styles: stylesData,
               components: componentsData || []
             };
           } catch (error) {
@@ -10139,11 +10142,16 @@ ${Object.keys(cssProperties).map((property) => {
             case "refresh-data":
               try {
                 console.log("Refreshing document data...");
-                yield collectDocumentData();
+                const refreshedData = yield collectDocumentData();
+                console.log("[DEBUG] refresh-data: Data collected, sending refresh-success");
                 figma.ui.postMessage({
-                  type: "refresh-complete",
+                  type: "refresh-success",
+                  variables: refreshedData.variables,
+                  styles: refreshedData.styles,
+                  components: refreshedData.components,
                   message: "Data refreshed successfully"
                 });
+                console.log("[DEBUG] refresh-data: refresh-success message sent");
               } catch (refreshError) {
                 console.error("Error refreshing data:", refreshError);
                 figma.ui.postMessage({
@@ -10239,10 +10247,12 @@ ${Object.keys(cssProperties).map((property) => {
                 } else {
                   coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
                 }
+                console.log("[Plugin Debug] Analysis finished, result obtained. Posting message...");
                 figma.ui.postMessage({
                   type: "token-coverage-result",
                   result: coverageResult
                 });
+                console.log("[Plugin Debug] Message posted successfully.");
               } catch (coverageError) {
                 console.error("Error analyzing token coverage:", coverageError);
                 figma.ui.postMessage({
@@ -10441,7 +10451,6 @@ ${Object.keys(cssProperties).map((property) => {
                   type: "tailwind-v4-validation",
                   validation
                 });
-                yield collectDocumentData();
                 const actionLabel = renameAction === "add-prefix" ? "prefixed with" : "renamed to";
                 figma.notify(`${renamedCount} variable${renamedCount !== 1 ? "s" : ""} ${actionLabel} "${newGroupName}"`);
                 figma.ui.postMessage({
@@ -10516,6 +10525,27 @@ ${Object.keys(cssProperties).map((property) => {
                   failCount,
                   errors
                 });
+                let refreshTimeout;
+                if (figma.variables && typeof figma.variables.on === "function") {
+                  figma.variables.on("change", (event) => {
+                    console.log("Variable change detected in Figma:", event);
+                    if (refreshTimeout) {
+                      clearTimeout(refreshTimeout);
+                    }
+                    refreshTimeout = setTimeout(() => {
+                      console.log("Triggering auto-refresh due to variable changes...");
+                      collectDocumentData().then((refreshedData) => {
+                        figma.ui.postMessage({
+                          type: "refresh-success",
+                          variables: refreshedData.variables,
+                          styles: refreshedData.styles,
+                          components: refreshedData.components,
+                          message: "Auto-refreshed from Figma changes"
+                        });
+                      });
+                    }, 1e3);
+                  });
+                }
                 if (successCount > 0) {
                   figma.notify(`\u2713 Applied token to ${successCount} node${successCount !== 1 ? "s" : ""}`);
                 }
