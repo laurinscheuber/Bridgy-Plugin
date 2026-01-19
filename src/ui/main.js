@@ -4573,7 +4573,7 @@ function renderTailwindReadinessSection(validation) {
               </div>
    
             </div>
-            <div style="display: flex; gap: 6px; align-items: stretch;">
+            <div style="display: flex; gap: 6px; align-items: center;">
                <select 
                 id="${itemId}-namespace-select" 
                 class="token-fix-select" 
@@ -4628,7 +4628,7 @@ function renderTailwindReadinessSection(validation) {
                 ${description}
               </div>
             </div>
-            <div style="display: flex; flex-direction: row; gap: 8px; align-items: stretch; min-width: 300px;">
+            <div style="display: flex; flex-direction: row; gap: 8px; align-items: center; min-width: 300px;">
               <select 
                 id="${itemId}-namespace-select" 
                 class="token-fix-select" 
@@ -4640,6 +4640,16 @@ function renderTailwindReadinessSection(validation) {
               </select>
               <div style="display: flex; gap: 8px;">
                 <button 
+                  id="${itemId}-replace-btn" 
+                  class="secondary-action-btn" 
+                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'replace', null)"
+                  disabled
+                  title="Replace existing group with namespace (e.g., group/var → namespace/var)"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span>
+                  Replace
+                </button>
+                <button 
                   id="${itemId}-add-prefix-btn" 
                   class="token-fix-apply-btn" 
                   onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'add-prefix', null)"
@@ -4650,17 +4660,7 @@ function renderTailwindReadinessSection(validation) {
                   <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span>
                   Add Prefix
                 </button>
-                <button 
-                  id="${itemId}-replace-btn" 
-                  class="token-fix-apply-btn" 
-                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'replace', null)"
-                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
-                  disabled
-                  title="Replace existing group with namespace (e.g., group/var → namespace/var)"
-                >
-                  <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span>
-                  Replace
-                </button>
+                
               </div>
             </div>
           </div>
