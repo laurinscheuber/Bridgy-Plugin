@@ -4516,32 +4516,25 @@ function renderTailwindReadinessSection(validation) {
     </div>
   `;
 
-  const groupId = 'tailwind-readiness-group';
-  const isExpanded = false;
-
-  html += `
-    <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
-      <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupId}')">
-        <div class="collection-info">
-          <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
-            Compatibility Issues
-            <span class="subgroup-stats">${allInvalidGroups.length}</span>
-          </div>
-        </div>
-        <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
-      </div>
-      <div id="${groupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
-        <div style="padding: 12px;">
-  `;
-
-  // Render standalone variables first (each as a separate entry)
+  // Render Standalone Variables collapsible (if any exist)
   if (standaloneVariables.length > 0) {
+    const standaloneGroupId = 'tailwind-standalone-group';
+    const standaloneIsExpanded = false;
+
     html += `
-      <div style="margin-bottom: 16px;">
-        <div style="font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-          Standalone Variables (${standaloneVariables.length})
+      <div id="${standaloneGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
+        <div class="collection-header header ${standaloneIsExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${standaloneGroupId}')">
+          <div class="collection-info">
+            <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
+              Standalone Variables
+              <span class="subgroup-stats">${standaloneVariables.length}</span>
+            </div>
+          </div>
+          <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
         </div>
+        <div id="${standaloneGroupId}-content" class="collection-content ${standaloneIsExpanded ? '' : 'collapsed'}">
+          <div style="padding: 12px;">
     `;
 
     standaloneVariables.forEach((variable, idx) => {
@@ -4584,16 +4577,32 @@ function renderTailwindReadinessSection(validation) {
       `;
     });
 
-    html += `</div>`;
+    html += `
+          </div>
+        </div>
+      </div>
+    `;
   }
 
-  // Render grouped variables
+  // Render Invalid Groups collapsible (if any exist)
   if (groupedVariables.length > 0) {
+    const groupsGroupId = 'tailwind-invalid-groups';
+    const groupsIsExpanded = false;
+
     html += `
-      <div style="margin-bottom: 8px;">
-        <div style="font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-          Invalid Groups (${groupedVariables.length})
+      <div id="${groupsGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
+        <div class="collection-header header ${groupsIsExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupsGroupId}')">
+          <div class="collection-info">
+            <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
+              Invalid Groups
+              <span class="subgroup-stats">${groupedVariables.length}</span>
+            </div>
+          </div>
+          <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
         </div>
+        <div id="${groupsGroupId}-content" class="collection-content ${groupsIsExpanded ? '' : 'collapsed'}">
+          <div style="padding: 12px;">
     `;
 
     groupedVariables.forEach((group, idx) => {
@@ -4652,14 +4661,12 @@ function renderTailwindReadinessSection(validation) {
       `;
     });
 
-    html += `</div>`;
-  }
-
-  html += `
+    html += `
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
+  }
 
   return html;
 }
