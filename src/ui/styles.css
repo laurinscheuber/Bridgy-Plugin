@@ -2050,13 +2050,11 @@ tr:last-child td {
   height: 24px !important; /* Reduced height to 24px */
   font-size: 10px !important;
   overflow: hidden;
-  transition:
-    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    background-color 0.2s ease;
+  transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
-  justify-content: flex-start !important;
-  padding: 0 0 0 4px !important; /* Center icon */
+  justify-content: center !important; /* Center icon */
+  padding: 0 !important;
   white-space: nowrap;
   background: transparent !important;
   border: 1px solid transparent !important;
@@ -2070,7 +2068,6 @@ tr:last-child td {
 
 .generate-all-variants-button:hover,
 .commit-all-variants-button:hover {
-  width: 100px !important; /* Expand on hover */
   background: var(--glass-purple-light) !important;
   border-color: var(--glass-purple-heavy) !important;
 }
@@ -2302,13 +2299,11 @@ tr:last-child td {
   min-width: 32px !important;
   height: 28px !important; /* Reduced height to fit 48px row */
   overflow: hidden;
-  transition:
-    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    background-color 0.2s ease;
+  transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
-  justify-content: flex-start !important;
-  padding: 0 0 0 6px !important; /* Center icon */
+  justify-content: center !important; /* Center icon */
+  padding: 0 !important;
   white-space: nowrap;
   background: transparent !important;
   border: 1px solid transparent !important;
@@ -2317,7 +2312,6 @@ tr:last-child td {
 
 .generate-all-variants-button:hover,
 .commit-all-variants-button:hover {
-  width: 110px !important; /* Expand on hover */
   background: var(--glass-purple-light) !important;
   border-color: var(--glass-purple-heavy) !important;
 }
@@ -2334,9 +2328,7 @@ tr:last-child td {
 
 .generate-all-variants-button:hover .action-btn-label,
 .commit-all-variants-button:hover .action-btn-label {
-  opacity: 1;
-  transform: translateX(0);
-  transition-delay: 0.1s;
+  display: none;
 }
 
 /* ===== ICON ONLY BUTTON OVERRIDES ===== */
@@ -2530,10 +2522,17 @@ tr:last-child td {
 /* ===== NOTIFICATION SYSTEM ===== */
 .notification-container {
   position: fixed;
-  top: var(--space-4);
+  top: var(--space-4); /* Back to Top */
   right: var(--space-4);
   z-index: 10000;
   max-width: 400px;
+  display: flex;
+  flex-direction: column; /* Stack normally (top to bottom) */
+  pointer-events: none; /* Allow clicking through container */
+}
+
+.notification-container > * {
+  pointer-events: auto; /* Re-enable pointer events for notifications */
 }
 
 .notification {
@@ -3214,12 +3213,15 @@ input[type='password']:focus {
 
 .modal-header {
   margin-bottom: var(--space-4);
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-3); /* Reduced */
   border-bottom: 1px solid var(--glass-white-medium);
   background: var(--glass-purple-10);
   margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) var(--space-4);
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-4) var(--space-6); /* Significantly reduced padding */
   border-radius: var(--radius-container) 20px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .modal-header h3 {
@@ -3981,6 +3983,13 @@ input[type='password']:focus {
 .file-upload-area:hover {
   border-color: var(--purple-light);
   background: var(--glass-purple-light);
+}
+
+.file-upload-area.drag-over {
+  border-color: var(--primary-500);
+  background: var(--glass-purple-heavy);
+  transform: scale(1.02);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
 }
 
 .file-upload-area svg {
@@ -5952,3 +5961,4 @@ input[type='checkbox']:indeterminate {
     font-size: 10px;
     letter-spacing: 0.5px;
 }
+@keyframes spin { 100% { transform: rotate(360deg); } }
