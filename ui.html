@@ -3820,6 +3820,63 @@ window.onmessage = (event) => {
         );
       }
       
+      // Remove the fixed issue from the DOM
+      if (window.tailwindProcessingItemId) {
+        const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
+        if (itemCard) {
+          // Fade out and remove
+          itemCard.style.transition = 'opacity 0.3s ease-out';
+          itemCard.style.opacity = '0';
+          setTimeout(() => {
+            itemCard.remove();
+
+            // After removal, check if the collection is empty
+            if (window.tailwindActiveCollectionId) {
+              const collection = document.getElementById(window.tailwindActiveCollectionId);
+              if (collection) {
+                const issuesContainer = collection.querySelector('.collection-content > div');
+                const remainingIssues = issuesContainer ? issuesContainer.querySelectorAll('.quality-issue-card').length : 0;
+
+                // If no issues remain in this collection, we might need to re-render
+                // But for now, just keep the collection open and empty
+                if (remainingIssues === 0) {
+                  // Optionally add an empty state message
+                  if (issuesContainer) {
+                    issuesContainer.innerHTML = `
+                      <div style="text-align: center; padding: 20px; color: rgba(255, 255, 255, 0.5); font-size: 13px;">
+                        <span class="material-symbols-outlined" style="font-size: 24px; display: block; margin-bottom: 8px; opacity: 0.5;">check_circle</span>
+                        All issues in this section have been resolved!
+                      </div>
+                    `;
+                  }
+                }
+
+                // Ensure the collection stays open
+                const content = collection.querySelector('.collection-content');
+                const header = collection.querySelector('.collection-header');
+                if (content && content.classList.contains('collapsed')) {
+                  content.classList.remove('collapsed');
+                }
+                if (header && header.classList.contains('collapsed')) {
+                  header.classList.remove('collapsed');
+                }
+              }
+            }
+
+            // Restore scroll position
+            if (window.tailwindScrollPosition !== undefined) {
+              window.scrollTo(0, window.tailwindScrollPosition);
+              // Clean up
+              delete window.tailwindScrollPosition;
+            }
+
+            // Clean up saved state
+            delete window.tailwindProcessingItemId;
+            delete window.tailwindActiveCollectionId;
+          }, 300);
+        }
+      }
+
       // The validation will be automatically refreshed via the tailwind-v4-validation message
       // which is sent by the plugin after renaming
     } else if (message.type === 'variable-group-rename-error') {
@@ -3831,6 +3888,36 @@ window.onmessage = (event) => {
           'Rename Failed',
           message.error || 'Failed to rename variable group',
         );
+      }
+
+      // Restore scroll position
+      if (window.tailwindScrollPosition !== undefined) {
+        window.scrollTo(0, window.tailwindScrollPosition);
+        delete window.tailwindScrollPosition;
+      }
+
+      // Re-enable buttons if the item still exists
+      if (window.tailwindProcessingItemId) {
+        const addPrefixBtn = document.getElementById(`${window.tailwindProcessingItemId}-add-prefix-btn`);
+        const replaceBtn = document.getElementById(`${window.tailwindProcessingItemId}-replace-btn`);
+
+        if (addPrefixBtn) {
+          addPrefixBtn.disabled = false;
+          addPrefixBtn.style.opacity = '1';
+          addPrefixBtn.style.pointerEvents = 'auto';
+          addPrefixBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span> Add Prefix';
+        }
+
+        if (replaceBtn) {
+          replaceBtn.disabled = false;
+          replaceBtn.style.opacity = '1';
+          replaceBtn.style.pointerEvents = 'auto';
+          replaceBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span> Replace';
+        }
+
+        // Clean up saved state
+        delete window.tailwindProcessingItemId;
+        delete window.tailwindActiveCollectionId;
       }
     } else if (message.type === 'error') {
       console.error('Plugin Error:', message.message);
@@ -7934,6 +8021,33 @@ window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount
     return;
   }
   
+  // Save scroll position before processing
+  window.tailwindScrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+  // Ensure the collapsible is open - find the parent collection
+  const itemCard = document.getElementById(`${itemId}-card`);
+  if (itemCard) {
+    const collection = itemCard.closest('.quality-collection');
+    if (collection) {
+      const content = collection.querySelector('.collection-content');
+      const header = collection.querySelector('.collection-header');
+
+      // Ensure it's expanded
+      if (content && content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+      }
+      if (header && header.classList.contains('collapsed')) {
+        header.classList.remove('collapsed');
+      }
+
+      // Save the collection ID for later restoration
+      window.tailwindActiveCollectionId = collection.id;
+    }
+  }
+
+  // Save the item ID for removal after success
+  window.tailwindProcessingItemId = itemId;
+
   // Disable buttons and show loading state
   const addPrefixBtn = document.getElementById(`${itemId}-add-prefix-btn`);
   const replaceBtn = document.getElementById(`${itemId}-replace-btn`);
