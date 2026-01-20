@@ -2893,18 +2893,21 @@ window.onmessage = (event) => {
              const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
              if (hasAnyIssues) {
                   warningHtml += `
-                    <div class="validation-alert validation-alert-warning">
-                      <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-size: 24px;">⚠️</span>
-                        <div>
-                          <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
-                          <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
-                        </div>
+                      <div class="result-summary warning" style="margin-bottom: 24px;">
+                          <div style="display: flex; align-items: flex-start; gap: 12px">
+                              <span class="material-symbols-outlined" style="color: #ff9800; font-size: 24px;">tips_and_updates</span>
+                              <div style="flex: 1">
+                                  <strong style="color: var(--neutral-0); display: block; margin-bottom: 4px; font-size: 14px;">Improve Design System</strong>
+                                  <div style="color: var(--glass-white-90); font-size: 12px; line-height: 1.5; margin-bottom: 12px;">
+                                      Your design is not yet perfect. Apply some fixes with our help and get it ready to be exported.
+                                  </div>
+                                  <button onclick="toggleQualityBreakdown()" class="btn-warning-filled">
+                                      Fix Issues
+                                      <span class="material-symbols-outlined" style="font-size: 14px">arrow_forward</span>
+                                  </button>
+                              </div>
+                          </div>
                       </div>
-                      <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
-                        Go to warnings
-                      </button>
-                    </div>
                   `;
              }
              
@@ -4745,21 +4748,70 @@ if (componentSearchElement) {
 }
 
 // Function to open settings modal
+let settingsInitialState = null;
+
 function openSettingsModal() {
   document.getElementById('settings-modal').style.display = 'block';
   document.body.classList.add('modal-open');
   loadConfigurationTab(); // Load saved settings into the form
 
-  // Ensure provider UI is initialized correctly
+  // Initialize Save Button State
+  const saveBtn = document.getElementById('config-save-btn');
+  if (saveBtn) saveBtn.disabled = true;
+
+  // Capture initial state after a short delay to ensure values are populated
   setTimeout(() => {
     onProviderChange();
+    settingsInitialState = getSettingsState();
+    setupSettingsListeners();
   }, 200);
+}
+
+function getSettingsState() {
+  return {
+    gitlabUrl: document.getElementById('config-gitlab-url')?.value || '',
+    githubUrl: document.getElementById('config-github-url')?.value || '',
+    projectId: document.getElementById('config-project-id')?.value || '',
+    token: document.getElementById('config-token')?.value || '',
+    filePath: document.getElementById('config-file-path')?.value || '',
+    testFilePath: document.getElementById('config-test-file-path')?.value || '',
+    exportFormat: document.getElementById('config-export-format')?.value || '',
+    strategy: document.getElementById('config-strategy')?.value || '',
+    branch: document.getElementById('config-branch')?.value || '',
+    testBranch: document.getElementById('config-test-branch')?.value || '',
+    // Add other fields as needed
+    saveToken: document.getElementById('config-save-token')?.checked || false,
+    shareTeam: document.getElementById('config-share-team')?.checked || false
+  };
+}
+
+function setupSettingsListeners() {
+  const inputs = document.querySelectorAll('#settings-modal input, #settings-modal select');
+  inputs.forEach(input => {
+    input.removeEventListener('input', checkSettingsChanges);
+    input.removeEventListener('change', checkSettingsChanges);
+    input.addEventListener('input', checkSettingsChanges);
+    input.addEventListener('change', checkSettingsChanges);
+  });
+}
+
+function checkSettingsChanges() {
+  if (!settingsInitialState) return;
+  
+  const currentState = getSettingsState();
+  const hasChanges = JSON.stringify(currentState) !== JSON.stringify(settingsInitialState);
+  
+  const saveBtn = document.getElementById('config-save-btn');
+  if (saveBtn) {
+    saveBtn.disabled = !hasChanges;
+  }
 }
 
 // Function to close settings modal
 function closeSettingsModal() {
   document.getElementById('settings-modal').style.display = 'none';
   document.body.classList.remove('modal-open');
+  settingsInitialState = null; // Reset state
 }
 
 // Function to open import modal
@@ -4932,7 +4984,7 @@ function renderStats(statsData, filteredData = null) {
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
             ${filteredData ? `${filteredInstances} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalInstances}</span>` : totalInstances}
         </div>
-        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Detached Instances (Values)</div>
       </div>
       <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
         <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
@@ -5282,7 +5334,7 @@ function displayTokenCoverageResults(result) {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; cursor: pointer;" onclick="toggleQualityBreakdown()">
                  <div style="font-size: 13px; color: rgba(255, 255, 255, 0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
                     Design Quality Score
-                    <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">info</span>
+                    <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5; cursor: help;" title="Based on Token coverage, use of hardcoded values, and raw hex codes. Aim for 100% to ensure a scalable Design System.">info</span>
                  </div>
                  <div style="display: flex; align-items: center; gap: 8px;">
                      ${
@@ -8927,10 +8979,14 @@ function initializeVariableImportTab() {
             </div>
 
             <div class="import-section">
-              <h3>Input Design Tokens</h3>
-              <div class="input-tabs">
-                <button class="input-tab active" data-input="manual">Manual Input</button>
-                <button class="input-tab" data-input="file">File Upload</button>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h3>Input Design Tokens</h3>
+                  <button class="load-sample-btn" onclick="loadSampleData()">Load Sample</button>
+              </div>
+              
+              <div class="tab-header input-method-toggle" style="margin-bottom: 16px;">
+                <div class="tab input-tab active" data-input="manual" style="flex: 1; justify-content: center;">Manual Input</div>
+                <div class="tab input-tab" data-input="file" style="flex: 1; justify-content: center;">File Upload</div>
               </div>
               
               <div class="input-content active" id="manual-input">
@@ -8944,15 +9000,18 @@ function initializeVariableImportTab() {
                     JSON Tokens
                   </label>
                 </div>
+                <!-- Added event listener for input change to toggle disabled state -->
                 <textarea 
                   id="token-input" 
                   placeholder=":root {\\n  --primary-500: #8b5cf6;\\n  --space-4: 1rem;\\n  --text-lg: 1.125rem;\\n}"
+                  oninput="document.getElementById('parse-tokens-btn').disabled = this.value.trim() === ''"
                 ></textarea>
-                <div class="input-actions">
-                  <button class="btn btn-primary" onclick="console.log('Button clicked!'); parseTokenInput();">Parse Tokens</button>
-                  <button class="btn btn-secondary" onclick="loadSampleData()">Load Sample</button>
-                  <button class="btn btn-secondary" onclick="clearInput()">Clear</button>
+                
+                <div class="import-footer">
+                   <button class="btn btn-error" onclick="clearInput()">Clear</button>
+                   <button id="parse-tokens-btn" class="btn btn-primary" onclick="console.log('Button clicked!'); parseTokenInput();" disabled>Parse Tokens</button>
                 </div>
+
                 <div id="parse-status" class="parse-status" style="display: none;"></div>
               </div>
               
@@ -8994,6 +9053,7 @@ function initializeVariableImportTab() {
     tab.addEventListener('click', () => {
       container.querySelectorAll('.input-tab').forEach((t) => t.classList.remove('active'));
       container.querySelectorAll('.input-content').forEach((c) => c.classList.remove('active'));
+
 
       tab.classList.add('active');
       const target = tab.dataset.input + '-input';
@@ -9864,8 +9924,8 @@ function showPreview(tokens) {
     collectionNameInput.addEventListener('input', updateCollectionNamePreview);
   }
 
-  // Load existing collections to populate the dropdown
-  loadExistingCollections();
+  // Load existing collections to populate the dropdown - MOVED to initialization to prevent logic loop
+  // loadExistingCollections(); // Triggers infinite loop if called from updateExistingCollectionsDropdown
 }
 
 function checkDuplicate(tokenName) {
