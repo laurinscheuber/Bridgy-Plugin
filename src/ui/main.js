@@ -57,7 +57,7 @@ class SecurityUtils {
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
           match.includes('deleteStyle(') ||
-          match.includes('console.log(') ||
+
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
           match.includes('clearInput(') ||
@@ -526,7 +526,7 @@ function hideContentLoading(containerId) {
 
 // Initialize loading progress on page load
 document.addEventListener('DOMContentLoaded', function () {
-  console.log('🚀 DOM Content Loaded - Plugin UI starting!');
+
   console.log('Available elements:', {
     componentsContainer: !!document.getElementById('components-container'),
     variablesContainer: !!document.getElementById('variables-container'),
@@ -667,7 +667,7 @@ window.refreshData = function () {
 
   // 2. QUALITY REFRESH
   if (activeTabId === 'quality-content') {
-    console.log('[DEBUG] Quality Refresh: Triggering CHAINED refresh (Variables -> Analysis)');
+
     
     // Set flag so refresh-success handler knows to run analysis afterwards
     window.pendingQualityRefresh = true;
@@ -701,7 +701,7 @@ window.refreshData = function () {
   window.statsScanPerformed = false;
 
   // Send message to backend to collect fresh data
-  console.log('[DEBUG] refreshData sending refresh-data plugin message');
+
   parent.postMessage(
     {
       pluginMessage: {
@@ -1723,7 +1723,7 @@ window.onmessage = (event) => {
       updatePluginLoadingProgress('Analyzing token coverage...', 90);
       
       // Initial Quality Analysis (Auto-Run)
-      console.log('[DEBUG] Triggering INITIAL_LOAD quality analysis');
+
       if (typeof analyzeTokenCoverage === 'function') {
         setTimeout(() => {
              analyzeTokenCoverage('INITIAL_LOAD');
@@ -2379,7 +2379,7 @@ window.onmessage = (event) => {
 
       // Skip re-rendering if a Tailwind fix is in progress to prevent layout shift
       if (window.tailwindFixInProgress) {
-        console.log('[DEBUG] Skipping re-render during Tailwind fix to prevent layout shift');
+
         // Just update the validation data, don't re-render
         // The CSS hiding animation will complete smoothly
       } else {
@@ -2434,7 +2434,7 @@ window.onmessage = (event) => {
         
         // Trigger a full refresh to update the UI
         // We set a flag to trigger quality analysis AFTER variables are refreshed
-        console.log('[DEBUG] variable-group-renamed triggering refreshData');
+
         window.pendingQualityRefresh = true;
         window.refreshData();
         
@@ -2465,15 +2465,15 @@ window.onmessage = (event) => {
       
       // Render variables (and styles are called within)
       try {
-        console.log('[DEBUG] Calling renderVariables from refresh-success');
+
         renderVariables(window.variablesData);
-        console.log('[DEBUG] renderVariables completed');
+
       } catch (err) {
         console.error('[DEBUG] renderVariables crashed:', err);
       }
 
       // Check for pending quality refresh (e.g. after Tailwind fix)
-      console.log('[DEBUG] Checking pendingQualityRefresh:', window.pendingQualityRefresh);
+
       if (window.pendingQualityRefresh) {
         console.log('Triggering pending quality analysis...');
         window.pendingQualityRefresh = false;
@@ -2481,7 +2481,7 @@ window.onmessage = (event) => {
            // We pass a dummy notification object or handle silent mode if needed
            // But 'SMART_SCAN' usually shows its own notification or uses the one passed.
            // Let's use silent mode or just a standard run. Standard run is better for feedback.
-           console.log('[DEBUG] Calling analyzeTokenCoverage with SMART_SCAN');
+
            analyzeTokenCoverage('SMART_SCAN');
         }
       }
@@ -2491,7 +2491,7 @@ window.onmessage = (event) => {
 
       // Skip re-rendering if a token fix is in progress to prevent layout shift
       if (window.tokenFixInProgress) {
-        console.log('[DEBUG] Skipping token coverage re-render during fix to prevent layout shift');
+
         // Just store the result, don't re-render
         window.lastTokenCoverageResult = message.result;
       } else {
@@ -3003,7 +3003,7 @@ window.onmessage = (event) => {
               const hasMixedValues = hasDirectValues && hasLinks;
               
               const isTailwindEnabled = (window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4');
-              console.log('[DEBUG] isTailwindEnabled:', isTailwindEnabled, 'Format:', (window.gitSettings?.exportFormat || window.gitlabSettings?.exportFormat));
+
               const tailwindValidationLocal = window.tailwindV4Validation;
               const isTailwindInvalid = isTailwindEnabled && tailwindValidationLocal && !tailwindValidationLocal.isValid && tailwindValidationLocal.invalidGroups.indexOf(prefix) !== -1;
               const isTailwindValid = isTailwindEnabled && tailwindValidationLocal && tailwindValidationLocal.groups.some(g => g.name === prefix && g.isValid);
@@ -4823,7 +4823,7 @@ function switchToQualityTab() {
 // Function to analyze token coverage
 
 function analyzeTokenCoverage(scopeOverride, notificationElement) {
-  console.log('[DEBUG] analyzeTokenCoverage called', { scopeOverride, notificationElement });
+
   console.log('analyzeTokenCoverage called', { scopeOverride, hasNotification: !!notificationElement });
   // Store notification reference if provided
   if (notificationElement) {
@@ -5017,11 +5017,11 @@ function renderStats(statsData, filteredData = null) {
 // Function to render Tailwind Readiness section
 function renderTailwindReadinessSection(validation) {
   if (!validation || !validation.invalidGroups || validation.invalidGroups.length === 0) {
-    console.log('[DEBUG] renderTailwindReadinessSection: No invalid groups found or validation missing');
+
     return '';
   }
 
-  console.log('[DEBUG] renderTailwindReadinessSection: Rendering with invalid groups:', validation.invalidGroups.length);
+
 
   // Separate standalone variables from grouped variables
   const invalidGroupNames = validation.invalidGroups;
@@ -5035,7 +5035,7 @@ function renderTailwindReadinessSection(validation) {
       <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
         <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
           <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">verified</span>
-          Tailwind Readiness <span style="font-size: 10px; opacity: 0.5;">(Rendered: ${new Date().toLocaleTimeString()})</span>
+          Tailwind Readiness
         </h2>
       </div>
       <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
@@ -5245,8 +5245,7 @@ function getTailwindNamespaceOptions(currentName) {
   
   let html = '';
   namespaces.forEach(ns => {
-    const selected = ns === suggested ? 'selected' : '';
-    html += `<option value="${ns}" ${selected}>${ns}</option>`;
+    html += `<option value="${ns}">${ns}</option>`;
   });
   
   return html;
@@ -5277,32 +5276,32 @@ function displayTokenCoverageResults(result) {
 
   let html = `
           <!-- Quality Score Card -->
-          <div style="margin-bottom: 24px; padding: 24px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div style="margin-bottom: 24px; padding: 16px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span class="material-symbols-outlined" style="color: var(--purple-light);">analytics</span>
-                    <span style="font-size: 14px; font-weight: 600; color: var(--neutral-0); letter-spacing: 0.5px;">DESIGN QUALITY SCORE</span>
+                    <span style="font-size: 13px; font-weight: 600; color: var(--neutral-0); letter-spacing: 0.5px;">DESIGN QUALITY SCORE</span>
                 </div>
             </div>
 
             <!-- New Stats Grid: Scanned -> Issues -> Score -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: stretch; position: relative;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: stretch; position: relative;">
                 
                 <!-- 1. Scanned Nodes (Left) -->
-                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 16px; text-align: center;">
-                    <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">Scanned Nodes</span>
-                    <div id="scanned-nodes-value" style="font-size: 36px; font-weight: 700; color: #d8b4fe; line-height: 1.2;">0</div>
+                <div data-tooltip="Total number of design nodes analyzed" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; text-align: center; cursor: help;">
+                    <span style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Scanned Nodes</span>
+                    <div id="scanned-nodes-value" style="font-size: 32px; font-weight: 700; color: #d8b4fe; line-height: 1.2;">0</div>
                 </div>
 
                 <!-- 2. Total Issues (Middle) -->
-                 <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 16px; text-align: center;">
-                     <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">Total Issues</span>
-                    <div id="total-issues-value" style="font-size: 36px; font-weight: 700; color: #fcd34d; line-height: 1.2;">0</div>
+                 <div data-tooltip="Total number of design violations found" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; text-align: center; cursor: help;">
+                     <span style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Issues</span>
+                    <div id="total-issues-value" style="font-size: 32px; font-weight: 700; color: #fcd34d; line-height: 1.2;">0</div>
                 </div>
 
                 <!-- 3. Gauge (Right) -->
-                 <div style="position: relative; width: 100px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-left: auto;">
-                    <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+                 <div data-tooltip="Overall health score of your design system usage" style="position: relative; width: 80px; height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-left: auto; cursor: help;">
+                    <svg width="80" height="80" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
                         <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="none" />
                         <circle id="score-gauge-circle" cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="8" fill="none" 
                                 stroke-dasharray="${2 * Math.PI * 42}" 
@@ -5310,13 +5309,13 @@ function displayTokenCoverageResults(result) {
                                 style="stroke-linecap: round;" />
                     </svg>
                     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <span id="score-value" style="font-size: 28px; font-weight: 800; color: white;">0</span>
+                        <span id="score-value" style="font-size: 24px; font-weight: 800; color: white;">0</span>
                     </div>
                 </div>
             </div>
 
             <!-- Detailed View Toggle (Center Bottom) -->
-             <div onclick="toggleQualityBreakdown()" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); font-size: 11px; transition: color 0.2s;">
+             <div onclick="toggleQualityBreakdown()" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); font-size: 10px; transition: color 0.2s;">
                 <span>See details</span>
                 <span id="breakdown-toggle-icon" class="material-symbols-outlined" style="font-size: 14px; transition: transform 0.3s;">expand_more</span>
             </div>
@@ -5328,19 +5327,25 @@ function displayTokenCoverageResults(result) {
             <div id="quality-breakdown-content" style="display: none; margin-top: 24px; animation: slideDown 0.3s ease-out;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     ${(() => {
-                      // ... (Helper function same as before)
-                      const renderRow = (label, score, weight, description) => {
+                      const renderRow = (label, score, weight, description, key) => {
                         const color = getScoreColor(score);
+                        const isClickable = key === 'tokenCoverage' || key === 'tailwindReadiness';
+                        const clickAttr = isClickable ? `onclick="handleQualityBreakdownClick('${key}')"` : '';
+                        const cursorStyle = isClickable ? 'cursor: pointer;' : '';
+                        
                         return `
-                                <div class="quality-breakdown-item" title="${description}" style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div class="quality-breakdown-item" ${clickAttr} style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); ${cursorStyle} transition: background-color 0.2s;">
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500;">${label}</div>
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+                                            ${label}
+                                            <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="${description}" onclick="event.stopPropagation()">help</span>
+                                        </div>
                                         <div style="font-weight: 700; color: ${color}; font-size: 12px;">${score}%</div>
                                     </div>
                                     <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
                                         <div style="width: ${score}%; height: 100%; background: ${color}; border-radius: 2px; transition: width 1s ease 0.5s;"></div>
                                     </div>
-                                    <div style="color: rgba(255,255,255,0.3); font-size: 10px; margin-top: 6px;">${weight}</div>
+                                    <div style="color: rgba(255,255,255,0.3); font-size: 10px; margin-top: 6px;">Weight: ${weight}</div>
                                 </div>
                              `;
                       };
@@ -5353,7 +5358,7 @@ function displayTokenCoverageResults(result) {
                       };
 
                       return `
-                            ${renderRow('Token Coverage', result.subScores.tokenCoverage, weights.tokenCoverage, 'Percentage of styling properties using variables instead of hardcoded values.')}
+                            ${renderRow('Token Coverage', result.subScores.tokenCoverage, weights.tokenCoverage, 'Percentage of styling properties using variables instead of hardcoded values.', 'tokenCoverage')}
                             ${
                               window.gitlabSettings?.exportFormat === 'tailwind-v4'
                                 ? renderRow(
@@ -5361,11 +5366,12 @@ function displayTokenCoverageResults(result) {
                                     result.subScores.tailwindReadiness,
                                     weights.tailwindReadiness,
                                     'Variable names following kebab-case convention for easy Tailwind CSS export.',
+                                    'tailwindReadiness'
                                   )
                                 : ''
                             }
-                            ${renderRow('Component Hygiene', result.subScores.componentHygiene, weights.componentHygiene, 'Usage of reusable Components and Instances versus raw Frames.')}
-                            ${renderRow('Variable Hygiene', result.subScores.variableHygiene, weights.variableHygiene, 'Organization of variables into logical groups using slashes (e.g. color/primary).')}
+                            ${renderRow('Component Hygiene', result.subScores.componentHygiene, weights.componentHygiene, 'Usage of reusable Components and Instances versus raw Frames.', 'componentHygiene')}
+                            ${renderRow('Variable Hygiene', result.subScores.variableHygiene, weights.variableHygiene, 'Organization of variables into logical groups using slashes (e.g. color/primary).', 'variableHygiene')}
                         `;
                     })()}
                 </div>
@@ -5999,10 +6005,6 @@ window.loadMoreIssues = function (category, currentCount) {
     // The issueId is `issue-${category}-${realIdx}`
     const issueIdRegex = new RegExp(`id="(issue-${category}-\\d+)-var-select"`);
     const match = child.innerHTML.match(issueIdRegex);
-    if (match) {
-      // Listener setup needs to happen after append?
-      // Actually, we can just select by ID after append
-    }
   }
 
   // Setup listeners for the new batch
@@ -6020,6 +6022,76 @@ window.loadMoreIssues = function (category, currentCount) {
           `;
   } else {
     loadMoreContainer.remove();
+  }
+};
+
+// Handler for clickable Quality Breakdown items
+window.handleQualityBreakdownClick = function(key) {
+  console.log('Quality Breakdown Click:', key);
+  
+  if (key === 'tokenCoverage') {
+      // Find the first available coverage category
+      const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
+      for (const cat of categories) {
+          const groupId = `coverage-${cat}`;
+          const group = document.getElementById(groupId);
+          if (group) {
+              // Expand group
+              const header = group.querySelector('.collection-header');
+              const content = group.querySelector('.collection-content');
+              if (header && content) {
+                  header.classList.remove('collapsed');
+                  content.classList.remove('collapsed');
+                  const icon = header.querySelector('.collection-toggle-icon');
+                  if (icon) icon.style.transform = 'rotate(0deg)';
+              }
+
+              // Scroll to group
+              group.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+              // Expand first issue if available (give time for scroll/expand)
+              setTimeout(() => {
+                  const firstIssueCard = content.querySelector('.quality-issue-card');
+                  if (firstIssueCard) {
+                      // Extract issue ID from card ID
+                      const cardId = firstIssueCard.id; // e.g. issue-Layout-0-card
+                      const issueId = cardId.replace('-card', '');
+                      
+                      // Check if already expanded
+                      const body = document.getElementById(`${issueId}-body`);
+                      if (body && body.style.display === 'none') {
+                          window.toggleIssueCard(issueId);
+                      }
+                  }
+              }, 600);
+              return; // Stop after first found category
+          }
+      }
+  } else if (key === 'tailwindReadiness') {
+      // Try standalone first, then groups
+      const targets = ['tailwind-standalone-group', 'tailwind-invalid-groups'];
+      for (const targetId of targets) {
+          const group = document.getElementById(targetId);
+          if (group) {
+               // Expand group
+              const header = group.querySelector('.collection-header');
+              const content = group.querySelector('.collection-content');
+              if (header && content) {
+                  header.classList.remove('collapsed');
+                  content.classList.remove('collapsed');
+                  const icon = header.querySelector('.collection-toggle-icon');
+                  if (icon) icon.style.transform = 'rotate(0deg)';
+              }
+              
+              // Scroll to group
+              group.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              
+              // No "issue card expansion" needed for Tailwind as they are usually simple rows or don't have sub-bodies in the same way 
+              // (Standalone items are visible immediately inside group)
+              
+              return;
+          }
+      }
   }
 };
 

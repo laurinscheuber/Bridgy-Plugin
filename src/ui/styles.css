@@ -4586,7 +4586,7 @@ input[type='password']:focus {
   top: 100%;
   left: 50%;
   transform: translateX(-50%) translateY(8px);
-  background: rgba(15, 23, 42, 0.95);
+  background: #0f172a !important; /* Solid dark blue */
   color: #fff;
   padding: 6px 10px;
   border-radius: 6px;
@@ -4605,6 +4605,7 @@ input[type='password']:focus {
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--glass-white-10);
+  backdrop-filter: none !important;
   animation: tooltipFadeIn 0.15s ease-out;
 }
 
@@ -4616,7 +4617,7 @@ input[type='password']:focus {
   transform: translateX(-50%);
   border-width: 5px;
   border-style: solid;
-  border-color: transparent transparent rgba(15, 23, 42, 0.95) transparent;
+  border-color: transparent transparent #0f172a transparent !important;
   opacity: 1;
   visibility: visible;
   pointer-events: none;
