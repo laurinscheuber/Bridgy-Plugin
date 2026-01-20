@@ -7096,86 +7096,74 @@ function displayTokenCoverageResults(result) {
 
   let html = `
           <!-- Quality Score Card -->
-          <div style="margin-bottom: 24px; padding: 20px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
-            <!-- Card Header with Toggle -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; cursor: pointer;" onclick="toggleQualityBreakdown()">
-                 <div style="font-size: 13px; color: rgba(255, 255, 255, 0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
-                    Design Quality Score
-                    <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">info</span>
-                 </div>
-                 <div style="display: flex; align-items: center; gap: 8px;">
-                     ${
-                       result.totalNodes <= 0
-                         ? ''
-                         : `
-                     <div style="font-size: 11px; color: rgba(255, 255, 255, 0.4); background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;">
-                        ${result.totalNodes} Nodes
-                     </div>`
-                     }
-                     <span id="breakdown-toggle-icon" class="material-symbols-outlined" style="font-size: 20px; color: rgba(255,255,255,0.5); transition: transform 0.2s;">expand_more</span>
-                 </div>
+          <div style="margin-bottom: 24px; padding: 24px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="material-symbols-outlined" style="color: var(--purple-light);">analytics</span>
+                    <span style="font-size: 14px; font-weight: 600; color: var(--neutral-0); letter-spacing: 0.5px;">DESIGN QUALITY SCORE</span>
+                </div>
             </div>
-            
-            <div style="display: flex; align-items: center; gap: 32px;">
-                <!-- Gauge (Left) -->
-                <div style="position: relative; width: 100px; height: 100px; flex-shrink: 0;">
+
+            <!-- New Stats Grid: Scanned -> Issues -> Score -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: stretch; position: relative;">
+                
+                <!-- 1. Scanned Nodes (Left) -->
+                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 16px; text-align: center;">
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">Scanned Nodes</span>
+                    <div id="scanned-nodes-value" style="font-size: 36px; font-weight: 700; color: #d8b4fe; line-height: 1.2;">0</div>
+                </div>
+
+                <!-- 2. Total Issues (Middle) -->
+                 <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 16px; text-align: center;">
+                     <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">Total Issues</span>
+                    <div id="total-issues-value" style="font-size: 36px; font-weight: 700; color: #fcd34d; line-height: 1.2;">0</div>
+                </div>
+
+                <!-- 3. Gauge (Right) -->
+                 <div style="position: relative; width: 100px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-left: auto;">
                     <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
-                        <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.1)" stroke-width="6" fill="none" />
-                        <circle cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="6" fill="none" 
+                        <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="none" />
+                        <circle id="score-gauge-circle" cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="8" fill="none" 
                                 stroke-dasharray="${2 * Math.PI * 42}" 
-                                stroke-dashoffset="${2 * Math.PI * 42 * (1 - (result.qualityScore !== undefined ? result.qualityScore : 100) / 100)}" 
-                                style="transition: stroke-dashoffset 1s ease-in-out;" />
+                                stroke-dashoffset="${2 * Math.PI * 42}" 
+                                style="stroke-linecap: round;" />
                     </svg>
                     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <span style="font-size: 28px; font-weight: 700; color: white;">${result.qualityScore !== undefined ? result.qualityScore : 100}</span>
-                    </div>
-                </div>
-
-                <!-- Stats (Right) -->
-                <div style="flex: 1; display: grid; grid-template-columns: 1fr; gap: 10px;">
-                    <div style="display: flex; flex-direction: column; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                             <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Total Issues</span>
-                             <span class="material-symbols-outlined" style="font-size: 16px; color: #f59e0b;">warning</span>
-                        </div>
-                        <span style="font-size: 20px; font-weight: 600; color: #f59e0b; margin-top: 4px;">${result.totalIssues}</span>
-                    </div>
-                    <div style="display: flex; flex-direction: column; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                             <span style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Scanned Nodes</span>
-                             <span class="material-symbols-outlined" style="font-size: 16px; color: #a855f7;">view_in_ar</span>
-                        </div>
-                         <span style="font-size: 20px; font-weight: 600; color: #a855f7; margin-top: 4px;">${result.totalNodes}</span>
+                        <span id="score-value" style="font-size: 28px; font-weight: 800; color: white;">0</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Detailed Breakdown (Collapsible) -->
+            <!-- Detailed View Toggle (Center Bottom) -->
+             <div onclick="toggleQualityBreakdown()" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); font-size: 11px; transition: color 0.2s;">
+                <span>See details</span>
+                <span id="breakdown-toggle-icon" class="material-symbols-outlined" style="font-size: 14px; transition: transform 0.3s;">expand_more</span>
+            </div>
+
+            <!-- Detailed Breakdown (Collapsible Grid) -->
             ${
               result.subScores
                 ? `
-            <div id="quality-breakdown-content" style="display: none; margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; animation: fadeIn 0.3s ease;">
-                <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div id="quality-breakdown-content" style="display: none; margin-top: 24px; animation: slideDown 0.3s ease-out;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     ${(() => {
+                      // ... (Helper function same as before)
                       const renderRow = (label, score, weight, description) => {
                         const color = getScoreColor(score);
                         return `
-                                <div class="quality-breakdown-row" title="${description}" style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; cursor: help;">
-                                    <div style="flex: 1;">
-                                        <div style="color: rgba(255,255,255,0.9); margin-bottom: 2px;">${label}</div>
-                                        <div style="color: rgba(255,255,255,0.4); font-size: 10px;">${weight} Weight</div>
+                                <div class="quality-breakdown-item" title="${description}" style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                        <div style="color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500;">${label}</div>
+                                        <div style="font-weight: 700; color: ${color}; font-size: 12px;">${score}%</div>
                                     </div>
-                                    <div style="text-align: right;">
-                                        <div style="font-weight: 600; color: ${color}; font-size: 13px;">${score}%</div>
-                                        <div style="width: 60px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 4px; margin-left: auto;">
-                                            <div style="width: ${score}%; height: 100%; background: ${color}; border-radius: 2px;"></div>
-                                        </div>
+                                    <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                                        <div style="width: ${score}%; height: 100%; background: ${color}; border-radius: 2px; transition: width 1s ease 0.5s;"></div>
                                     </div>
+                                    <div style="color: rgba(255,255,255,0.3); font-size: 10px; margin-top: 6px;">${weight}</div>
                                 </div>
                              `;
                       };
 
-                      // Get weights (dynamic or fallback)
                       const weights = result.weights || {
                           tokenCoverage: '35%',
                           tailwindReadiness: '20%',
@@ -7198,7 +7186,6 @@ function displayTokenCoverageResults(result) {
                             ${renderRow('Component Hygiene', result.subScores.componentHygiene, weights.componentHygiene, 'Usage of reusable Components and Instances versus raw Frames.')}
                             ${renderRow('Variable Hygiene', result.subScores.variableHygiene, weights.variableHygiene, 'Organization of variables into logical groups using slashes (e.g. color/primary).')}
                         `;
-                      // Removed Layout Best Practices as requested
                     })()}
                 </div>
             </div>
@@ -7206,6 +7193,56 @@ function displayTokenCoverageResults(result) {
                 : ''
             }
           </div>
+
+          <!-- Trigger Animation Script -->
+          <img src="" onerror="
+            (function() {
+                // Animation Helper
+                const animateValue = (id, start, end, duration, delay = 0) => {
+                    setTimeout(() => {
+                        const obj = document.getElementById(id);
+                        if (!obj) return;
+                        let startTimestamp = null;
+                        const step = (timestamp) => {
+                            if (!startTimestamp) startTimestamp = timestamp;
+                            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                            obj.innerHTML = Math.floor(progress * (end - start) + start);
+                            if (progress < 1) {
+                                window.requestAnimationFrame(step);
+                            } else {
+                                obj.innerHTML = end; // Ensure final value
+                            }
+                        };
+                        window.requestAnimationFrame(step);
+                    }, delay);
+                };
+
+                // Strictly Sequential Animations
+                
+                // 1. Scanned Nodes: 0ms -> 800ms
+                animateValue('scanned-nodes-value', 0, ${result.totalNodes}, 800, 100);
+
+                // 2. Total Issues: 900ms -> 1700ms (Starts after Scanned finishes)
+                animateValue('total-issues-value', 0, ${result.totalIssues}, 800, 900);
+
+                // 3. Score & Gauge: 1800ms -> 2800ms (Starts after Issues finishes)
+                
+                // Score Text
+                animateValue('score-value', 0, ${result.qualityScore !== undefined ? result.qualityScore : 100}, 1000, 1800);
+
+                // Gauge Stroke Animation
+                setTimeout(() => {
+                    const circle = document.getElementById('score-gauge-circle');
+                    if (circle) {
+                        const offset = 2 * Math.PI * 42 * (1 - (${result.qualityScore !== undefined ? result.qualityScore : 100} / 100));
+                        circle.style.transition = 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)';
+                        circle.style.strokeDashoffset = offset;
+                    }
+                }, 1800);
+
+            })()
+          " style="display:none;"/>
+
 
           <!-- Token Coverage Header -->
           <div class="tab-header" style="margin-bottom: 16px;">
