@@ -4746,21 +4746,23 @@ input[type='password']:focus {
 }
 
 /* Accordion System */
+/* Accordion System */
 .settings-accordion {
-  display: flex;
+  display: none;
+  height: 0;
   flex-direction: column;
   gap: var(--space-3);
   /* Hidden initially until provider selected */
   opacity: 0;
   transform: translateY(20px);
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
 }
 
 .settings-accordion.visible {
+  display: flex;
+  height: auto;
   opacity: 1;
   transform: translateY(0);
-  pointer-events: auto;
 }
 
 .accordion-item {
