@@ -1839,6 +1839,8 @@ class SecurityUtils {
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
           match.includes('deleteStyle(') ||
+          match.includes('deleteComponent(') ||
+          match.includes('focusOnComponent(') ||
           match.includes('console.log(') ||
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
@@ -1876,6 +1878,8 @@ class SecurityUtils {
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
           match.includes('deleteStyle(') ||
+          match.includes('deleteComponent(') ||
+          match.includes('focusOnComponent(') ||
 
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
@@ -4316,6 +4320,9 @@ window.onmessage = (event) => {
       } else {
         // Quality Analysis success - normal flow
         displayTokenCoverageResults(message.result);
+        
+        // Also analyze component hygiene after token coverage
+        analyzeComponentHygiene();
       }
 
       if (window.currentAnalysisNotification) {
@@ -4342,6 +4349,32 @@ window.onmessage = (event) => {
       } else {
          showSuccess('Refreshed', 'Component usage data updated', 3000);
       }
+
+    } else if (message.type === 'component-hygiene-result') {
+      // Handle component hygiene analysis result
+      console.log('UI: Received component hygiene result', message.result);
+      window.componentHygieneData = message.result;
+      displayComponentHygieneSection(message.result);
+      
+    } else if (message.type === 'component-hygiene-error') {
+      // Handle component hygiene analysis error
+      console.error('UI: Component hygiene error', message.error);
+      
+    } else if (message.type === 'component-deleted') {
+      // Handle successful component deletion
+      console.log(`Component deleted successfully: ${message.componentName}`);
+      showNotification(
+        'success',
+        'Component Deleted',
+        `Component "${message.componentName}" deleted successfully`,
+      );
+      // Re-analyze component hygiene to update the list
+      analyzeComponentHygiene();
+      
+    } else if (message.type === 'delete-component-error') {
+      // Handle component deletion error
+      console.error('Error deleting component:', message.error);
+      showNotification('error', 'Delete Failed', `Failed to delete component: ${message.error}`);
       
 
     } else if (message.type === 'token-coverage-error') {
@@ -5692,6 +5725,49 @@ function deleteStyle(styleId, styleName, styleType) {
   }
 }
 
+function deleteComponent(componentId, componentName) {
+  if (confirm(`Are you sure you want to delete the component "${componentName}"?\n\nThis action cannot be undone.`)) {
+    // Send message to plugin to delete the component from Figma
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'delete-component',
+          componentId: componentId,
+        },
+      },
+      '*',
+    );
+
+    // Show loading feedback
+    const button = document.querySelector(`[onclick*="deleteComponent"][onclick*="${componentId}"]`);
+    if (button) {
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+    }
+  }
+}
+
+function focusOnComponent(componentId) {
+  console.log('focusOnComponent called with:', componentId);
+  if (!componentId) {
+    console.warn('focusOnComponent: No componentId provided');
+    return;
+  }
+
+  // Reuse the focus-node message handler since components are nodes
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'focus-node',
+        nodeId: componentId,
+      },
+    },
+    '*',
+  );
+}
+
 function renderComponentVariables(group) {
   const groupIndex = Math.random().toString(36).substr(2, 9);
 
@@ -6668,6 +6744,21 @@ function analyzeTokenCoverage(scopeOverride, notificationElement) {
   );
 }
 
+// Analyze component hygiene (unused components)
+function analyzeComponentHygiene() {
+  console.log('analyzeComponentHygiene called');
+  
+  // Send message to plugin backend
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'analyze-component-hygiene',
+      },
+    },
+    '*',
+  );
+}
+
 function getScoreColor(score) {
   if (!score && score !== 0) return '#22c55e'; // Default to green
   // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
@@ -7018,6 +7109,114 @@ function renderTailwindReadinessSection(validation) {
   }
 
   return html;
+}
+
+// Function to display Component Hygiene section
+function displayComponentHygieneSection(result) {
+  if (!result || result.unusedCount === 0) {
+    // Don't display the section if there are no unused components
+    return;
+  }
+
+  const resultsContainer = document.getElementById('token-coverage-results');
+  if (!resultsContainer) {
+    return;
+  }
+
+  const componentHygieneId = 'component-hygiene-section';
+  let html = `
+    <!-- Component Hygiene Header -->
+    <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
+        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+          <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">cleaning_services</span>
+          Component Hygiene
+        </h2>
+        <span style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">${result.hygieneScore}%</span>
+      </div>
+      <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
+        ${result.unusedCount} unused component${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalComponents} total. Remove unused components to improve your design system hygiene.
+      </p>
+    </div>
+  `;
+
+  // Render unused components collapsible
+  const hygieneGroupId = 'component-hygiene-group';
+  const isExpanded = true; // Auto-expand by default
+
+  html += `
+    <div id="${hygieneGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
+      <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${hygieneGroupId}')">
+        <div class="collection-info">
+          <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
+            Unused Components
+            <span class="subgroup-stats">${result.unusedCount}</span>
+          </div>
+        </div>
+        <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+      </div>
+      <div id="${hygieneGroupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
+        <div style="padding: 12px;">
+  `;
+
+  result.unusedComponents.forEach((component, idx) => {
+    const itemId = `component-hygiene-${idx}`;
+    const displayName = SecurityUtils.escapeHTML(component.name);
+    const componentType = component.type === 'COMPONENT_SET' ? 'Component Set' : 'Component';
+    const variantInfo = component.type === 'COMPONENT_SET' ? ` (${component.variantCount} variant${component.variantCount !== 1 ? 's' : ''})` : '';
+
+    html += `
+      <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              ${displayName}
+            </div>
+            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 2px;">
+              ${componentType}${variantInfo}
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button 
+              class="icon-button focus-btn" 
+              onclick="focusOnComponent('${component.id}')" 
+              title="Focus on component"
+              style="padding: 6px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: var(--purple-light); cursor: pointer; display: flex; align-items: center; justify-content: center;"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span>
+            </button>
+            <button 
+              class="icon-button delete-btn" 
+              onclick="deleteComponent('${component.id}', '${SecurityUtils.escapeHTML(component.name)}')" 
+              title="Delete component"
+              style="padding: 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Find where to insert the section (after Tailwind Readiness or at the end)
+  const existingSection = document.getElementById(componentHygieneId);
+  if (existingSection) {
+    existingSection.remove();
+  }
+
+  // Append the HTML to the results container
+  const tempDiv = document.createElement('div');
+  tempDiv.id = componentHygieneId;
+  tempDiv.innerHTML = html;
+  resultsContainer.appendChild(tempDiv);
 }
 
 // Helper function to get Tailwind namespace options
@@ -12376,6 +12575,8 @@ window.expandAllSubgroups = expandAllSubgroups;
 window.collapseAllSubgroups = collapseAllSubgroups;
 window.deleteVariable = deleteVariable;
 window.deleteStyle = deleteStyle;
+window.deleteComponent = deleteComponent;
+window.focusOnComponent = focusOnComponent;
 window.scrollToVariable = scrollToVariable;
 
 window.expandAllImportGroups = expandAllImportGroups;
