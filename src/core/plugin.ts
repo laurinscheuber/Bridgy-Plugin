@@ -939,19 +939,16 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
           
           for (const instance of allInstances) {
-            // mainComponentId is typically available synchronously
-            let mainId = (instance as any).mainComponentId;
+            // Use getMainComponentAsync to avoid hygiene errors with dynamic pages
+            let mainId: string | undefined;
 
-            // Fallback: If mainId is missing use async lookup (slower but reliable)
-            if (!mainId) {
-               try {
-                   const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
-                   if (mainComponent) {
-                       mainId = mainComponent.id;
-                   }
-               } catch (e) {
-                   // Ignore error, skip instance
-               }
+            try {
+              const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
+              if (mainComponent) {
+                mainId = mainComponent.id;
+              }
+            } catch (e) {
+              // Ignore error, skip instance
             }
 
             if (!mainId) continue;
@@ -1066,21 +1063,18 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Match instances to definitions
           for (const instance of allInstances) {
-            // Access the mainComponent property to get the component definition
-            // This is the recommended way to get the component ID from an instance
-            let mainId = instance.mainComponent?.id;
+            // Use getMainComponentAsync to avoid hygiene errors with dynamic pages
+            let mainId: string | undefined;
 
-            if (!mainId) {
-              try {
-                const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
-                if (mainComponent) {
-                  mainId = mainComponent.id;
-                }
-              } catch (e) {
-                // Component may be from external library or deleted
-                // Log for debugging but continue processing other instances
-                console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
+            try {
+              const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
+              if (mainComponent) {
+                mainId = mainComponent.id;
               }
+            } catch (e) {
+              // Component may be from external library or deleted
+              // Log for debugging but continue processing other instances
+              console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
             }
 
             if (!mainId) continue;

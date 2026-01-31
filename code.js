@@ -9501,7 +9501,7 @@ ${Object.keys(cssProperties).map((property) => {
         });
       }
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a, _b;
+        var _a;
         console.log("DEBUG: Received ANY message:", msg.type, msg);
         try {
           switch (msg.type) {
@@ -9787,15 +9787,13 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
                 for (const instance of allInstances) {
-                  let mainId = instance.mainComponentId;
-                  if (!mainId) {
-                    try {
-                      const mainComponent = yield instance.getMainComponentAsync();
-                      if (mainComponent) {
-                        mainId = mainComponent.id;
-                      }
-                    } catch (e) {
+                  let mainId;
+                  try {
+                    const mainComponent = yield instance.getMainComponentAsync();
+                    if (mainComponent) {
+                      mainId = mainComponent.id;
                     }
+                  } catch (e) {
                   }
                   if (!mainId)
                     continue;
@@ -9877,16 +9875,14 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
                 for (const instance of allInstances) {
-                  let mainId = (_b = instance.mainComponent) === null || _b === void 0 ? void 0 : _b.id;
-                  if (!mainId) {
-                    try {
-                      const mainComponent = yield instance.getMainComponentAsync();
-                      if (mainComponent) {
-                        mainId = mainComponent.id;
-                      }
-                    } catch (e) {
-                      console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
+                  let mainId;
+                  try {
+                    const mainComponent = yield instance.getMainComponentAsync();
+                    if (mainComponent) {
+                      mainId = mainComponent.id;
                     }
+                  } catch (e) {
+                    console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
                   }
                   if (!mainId)
                     continue;
