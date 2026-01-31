@@ -2502,9 +2502,8 @@ window.onmessage = (event) => {
         // Quality Analysis success - normal flow
         displayTokenCoverageResults(message.result);
         
-        // Also analyze component hygiene after token coverage
-        // This ensures the hygiene section appears alongside other quality metrics
-        // and keeps the quality data in sync with a single analysis trigger
+        // Automatically trigger component hygiene analysis after token coverage completes
+        // This ensures both metrics appear together without requiring a separate user action
         analyzeComponentHygiene();
       }
 

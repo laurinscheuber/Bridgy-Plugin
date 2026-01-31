@@ -1066,8 +1066,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Match instances to definitions
           for (const instance of allInstances) {
-            // mainComponentId is typically available on InstanceNode but not in the official types
-            // We access it safely here with proper fallback
+            // Access the mainComponent property to get the component definition
+            // This is the recommended way to get the component ID from an instance
             let mainId = instance.mainComponent?.id;
 
             if (!mainId) {
