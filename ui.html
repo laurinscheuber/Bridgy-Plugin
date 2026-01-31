@@ -4385,7 +4385,26 @@ window.onmessage = (event) => {
       );
       // Re-analyze component hygiene to update the list
       analyzeComponentHygiene();
-      
+
+    } else if (message.type === 'batch-variants-deleted') {
+      // Handle successful batch variant deletion
+      console.log(`Batch deletion complete: ${message.successCount} succeeded, ${message.failCount} failed`);
+
+      if (message.successCount > 0) {
+        showNotification(
+          'success',
+          'Variants Deleted',
+          `Successfully deleted ${message.successCount} unused variant${message.successCount > 1 ? 's' : ''}${message.failCount > 0 ? ` (${message.failCount} failed)` : ''}`,
+        );
+      }
+
+      if (message.failCount > 0 && message.successCount === 0) {
+        showNotification('error', 'Delete Failed', `Failed to delete ${message.failCount} variant${message.failCount > 1 ? 's' : ''}`);
+      }
+
+      // Re-analyze component hygiene to update the list
+      analyzeComponentHygiene();
+
     } else if (message.type === 'delete-component-error') {
       // Handle component deletion error
       console.error('Error deleting component:', message.error);
@@ -5796,6 +5815,36 @@ function focusOnComponent(componentId) {
   );
 }
 
+function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
+  const variantIds = variantIdsString.split(',');
+  const variantCount = variantIds.length;
+
+  const confirmMessage = `Are you sure you want to delete all ${variantCount} unused variants from "${componentName}"?\n\nThis will remove:\n${variantIds.length} unused variants\n\nThe component set and used variants will remain.\n\nThis action cannot be undone.`;
+
+  if (confirm(confirmMessage)) {
+    // Send message to plugin to delete all unused variants
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'delete-all-unused-variants',
+          componentId: componentId,
+          variantIds: variantIds,
+        },
+      },
+      '*',
+    );
+
+    // Show loading feedback
+    const button = document.querySelector(`button[data-component-id="${componentId}"].delete-btn`);
+    if (button) {
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+    }
+  }
+}
+
 function renderComponentVariables(group) {
   const groupIndex = Math.random().toString(36).substr(2, 9);
 
@@ -6967,19 +7016,26 @@ function renderTailwindReadinessSection(validation) {
   const standaloneVariables = allInvalidGroups.filter(g => g.isStandalone);
   const groupedVariables = allInvalidGroups.filter(g => !g.isStandalone);
 
+  const sectionId = 'tailwind-readiness-section';
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] !== false; // Default expanded
+
   let html = `
-    <!-- Tailwind Readiness Header -->
-    <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
-        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+    <!-- Section Divider -->
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 24px 0;"></div>
+    
+    <!-- Tailwind Readiness Collapsible Section -->
+    <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
+      <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 12px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+        <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: var(--purple-light); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
+        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0; flex: 1;">
           <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">verified</span>
           Tailwind Readiness
         </h2>
       </div>
-      <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-        Variables that need Tailwind v4 compatible namespaces. Fix them individually or by group.
-      </p>
-    </div>
+      <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+          Variables that need Tailwind v4 compatible namespaces. Fix them individually or by group.
+        </p>
   `;
 
   // Render Standalone Variables collapsible (if any exist)
@@ -7136,6 +7192,12 @@ function renderTailwindReadinessSection(validation) {
     `;
   }
 
+  // Close Tailwind Readiness section
+  html += `
+      </div>
+    </div>
+  `;
+
   return html;
 }
 
@@ -7152,40 +7214,28 @@ function displayComponentHygieneSection(result) {
   }
 
   const componentHygieneId = 'component-hygiene-section';
+  const sectionId = 'unused-components-section';
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] !== false; // Default expanded
+
   let html = `
-    <!-- Component Hygiene Header -->
-    <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
-        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+    <!-- Section Divider -->
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 24px 0;"></div>
+    
+    <!-- Unused Components Collapsible Section -->
+    <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
+      <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 12px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+        <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: var(--purple-light); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
+        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0; flex: 1;">
           <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">cleaning_services</span>
           Unused Components
+          <span style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">${result.hygieneScore}%</span>
         </h2>
-        <span style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">${result.hygieneScore}%</span>
       </div>
-      <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-        ${result.unusedCount} unused component${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalComponents} total. Remove unused components to improve your design system hygiene.
-      </p>
-    </div>
-  `;
-
-  // Render unused components collapsible
-  const hygieneGroupId = 'component-hygiene-group';
-  const isExpanded = true; // Auto-expand by default
-
-  html += `
-    <div id="${hygieneGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
-      <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${hygieneGroupId}')">
-        <div class="collection-info">
-          <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
-            Unused Components
-            <span class="subgroup-stats">${result.unusedCount}</span>
-          </div>
-        </div>
-        <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
-      </div>
-      <div id="${hygieneGroupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
-        <div style="padding: 12px;">
+      <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+          ${result.unusedCount} unused component${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalComponents} total. Remove unused components to improve your design system hygiene.
+        </p>
+        <div style="padding-left: 0;">
   `;
 
   result.unusedComponents.forEach((component, idx) => {
@@ -7212,13 +7262,27 @@ function displayComponentHygieneSection(result) {
     if (hasVariants && !isFullyUnused) {
       const groupId = `${itemId}-variants`;
 
+      // Build variant IDs for batch deletion
+      const variantIds = component.unusedVariants.map(v => v.id).join(',');
+
       componentHtml += `
-        <div class="node-header" onclick="toggleComponentHygieneGroup('${groupId}')" style="display: flex; align-items: center; cursor: pointer;">
-          <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 8px; color: var(--purple-light);">inventory_2</span>
-          <span style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</span>
-          ${variantLabel}
-          <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-left: 8px;" id="${groupId}-toggle">
-            <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
+        <div class="node-header" style="display: flex; align-items: center; gap: 6px;">
+          <div onclick="toggleComponentHygieneGroup('${groupId}')" style="display: flex; align-items: center; flex: 1; cursor: pointer; min-width: 0;">
+            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 8px; color: var(--purple-light);">inventory_2</span>
+            <span style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</span>
+            ${variantLabel}
+            <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-left: 8px;" id="${groupId}-toggle">
+              <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
+            </button>
+          </div>
+          <button 
+            class="icon-button delete-btn" 
+            data-component-id="${component.id}"
+            onclick="event.stopPropagation(); deleteAllUnusedVariants('${component.id}', '${displayName}', '${variantIds}')" 
+            title="Delete all ${component.unusedVariantCount} unused variants"
+            style="padding: 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+          >
+            <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
           </button>
         </div>
         
@@ -7308,6 +7372,7 @@ function displayComponentHygieneSection(result) {
     html += componentHtml;
   });
 
+  // Close the components list and section
   html += `
         </div>
       </div>
@@ -7557,18 +7622,22 @@ function displayTokenCoverageResults(result) {
           " style="display:none;"/>
 
 
-          <!-- Token Coverage Header -->
-          <div class="tab-header" style="margin-bottom: 16px;">
-            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
-               <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
+          <!-- Section Divider (if not first section) -->
+          <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 24px 0;"></div>
+
+          <!-- Token Coverage Collapsible Section -->
+          <div id="token-coverage-section" class="quality-section-collapsible" style="margin-bottom: 16px;">
+            <div class="section-header-collapsible" onclick="toggleQualitySection('token-coverage-section')" style="cursor: pointer; padding: 12px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+              <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: var(--purple-light); transition: transform 0.3s ease;">expand_more</span>
+              <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0; flex: 1;">
                 <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">fact_check</span>
                 Missing Tokens
               </h2>
             </div>
-            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-              Identify elements using hard-coded values instead of design tokens.
-            </p>
-          </div>
+            <div class="section-content-collapsible" style="display: block;">
+              <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+                Identify elements using hard-coded values instead of design tokens.
+              </p>
         `;
 
   // SNAPSHOT STATE: Before wiping innerHTML, capture current state
@@ -7898,6 +7967,12 @@ function displayTokenCoverageResults(result) {
             </div>
           `;
   });
+
+  // Close Token Coverage section
+  html += `
+            </div>
+          </div>
+        `;
 
   // Add Tailwind Readiness section if Tailwind v4 is selected
   const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
@@ -12685,6 +12760,7 @@ window.deleteVariable = deleteVariable;
 window.deleteStyle = deleteStyle;
 window.deleteComponent = deleteComponent;
 window.focusOnComponent = focusOnComponent;
+window.deleteAllUnusedVariants = deleteAllUnusedVariants;
 window.scrollToVariable = scrollToVariable;
 
 window.expandAllImportGroups = expandAllImportGroups;
@@ -13339,6 +13415,46 @@ function toggleQualityNodeGroup(groupId) {
   }
 }
 
+// In-memory state for section expansion (localStorage not available in Figma's data: URL context)
+window.qualitySectionStates = window.qualitySectionStates || {
+  'token-coverage-section': true,
+  'tailwind-readiness-section': true,
+  'unused-components-section': true,
+};
+
+// Toggle quality section (main collapsible sections)
+function toggleQualitySection(sectionId) {
+  console.log('toggleQualitySection called with:', sectionId);
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    console.warn('Section not found:', sectionId);
+    return;
+  }
+
+  const content = section.querySelector('.section-content-collapsible');
+  const chevron = section.querySelector('.section-chevron');
+
+  if (!content) {
+    console.warn('Content not found in section:', sectionId);
+    return;
+  }
+
+  const isExpanded = content.style.display !== 'none';
+
+  // Toggle display
+  content.style.display = isExpanded ? 'none' : 'block';
+
+  // Rotate chevron
+  if (chevron) {
+    chevron.style.transform = isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)';
+  }
+
+  // Save state to in-memory storage
+  window.qualitySectionStates[sectionId] = !isExpanded;
+
+  console.log(`Section ${sectionId} ${isExpanded ? 'collapsed' : 'expanded'}`);
+}
+
 // Focus on a node in Figma
 function focusOnNode(nodeId) {
   console.log('focusOnNode called with:', nodeId);
@@ -13364,6 +13480,7 @@ function focusOnNode(nodeId) {
 window.setupQualitySearch = setupQualitySearch;
 window.filterQualityResults = filterQualityResults;
 window.toggleQualityNodeGroup = toggleQualityNodeGroup;
+window.toggleQualitySection = toggleQualitySection;
 
 // Toggle component hygiene variant group
 function toggleComponentHygieneGroup(groupId) {

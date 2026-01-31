@@ -10020,6 +10020,47 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
+            case "delete-all-unused-variants":
+              try {
+                if (!msg.variantIds || !Array.isArray(msg.variantIds) || msg.variantIds.length === 0) {
+                  throw new Error("Variant IDs are required for batch deletion");
+                }
+                const deletionResults = [];
+                let successCount = 0;
+                let failCount = 0;
+                for (const variantId of msg.variantIds) {
+                  try {
+                    const variantNode = yield figma.getNodeByIdAsync(variantId);
+                    if (!variantNode || variantNode.type !== "COMPONENT") {
+                      console.warn(`Variant ${variantId} not found or not a component`);
+                      failCount++;
+                      continue;
+                    }
+                    const variantName = variantNode.name;
+                    variantNode.remove();
+                    deletionResults.push({ id: variantId, name: variantName, success: true });
+                    successCount++;
+                  } catch (error) {
+                    console.error(`Error deleting variant ${variantId}:`, error);
+                    deletionResults.push({ id: variantId, success: false, error: error.message });
+                    failCount++;
+                  }
+                }
+                console.log(`Batch deletion complete: ${successCount} succeeded, ${failCount} failed`);
+                figma.ui.postMessage({
+                  type: "batch-variants-deleted",
+                  results: deletionResults,
+                  successCount,
+                  failCount
+                });
+              } catch (batchDeleteError) {
+                console.error("Error in batch variant deletion:", batchDeleteError);
+                figma.ui.postMessage({
+                  type: "delete-component-error",
+                  error: batchDeleteError.message || "Failed to delete variants"
+                });
+              }
+              break;
             case "start-oauth-flow":
               try {
                 const { OAuthService } = yield Promise.resolve().then(() => __importStar(require_oauthService()));
