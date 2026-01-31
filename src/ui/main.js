@@ -5198,7 +5198,7 @@ function renderTailwindReadinessSection(validation) {
   const groupedVariables = allInvalidGroups.filter(g => !g.isStandalone);
 
   const sectionId = 'tailwind-readiness-section';
-  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] !== false; // Default expanded
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] === true; // Default collapsed
 
   let html = `
     <!-- Section Divider -->
@@ -5396,7 +5396,7 @@ function displayComponentHygieneSection(result) {
 
   const componentHygieneId = 'component-hygiene-section';
   const sectionId = 'unused-components-section';
-  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] !== false; // Default expanded
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] === true; // Default collapsed
 
   let html = `
     <!-- Section Divider -->
@@ -5809,13 +5809,13 @@ function displayTokenCoverageResults(result) {
           <!-- Token Coverage Collapsible Section -->
           <div id="token-coverage-section" class="quality-section-collapsible" style="margin-bottom: 16px;">
             <div class="section-header-collapsible" onclick="toggleQualitySection('token-coverage-section')" style="cursor: pointer; padding: 12px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
-              <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: var(--purple-light); transition: transform 0.3s ease;">expand_more</span>
+              <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: var(--purple-light); transition: transform 0.3s ease; transform: rotate(-90deg);">expand_more</span>
               <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0; flex: 1;">
                 <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">fact_check</span>
                 Missing Tokens
               </h2>
             </div>
-            <div class="section-content-collapsible" style="display: block;">
+            <div class="section-content-collapsible" style="display: ${window.qualitySectionStates && window.qualitySectionStates['token-coverage-section'] ? 'block' : 'none'};">
               <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
                 Identify elements using hard-coded values instead of design tokens.
               </p>
@@ -11598,9 +11598,9 @@ function toggleQualityNodeGroup(groupId) {
 
 // In-memory state for section expansion (localStorage not available in Figma's data: URL context)
 window.qualitySectionStates = window.qualitySectionStates || {
-  'token-coverage-section': true,
-  'tailwind-readiness-section': true,
-  'unused-components-section': true,
+  'token-coverage-section': false,
+  'tailwind-readiness-section': false,
+  'unused-components-section': false,
 };
 
 // Toggle quality section (main collapsible sections)
