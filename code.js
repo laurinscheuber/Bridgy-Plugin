@@ -9850,6 +9850,7 @@ ${Object.keys(cssProperties).map((property) => {
                   const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
                   allInstances.push(...pageInstances);
                 }
+                const variantUsage = /* @__PURE__ */ new Map();
                 for (const node of localNodes) {
                   if (node.type === "COMPONENT_SET") {
                     localDefinitions.set(node.id, {
@@ -9861,6 +9862,11 @@ ${Object.keys(cssProperties).map((property) => {
                     for (const child of node.children) {
                       if (child.type === "COMPONENT") {
                         variantToSetId.set(child.id, node.id);
+                        variantUsage.set(child.id, {
+                          name: child.name,
+                          parentId: node.id,
+                          instances: []
+                        });
                       }
                     }
                   } else if (node.type === "COMPONENT") {
@@ -9886,6 +9892,10 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                   if (!mainId)
                     continue;
+                  if (variantUsage.has(mainId)) {
+                    const variantInfo = variantUsage.get(mainId);
+                    variantInfo.instances.push({ id: instance.id });
+                  }
                   let targetId = mainId;
                   if (variantToSetId.has(mainId)) {
                     targetId = variantToSetId.get(mainId);
@@ -9895,12 +9905,46 @@ ${Object.keys(cssProperties).map((property) => {
                     def.instances.push({ id: instance.id });
                   }
                 }
-                const unusedComponents = Array.from(localDefinitions.values()).filter((def) => def.instances.length === 0).map((def) => ({
-                  id: def.node.id,
-                  name: def.name,
-                  type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
-                  variantCount: def.isSet ? def.node.children.length : 1
-                }));
+                const unusedComponents = [];
+                for (const [id, def] of localDefinitions.entries()) {
+                  if (def.isSet) {
+                    const componentSet = def.node;
+                    const variants = componentSet.children.filter((child) => child.type === "COMPONENT");
+                    const unusedVariants = [];
+                    const totalVariants = variants.length;
+                    let unusedVariantCount = 0;
+                    for (const variant of variants) {
+                      const variantInfo = variantUsage.get(variant.id);
+                      if (variantInfo && variantInfo.instances.length === 0) {
+                        unusedVariantCount++;
+                        unusedVariants.push({
+                          id: variant.id,
+                          name: variant.name
+                        });
+                      }
+                    }
+                    if (unusedVariantCount > 0) {
+                      unusedComponents.push({
+                        id: componentSet.id,
+                        name: componentSet.name,
+                        type: "COMPONENT_SET",
+                        totalVariants,
+                        unusedVariantCount,
+                        isFullyUnused: unusedVariantCount === totalVariants,
+                        unusedVariants
+                      });
+                    }
+                  } else {
+                    if (def.instances.length === 0) {
+                      unusedComponents.push({
+                        id: def.node.id,
+                        name: def.name,
+                        type: "COMPONENT",
+                        isFullyUnused: true
+                      });
+                    }
+                  }
+                }
                 const totalComponents = localDefinitions.size;
                 const unusedCount = unusedComponents.length;
                 const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
@@ -9931,16 +9975,42 @@ ${Object.keys(cssProperties).map((property) => {
                 if (!componentNode) {
                   throw new Error("Component not found");
                 }
-                if (componentNode.type !== "COMPONENT" && componentNode.type !== "COMPONENT_SET") {
-                  throw new Error("Node is not a component");
+                const componentType = msg.componentType || "component";
+                let componentName = componentNode.name;
+                let deletedType = "";
+                if (componentType === "set") {
+                  if (componentNode.type !== "COMPONENT_SET") {
+                    throw new Error("Node is not a component set");
+                  }
+                  deletedType = "component set";
+                  componentNode.remove();
+                } else if (componentType === "variant") {
+                  if (componentNode.type !== "COMPONENT") {
+                    throw new Error("Node is not a component variant");
+                  }
+                  const parent = componentNode.parent;
+                  if (!parent || parent.type !== "COMPONENT_SET") {
+                    throw new Error("Component is not part of a component set");
+                  }
+                  const remainingVariants = parent.children.filter((child) => child.type === "COMPONENT" && child.id !== componentNode.id);
+                  if (remainingVariants.length === 0) {
+                    throw new Error("Cannot delete the last variant. Delete the entire component set instead.");
+                  }
+                  deletedType = "variant";
+                  componentNode.remove();
+                } else {
+                  if (componentNode.type !== "COMPONENT" && componentNode.type !== "COMPONENT_SET") {
+                    throw new Error("Node is not a component");
+                  }
+                  deletedType = "component";
+                  componentNode.remove();
                 }
-                const componentName = componentNode.name;
-                componentNode.remove();
-                console.log(`Successfully deleted component: ${componentName} (${msg.componentId})`);
+                console.log(`Successfully deleted ${deletedType}: ${componentName} (${msg.componentId})`);
                 figma.ui.postMessage({
                   type: "component-deleted",
                   componentId: msg.componentId,
-                  componentName
+                  componentName,
+                  componentType: deletedType
                 });
               } catch (deleteError) {
                 console.error("Error deleting component:", deleteError);

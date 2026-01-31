@@ -78,6 +78,8 @@ export interface PluginMessage {
   language?: string;
   componentId?: string;
   componentName?: string;
+  componentType?: string;
+  parentId?: string;
   variableId?: string;
   gitlabUrl?: string;
   projectId?: string;

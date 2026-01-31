@@ -4364,10 +4364,24 @@ window.onmessage = (event) => {
     } else if (message.type === 'component-deleted') {
       // Handle successful component deletion
       console.log(`Component deleted successfully: ${message.componentName}`);
+      const deletionType = message.componentType || 'component';
+      let titleText = 'Component Deleted';
+      let messageText = '';
+
+      if (deletionType === 'variant') {
+        titleText = 'Variant Deleted';
+        messageText = `Variant "${message.componentName}" deleted successfully`;
+      } else if (deletionType === 'component set') {
+        titleText = 'Component Set Deleted';
+        messageText = `Component set "${message.componentName}" and all its variants deleted successfully`;
+      } else {
+        messageText = `Component "${message.componentName}" deleted successfully`;
+      }
+
       showNotification(
         'success',
-        'Component Deleted',
-        `Component "${message.componentName}" deleted successfully`,
+        titleText,
+        messageText,
       );
       // Re-analyze component hygiene to update the list
       analyzeComponentHygiene();
@@ -4375,8 +4389,8 @@ window.onmessage = (event) => {
     } else if (message.type === 'delete-component-error') {
       // Handle component deletion error
       console.error('Error deleting component:', message.error);
-      showNotification('error', 'Delete Failed', `Failed to delete component: ${message.error}`);
-      
+      showNotification('error', 'Delete Failed', `Failed to delete: ${message.error}`);
+
 
     } else if (message.type === 'token-coverage-error') {
       // Handle token coverage analysis error
@@ -5726,14 +5740,27 @@ function deleteStyle(styleId, styleName, styleType) {
   }
 }
 
-function deleteComponent(componentId, componentName) {
-  if (confirm(`Are you sure you want to delete the component "${componentName}"?\n\nThis action cannot be undone.`)) {
+function deleteComponent(componentId, componentName, componentType = 'component', parentId = null) {
+  let confirmMessage = '';
+  let deleteType = componentType;
+
+  if (componentType === 'set') {
+    confirmMessage = `Are you sure you want to delete the entire component set "${componentName}" and all its variants?\n\nThis action cannot be undone.`;
+  } else if (componentType === 'variant') {
+    confirmMessage = `Are you sure you want to delete the variant "${componentName}"?\n\nThis will only delete this specific variant, not the entire component set.\n\nThis action cannot be undone.`;
+  } else {
+    confirmMessage = `Are you sure you want to delete the component "${componentName}"?\n\nThis action cannot be undone.`;
+  }
+
+  if (confirm(confirmMessage)) {
     // Send message to plugin to delete the component from Figma
     parent.postMessage(
       {
         pluginMessage: {
           type: 'delete-component',
           componentId: componentId,
+          componentType: deleteType,
+          parentId: parentId,
         },
       },
       '*',
@@ -7131,7 +7158,7 @@ function displayComponentHygieneSection(result) {
       <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
         <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
           <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">cleaning_services</span>
-          Component Hygiene
+          Unused Components
         </h2>
         <span style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">${result.hygieneScore}%</span>
       </div>
@@ -7164,18 +7191,91 @@ function displayComponentHygieneSection(result) {
   result.unusedComponents.forEach((component, idx) => {
     const itemId = `component-hygiene-${idx}`;
     const displayName = SecurityUtils.escapeHTML(component.name);
-    const componentType = component.type === 'COMPONENT_SET' ? 'Component Set' : 'Component';
-    const variantInfo = component.type === 'COMPONENT_SET' ? ` (${component.variantCount} variant${component.variantCount !== 1 ? 's' : ''})` : '';
 
-    html += `
+    // Determine if this is a component set with variants
+    const isComponentSet = component.type === 'COMPONENT_SET';
+    const hasVariants = isComponentSet && component.unusedVariants && component.unusedVariants.length > 0;
+    const isFullyUnused = component.isFullyUnused;
+
+    // Build variant usage label for component sets
+    let variantLabel = '';
+    if (isComponentSet) {
+      variantLabel = `<span class="list-badge" style="height: 16px; font-size: 10px; margin-left: 8px; background: rgba(139, 92, 246, 0.2); color: var(--purple-light); border: 1px solid rgba(139, 92, 246, 0.3);">${component.unusedVariantCount}/${component.totalVariants}</span>`;
+    }
+
+    // Build the main component card
+    let componentHtml = `
       <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-          <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-              ${displayName}
+    `;
+
+    // If component has unused variants (not fully unused), make it expandable
+    if (hasVariants && !isFullyUnused) {
+      const groupId = `${itemId}-variants`;
+
+      componentHtml += `
+        <div class="node-header" onclick="toggleComponentHygieneGroup('${groupId}')" style="display: flex; align-items: center; cursor: pointer;">
+          <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 8px; color: var(--purple-light);">inventory_2</span>
+          <span style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</span>
+          ${variantLabel}
+          <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-left: 8px;" id="${groupId}-toggle">
+            <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
+          </button>
+        </div>
+        
+        <div id="${groupId}" class="node-instances" style="display: none; padding-left: 28px; margin-top: 8px; border-left: 2px solid rgba(139, 92, 246, 0.2); margin-left: 9px;">
+      `;
+
+      // Add each unused variant
+      component.unusedVariants.forEach((variant) => {
+        const variantName = SecurityUtils.escapeHTML(variant.name);
+        componentHtml += `
+          <div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
+              <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">widgets</span>
+              <span class="instance-label" title="${variantName}" style="font-size: 12px; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${variantName}</span>
             </div>
-            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 2px;">
-              ${componentType}${variantInfo}
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button 
+                class="icon-button focus-btn" 
+                onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" 
+                title="Focus on variant"
+                style="padding: 4px; background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 4px; color: var(--purple-light); cursor: pointer; display: flex; align-items: center; justify-content: center;"
+              >
+                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+              </button>
+              <button 
+                class="icon-button delete-btn" 
+                data-component-id="${variant.id}"
+                onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${component.id}')" 
+                title="Delete variant"
+                style="padding: 4px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 4px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+              >
+                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      componentHtml += `
+        </div>
+      `;
+    } else {
+      // Fully unused component (or regular component) - simple non-expandable card
+      const componentType = isComponentSet ? 'Component Set' : 'Component';
+      const deleteType = isComponentSet ? 'set' : 'component';
+
+      componentHtml += `
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
+            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 8px; color: var(--purple-light);">${isComponentSet ? 'inventory_2' : 'widgets'}</span>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${displayName}${variantLabel}
+              </div>
+              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 2px;">
+                ${componentType}
+              </div>
             </div>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
@@ -7190,16 +7290,22 @@ function displayComponentHygieneSection(result) {
             <button 
               class="icon-button delete-btn" 
               data-component-id="${component.id}"
-              onclick="deleteComponent('${component.id}', '${SecurityUtils.escapeHTML(component.name)}')" 
-              title="Delete component"
+              onclick="deleteComponent('${component.id}', '${displayName}', '${deleteType}')" 
+              title="Delete ${componentType.toLowerCase()}"
               style="padding: 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;"
             >
               <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
             </button>
           </div>
         </div>
+      `;
+    }
+
+    componentHtml += `
       </div>
     `;
+
+    html += componentHtml;
   });
 
   html += `
@@ -7456,7 +7562,7 @@ function displayTokenCoverageResults(result) {
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
                <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
                 <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">fact_check</span>
-                Token Coverage
+                Missing Tokens
               </h2>
             </div>
             <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
@@ -13258,6 +13364,29 @@ function focusOnNode(nodeId) {
 window.setupQualitySearch = setupQualitySearch;
 window.filterQualityResults = filterQualityResults;
 window.toggleQualityNodeGroup = toggleQualityNodeGroup;
+
+// Toggle component hygiene variant group
+function toggleComponentHygieneGroup(groupId) {
+  console.log('toggleComponentHygieneGroup called with:', groupId);
+  const container = document.getElementById(groupId);
+  const toggle = document.getElementById(groupId + '-toggle');
+
+  console.log('Container found:', !!container, 'Toggle found:', !!toggle);
+
+  if (container) {
+    const isExpanded = container.style.display !== 'none';
+    container.style.display = isExpanded ? 'none' : 'block';
+
+    if (toggle) {
+      const icon = toggle.querySelector('.material-symbols-outlined');
+      if (icon) {
+        icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
+    }
+  }
+}
+
+window.toggleComponentHygieneGroup = toggleComponentHygieneGroup;
 window.focusOnNode = focusOnNode;
 window.expandAllQuality = expandAllQuality;
 window.collapseAllQuality = collapseAllQuality;

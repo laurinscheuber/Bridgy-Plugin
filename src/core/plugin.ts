@@ -1035,6 +1035,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
 
           // Process component definitions
+          // Track individual variants within component sets
+          const variantUsage = new Map<string, { name: string; parentId: string; instances: any[] }>();
+
           for (const node of localNodes) {
             if (node.type === 'COMPONENT_SET') {
               localDefinitions.set(node.id, {
@@ -1044,9 +1047,15 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 instances: [],
               });
 
+              // Track each variant individually
               for (const child of (node as ComponentSetNode).children) {
                 if (child.type === 'COMPONENT') {
                   variantToSetId.set(child.id, node.id);
+                  variantUsage.set(child.id, {
+                    name: child.name,
+                    parentId: node.id,
+                    instances: [],
+                  });
                 }
               }
             } else if (node.type === 'COMPONENT') {
@@ -1079,6 +1088,13 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
             if (!mainId) continue;
 
+            // Track variant usage
+            if (variantUsage.has(mainId)) {
+              const variantInfo = variantUsage.get(mainId);
+              variantInfo.instances.push({ id: instance.id });
+            }
+
+            // Track component set usage
             let targetId = mainId;
             if (variantToSetId.has(mainId)) {
               targetId = variantToSetId.get(mainId);
@@ -1091,14 +1107,52 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
 
           // Find components with no instances (unused components)
-          const unusedComponents = Array.from(localDefinitions.values())
-            .filter((def) => def.instances.length === 0)
-            .map((def) => ({
-              id: def.node.id,
-              name: def.name,
-              type: def.isSet ? 'COMPONENT_SET' : 'COMPONENT',
-              variantCount: def.isSet ? (def.node as ComponentSetNode).children.length : 1,
-            }));
+          const unusedComponents: any[] = [];
+
+          for (const [id, def] of localDefinitions.entries()) {
+            if (def.isSet) {
+              // For component sets, check individual variant usage
+              const componentSet = def.node as ComponentSetNode;
+              const variants = componentSet.children.filter(child => child.type === 'COMPONENT');
+              const unusedVariants: any[] = [];
+              const totalVariants = variants.length;
+              let unusedVariantCount = 0;
+
+              for (const variant of variants) {
+                const variantInfo = variantUsage.get(variant.id);
+                if (variantInfo && variantInfo.instances.length === 0) {
+                  unusedVariantCount++;
+                  unusedVariants.push({
+                    id: variant.id,
+                    name: variant.name,
+                  });
+                }
+              }
+
+              // Only include component sets that have at least one unused variant
+              if (unusedVariantCount > 0) {
+                unusedComponents.push({
+                  id: componentSet.id,
+                  name: componentSet.name,
+                  type: 'COMPONENT_SET',
+                  totalVariants: totalVariants,
+                  unusedVariantCount: unusedVariantCount,
+                  isFullyUnused: unusedVariantCount === totalVariants,
+                  unusedVariants: unusedVariants,
+                });
+              }
+            } else {
+              // Regular component (not in a set)
+              if (def.instances.length === 0) {
+                unusedComponents.push({
+                  id: def.node.id,
+                  name: def.name,
+                  type: 'COMPONENT',
+                  isFullyUnused: true,
+                });
+              }
+            }
+          }
 
           const totalComponents = localDefinitions.size;
           const unusedCount = unusedComponents.length;
@@ -1135,19 +1189,55 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             throw new Error('Component not found');
           }
 
-          if (componentNode.type !== 'COMPONENT' && componentNode.type !== 'COMPONENT_SET') {
-            throw new Error('Node is not a component');
+          const componentType = msg.componentType || 'component';
+          let componentName = componentNode.name;
+          let deletedType = '';
+
+          if (componentType === 'set') {
+            // Delete entire component set
+            if (componentNode.type !== 'COMPONENT_SET') {
+              throw new Error('Node is not a component set');
+            }
+            deletedType = 'component set';
+            componentNode.remove();
+          } else if (componentType === 'variant') {
+            // Delete individual variant from a component set
+            if (componentNode.type !== 'COMPONENT') {
+              throw new Error('Node is not a component variant');
+            }
+
+            const parent = componentNode.parent;
+            if (!parent || parent.type !== 'COMPONENT_SET') {
+              throw new Error('Component is not part of a component set');
+            }
+
+            // Check if this is the last variant
+            const remainingVariants = parent.children.filter(
+              child => child.type === 'COMPONENT' && child.id !== componentNode.id
+            );
+
+            if (remainingVariants.length === 0) {
+              throw new Error('Cannot delete the last variant. Delete the entire component set instead.');
+            }
+
+            deletedType = 'variant';
+            componentNode.remove();
+          } else {
+            // Delete regular component
+            if (componentNode.type !== 'COMPONENT' && componentNode.type !== 'COMPONENT_SET') {
+              throw new Error('Node is not a component');
+            }
+            deletedType = 'component';
+            componentNode.remove();
           }
 
-          const componentName = componentNode.name;
-          componentNode.remove();
-
-          console.log(`Successfully deleted component: ${componentName} (${msg.componentId})`);
+          console.log(`Successfully deleted ${deletedType}: ${componentName} (${msg.componentId})`);
 
           figma.ui.postMessage({
             type: 'component-deleted',
             componentId: msg.componentId,
             componentName: componentName,
+            componentType: deletedType,
           });
         } catch (deleteError: any) {
           console.error('Error deleting component:', deleteError);
