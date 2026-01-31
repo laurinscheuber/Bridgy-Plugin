@@ -2503,6 +2503,8 @@ window.onmessage = (event) => {
         displayTokenCoverageResults(message.result);
         
         // Also analyze component hygiene after token coverage
+        // This ensures the hygiene section appears alongside other quality metrics
+        // and keeps the quality data in sync with a single analysis trigger
         analyzeComponentHygiene();
       }
 
@@ -3919,8 +3921,8 @@ function deleteComponent(componentId, componentName) {
       '*',
     );
 
-    // Show loading feedback
-    const button = document.querySelector(`[onclick*="deleteComponent"][onclick*="${componentId}"]`);
+    // Show loading feedback - use data-component-id for more reliable selection
+    const button = document.querySelector(`button[onclick*="deleteComponent"][data-component-id="${componentId}"]`);
     if (button) {
       button.innerHTML =
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
@@ -5369,6 +5371,7 @@ function displayComponentHygieneSection(result) {
             </button>
             <button 
               class="icon-button delete-btn" 
+              data-component-id="${component.id}"
               onclick="deleteComponent('${component.id}', '${SecurityUtils.escapeHTML(component.name)}')" 
               title="Delete component"
               style="padding: 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;"

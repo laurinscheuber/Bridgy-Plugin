@@ -9501,7 +9501,7 @@ ${Object.keys(cssProperties).map((property) => {
         });
       }
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a;
+        var _a, _b;
         console.log("DEBUG: Received ANY message:", msg.type, msg);
         try {
           switch (msg.type) {
@@ -9877,7 +9877,7 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
                 for (const instance of allInstances) {
-                  let mainId = instance.mainComponentId;
+                  let mainId = (_b = instance.mainComponent) === null || _b === void 0 ? void 0 : _b.id;
                   if (!mainId) {
                     try {
                       const mainComponent = yield instance.getMainComponentAsync();
@@ -9885,6 +9885,7 @@ ${Object.keys(cssProperties).map((property) => {
                         mainId = mainComponent.id;
                       }
                     } catch (e) {
+                      console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
                     }
                   }
                   if (!mainId)

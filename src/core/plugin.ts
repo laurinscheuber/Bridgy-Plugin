@@ -1066,7 +1066,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Match instances to definitions
           for (const instance of allInstances) {
-            let mainId = (instance as any).mainComponentId;
+            // mainComponentId is typically available on InstanceNode but not in the official types
+            // We access it safely here with proper fallback
+            let mainId = instance.mainComponent?.id;
 
             if (!mainId) {
               try {
@@ -1075,7 +1077,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                   mainId = mainComponent.id;
                 }
               } catch (e) {
-                // Ignore error, skip instance
+                // Component may be from external library or deleted
+                // Log for debugging but continue processing other instances
+                console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
               }
             }
 
