@@ -1007,6 +1007,159 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      case 'analyze-component-hygiene':
+        try {
+          console.log('Analyzing component hygiene...');
+
+          // Ensure all pages are loaded
+          await figma.loadAllPagesAsync();
+
+          const localDefinitions = new Map<
+            string,
+            {
+              node: ComponentNode | ComponentSetNode;
+              name: string;
+              isSet: boolean;
+              instances: any[];
+            }
+          >();
+
+          const variantToSetId = new Map<string, string>();
+          const localNodes: (ComponentNode | ComponentSetNode)[] = [];
+          const allInstances: InstanceNode[] = [];
+
+          // Scan all pages for components and instances
+          for (const page of figma.root.children) {
+            const pageDefs = page.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
+            localNodes.push(...pageDefs);
+
+            const pageInstances = page.findAllWithCriteria({ types: ['INSTANCE'] });
+            allInstances.push(...pageInstances);
+          }
+
+          // Process component definitions
+          for (const node of localNodes) {
+            if (node.type === 'COMPONENT_SET') {
+              localDefinitions.set(node.id, {
+                node: node as ComponentSetNode,
+                name: node.name,
+                isSet: true,
+                instances: [],
+              });
+
+              for (const child of (node as ComponentSetNode).children) {
+                if (child.type === 'COMPONENT') {
+                  variantToSetId.set(child.id, node.id);
+                }
+              }
+            } else if (node.type === 'COMPONENT') {
+              if (!node.parent || node.parent.type !== 'COMPONENT_SET') {
+                localDefinitions.set(node.id, {
+                  node: node as ComponentNode,
+                  name: node.name,
+                  isSet: false,
+                  instances: [],
+                });
+              }
+            }
+          }
+
+          // Match instances to definitions
+          for (const instance of allInstances) {
+            let mainId = (instance as any).mainComponentId;
+
+            if (!mainId) {
+              try {
+                const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
+                if (mainComponent) {
+                  mainId = mainComponent.id;
+                }
+              } catch (e) {
+                // Ignore error, skip instance
+              }
+            }
+
+            if (!mainId) continue;
+
+            let targetId = mainId;
+            if (variantToSetId.has(mainId)) {
+              targetId = variantToSetId.get(mainId);
+            }
+
+            if (localDefinitions.has(targetId)) {
+              const def = localDefinitions.get(targetId);
+              def.instances.push({ id: instance.id });
+            }
+          }
+
+          // Find components with no instances (unused components)
+          const unusedComponents = Array.from(localDefinitions.values())
+            .filter((def) => def.instances.length === 0)
+            .map((def) => ({
+              id: def.node.id,
+              name: def.name,
+              type: def.isSet ? 'COMPONENT_SET' : 'COMPONENT',
+              variantCount: def.isSet ? (def.node as ComponentSetNode).children.length : 1,
+            }));
+
+          const totalComponents = localDefinitions.size;
+          const unusedCount = unusedComponents.length;
+          const hygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedCount) / totalComponents) * 100);
+
+          console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
+
+          figma.ui.postMessage({
+            type: 'component-hygiene-result',
+            result: {
+              totalComponents,
+              unusedComponents,
+              unusedCount,
+              hygieneScore,
+            },
+          });
+        } catch (err) {
+          console.error('Error analyzing component hygiene:', err);
+          figma.ui.postMessage({
+            type: 'component-hygiene-error',
+            error: (err as Error).message,
+          });
+        }
+        break;
+
+      case 'delete-component':
+        try {
+          if (!msg.componentId) {
+            throw new Error('Component ID is required for deletion');
+          }
+
+          const componentNode = await figma.getNodeByIdAsync(msg.componentId);
+          if (!componentNode) {
+            throw new Error('Component not found');
+          }
+
+          if (componentNode.type !== 'COMPONENT' && componentNode.type !== 'COMPONENT_SET') {
+            throw new Error('Node is not a component');
+          }
+
+          const componentName = componentNode.name;
+          componentNode.remove();
+
+          console.log(`Successfully deleted component: ${componentName} (${msg.componentId})`);
+
+          figma.ui.postMessage({
+            type: 'component-deleted',
+            componentId: msg.componentId,
+            componentName: componentName,
+          });
+        } catch (deleteError: any) {
+          console.error('Error deleting component:', deleteError);
+          figma.ui.postMessage({
+            type: 'delete-component-error',
+            error: deleteError.message || 'Failed to delete component',
+          });
+        }
+        break;
+
       case 'start-oauth-flow':
         try {
           const { OAuthService } = await import('../services/oauthService');
