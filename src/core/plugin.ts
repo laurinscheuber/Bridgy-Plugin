@@ -1178,6 +1178,141 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      case 'analyze-variable-hygiene':
+        try {
+          console.log('Analyzing variable hygiene...');
+
+          // Get all local variables
+          const allVariables = await figma.variables.getLocalVariablesAsync();
+          console.log(`Found ${allVariables.length} local variables`);
+
+          if (allVariables.length === 0) {
+            figma.ui.postMessage({
+              type: 'variable-hygiene-result',
+              result: {
+                totalVariables: 0,
+                unusedVariables: [],
+                unusedCount: 0,
+                hygieneScore: 100,
+              },
+            });
+            break;
+          }
+
+          // Track which variables are used
+          const variableUsage = new Map<string, { variable: Variable; usedBy: Set<string> }>();
+
+          // Initialize usage tracking
+          for (const variable of allVariables) {
+            variableUsage.set(variable.id, {
+              variable,
+              usedBy: new Set(),
+            });
+          }
+
+          // Check if variables are aliased by other variables
+          for (const variable of allVariables) {
+            for (const modeId of Object.keys(variable.valuesByMode)) {
+              const value = variable.valuesByMode[modeId];
+
+              // Check if this value is an alias to another variable
+              if (value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                const aliasedVarId = value.id;
+                if (variableUsage.has(aliasedVarId)) {
+                  variableUsage.get(aliasedVarId).usedBy.add(variable.id);
+                }
+              }
+            }
+          }
+
+          // Load all pages to scan for variable usage
+          await figma.loadAllPagesAsync();
+
+          // Scan all nodes for variable bindings
+          for (const page of figma.root.children) {
+            const allNodes = page.findAll();
+
+            for (const node of allNodes) {
+              try {
+                // Check all possible variable bindings on the node
+                if ('boundVariables' in node && node.boundVariables) {
+                  const boundVars = node.boundVariables as any;
+
+                  // Iterate through all bound variable properties
+                  for (const propKey of Object.keys(boundVars)) {
+                    const binding = boundVars[propKey];
+                    if (binding && typeof binding === 'object') {
+                      // Handle single binding
+                      if ('id' in binding) {
+                        const varId = (binding as any).id;
+                        if (variableUsage.has(varId)) {
+                          variableUsage.get(varId).usedBy.add(node.id);
+                        }
+                      }
+                      // Handle array of bindings (for gradients, effects, etc.)
+                      else if (Array.isArray(binding)) {
+                        for (const item of binding) {
+                          if (item && typeof item === 'object' && 'id' in item) {
+                            const varId = item.id;
+                            if (variableUsage.has(varId)) {
+                              variableUsage.get(varId).usedBy.add(node.id);
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (nodeError) {
+                // Some nodes might not support variable bindings, continue
+                console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
+              }
+            }
+          }
+
+          // Find unused variables
+          const unusedVariables: any[] = [];
+
+          for (const [varId, usage] of variableUsage.entries()) {
+            if (usage.usedBy.size === 0) {
+              const variable = usage.variable;
+              const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+
+              unusedVariables.push({
+                id: variable.id,
+                name: variable.name,
+                collectionId: variable.variableCollectionId,
+                collectionName: collection?.name || 'Unknown Collection',
+                resolvedType: variable.resolvedType,
+                scopes: variable.scopes,
+              });
+            }
+          }
+
+          const totalVariables = allVariables.length;
+          const unusedCount = unusedVariables.length;
+          const hygieneScore = totalVariables === 0 ? 100 : Math.round(((totalVariables - unusedCount) / totalVariables) * 100);
+
+          console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+
+          figma.ui.postMessage({
+            type: 'variable-hygiene-result',
+            result: {
+              totalVariables,
+              unusedVariables,
+              unusedCount,
+              hygieneScore,
+            },
+          });
+        } catch (err) {
+          console.error('Error analyzing variable hygiene:', err);
+          figma.ui.postMessage({
+            type: 'variable-hygiene-error',
+            error: (err as Error).message,
+          });
+        }
+        break;
+
       case 'delete-component':
         try {
           if (!msg.componentId) {
@@ -1211,6 +1346,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               throw new Error('Component is not part of a component set');
             }
 
+            const parentId = parent.id; // Store parent ID before deletion
+
             // Check if this is the last variant
             const remainingVariants = parent.children.filter(
               child => child.type === 'COMPONENT' && child.id !== componentNode.id
@@ -1222,6 +1359,16 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
             deletedType = 'variant';
             componentNode.remove();
+
+            // Send parent ID for UI update
+            figma.ui.postMessage({
+              type: 'component-deleted',
+              componentId: msg.componentId,
+              parentId: parentId,
+              componentName: componentName,
+              componentType: deletedType,
+            });
+            return; // Early return to avoid duplicate message
           } else {
             // Delete regular component
             if (componentNode.type !== 'COMPONENT' && componentNode.type !== 'COMPONENT_SET') {
@@ -1285,12 +1432,48 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             results: deletionResults,
             successCount,
             failCount,
+            componentId: msg.componentId, // Include componentId to help UI update
+            deletedAll: successCount === msg.variantIds.length, // True if all variants were successfully deleted
           });
         } catch (batchDeleteError: any) {
           console.error('Error in batch variant deletion:', batchDeleteError);
           figma.ui.postMessage({
             type: 'delete-component-error',
             error: batchDeleteError.message || 'Failed to delete variants',
+          });
+        }
+        break;
+
+      case 'delete-variable':
+        try {
+          if (!msg.variableId) {
+            throw new Error('Variable ID is required for deletion');
+          }
+
+          const variable = await figma.variables.getVariableByIdAsync(msg.variableId);
+          if (!variable) {
+            throw new Error('Variable not found');
+          }
+
+          const variableName = variable.name;
+          const variableType = variable.resolvedType;
+
+          // Remove the variable
+          variable.remove();
+
+          console.log(`Successfully deleted variable: ${variableName} (${msg.variableId})`);
+
+          figma.ui.postMessage({
+            type: 'variable-deleted',
+            variableId: msg.variableId,
+            variableName: variableName,
+            variableType: variableType,
+          });
+        } catch (deleteError: any) {
+          console.error('Error deleting variable:', deleteError);
+          figma.ui.postMessage({
+            type: 'delete-variable-error',
+            error: deleteError.message || 'Failed to delete variable',
           });
         }
         break;
@@ -1703,48 +1886,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           figma.ui.postMessage({
             type: 'refresh-error',
             error: refreshError.message || 'Failed to refresh data',
-          });
-        }
-        break;
-
-      case 'delete-variable':
-        try {
-          if (!msg.variableId) {
-            throw new Error('Variable ID is required for deletion');
-          }
-
-          // Get the variable to check if it exists
-          const variableToDelete = await figma.variables.getVariableByIdAsync(msg.variableId);
-          if (!variableToDelete) {
-            throw new Error('Variable not found');
-          }
-
-          // Delete the variable from Figma
-          variableToDelete.remove();
-
-          console.log(
-            `Successfully deleted variable: ${variableToDelete.name} (${msg.variableId})`,
-          );
-
-          // Send success confirmation back to UI
-          figma.ui.postMessage({
-            type: 'variable-deleted',
-            variableId: msg.variableId,
-            variableName: variableToDelete.name,
-          });
-
-          // Refresh the variables data
-          const refreshedData = await collectDocumentData();
-          figma.ui.postMessage({
-            type: 'data-refreshed',
-            variables: refreshedData.variables,
-            components: refreshedData.components,
-          });
-        } catch (deleteError: any) {
-          console.error('Error deleting variable:', deleteError);
-          figma.ui.postMessage({
-            type: 'delete-error',
-            error: deleteError.message || 'Failed to delete variable',
           });
         }
         break;

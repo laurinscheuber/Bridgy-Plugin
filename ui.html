@@ -1838,6 +1838,7 @@ class SecurityUtils {
           match.includes('scrollToGroupById(') ||
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
+          match.includes('deleteUnusedVariable(') ||
           match.includes('deleteStyle(') ||
           match.includes('deleteComponent(') ||
           match.includes('focusOnComponent(') ||
@@ -1877,6 +1878,7 @@ class SecurityUtils {
           match.includes('scrollToGroupById(') ||
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
+          match.includes('deleteUnusedVariable(') ||
           match.includes('deleteStyle(') ||
           match.includes('deleteComponent(') ||
           match.includes('focusOnComponent(') ||
@@ -4324,6 +4326,9 @@ window.onmessage = (event) => {
         // Automatically trigger component hygiene analysis after token coverage completes
         // This ensures both metrics appear together without requiring a separate user action
         analyzeComponentHygiene();
+
+        // Also trigger variable hygiene analysis
+        analyzeVariableHygiene();
       }
 
       if (window.currentAnalysisNotification) {
@@ -4361,6 +4366,16 @@ window.onmessage = (event) => {
       // Handle component hygiene analysis error
       console.error('UI: Component hygiene error', message.error);
       
+    } else if (message.type === 'variable-hygiene-result') {
+      // Handle variable hygiene analysis result
+      console.log('UI: Received variable hygiene result', message.result);
+      window.variableHygieneData = message.result;
+      displayVariableHygieneSection(message.result);
+
+    } else if (message.type === 'variable-hygiene-error') {
+      // Handle variable hygiene analysis error
+      console.error('UI: Variable hygiene error', message.error);
+
     } else if (message.type === 'component-deleted') {
       // Handle successful component deletion
       console.log(`Component deleted successfully: ${message.componentName}`);
@@ -4383,8 +4398,80 @@ window.onmessage = (event) => {
         titleText,
         messageText,
       );
-      // Re-analyze component hygiene to update the list
-      analyzeComponentHygiene();
+
+      // Save scroll position before any DOM changes
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+      // Hide the deleted component card with CSS animation (preserves scroll position)
+      if (message.componentId) {
+        const card = document.querySelector(`[data-component-id="${message.componentId}"]`)?.closest('.quality-issue-card');
+        if (card) {
+          // Smoothly fade out and hide with CSS
+          card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+          card.style.opacity = '0';
+          card.style.maxHeight = '0';
+          card.style.marginBottom = '0';
+          card.style.paddingTop = '0';
+          card.style.paddingBottom = '0';
+          card.style.overflow = 'hidden';
+
+          // After animation completes, fully hide with display: none
+          setTimeout(() => {
+            card.style.display = 'none';
+
+            // Restore scroll position
+            window.scrollTo(0, scrollPosition);
+
+            // Update the hygiene data counts in the background
+            if (window.componentHygieneData) {
+              // Find and remove the deleted component from our cached data
+              const componentIndex = window.componentHygieneData.unusedComponents.findIndex(
+                comp => comp.id === message.componentId
+              );
+
+              if (componentIndex !== -1) {
+                window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
+                window.componentHygieneData.unusedCount = window.componentHygieneData.unusedComponents.length;
+
+                // Recalculate hygiene score
+                const total = window.componentHygieneData.totalComponents;
+                const unused = window.componentHygieneData.unusedCount;
+                window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
+
+                // Update the score display in the header
+                const section = document.getElementById('unused-components-section');
+                if (section) {
+                  const scoreDisplay = section.querySelector('h2 span[style*="font-size: 14px"]');
+                  if (scoreDisplay) {
+                    scoreDisplay.textContent = `${window.componentHygieneData.hygieneScore}%`;
+                  }
+
+                  // Update the description text
+                  const description = section.querySelector('p[style*="font-size: 12px"]');
+                  if (description) {
+                    description.textContent = `${unused} unused component${unused !== 1 ? 's' : ''} found out of ${total} total. Remove unused components to improve your design system hygiene.`;
+                  }
+                }
+
+                // If no more unused components, hide the entire section
+                if (unused === 0) {
+                  const section = document.getElementById('unused-components-section')?.closest('#component-hygiene-section');
+                  if (section) {
+                    section.style.transition = 'opacity 0.3s ease-out';
+                    section.style.opacity = '0';
+                    setTimeout(() => {
+                      section.style.display = 'none';
+                    }, 300);
+                  }
+                }
+              }
+            }
+          }, 300);
+        } else {
+          // Card not found, restore scroll position immediately
+          window.scrollTo(0, scrollPosition);
+        }
+      }
 
     } else if (message.type === 'batch-variants-deleted') {
       // Handle successful batch variant deletion
@@ -4402,8 +4489,78 @@ window.onmessage = (event) => {
         showNotification('error', 'Delete Failed', `Failed to delete ${message.failCount} variant${message.failCount > 1 ? 's' : ''}`);
       }
 
-      // Re-analyze component hygiene to update the list
-      analyzeComponentHygiene();
+      // Save scroll position before any DOM changes
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+      // Hide the parent component card if all variants were deleted
+      if (message.componentId && message.deletedAll) {
+        const card = document.querySelector(`[data-component-id="${message.componentId}"]`)?.closest('.quality-issue-card');
+        if (card) {
+          // Smoothly fade out and hide with CSS
+          card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+          card.style.opacity = '0';
+          card.style.maxHeight = '0';
+          card.style.marginBottom = '0';
+          card.style.paddingTop = '0';
+          card.style.paddingBottom = '0';
+          card.style.overflow = 'hidden';
+
+          setTimeout(() => {
+            card.style.display = 'none';
+
+            // Restore scroll position
+            window.scrollTo(0, scrollPosition);
+
+            // Update cached data
+            if (window.componentHygieneData) {
+              const componentIndex = window.componentHygieneData.unusedComponents.findIndex(
+                comp => comp.id === message.componentId
+              );
+
+              if (componentIndex !== -1) {
+                window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
+                window.componentHygieneData.unusedCount = window.componentHygieneData.unusedComponents.length;
+
+                // Recalculate hygiene score
+                const total = window.componentHygieneData.totalComponents;
+                const unused = window.componentHygieneData.unusedCount;
+                window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
+
+                // Update UI
+                const section = document.getElementById('unused-components-section');
+                if (section) {
+                  const scoreDisplay = section.querySelector('h2 span[style*="font-size: 14px"]');
+                  if (scoreDisplay) {
+                    scoreDisplay.textContent = `${window.componentHygieneData.hygieneScore}%`;
+                  }
+
+                  const description = section.querySelector('p[style*="font-size: 12px"]');
+                  if (description) {
+                    description.textContent = `${unused} unused component${unused !== 1 ? 's' : ''} found out of ${total} total. Remove unused components to improve your design system hygiene.`;
+                  }
+                }
+
+                // Hide section if no more unused components
+                if (unused === 0) {
+                  const section = document.getElementById('unused-components-section')?.closest('#component-hygiene-section');
+                  if (section) {
+                    section.style.transition = 'opacity 0.3s ease-out';
+                    section.style.opacity = '0';
+                    setTimeout(() => {
+                      section.style.display = 'none';
+                    }, 300);
+                  }
+                }
+              }
+            }
+          }, 300);
+        } else {
+          window.scrollTo(0, scrollPosition);
+        }
+      } else {
+        // Just restore scroll position if not all variants deleted
+        window.scrollTo(0, scrollPosition);
+      }
 
     } else if (message.type === 'delete-component-error') {
       // Handle component deletion error
@@ -5815,6 +5972,53 @@ function focusOnComponent(componentId) {
   );
 }
 
+function deleteUnusedVariable(variableId, variableName) {
+  const confirmMessage = `Are you sure you want to delete the variable "${variableName}"?\n\nThis action cannot be undone.`;
+
+  if (confirm(confirmMessage)) {
+    // Send message to plugin to delete the variable from Figma
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'delete-variable',
+          variableId: variableId,
+        },
+      },
+      '*',
+    );
+
+    // Show loading feedback
+    const button = document.querySelector(`button[data-variable-id="${variableId}"]`);
+    if (button) {
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+    }
+
+    // Hide the card immediately for better UX
+    const cardId = button.closest('.quality-issue-card').id;
+    if (cardId) {
+      const card = document.getElementById(cardId);
+      if (card) {
+        card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+        card.style.opacity = '0';
+        card.style.maxHeight = '0';
+        card.style.marginBottom = '0';
+        card.style.paddingTop = '0';
+        card.style.paddingBottom = '0';
+        card.style.overflow = 'hidden';
+
+        setTimeout(() => {
+          card.style.display = 'none';
+          // Re-analyze to update counts
+          analyzeVariableHygiene();
+        }, 300);
+      }
+    }
+  }
+}
+
 function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
   const variantIds = variantIdsString.split(',');
   const variantCount = variantIds.length;
@@ -6836,6 +7040,21 @@ function analyzeComponentHygiene() {
   );
 }
 
+// Analyze variable hygiene (unused variables)
+function analyzeVariableHygiene() {
+  console.log('analyzeVariableHygiene called');
+
+  // Send message to plugin backend
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'analyze-variable-hygiene',
+      },
+    },
+    '*',
+  );
+}
+
 function getScoreColor(score) {
   if (!score && score !== 0) return '#22c55e'; // Default to green
   // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
@@ -7388,6 +7607,100 @@ function displayComponentHygieneSection(result) {
   // Append the HTML to the results container
   const tempDiv = document.createElement('div');
   tempDiv.id = componentHygieneId;
+  tempDiv.innerHTML = html;
+  resultsContainer.appendChild(tempDiv);
+}
+
+// Function to display Variable Hygiene section
+function displayVariableHygieneSection(result) {
+  if (!result || result.unusedCount === 0) {
+    // Don't display the section if there are no unused variables
+    return;
+  }
+
+  const resultsContainer = document.getElementById('token-coverage-results');
+  if (!resultsContainer) {
+    return;
+  }
+
+  const variableHygieneId = 'variable-hygiene-section';
+  const sectionId = 'unused-variables-section';
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] === true; // Default collapsed
+
+  let html = `
+    <!-- Section Divider -->
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 24px 0;"></div>
+    
+    <!-- Unused Variables Collapsible Section -->
+    <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
+      <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 12px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+        <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: var(--purple-light); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
+        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0; flex: 1;">
+          <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">database</span>
+          Unused Variables
+          <span style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">${result.hygieneScore}%</span>
+        </h2>
+      </div>
+      <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+          ${result.unusedCount} unused variable${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalVariables} total. Remove unused variables to improve your design system hygiene.
+        </p>
+        <div style="padding-left: 0;">
+  `;
+
+  result.unusedVariables.forEach((variable, idx) => {
+    const itemId = `variable-hygiene-${idx}`;
+    const displayName = SecurityUtils.escapeHTML(variable.name);
+    const collectionName = SecurityUtils.escapeHTML(variable.collectionName);
+
+    let variableHtml = `
+      <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
+            <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 8px; color: var(--purple-light);">token</span>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${displayName}
+              </div>
+              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${collectionName}
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button 
+              class="icon-button delete-btn" 
+              data-variable-id="${variable.id}"
+              onclick="deleteUnusedVariable('${variable.id}', '${displayName}')" 
+              title="Delete variable"
+              style="padding: 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    html += variableHtml;
+  });
+
+  // Close the variables list and section
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Remove existing section if it exists
+  const existingSection = document.getElementById(variableHygieneId);
+  if (existingSection) {
+    existingSection.remove();
+  }
+
+  // Append the HTML to the results container
+  const tempDiv = document.createElement('div');
+  tempDiv.id = variableHygieneId;
   tempDiv.innerHTML = html;
   resultsContainer.appendChild(tempDiv);
 }
@@ -12759,6 +13072,7 @@ window.collapseAllSubgroups = collapseAllSubgroups;
 window.deleteVariable = deleteVariable;
 window.deleteStyle = deleteStyle;
 window.deleteComponent = deleteComponent;
+window.deleteUnusedVariable = deleteUnusedVariable;
 window.focusOnComponent = focusOnComponent;
 window.deleteAllUnusedVariants = deleteAllUnusedVariants;
 window.scrollToVariable = scrollToVariable;
@@ -13420,6 +13734,7 @@ window.qualitySectionStates = window.qualitySectionStates || {
   'token-coverage-section': false,
   'tailwind-readiness-section': false,
   'unused-components-section': false,
+  'unused-variables-section': false,
 };
 
 // Toggle quality section (main collapsible sections)
