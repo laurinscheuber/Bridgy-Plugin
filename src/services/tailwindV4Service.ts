@@ -69,6 +69,9 @@ export class TailwindV4Service {
             isValid: true, // Empty is technically valid
             groups: [],
             invalidGroups: [],
+            totalVariables: 0,
+            totalInvalid: 0,
+            readinessScore: 100,
           };
         }
 
@@ -123,11 +126,27 @@ export class TailwindV4Service {
           }
         }
 
+        // Calculate Stats
+        let totalVariables = 0;
+        let totalInvalid = 0;
+
+        for (const group of allGroups) {
+          totalVariables += group.variableCount;
+          if (!group.isValid) {
+            totalInvalid += group.variableCount;
+          }
+        }
+
+        const readinessScore = totalVariables === 0 ? 100 : Math.round(((totalVariables - totalInvalid) / totalVariables) * 100);
+
         return {
           isValid: invalidGroups.length === 0,
           groups: allGroups,
           invalidGroups,
           standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : undefined, // Keep for backward compatibility
+          totalVariables,
+          totalInvalid,
+          readinessScore,
         };
       },
       {

@@ -78,7 +78,10 @@ export interface PluginMessage {
   language?: string;
   componentId?: string;
   componentName?: string;
+  componentType?: string;
+  parentId?: string;
   variableId?: string;
+  variantIds?: string[]; // For batch variant deletion
   gitlabUrl?: string;
   projectId?: string;
   gitlabToken?: string;
