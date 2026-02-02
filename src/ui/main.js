@@ -5658,8 +5658,8 @@ function displayComponentHygieneSection(result) {
       <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
     `;
 
-    // If component has unused variants (not fully unused), make it expandable
-    if (hasVariants && !isFullyUnused) {
+    // All component sets (whether fully or partially unused) get expandable view
+    if (hasVariants) {
       const groupId = `${itemId}-variants`;
 
       // Build variant IDs for batch deletion
@@ -5725,9 +5725,9 @@ function displayComponentHygieneSection(result) {
         </div>
       `;
     } else {
-      // Fully unused component (or regular component) - simple non-expandable card
-      const componentType = isComponentSet ? 'Component Set' : 'Component';
-      const deleteType = isComponentSet ? 'set' : 'component';
+      // Regular component (not a component set) - simple non-expandable card
+      const componentType = 'Component';
+      const deleteType = 'component';
 
       componentHtml += `
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
