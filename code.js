@@ -4223,7 +4223,10 @@
                   isValid: true,
                   // Empty is technically valid
                   groups: [],
-                  invalidGroups: []
+                  invalidGroups: [],
+                  totalVariables: 0,
+                  totalInvalid: 0,
+                  readinessScore: 100
                 };
               }
               const allGroups = [];
@@ -4268,12 +4271,24 @@
                   }
                 }
               }
+              let totalVariables = 0;
+              let totalInvalid = 0;
+              for (const group of allGroups) {
+                totalVariables += group.variableCount;
+                if (!group.isValid) {
+                  totalInvalid += group.variableCount;
+                }
+              }
+              const readinessScore = totalVariables === 0 ? 100 : Math.round((totalVariables - totalInvalid) / totalVariables * 100);
               return {
                 isValid: invalidGroups.length === 0,
                 groups: allGroups,
                 invalidGroups,
-                standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : void 0
+                standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : void 0,
                 // Keep for backward compatibility
+                totalVariables,
+                totalInvalid,
+                readinessScore
               };
             }), {
               operation: "validate_tailwind_v4_groups",
@@ -10039,12 +10054,22 @@ ${Object.keys(cssProperties).map((property) => {
                   if (usage.usedBy.size === 0) {
                     const variable = usage.variable;
                     const collection = yield figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+                    const modeId = (collection === null || collection === void 0 ? void 0 : collection.defaultModeId) || Object.keys(variable.valuesByMode)[0];
+                    const varValue = variable.valuesByMode[modeId];
+                    let resolvedValue = "";
+                    if (variable.resolvedType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+                      const color = varValue;
+                      resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+                    } else if (variable.resolvedType === "FLOAT") {
+                      resolvedValue = String(varValue);
+                    }
                     unusedVariables.push({
                       id: variable.id,
                       name: variable.name,
                       collectionId: variable.variableCollectionId,
                       collectionName: (collection === null || collection === void 0 ? void 0 : collection.name) || "Unknown Collection",
                       resolvedType: variable.resolvedType,
+                      resolvedValue,
                       scopes: variable.scopes
                     });
                   }
