@@ -1276,7 +1276,25 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           for (const [varId, usage] of variableUsage.entries()) {
             if (usage.usedBy.size === 0) {
               const variable = usage.variable;
-              const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+              const collection = await figma.variables.getVariableCollectionByIdAsync(
+                variable.variableCollectionId,
+              );
+
+              // Get resolved value for the default mode
+              const modeId = collection?.defaultModeId || Object.keys(variable.valuesByMode)[0];
+              const varValue = variable.valuesByMode[modeId];
+              let resolvedValue = '';
+
+              if (
+                variable.resolvedType === 'COLOR' &&
+                typeof varValue === 'object' &&
+                'r' in (varValue as any)
+              ) {
+                const color = varValue as { r: number; g: number; b: number; a?: number };
+                resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              } else if (variable.resolvedType === 'FLOAT') {
+                resolvedValue = String(varValue);
+              }
 
               unusedVariables.push({
                 id: variable.id,
@@ -1284,6 +1302,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 collectionId: variable.variableCollectionId,
                 collectionName: collection?.name || 'Unknown Collection',
                 resolvedType: variable.resolvedType,
+                resolvedValue: resolvedValue,
                 scopes: variable.scopes,
               });
             }
