@@ -61,16 +61,7 @@
         >
           <span class="material-symbols-outlined">settings</span>
         </button>
-        <a
-          id="repo-link-button"
-          class="repo-link-button"
-          href="#"
-          target="_blank"
-          style="display: none"
-        >
-          <span class="material-symbols-outlined repo-link-icon">link</span>
-          <span>Repository</span>
-        </a>
+<!-- Repo button moved to settings -->
       </div>
     </div>
   </header>
@@ -79,15 +70,11 @@
   <div id="feedback-section" class="feedback-section" style="display: none">
     <div class="feedback-header">
       <div class="feedback-title">
-        <span class="material-symbols-outlined" style="font-size: 20px">campaign</span>
         Welcome to Bridgy BETA!
       </div>
       <div style="display: flex; align-items: center; gap: var(--space-2)">
         <a href="https://bridgy-plugin.com/" target="_blank" class="feedback-website-link">
           Visit our website
-          <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px"
-            >open_in_new</span
-          >
         </a>
         <button class="feedback-close-btn" onclick="dismissFeedback()" title="Dismiss">
           <span class="material-symbols-outlined">close</span>
@@ -99,21 +86,40 @@
     </p>
     <div class="feedback-buttons">
       <button class="feedback-button" onclick="openGitHubFeedback('bug')">
-        <span class="feedback-button-icon">🐛</span>
         <span>Report Bug</span>
       </button>
       <button class="feedback-button" onclick="openGitHubFeedback('feature')">
-        <span class="feedback-button-icon">💡</span>
         <span>Request Feature</span>
       </button>
       <button class="feedback-button" onclick="openGitHubFeedback('general')">
-        <span class="feedback-button-icon">💭</span>
         <span>General Feedback</span>
       </button>
     </div>
   </div>
 
-  <div class="tabs">
+  <!-- Edit Mode Header (Replaces Tabs) -->
+  <div id="edit-mode-header" class="edit-mode-header" style="display: none;">
+    <div class="edit-mode-title">
+        <span class="material-symbols-outlined">build_circle</span>
+        <span>Improvement Session</span>
+    </div>
+    
+    <div id="edit-mode-gauge-container">
+        <!-- Gauge injected here -->
+    </div>
+    
+    <button
+      id="finish-improving-btn"
+      class="primary-action-btn finish-btn"
+      onclick="finishImproving()"
+      title="Finish and see results"
+    >
+      <span class="material-symbols-outlined">check_circle</span>
+      <span class="toolbar-btn-text">Finish Improving</span>
+    </button>
+  </div>
+
+  <div class="tabs" id="main-tabs">
     <div class="tab active" data-tab="quality">Quality</div>
     <div class="tab" data-tab="variables">Variables</div>
     <div class="tab" data-tab="stats">Components</div>
@@ -201,11 +207,6 @@
               margin: 0;
             "
           >
-            <span
-              class="material-symbols-outlined"
-              style="font-size: 22px; color: var(--purple-light)"
-              >data_object</span
-            >
             Variables
           </h2>
           <div id="variables-summary" class="header-summary">
@@ -217,7 +218,7 @@
       <div id="variables-container">
         <div class="content-loading">
           <div class="content-loading-spinner"></div>
-          <div class="content-loading-text">Loading variables and design tokens...</div>
+          <div class="content-loading-text">Loading variables...</div>
         </div>
       </div>
     </div>
@@ -227,73 +228,71 @@
     <div class="content-padding">
       <!-- Tab Header -->
 
-      <div class="toolbar">
-        <div class="toolbar-group">
-          <!-- Analyze button removed -->
+      <div id="quality-page-selector-container" style="display: flex; align-items: center; gap: 8px; margin-bottom: 24px; min-height: 32px; padding-left: 8px;">
+        <div style="font-size: 11px; opacity: 0.5;">Checking Pages...</div>
+      </div>
 
-          <div class="select-wrapper">
-            <select
-              id="analysis-scope-select"
-              class="toolbar-select"
-              onchange="updateAnalysisScope(this.value)"
-            >
-              <option value="PAGE" selected>Current Page</option>
-              <option value="ALL">All Pages</option>
-            </select>
+      <div class="quality-header" style="display: flex; justify-content: center; align-items: center; margin-bottom: 48px; gap: 64px; padding: 0 16px; min-height: 200px;">
+        <!-- Left: Score Gauge -->
+        <div id="quality-header-left" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+          <div id="quality-score-gauge-container" style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center;">
+            <!-- Dynamic Gauge will be injected here -->
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; opacity: 0.4; font-weight: 700;">Design System</div>
+            <div style="font-size: 18px; font-weight: 800; color: white; letter-spacing: -0.2px; margin-top: -1px;">Quality Score</div>
+            <div id="quality-summary-stats" style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 500; margin-top: 4px;">0 nodes • 0 issues</div>
           </div>
         </div>
 
-        <div id="quality-search-wrapper" class="search-wrapper-collapsible">
-          <div class="search-input-wrapper" style="flex: 1">
-            <input
-              type="text"
-              class="search-input"
-              id="quality-search"
-              placeholder="Search issues..."
-            />
-            <button
-              class="search-clear-btn"
-              id="clear-quality-search"
-              onclick="clearSearch('quality-search')"
-            >
-              <span class="material-symbols-outlined" style="font-size: 16px">close</span>
-            </button>
+        <!-- Right: Actions & Info -->
+        <div id="quality-header-right" style="display: flex; flex-direction: column; justify-content: center; gap: 32px; padding: 0;">
+          <!-- Legend centered vertically relative to Gauge -->
+          <div class="quality-legend" id="quality-legend" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="legend-item" style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 10px; height: 10px; border-radius: 3px; background: #ef4444; border: 1px solid rgba(255,255,255,0.15);"></div>
+              <span style="font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 600;">0 - 49 (Critical)</span>
+            </div>
+            <div class="legend-item" style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 10px; height: 10px; border-radius: 3px; background: #fbbf24; border: 1px solid rgba(255,255,255,0.15);"></div>
+              <span style="font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 600;">50 - 89 (Average)</span>
+            </div>
+            <div class="legend-item" style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 10px; height: 10px; border-radius: 3px; background: #22c55e; border: 1px solid rgba(255,255,255,0.15);"></div>
+              <span style="font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 600;">90 - 100 (Optimal)</span>
+            </div>
           </div>
-        </div>
 
-        <div class="toolbar-group">
+          <!-- Button positioned below legend -->
           <button
-            class="icon-btn-wide"
-            onclick="toggleSearchBar('quality-search-wrapper')"
-            title="Toggle Search"
-            data-tooltip="Search"
+            class="btn-primary"
+            style="padding: 0 24px; font-size: 11px; height: 34px; border-radius: 17px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; background: #8b5cf6; color: white; border: none; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); cursor: pointer; transition: all 0.2s ease;"
+            onclick="handleImproveDesignSystem()"
+            id="improve-design-btn"
           >
-            <span class="material-symbols-outlined">search</span>
-          </button>
-          <button
-            class="icon-btn-wide"
-            id="expand-all-quality-btn"
-            title="Expand all issues"
-            data-tooltip="Expand all"
-          >
-            <span class="material-symbols-outlined">unfold_more</span>
-          </button>
-          <button
-            class="icon-btn-wide"
-            id="collapse-all-quality-btn"
-            title="Collapse all issues"
-            data-tooltip="Collapse all"
-          >
-            <span class="material-symbols-outlined">unfold_less</span>
+            Improve Score
           </button>
         </div>
       </div>
 
-      <div id="token-coverage-results">
-        <div class="content-loading" style="display: none">
-          <div class="content-loading-spinner"></div>
-          <div class="content-loading-text">Analyzing token coverage...</div>
+
+      <div id="quality-dashboard-container">
+        <!-- 1. Missing Variables -->
+        <div id="token-coverage-results">
+          <div class="content-loading" style="display: none">
+            <div class="content-loading-spinner"></div>
+            <div class="content-loading-text">Analyzing variables...</div>
+          </div>
         </div>
+
+        <!-- 2. Variable Hygiene -->
+        <div id="variable-hygiene-results-placeholder"></div>
+
+        <!-- 3. Component Hygiene -->
+        <div id="component-hygiene-results-placeholder"></div>
+
+        <!-- 4. Tailwind Readiness -->
+        <div id="tailwind-readiness-results-placeholder"></div>
       </div>
     </div>
   </div>
@@ -313,11 +312,6 @@
               margin: 0;
             "
           >
-            <span
-              class="material-symbols-outlined"
-              style="font-size: 22px; color: var(--purple-light)"
-              >analytics</span
-            >
             Components
           </h2>
         </div>
@@ -326,24 +320,30 @@
         </p>
       </div>
 
-      <div class="toolbar" style="margin-bottom: 12px">
+      <div id="stats-summary-container" style="margin-bottom: 24px;">
+        <!-- Summary cards will be injected here -->
+      </div>
+
+      <div class="toolbar" style="margin-bottom: 24px;">
         <div class="toolbar-group">
-          <!-- Refresh button removed -->
+          <!-- Multi-page Selector -->
+          <div id="stats-page-selector-container" style="display: flex; align-items: center; gap: 8px;">
+            <!-- Will be injected by JS -->
+          </div>
         </div>
 
-        <div id="stats-search-wrapper" class="search-wrapper-collapsible">
-          <div class="search-input-wrapper" style="flex: 1">
+        <div id="stats-search-wrapper" class="search-wrapper-collapsible" style="display: flex; flex: 1; justify-content: flex-end;">
+          <div class="search-input-wrapper" style="max-width: 200px;">
             <input
               type="text"
               class="search-input"
               id="stats-search"
               placeholder="Search components..."
-              oninput="filterStats(this.value)"
             />
             <button
               class="search-clear-btn"
               id="clear-stats-search"
-              onclick="clearSearch('stats-search'); filterStats('')"
+              onclick="clearSearch('stats-search')"
             >
               <span class="material-symbols-outlined" style="font-size: 16px">close</span>
             </button>
@@ -352,10 +352,9 @@
 
         <div class="toolbar-group">
           <button
-            class="icon-btn-wide"
+            class="icon-btn-square"
             onclick="toggleSearchBar('stats-search-wrapper')"
-            title="Toggle Search"
-            data-tooltip="Search"
+            data-tooltip="Search components"
           >
             <span class="material-symbols-outlined">search</span>
           </button>
@@ -450,7 +449,7 @@
       <!-- New UX: 2. Staged Disclosure Accordion -->
       <div class="settings-accordion" id="settings-accordion">
         <!-- SECTION 1: CONNECTION -->
-        <div class="accordion-item" id="section-connection">
+        <div class="accordion-item hidden-section" id="section-connection">
           <div class="accordion-header" onclick="toggleAccordion('section-connection')">
             <div class="accordion-title">
               <span class="material-symbols-outlined accordion-icon">link</span>
@@ -507,6 +506,17 @@
                   <span class="material-symbols-outlined" style="font-size: 16px">search</span>
                   Browse
                 </button>
+                <a
+                  id="settings-repo-link"
+                  class="compact-action-btn"
+                  href="#"
+                  target="_blank"
+                  style="display: none; width: auto; padding: 0 12px; gap: 4px; text-decoration: none; color: inherit;"
+                  title="Open Repository"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 16px">open_in_new</span>
+                  Open
+                </a>
               </div>
             </div>
 
@@ -550,7 +560,7 @@
         </div>
 
         <!-- SECTION 2: PROJECT STRUCTURE -->
-        <div class="accordion-item" id="section-structure">
+        <div class="accordion-item hidden-section" id="section-structure">
           <div class="accordion-header" onclick="toggleAccordion('section-structure')">
             <div class="accordion-title">
               <span class="material-symbols-outlined accordion-icon">folder_open</span>
@@ -700,7 +710,6 @@
             onclick="openGitHubFeedback('bug')"
             style="flex: 1; min-width: 100px"
           >
-            <span class="feedback-button-icon">🐛</span>
             <span>Report Bug</span>
           </button>
           <button
@@ -708,7 +717,6 @@
             onclick="openGitHubFeedback('feature')"
             style="flex: 1; min-width: 100px"
           >
-            <span class="feedback-button-icon">💡</span>
             <span>Request Feature</span>
           </button>
           <button
@@ -716,7 +724,6 @@
             onclick="openGitHubFeedback('general')"
             style="flex: 1; min-width: 100px"
           >
-            <span class="feedback-button-icon">💭</span>
             <span>General Feedback</span>
           </button>
         </div>
@@ -740,6 +747,7 @@
               border-radius: 20px;
               font-size: 11px;
               cursor: pointer;
+              box-shadow: none !important;
             "
           >
             Open User Guide
@@ -800,11 +808,45 @@
         Reset
       </button>
       <div>
-        <button onclick="closeSettingsModal()">Cancel</button>
+
         <button onclick="saveConfiguration()" class="btn-primary-gradient">Save Configuration</button>
       </div>
     </div>
   </div>
+</div>
+
+<!-- Celebration Overlay -->
+<div id="celebration-overlay" class="celebration-overlay" style="display: none;">
+    <div class="celebration-content">
+        <div class="celebration-icon">🎉</div>
+        <h2 class="celebration-title">Great Job!</h2>
+        <p class="celebration-subtitle">You've improved the Design System Quality.</p>
+        
+        <!-- Gauge Container -->
+        <div id="celebration-gauge-container" style="margin-bottom: 24px; display: flex; justify-content: center;"></div>
+        
+        <div class="celebration-score-comparison">
+            <div class="score-box">
+                <span class="score-label">From</span>
+                <span class="score-value" id="celebration-score-start">0</span>
+            </div>
+            <div class="score-arrow">
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </div>
+            <div class="score-box highlight">
+                <span class="score-label">To</span>
+                <span class="score-value" id="celebration-score-end">0</span>
+            </div>
+        </div>
+        
+        <div class="celebration-stats-grid" id="celebration-stats-grid">
+            <!-- Stats injected here -->
+        </div>
+        
+        <button class="btn-primary-gradient celebration-close-btn" onclick="closeCelebration()">
+            Back to Dashboard
+        </button>
+    </div>
 </div>
 
 <!-- User Guide Modal -->
@@ -814,10 +856,7 @@
       <span class="material-symbols-outlined">close</span>
     </button>
     <div class="modal-header">
-      <h3>🎨 Bridgy - User Guide</h3>
-      <p style="margin: 4px 0 0; color: rgba(255, 255, 255, 0.6); font-size: 13px">
-        Bridging the gap between designers and developers
-      </p>
+      <h3>Bridgy - User Guide</h3>
     </div>
 
     <div class="modal-body" style="padding: 24px; max-height: 70vh; overflow-y: auto">
@@ -831,7 +870,7 @@
           border: 1px solid rgba(139, 92, 246, 0.3);
         "
       >
-        <h4 style="margin: 0 0 8px 0; font-size: 16px; color: white">🚀 Welcome to Bridgy!</h4>
+        <h4 style="margin: 0 0 8px 0; font-size: 16px; color: white">Welcome to Bridgy!</h4>
         <p style="margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.9); line-height: 1.5">
           This plugin helps designers and developers work together seamlessly. Export Figma
           variables as CSS, generate component tests, and commit changes directly to your
@@ -902,7 +941,7 @@
             "
           >
             <p style="margin: 0 0 8px 0">
-              <strong style="color: #a78bfa">👨‍💻 Developer:</strong> Sets up project configuration in
+              <strong style="color: #a78bfa">Developer:</strong> Sets up project configuration in
               the settings (⚙️ icon):
             </p>
             <ul
@@ -961,7 +1000,7 @@
             "
           >
             <p style="margin: 0 0 8px 0">
-              <strong style="color: #a78bfa">🎨 Designer:</strong> Tests the setup by making a small
+              <strong style="color: #a78bfa">Designer:</strong> Tests the setup by making a small
               change and committing it:
             </p>
             <ul
@@ -1018,7 +1057,7 @@
           >
             <div style="margin-bottom: 12px">
               <p style="margin: 0 0 4px 0">
-                <strong style="color: #a78bfa">🎨 Designer – Update & Sync Designs</strong>
+                <strong style="color: #a78bfa">Designer – Update & Sync Designs</strong>
               </p>
               <ul
                 style="
@@ -1036,7 +1075,7 @@
             </div>
             <div>
               <p style="margin: 0 0 4px 0">
-                <strong style="color: #a78bfa">👨‍💻 Developer – Generate Tests & Implement</strong>
+                <strong style="color: #a78bfa">Developer – Generate Tests & Implement</strong>
               </p>
               <ul
                 style="
@@ -1087,7 +1126,7 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
           "
         >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">🎨 Variables Export</h5>
+          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">Variables Export</h5>
           <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
             Export Figma variables as CSS custom properties, ready for development use.
           </p>
@@ -1100,7 +1139,7 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
           "
         >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">🧪 Test Generation</h5>
+          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">Test Generation</h5>
           <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
             Generate Angular component tests to ensure designs match implementation.
           </p>
@@ -1113,7 +1152,7 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
           "
         >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">📡 GitLab Integration</h5>
+          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">GitLab Integration</h5>
           <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
             Commit changes directly to GitLab with automatic merge request creation.
           </p>
@@ -1126,13 +1165,69 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
           "
         >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">🔍 Search & Filter</h5>
+          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">Search & Filter</h5>
           <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
             Easily find and review specific variables and components before export.
           </p>
         </div>
       </div>
 
+      <!-- Design Quality Score Explanation -->
+      <h4
+        style="
+          margin: 0 0 16px 0;
+          font-size: 14px;
+          color: var(--text-primary);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <span
+          class="material-symbols-outlined"
+          style="font-size: 18px; color: rgba(255, 255, 255, 0.8)"
+          >speed</span
+        >
+        Design Quality Score
+      </h4>
+      <div
+        style="
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 32px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.7);
+          line-height: 1.6;
+        "
+      >
+        <p style="margin: 0 0 12px 0; color: var(--text-primary); font-weight: 500;">
+          The Design Quality Score (DQS) evaluates the maturity and consistency of your design system.
+        </p>
+        <div style="display: grid; gap: 12px;">
+          <div>
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">1. Variable Coverage</strong>
+            Measures how many properties (colors, spacing, radius) are bound to tokens. Scores decrease as more hard-coded values are found across your nodes.
+          </div>
+          <div>
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">2. Tailwind Readiness</strong>
+            Percentage of variables following Tailwind v4 naming conventions (e.g., --color-primary). Only active when Tailwind v4 export format is selected.
+          </div>
+          <div>
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">3. Component Hygiene</strong>
+            Ratio of component instances vs. raw frames, encouraging composition and modularity.
+          </div>
+          <div>
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">4. Variable Hygiene</strong>
+            Evaluates organization by checking for logical grouping (use of slashes in variable names).
+          </div>
+          <div style="margin-top: 4px; padding: 8px 12px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
+            <em style="font-size: 11px; color: rgba(255,255,255,0.6);">Weights adjust dynamically: all categories share equal weight. When Tailwind v4 is disabled, its weight is redistributed among the remaining categories.</em>
+          </div>
+        </div>
+      </div>
+      
       <!-- Workflow Strategies -->
       <h4
         style="
@@ -1711,8 +1806,6 @@
 
       <!-- Collection Section -->
       <div class="form-group">
-      <!-- Collection Section -->
-      <div class="form-group">
         <label for="create-var-collection">Collection</label>
         <select
           id="create-var-collection"
@@ -1771,7 +1864,6 @@
       <button onclick="closeCreateVariableModal()" class="btn-secondary-glass">Cancel</button>
       <button onclick="submitCreateVariable()" class="btn-primary-gradient">Create Variable</button>
     </div>
-  </div>
   </div>
 </div>
 

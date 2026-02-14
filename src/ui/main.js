@@ -19,7 +19,10 @@ class SecurityUtils {
           match.includes('scrollToGroupById(') ||
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
+          match.includes('deleteUnusedVariable(') ||
           match.includes('deleteStyle(') ||
+          match.includes('deleteComponent(') ||
+          match.includes('focusOnComponent(') ||
           match.includes('console.log(') ||
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
@@ -56,7 +59,10 @@ class SecurityUtils {
           match.includes('scrollToGroupById(') ||
           match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
+          match.includes('deleteUnusedVariable(') ||
           match.includes('deleteStyle(') ||
+          match.includes('deleteComponent(') ||
+          match.includes('focusOnComponent(') ||
 
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
@@ -524,8 +530,443 @@ function hideContentLoading(containerId) {
   }
 }
 
+// Multi-Page Selection State and Logic
+window.MultiPageSelector = {
+  pages: [],
+  selectedPageIds: new Set(),
+  pendingPageIds: new Set(),
+  isOpen: false,
+  filterQuery: '',
+
+  init() {
+    this.render(); // Render immediately to show loading state
+    
+    // Add small delay to ensure backend is ready
+    setTimeout(() => {
+      console.log('MultiPageSelector: Requesting pages...');
+      parent.postMessage({ pluginMessage: { type: 'get-pages' } }, '*');
+    }, 500);
+    
+    // Close dropdown on click outside
+    document.addEventListener('click', (e) => {
+      if (this.isOpen && !e.target.closest('.page-selector-wrapper')) {
+        this.cancelSelection();
+      }
+    });
+  },
+
+  handlePagesList(pages, currentPageId) {
+    console.log('MultiPageSelector: Received pages', pages);
+    this.pages = pages;
+    // By default, select all pages
+    this.selectedPageIds = new Set(pages.map(p => p.id));
+    this.pendingPageIds = new Set(this.selectedPageIds); // Initialize pending as well
+    this.render();
+  },
+
+  toggle() {
+    this.isOpen ? this.cancelSelection() : this.open();
+  },
+
+  open() {
+    this.isOpen = true;
+    this.filterQuery = '';
+    this.pendingPageIds = new Set(this.selectedPageIds);
+    this.render();
+  },
+
+  close() {
+    this.isOpen = false;
+    this.render();
+  },
+
+  applySelection() {
+    this.selectedPageIds = new Set(this.pendingPageIds);
+    this.close();
+    
+    // Reset quality state before re-running analysis to avoid mixed data
+    resetQualityState();
+    
+    // Trigger unified re-analysis of the entire dashboard
+    // Quality Score (Gauge + Sub-scores)
+    // The token-coverage-result handler will automatically trigger the other analyses
+    // to ensure sequential data flow and correct animation registration
+    analyzeTokenCoverage();
+    
+    // Supporting metrics (even if not on active tab)
+    analyzeStats();
+  },
+
+  cancelSelection() {
+    this.close();
+  },
+
+  updatePendingSelection(pageId, checked) {
+    if (checked) {
+      this.pendingPageIds.add(pageId);
+    } else {
+      this.pendingPageIds.delete(pageId);
+    }
+    this.render();
+  },
+
+  setFilterQuery(query) {
+    this.filterQuery = query.toLowerCase();
+    this.render();
+  },
+
+  toggleSelectAll(checked) {
+    const filteredPages = this.getFilteredPages();
+    if (checked) {
+      filteredPages.forEach(p => this.pendingPageIds.add(p.id));
+    } else {
+      filteredPages.forEach(p => this.pendingPageIds.delete(p.id));
+    }
+    this.render();
+  },
+
+  getFilteredPages() {
+    if (!this.filterQuery) return this.pages;
+    return this.pages.filter(p => p.name.toLowerCase().includes(this.filterQuery));
+  },
+
+  getSelectedIds() {
+    return Array.from(this.selectedPageIds);
+  },
+
+  render() {
+    const containers = [
+      document.getElementById('quality-page-selector-container'),
+      document.getElementById('stats-page-selector-container')
+    ];
+
+    const isAllSelected = this.pages.length > 0 && this.selectedPageIds.size === this.pages.length;
+    const label = this.pages.length === 0 ? 'Checking Pages...' :
+                  isAllSelected ? 'All Pages' : 
+                  this.selectedPageIds.size === 1 ? '1 Page' : 
+                  this.selectedPageIds.size === 0 ? 'No Pages' :
+                  `${this.selectedPageIds.size} Pages`;
+
+    const filteredPages = this.getFilteredPages();
+    const allFilteredSelected = filteredPages.length > 0 && filteredPages.every(p => this.pendingPageIds.has(p.id));
+
+    const html = `
+      <div class="page-selector-wrapper">
+        <div class="page-selector-btn" onclick="MultiPageSelector.toggle()">
+          <span style="font-weight: 600;">${label}</span>
+          <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">${this.isOpen ? 'expand_less' : 'expand_more'}</span>
+        </div>
+        <div class="page-selector-dropdown ${this.isOpen ? 'show' : ''}" onclick="event.stopPropagation();">
+          <div class="page-selector-search">
+            <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">search</span>
+            <input type="text" placeholder="Search pages..." value="${this.filterQuery}" 
+                   oninput="MultiPageSelector.setFilterQuery(this.value)"
+                   onclick="event.stopPropagation()">
+          </div>
+          
+          <div class="dropdown-item select-all-item">
+            <input type="checkbox" id="select-all-pages" 
+                   ${allFilteredSelected ? 'checked' : ''} 
+                   onchange="MultiPageSelector.toggleSelectAll(this.checked)">
+            <label for="select-all-pages" style="cursor: pointer; flex: 1; margin: 0; font-weight: 600;">(Select All)</label>
+          </div>
+
+          <div class="page-list-scroll">
+            ${filteredPages.map(page => `
+              <div class="dropdown-item">
+                <input type="checkbox" id="page-${page.id}" 
+                       ${this.pendingPageIds.has(page.id) ? 'checked' : ''} 
+                       onchange="MultiPageSelector.updatePendingSelection('${page.id}', this.checked)">
+                <label for="page-${page.id}" style="cursor: pointer; flex: 1; margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">description</span>
+                  <span>${page.name}</span>
+                </label>
+              </div>
+            `).join('')}
+            ${filteredPages.length === 0 ? '<div style="padding: 12px; text-align: center; opacity: 0.5; font-size: 11px;">No pages found</div>' : ''}
+          </div>
+
+          <div class="page-selector-footer">
+            <button class="multi-page-footer-btn cancel" onclick="MultiPageSelector.cancelSelection()">Cancel</button>
+            <button class="multi-page-footer-btn apply" 
+                    ${this.pendingPageIds.size === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''} 
+                    onclick="MultiPageSelector.applySelection()">Apply</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    containers.forEach(container => {
+      if (container) {
+        container.innerHTML = html;
+        // Focus search input if open
+        if (this.isOpen) {
+          const input = container.querySelector('.page-selector-search input');
+          if (input && document.activeElement !== input) {
+            // Only focus if we just opened it and the query is empty
+            if (this.filterQuery === '') {
+               // timeout to ensure DOM is ready
+               setTimeout(() => input.focus(), 10);
+            }
+          }
+        }
+      }
+    });
+  }
+};
+
+// Edit Mode Logic
+window.isEditMode = false;
+window.editSessionStart = null;
+
+window.toggleEditMode = function (active) {
+  window.isEditMode = active;
+  
+  const body = document.body;
+  const editHeader = document.getElementById('edit-mode-header');
+  const mainTabs = document.getElementById('main-tabs');
+  const mainQualityHeader = document.querySelector('.quality-header');
+  
+  if (active) {
+    if (body) body.classList.add('edit-mode');
+    
+    // Capture Session Start Stats
+    if (window.qualityAnalysisState) {
+        window.editSessionStart = {
+            score: window.qualityAnalysisState.score || 0,
+            totalIssues: window.qualityAnalysisState.tokenIssues || 0,
+            subScores: window.qualityAnalysisState.subScores ? JSON.parse(JSON.stringify(window.qualityAnalysisState.subScores)) : {}
+        };
+    } else {
+         window.editSessionStart = { score: 0, totalIssues: 0, subScores: {} };
+    }
+    
+    // UI Transitions
+    if (editHeader) {
+        editHeader.style.display = 'flex';
+        // Trigger reflow for animation if needed
+    }
+    
+    if (mainTabs) mainTabs.style.display = 'none';
+    
+    // Hide main quality header
+    if (mainQualityHeader) {
+        mainQualityHeader.style.display = 'none';
+        mainQualityHeader.setAttribute('aria-hidden', 'true');
+    }
+
+    // Render smaller gauge in edit header
+     updateHeaderGauge();
+
+  } else {
+    if (body) body.classList.remove('edit-mode');
+    
+    // UI Transitions
+    if (editHeader) editHeader.style.display = 'none';
+    if (mainTabs) mainTabs.style.display = 'flex';
+    
+    // Show main quality header
+    if (mainQualityHeader) {
+        mainQualityHeader.style.display = 'flex';
+        mainQualityHeader.removeAttribute('aria-hidden');
+    }
+    
+    // Clear session start
+    window.editSessionStart = null;
+  }
+};
+
+function updateHeaderGauge() {
+    const target = document.getElementById('edit-mode-gauge-container');
+    if (target && window.qualityAnalysisState) {
+        // Medium size: 60px
+        const size = 60;
+        target.innerHTML = `
+            <div style="position: relative; width: ${size}px; height: ${size}px; display: flex; align-items: center; justify-content: center;">
+                ${renderSegmentedGauge(window.qualityAnalysisState.subScores, window.qualityAnalysisState.weights, size, { showLabels: false, showCenterText: false, strokeWidth: 6 })}
+                <div style="position: absolute; font-weight: 800; font-size: 16px; color: white;">
+                    ${window.qualityAnalysisState.score || 0}
+                </div>
+            </div>
+        `;
+        
+        // Trigger animation
+        setTimeout(() => {
+             const circle = target.querySelector('#score-gauge-circle-fill');
+             if (circle) {
+                 const radius = parseFloat(circle.getAttribute('r'));
+                 const circumference = 2 * Math.PI * radius;
+                 const score = window.qualityAnalysisState.score || 0;
+                 const offset = circumference - ((score / 100) * circumference);
+                 circle.style.strokeDashoffset = offset;
+             }
+        }, 50);
+    }
+}
+
+function getGradeLabel(score) {
+    if (score >= 90) return 'Optimal';
+    if (score >= 50) return 'Average';
+    return 'Critical';
+}
+
+// Celebration Logic
+window.finishImproving = function() {
+    // 1. Calculate Improvments
+    const start = window.editSessionStart || { score: 0, totalIssues: 0, subScores: {} };
+    const current = window.qualityAnalysisState || { score: 0, tokenIssues: 0, subScores: {} };
+    
+    // Ensure we have valid numbers
+    const startScore = start.score || 0;
+    const currentScore = current.score || 0;
+    
+    // Calculate raw differences
+    const scoreGain = currentScore - startScore;
+    const issuesFixed = Math.max(0, start.totalIssues - (current.tokenIssues || 0));
+    
+    // 2. Populate Overlay
+    const overlay = document.getElementById('celebration-overlay');
+    
+    const startEl = document.getElementById('celebration-score-start');
+    const endEl = document.getElementById('celebration-score-end');
+    const statsGrid = document.getElementById('celebration-stats-grid');
+    const gaugeContainer = document.getElementById('celebration-gauge-container');
+    
+    if (startEl) startEl.textContent = startScore;
+    if (endEl) endEl.textContent = currentScore;
+    
+    // Render Gauge (Animated)
+    if (gaugeContainer) {
+        // Use the generic render function but we might want to animate the value if possible.
+        // For now, render the FINAL state.
+        gaugeContainer.innerHTML = `
+            <div style="position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center;">
+                ${renderSegmentedGauge(current.subScores, current.weights || {}, 120, { showLabels: false, showCenterText: false })}
+                <div style="position: absolute; font-weight: 800; font-size: 32px; color: white;">
+                    ${currentScore}
+                </div>
+            </div>
+        `;
+    }
+    
+    if (statsGrid) {
+        // Generate stats HTML
+        let statsHtml = '';
+        
+        // 1. Score Gain
+        if (scoreGain > 0) {
+            statsHtml += `
+                <div class="stat-item">
+                    <span class="stat-value" style="color: var(--success-400);">+${scoreGain}</span>
+                    <span class="stat-label">Points Gained</span>
+                </div>
+            `;
+        }
+        
+        // 2. Issues Fixed
+        if (issuesFixed > 0) {
+            statsHtml += `
+                 <div class="stat-item">
+                    <span class="stat-value">${issuesFixed}</span>
+                    <span class="stat-label">Issues Fixed</span>
+                </div>
+            `;
+        } else if (scoreGain === 0) {
+             statsHtml += `
+                 <div class="stat-item">
+                    <span class="stat-value">0</span>
+                    <span class="stat-label">Issues Fixed</span>
+                </div>
+            `;
+        }
+        
+        // 3. Category Improvements
+        let improvedCats = 0;
+        if (current.subScores && start.subScores) {
+            for (const [key, val] of Object.entries(current.subScores)) {
+                const startVal = start.subScores[key] || 0;
+                if (val > startVal) {
+                    const diff = val - startVal;
+                    const label = formatCategoryLabel(key); // Helper needed
+                     statsHtml += `
+                        <div class="stat-item">
+                            <span class="stat-value" style="color: var(--success-400);">+${diff.toFixed(0)}%</span>
+                            <span class="stat-label">${label}</span>
+                        </div>
+                    `;
+                    improvedCats++;
+                }
+            }
+        }
+        
+        // Fallback if nothing improved
+        if (scoreGain === 0 && issuesFixed === 0 && improvedCats === 0) {
+             statsHtml += `
+            <div class="stat-item">
+                <span class="stat-value">Solid!</span>
+                <span class="stat-label">Status Quo</span>
+            </div>
+             <div class="stat-item">
+                <span class="stat-value">Ready</span>
+                <span class="stat-label">Next Steps</span>
+            </div>
+        `;
+        }
+        
+        statsGrid.innerHTML = statsHtml;
+    }
+
+    // 3. Show Overlay
+    if (overlay) {
+        overlay.style.display = 'flex';
+        
+        // Trigger Animations after layout
+        setTimeout(() => {
+            // Animate Gauge
+            const gaugeContainer = document.getElementById('celebration-gauge-container');
+            if (gaugeContainer && current.weights) {
+                 const circle = gaugeContainer.querySelector('#score-gauge-circle-fill');
+                 if (circle) {
+                     const radius = parseFloat(circle.getAttribute('r'));
+                     const circumference = 2 * Math.PI * radius;
+                     const offset = circumference - ((currentScore / 100) * circumference);
+                     circle.style.strokeDashoffset = offset;
+                 }
+            }
+            
+            // Animate Numbers
+            animateValue("celebration-score-start", 0, startScore, 1000);
+            animateValue("celebration-score-end", 0, currentScore, 1500);
+            
+        }, 100);
+    }
+};
+
+function formatCategoryLabel(key) {
+    // Map internal keys to human labels
+    const map = {
+        tokenCoverage: 'Variables',
+        variableHygiene: 'Hygiene',
+        componentHygiene: 'Components',
+        tailwindReadiness: 'Tailwind'
+    };
+    return map[key] || key;
+}
+
+window.closeCelebration = function() {
+    const overlay = document.getElementById('celebration-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    
+    // Exit edit mode
+    toggleEditMode(false);
+};
+
 // Initialize loading progress on page load
 document.addEventListener('DOMContentLoaded', function () {
+  // Initialize multi-page selector
+  window.MultiPageSelector.init();
 
   console.log('Available elements:', {
     componentsContainer: !!document.getElementById('components-container'),
@@ -538,38 +979,84 @@ document.addEventListener('DOMContentLoaded', function () {
     setupQualitySearch();
   }
 
-  // Initialize Quality Tab Actions
-  const expandBtn = document.getElementById('expand-all-quality-btn');
-  if (expandBtn) {
-    expandBtn.onclick = function () {
-      console.log('Expand All Quality clicked via ID');
-      if (typeof window.expandAllQuality === 'function') {
-        window.expandAllQuality();
-      } else if (typeof expandAllQuality === 'function') {
-        expandAllQuality();
-      } else {
-        console.error('expandAllQuality function not found');
-      }
-    };
-  }
-
-  const collapseBtn = document.getElementById('collapse-all-quality-btn');
-  if (collapseBtn) {
-    collapseBtn.onclick = function () {
-      console.log('Collapse All Quality clicked via ID');
-      if (typeof window.collapseAllQuality === 'function') {
-        window.collapseAllQuality();
-      } else if (typeof collapseAllQuality === 'function') {
-        collapseAllQuality();
-      } else {
-        console.error('collapseAllQuality function not found');
-      }
-    };
-  }
-
   // Initialize Search Features (Clear buttons etc.)
   initSearchFeatures();
+
+  // Stats search listener
+  const statsSearchInput = document.getElementById('stats-search');
+  if (statsSearchInput) {
+    statsSearchInput.addEventListener('input', function (e) {
+      if (typeof window.filterStats === 'function') {
+        window.filterStats(e.target.value);
+      }
+    });
+  }
 });
+
+/**
+ * Automatically opens the first section and the first available issue
+ * to guide the user into improving their design system.
+ */
+window.handleImproveDesignSystem = function() {
+  // 0. Enter Edit Mode
+  toggleEditMode(true);
+
+  // 1. Open the first section (Missing Variables)
+  const firstSectionId = 'token-coverage-section';
+  const firstSection = document.getElementById(firstSectionId);
+  if (firstSection) {
+    const content = firstSection.querySelector('.section-content-collapsible');
+    if (content) {
+      // Check if it's currently hidden by display style or computed display
+      const isHidden = content.style.display === 'none' || window.getComputedStyle(content).display === 'none';
+      if (isHidden) {
+        if (typeof toggleQualitySection === 'function') {
+          toggleQualitySection(firstSectionId);
+        }
+      }
+    }
+  }
+
+  // 2. Open the first category/collection (usually Layout)
+  setTimeout(() => {
+    // Look for the first category header within the open section
+    const firstCollection = document.querySelector('.quality-section-collapsible .quality-collection .collection-header');
+    if (firstCollection && firstCollection.classList.contains('collapsed')) {
+      firstCollection.click();
+    }
+
+    // 3. Open the first issue card
+    setTimeout(() => {
+      const firstIssue = document.querySelector('.quality-issue-card .quality-issue-header');
+      if (firstIssue) {
+        const issueId = firstIssue.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+        if (issueId) {
+          const body = document.getElementById(`${issueId}-body`);
+          if (body) {
+             const isHidden = body.style.display === 'none' || window.getComputedStyle(body).display === 'none';
+             if (isHidden) {
+               firstIssue.click();
+             }
+          }
+        }
+        
+        // Scroll into view
+        firstIssue.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // 4. Auto-open the dropdown
+        setTimeout(() => {
+            const issueId = firstIssue.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+            if (issueId) {
+                const trigger = document.querySelector(`#${issueId}-custom-select .custom-select-trigger`);
+                if (trigger) {
+                    trigger.click();
+                }
+            }
+        }, 300);
+      }
+    }, 400);
+  }, 400);
+};
 
 // ===== SEARCH FEATURES =====
 function initSearchFeatures() {
@@ -674,6 +1161,8 @@ window.refreshData = function () {
     
     // Reset scan performed flags to force re-evaluation
     window.qualityScanPerformed = false;
+    // FIX: ensure we are not stuck in "fix in progress" state
+    window.tokenFixInProgress = false;
     
     // Send message to backend to collect fresh data FIRST
     parent.postMessage(
@@ -749,7 +1238,7 @@ window.refreshStats = function (notificationElement) {
     `;
   }
   
-  parent.postMessage({ pluginMessage: { type: 'get-component-usage' } }, '*');
+  analyzeStats();
 };
 
 window.filterStats = function(query) {
@@ -1082,7 +1571,7 @@ function resizeForCurrentContent() {
 
 // Repository link management
 function updateRepositoryLink() {
-  const repoButton = document.getElementById('repo-link-button');
+  const repoButton = document.getElementById('settings-repo-link');
 
   // Try unified settings first, then fall back to legacy GitLab settings
   let settings = window.gitSettings;
@@ -1117,7 +1606,7 @@ function updateRepositoryLink() {
 }
 
 async function fetchProjectInfo(projectId, token, silent = false) {
-  const repoButton = document.getElementById('repo-link-button');
+  const repoButton = document.getElementById('settings-repo-link');
   if (!repoButton) {
     console.error('Repository link button not found in DOM');
     return;
@@ -1376,6 +1865,28 @@ window.resetUnitsSettings = function () {
 window.qualityScanPerformed = false;
 window.statsScanPerformed = false;
 
+// Global state for Quality Analysis to synchronize the Gauge and Summary
+window.qualityAnalysisResumed = false;
+window.qualityAnalysisState = {
+    totalNodes: 0,
+    totalIssues: 0,
+    tokenIssues: 0,
+    variableIssues: 0,
+    componentIssues: 0,
+    subScores: {
+        tokenCoverage: 100,
+        tailwindReadiness: 100,
+        componentHygiene: 100,
+        variableHygiene: 100
+    },
+    weights: {
+        tokenCoverage: '40%',
+        tailwindReadiness: '20%',
+        componentHygiene: '20%',
+        variableHygiene: '20%'
+    }
+};
+
 // Main tab switching logic
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
@@ -1427,7 +1938,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
         }
 
         setTimeout(() => {
-          parent.postMessage({ pluginMessage: { type: 'get-component-usage' } }, '*');
+          analyzeStats();
           window.statsScanPerformed = true;
         }, 50);
       }
@@ -1446,7 +1957,7 @@ let currentCSSData = null;
 let componentSetsData = [];
 let selectionData = null;
 let tailwindV4Validation = null;
-let analysisScope = 'PAGE';
+let analysisScope = 'ALL';
 let componentStatsData = []; // Store stats for filtering
 let statsSortState = { column: 'count', direction: 'desc' }; // Default sort state
 
@@ -1542,6 +2053,7 @@ window.onmessage = (event) => {
     }
 
     const message = event.data.pluginMessage;
+    console.log('UI: Received message from plugin:', message.type);
 
     // Validate message structure
     if (!message || typeof message !== 'object' || !message.type) {
@@ -1577,6 +2089,8 @@ window.onmessage = (event) => {
       updateRepositoryLink();
       updateCommitButtonStates();
       checkAndShowUserGuide();
+    } else if (message.type === 'pages-list') {
+      window.MultiPageSelector.handlePagesList(message.pages, message.currentPageId);
     } else if (message.type === 'gitlab-settings-saved' || message.type === 'git-settings-saved') {
       // Update local settings with new metadata
       if (window.gitlabSettings) {
@@ -2497,6 +3011,13 @@ window.onmessage = (event) => {
       } else {
         // Quality Analysis success - normal flow
         displayTokenCoverageResults(message.result);
+        
+        // Automatically trigger component hygiene analysis after token coverage completes
+        // This ensures both metrics appear together without requiring a separate user action
+        analyzeComponentHygiene();
+
+        // Also trigger variable hygiene analysis
+        analyzeVariableHygiene();
       }
 
       if (window.currentAnalysisNotification) {
@@ -2511,7 +3032,13 @@ window.onmessage = (event) => {
       // Finalize Loading (for Initial Load flow)
       updatePluginLoadingProgress('Ready!', 100);
       hidePluginLoadingOverlay();
-      
+
+      // If navigated from "Improve design system" button, enter edit mode after results render
+      if (window.pendingImproveDesignSystem) {
+        window.pendingImproveDesignSystem = false;
+        setTimeout(() => handleImproveDesignSystem(), 300);
+      }
+
     } else if (message.type === 'component-stats-data') {
       // Stats refresh success
       window.componentStatsData = message.stats;
@@ -2523,7 +3050,218 @@ window.onmessage = (event) => {
       } else {
          showSuccess('Refreshed', 'Component usage data updated', 3000);
       }
+
+    } else if (message.type === 'component-hygiene-result') {
+      // Handle component hygiene analysis result
+      console.log('UI: Received component hygiene result', message.result);
+      window.componentHygieneData = message.result;
+      displayComponentHygieneSection(message.result);
       
+    } else if (message.type === 'component-hygiene-error') {
+      // Handle component hygiene analysis error
+      console.error('UI: Component hygiene error', message.error);
+      
+    } else if (message.type === 'variable-hygiene-result') {
+      // Handle variable hygiene analysis result
+      console.log('UI: Received variable hygiene result', message.result);
+      window.variableHygieneData = message.result;
+      displayVariableHygieneSection(message.result);
+
+    } else if (message.type === 'variable-hygiene-error') {
+      // Handle variable hygiene analysis error
+      console.error('UI: Variable hygiene error', message.error);
+
+    } else if (message.type === 'component-deleted') {
+      // Handle successful component deletion
+      console.log(`Component deleted successfully: ${message.componentName}`);
+      const deletionType = message.componentType || 'component';
+      let titleText = 'Component Deleted';
+      let messageText = '';
+
+      if (deletionType === 'variant') {
+        titleText = 'Variant Deleted';
+        messageText = `Variant "${message.componentName}" deleted successfully`;
+      } else if (deletionType === 'component set') {
+        titleText = 'Component Set Deleted';
+        messageText = `Component set "${message.componentName}" and all its variants deleted successfully`;
+      } else {
+        messageText = `Component "${message.componentName}" deleted successfully`;
+      }
+
+      showNotification(
+        'success',
+        titleText,
+        messageText,
+      );
+
+      // Save scroll position before any DOM changes
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+      // Hide the deleted component card with CSS animation (preserves scroll position)
+      if (message.componentId) {
+        const card = document.querySelector(`[data-component-id="${message.componentId}"]`)?.closest('.quality-issue-card');
+        if (card) {
+          // Smoothly fade out and hide with CSS
+          card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+          card.style.opacity = '0';
+          card.style.maxHeight = '0';
+          card.style.marginBottom = '0';
+          card.style.paddingTop = '0';
+          card.style.paddingBottom = '0';
+          card.style.overflow = 'hidden';
+
+          // After animation completes, fully hide with display: none
+          setTimeout(() => {
+            card.style.display = 'none';
+
+            // Restore scroll position
+            window.scrollTo(0, scrollPosition);
+
+            // Update the hygiene data counts in the background
+            if (window.componentHygieneData) {
+              // Find and remove the deleted component from our cached data
+              const componentIndex = window.componentHygieneData.unusedComponents.findIndex(
+                comp => comp.id === message.componentId
+              );
+
+              if (componentIndex !== -1) {
+                window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
+                window.componentHygieneData.unusedCount = window.componentHygieneData.unusedComponents.length;
+
+                // Recalculate hygiene score
+                const total = window.componentHygieneData.totalComponents;
+                const unused = window.componentHygieneData.unusedCount;
+                window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
+
+                // Update the score display in the header
+                const section = document.getElementById('unused-components-section');
+                if (section) {
+                  const scoreDisplay = section.querySelector('h2 span[style*="font-size: 14px"]');
+                  if (scoreDisplay) {
+                    scoreDisplay.textContent = `${window.componentHygieneData.hygieneScore}%`;
+                  }
+
+                  // Update the description text
+                  const description = section.querySelector('p[style*="font-size: 12px"]');
+                  if (description) {
+                    description.textContent = `${unused} unused component${unused !== 1 ? 's' : ''} found out of ${total} total. Remove unused components to improve your design system hygiene.`;
+                  }
+                }
+
+                // If no more unused components, hide the entire section
+                if (unused === 0) {
+                  const section = document.getElementById('unused-components-section')?.closest('#component-hygiene-section');
+                  if (section) {
+                    section.style.transition = 'opacity 0.3s ease-out';
+                    section.style.opacity = '0';
+                    setTimeout(() => {
+                      section.style.display = 'none';
+                    }, 300);
+                  }
+                }
+              }
+            }
+          }, 300);
+        } else {
+          // Card not found, restore scroll position immediately
+          window.scrollTo(0, scrollPosition);
+        }
+      }
+
+    } else if (message.type === 'batch-variants-deleted') {
+      // Handle successful batch variant deletion
+      console.log(`Batch deletion complete: ${message.successCount} succeeded, ${message.failCount} failed`);
+
+      if (message.successCount > 0) {
+        showNotification(
+          'success',
+          'Variants Deleted',
+          `Successfully deleted ${message.successCount} unused variant${message.successCount > 1 ? 's' : ''}${message.failCount > 0 ? ` (${message.failCount} failed)` : ''}`,
+        );
+      }
+
+      if (message.failCount > 0 && message.successCount === 0) {
+        showNotification('error', 'Delete Failed', `Failed to delete ${message.failCount} variant${message.failCount > 1 ? 's' : ''}`);
+      }
+
+      // Save scroll position before any DOM changes
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+      // Hide the parent component card if all variants were deleted
+      if (message.componentId && message.deletedAll) {
+        const card = document.querySelector(`[data-component-id="${message.componentId}"]`)?.closest('.quality-issue-card');
+        if (card) {
+          // Smoothly fade out and hide with CSS
+          card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+          card.style.opacity = '0';
+          card.style.maxHeight = '0';
+          card.style.marginBottom = '0';
+          card.style.paddingTop = '0';
+          card.style.paddingBottom = '0';
+          card.style.overflow = 'hidden';
+
+          setTimeout(() => {
+            card.style.display = 'none';
+
+            // Restore scroll position
+            window.scrollTo(0, scrollPosition);
+
+            // Update cached data
+            if (window.componentHygieneData) {
+              const componentIndex = window.componentHygieneData.unusedComponents.findIndex(
+                comp => comp.id === message.componentId
+              );
+
+              if (componentIndex !== -1) {
+                window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
+                window.componentHygieneData.unusedCount = window.componentHygieneData.unusedComponents.length;
+
+                // Recalculate hygiene score
+                const total = window.componentHygieneData.totalComponents;
+                const unused = window.componentHygieneData.unusedCount;
+                window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
+
+                // Update UI
+                const section = document.getElementById('unused-components-section');
+                if (section) {
+                  const scoreDisplay = section.querySelector('h2 span[style*="font-size: 14px"]');
+                  if (scoreDisplay) {
+                    scoreDisplay.textContent = `${window.componentHygieneData.hygieneScore}%`;
+                  }
+
+                  const description = section.querySelector('p[style*="font-size: 12px"]');
+                  if (description) {
+                    description.textContent = `${unused} unused component${unused !== 1 ? 's' : ''} found out of ${total} total. Remove unused components to improve your design system hygiene.`;
+                  }
+                }
+
+                // Hide section if no more unused components
+                if (unused === 0) {
+                  const section = document.getElementById('unused-components-section')?.closest('#component-hygiene-section');
+                  if (section) {
+                    section.style.transition = 'opacity 0.3s ease-out';
+                    section.style.opacity = '0';
+                    setTimeout(() => {
+                      section.style.display = 'none';
+                    }, 300);
+                  }
+                }
+              }
+            }
+          }, 300);
+        } else {
+          window.scrollTo(0, scrollPosition);
+        }
+      } else {
+        // Just restore scroll position if not all variants deleted
+        window.scrollTo(0, scrollPosition);
+      }
+
+    } else if (message.type === 'delete-component-error') {
+      // Handle component deletion error
+      console.error('Error deleting component:', message.error);
+      showNotification('error', 'Delete Failed', `Failed to delete: ${message.error}`);
+
 
     } else if (message.type === 'token-coverage-error') {
       // Handle token coverage analysis error
@@ -2647,6 +3385,11 @@ window.onmessage = (event) => {
                   delete window.tokenFixIssueId;
                   delete window.tokenFixActiveCollectionId;
                   delete window.tokenFixInProgress;
+
+                  // Trigger re-analysis to update score (and animate!)
+                  if (typeof analyzeTokenCoverage === 'function') {
+                      analyzeTokenCoverage(null, null, true); // true = background mode
+                  }
                 }, 300);
               } else {
                 // If card not found, clean up immediately
@@ -2655,6 +3398,11 @@ window.onmessage = (event) => {
                 delete window.tokenFixInProgress;
                 if (window.tokenFixScrollPosition !== undefined) {
                   delete window.tokenFixScrollPosition;
+                }
+                
+                // Trigger re-analysis here too
+                if (typeof analyzeTokenCoverage === 'function') {
+                    analyzeTokenCoverage(null, null, true); // true = background mode
                 }
               }
             }
@@ -2892,17 +3640,16 @@ window.onmessage = (event) => {
              // Show a single combined warning if there are any issues
              const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
              if (hasAnyIssues) {
-                  warningHtml += `
-                    <div class="validation-alert validation-alert-warning">
+                   warningHtml += `
+                    <div class="validation-alert validation-alert-warning" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);">
                       <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-size: 24px;">⚠️</span>
                         <div>
-                          <strong style="color: #ff9800; display: block; margin-bottom: 4px;">Warnings detected</strong>
-                          <small style="color: rgba(255, 255, 255, 0.8);">Some issues were found with your variables</small>
+                          <strong style="color: white; display: block; margin-bottom: 4px;">Issues in Design System found</strong>
+                          <small style="color: rgba(255, 255, 255, 0.7);">Some issues were found with your variables</small>
                         </div>
                       </div>
-                      <button type="button" onclick="switchToQualityTab()" class="validation-alert-button validation-alert-button-warning">
-                        Go to warnings
+                      <button type="button" onclick="switchToQualityTab()" class="btn-primary" style="background: var(--purple-medium) !important; box-shadow: none !important; border: none !important;">
+                        Improve design system
                       </button>
                     </div>
                   `;
@@ -2938,12 +3685,11 @@ window.onmessage = (event) => {
             html += `
               <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
                 <div class="collection-header" onclick="toggleCollection('${collectionId}')">
-                  <div class="collection-info">
-                    <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">folder</span>
-                    <h3 class="collection-name-title">${collection.name}</h3>
-                    <span class="subgroup-stats">${collection.variables.length}</span>
-                  </div>
                   <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+                  <div class="collection-info">
+                    <h3 class="collection-name-title">${collection.name}</h3>
+                  </div>
+                  <span class="subgroup-stats">${collection.variables.length}</span>
                 </div>
                 <div class="collection-content" id="${collectionId}-content">
             `;
@@ -2956,12 +3702,11 @@ window.onmessage = (event) => {
               html += `
                 <div class="variable-subgroup">
                   <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">dataset</span>
-                      <span class="subgroup-title">${ungroupedName}</span>
-                      <span class="subgroup-stats">${standaloneVars.length}</span>
-                    </div>
                     <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                      <span class="subgroup-title">${ungroupedName}</span>
+                    </div>
+                    <span class="subgroup-stats">${standaloneVars.length}</span>
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
@@ -3015,9 +3760,9 @@ window.onmessage = (event) => {
                   hasMixedValues || isTailwindInvalid ? "has-validation-issues" : ""
                 }" id="${groupId}">
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
-                    <div class="subgroup-title">
+                    <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                    <div class="subgroup-title" style="flex: 1;">
                       ${displayName}
-                      <span class="subgroup-stats">${variables.length}</span>
                       ${isTailwindValid ? `<span class="tailwind-icon" title="Valid Tailwind v4 namespace">
                               <svg viewBox="0 0 54 33" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M27 0C19.8 0 15.3 3.6 13.5 10.8C16.2 7.2 19.35 5.85 22.95 6.75C25.004 7.263 26.472 8.754 28.097 10.403C30.744 13.09 33.808 16.2 40.5 16.2C47.7 16.2 52.2 12.6 54 5.4C51.3 9 48.15 10.35 44.55 9.45C42.496 8.937 41.028 7.446 39.403 5.797C36.756 3.11 33.692 0 27 0ZM13.5 16.2C6.3 16.2 1.8 19.8 0 27C2.7 23.4 5.85 22.05 9.45 22.95C11.504 23.464 12.972 24.954 14.597 26.603C17.244 29.29 20.308 32.4 27 32.4C34.2 32.4 38.7 28.8 40.5 21.6C37.8 25.2 34.65 26.55 31.05 25.65C28.996 25.137 27.528 23.646 25.903 21.997C23.256 19.31 20.192 16.2 13.5 16.2Z" fill="#38bdf8"/>
@@ -3029,7 +3774,7 @@ window.onmessage = (event) => {
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M27 0C19.8 0 15.3 3.6 13.5 10.8C16.2 7.2 19.35 5.85 22.95 6.75C25.004 7.263 26.472 8.754 28.097 10.403C30.744 13.09 33.808 16.2 40.5 16.2C47.7 16.2 52.2 12.6 54 5.4C51.3 9 48.15 10.35 44.55 9.45C42.496 8.937 41.028 7.446 39.403 5.797C36.756 3.11 33.692 0 27 0ZM13.5 16.2C6.3 16.2 1.8 19.8 0 27C2.7 23.4 5.85 22.05 9.45 22.95C11.504 23.464 12.972 24.954 14.597 26.603C17.244 29.29 20.308 32.4 27 32.4C34.2 32.4 38.7 28.8 40.5 21.6C37.8 25.2 34.65 26.55 31.05 25.65C28.996 25.137 27.528 23.646 25.903 21.997C23.256 19.31 20.192 16.2 13.5 16.2Z" fill="#f87171"/>
                               </svg>
                              </span>` : ""}                    </div>
-                    <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                    <span class="subgroup-stats">${variables.length}</span>
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
@@ -3076,16 +3821,13 @@ window.onmessage = (event) => {
                     <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
                         <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
                             <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
-                                <span class="material-symbols-outlined" style="font-size: 22px; color: #c4b5fd;">style</span>
                                 Styles
                             </h2>
                             <div class="header-summary">
                                 <div class="summary-badge" data-tooltip="Total Styles">
-                                   <span class="material-symbols-outlined">style</span>
                                    <span>${totalStyles} Styles</span>
                                 </div>
                                 <div class="summary-badge" data-tooltip="Categories">
-                                   <span class="material-symbols-outlined">category</span>
                                    <span>${categories} Categories</span>
                                 </div>
                             </div>
@@ -3186,12 +3928,11 @@ function renderStyleGroup(name, styles, type, collectionId) {
   let html = `
             <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
                 <div class="collection-header" onclick="toggleCollection('${collectionId}')">
-                    <div class="collection-info">
-                        <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">${icon}</span>
-                        <h3 class="collection-name-title">${name}</h3>
-                        <span class="subgroup-stats">${count}</span>
-                    </div>
                     <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+                    <div class="collection-info">
+                        <h3 class="collection-name-title">${name}</h3>
+                    </div>
+                    <span class="subgroup-stats">${count}</span>
                 </div>
                 <div class="collection-content" id="${collectionId}-content">
         `;
@@ -3205,12 +3946,11 @@ function renderStyleGroup(name, styles, type, collectionId) {
     html += `
                 <div class="variable-subgroup">
                     <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                             <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">folder</span>
-                            <span class="subgroup-title">${groupName}</span>
-                            <span class="subgroup-stats">${groupStyles.length}</span>
-                        </div>
                         <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                            <span class="subgroup-title">${groupName}</span>
+                        </div>
+                        <span class="subgroup-stats">${groupStyles.length}</span>
                     </div>
                     <div class="subgroup-content collapsed" id="${groupId}-content">
                         ${renderStyleTable(groupStyles, type, true)} 
@@ -3226,13 +3966,13 @@ function renderStyleGroup(name, styles, type, collectionId) {
       html += `
                     <div class="variable-subgroup">
                         <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">dataset</span>
-                                <span class="subgroup-title">Ungrouped</span>
-                                <span class="subgroup-stats">${ungrouped.length}</span>
-                            </div>
                             <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                                <span class="subgroup-title">Ungrouped</span>
+                            </div>
+                            <span class="subgroup-stats">${ungrouped.length}</span>
                         </div>
+ historical (line 3444):
                         <div class="subgroup-content collapsed" id="${groupId}-content">
                             ${renderStyleTable(ungrouped, type, true)}
                         </div>
@@ -3873,6 +4613,139 @@ function deleteStyle(styleId, styleName, styleType) {
   }
 }
 
+function deleteComponent(componentId, componentName, componentType = 'component', parentId = null) {
+  let confirmMessage = '';
+  let deleteType = componentType;
+
+  if (componentType === 'set') {
+    confirmMessage = `Are you sure you want to delete the entire component set "${componentName}" and all its variants?\n\nThis action cannot be undone.`;
+  } else if (componentType === 'variant') {
+    confirmMessage = `Are you sure you want to delete the variant "${componentName}"?\n\nThis will only delete this specific variant, not the entire component set.\n\nThis action cannot be undone.`;
+  } else {
+    confirmMessage = `Are you sure you want to delete the component "${componentName}"?\n\nThis action cannot be undone.`;
+  }
+
+  if (confirm(confirmMessage)) {
+    // Send message to plugin to delete the component from Figma
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'delete-component',
+          componentId: componentId,
+          componentType: deleteType,
+          parentId: parentId,
+        },
+      },
+      '*',
+    );
+
+    // Show loading feedback - use data-component-id for more reliable selection
+    const button = document.querySelector(`button[onclick*="deleteComponent"][data-component-id="${componentId}"]`);
+    if (button) {
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+    }
+  }
+}
+
+function focusOnComponent(componentId) {
+  console.log('focusOnComponent called with:', componentId);
+  if (!componentId) {
+    console.warn('focusOnComponent: No componentId provided');
+    return;
+  }
+
+  // Reuse the focus-node message handler since components are nodes
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'focus-node',
+        nodeId: componentId,
+      },
+    },
+    '*',
+  );
+}
+
+function deleteUnusedVariable(variableId, variableName) {
+  const confirmMessage = `Are you sure you want to delete the variable "${variableName}"?\n\nThis action cannot be undone.`;
+
+  if (confirm(confirmMessage)) {
+    // Send message to plugin to delete the variable from Figma
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'delete-variable',
+          variableId: variableId,
+        },
+      },
+      '*',
+    );
+
+    // Show loading feedback
+    const button = document.querySelector(`button[data-variable-id="${variableId}"]`);
+    if (button) {
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+    }
+
+    // Hide the card immediately for better UX
+    const cardId = button.closest('.quality-issue-card').id;
+    if (cardId) {
+      const card = document.getElementById(cardId);
+      if (card) {
+        card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+        card.style.opacity = '0';
+        card.style.maxHeight = '0';
+        card.style.marginBottom = '0';
+        card.style.paddingTop = '0';
+        card.style.paddingBottom = '0';
+        card.style.overflow = 'hidden';
+
+        setTimeout(() => {
+          card.style.display = 'none';
+          // Re-analyze to update counts
+          analyzeVariableHygiene();
+        }, 300);
+      }
+    }
+  }
+}
+
+function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
+  const variantIds = variantIdsString.split(',');
+  const variantCount = variantIds.length;
+
+  const confirmMessage = `Are you sure you want to delete all ${variantCount} unused variants from "${componentName}"?\n\nThis will remove:\n${variantIds.length} unused variants\n\nThe component set and used variants will remain.\n\nThis action cannot be undone.`;
+
+  if (confirm(confirmMessage)) {
+    // Send message to plugin to delete all unused variants
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'delete-all-unused-variants',
+          componentId: componentId,
+          variantIds: variantIds,
+        },
+      },
+      '*',
+    );
+
+    // Show loading feedback
+    const button = document.querySelector(`button[data-component-id="${componentId}"].delete-btn`);
+    if (button) {
+      button.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+    }
+  }
+}
+
 function renderComponentVariables(group) {
   const groupIndex = Math.random().toString(36).substr(2, 9);
 
@@ -4012,6 +4885,9 @@ function renderComponents(data) {
       html += `
             <div class="component-set">
               <div class="component-set-header" data-index="${index}">
+                  <div class="component-set-toggle">
+                    <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
+                  </div>
                   <div class="component-header-content">
                     <div class="component-meta">
                       <span class="component-name">${parsedName.name}</span>
@@ -4034,9 +4910,6 @@ function renderComponents(data) {
                       'data-tooltip': 'Commit variants',
                     })}
                     ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
-                    <div class="component-set-toggle">
-                      <span class="material-symbols-outlined component-set-toggle-icon">expand_more</span>
-                    </div>
                   </div>
               </div>
               <div class="component-set-children" id="children-${index}">
@@ -4808,40 +5681,64 @@ function switchToQualityTab() {
     qualityTab.classList.add('active');
     qualityContent.classList.add('active');
 
-    // Auto-trigger scan, same as clicking the tab
-    setTimeout(() => {
-      console.log('Auto-triggering Smart Scan from warning button...');
-      if (typeof analyzeTokenCoverage === 'function') {
-        analyzeTokenCoverage('SMART_SCAN');
-      } else {
-        console.warn('analyzeTokenCoverage function not found');
-      }
-    }, 100);
+    // Check if quality data is already loaded (results already rendered)
+    const hasResults = document.getElementById('token-coverage-section');
+    if (hasResults) {
+      // Data already available — enter edit mode immediately
+      handleImproveDesignSystem();
+    } else {
+      // Data not loaded yet — trigger scan and enter edit mode when results arrive
+      window.pendingImproveDesignSystem = true;
+      setTimeout(() => {
+        console.log('Auto-triggering Smart Scan from warning button...');
+        if (typeof analyzeTokenCoverage === 'function') {
+          analyzeTokenCoverage('SMART_SCAN');
+        } else {
+          console.warn('analyzeTokenCoverage function not found');
+        }
+      }, 100);
+    }
   }
 }
 
 // Function to analyze token coverage
 
-function analyzeTokenCoverage(scopeOverride, notificationElement) {
+function analyzeTokenCoverage(scopeOverride, notificationElement, isBackground = false) {
 
-  console.log('analyzeTokenCoverage called', { scopeOverride, hasNotification: !!notificationElement });
+  console.log('analyzeTokenCoverage called', { scopeOverride, hasNotification: !!notificationElement, isBackground });
+  
+  // Set global background flag
+  window.isBackgroundAnalysis = isBackground;
+
   // Store notification reference if provided
   if (notificationElement) {
     window.currentAnalysisNotification = notificationElement;
   }
+  
+  // Reset Animation Controller to ensure new stats animate
+  if (window.QualityAnimationController && typeof window.QualityAnimationController.reset === 'function') {
+      window.QualityAnimationController.reset();
+  }
 
   const resultsContainer = document.getElementById('token-coverage-results');
 
-  if (resultsContainer) {
+  // ONLY Show skeleton if NOT in background
+  if (resultsContainer && !isBackground) {
     resultsContainer.innerHTML = UIHelper.createSkeletonLoader();
   }
+
+  const selectedIds = MultiPageSelector.getSelectedIds();
+  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
+  const pageIds = selectedIds.length > 0 ? selectedIds : null;
 
   // Send message to plugin backend
   parent.postMessage(
     {
       pluginMessage: {
         type: 'analyze-token-coverage',
-        scope: scopeOverride || analysisScope,
+        // If pageIds are provided, we MUST use ALL scope to ensure backend processes the list
+        scope: pageIds ? 'ALL' : (scopeOverride || analysisScope),
+        pageIds: pageIds,
         exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css'
       },
     },
@@ -4849,14 +5746,69 @@ function analyzeTokenCoverage(scopeOverride, notificationElement) {
   );
 }
 
+// Function to analyze stats (component usage)
+function analyzeStats() {
+  console.log('analyzeStats called');
+  const selectedIds = MultiPageSelector.getSelectedIds();
+  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
+  const pageIds = selectedIds.length > 0 ? selectedIds : null;
+  parent.postMessage({
+    pluginMessage: {
+      type: 'get-component-usage',
+      // If we have specific pages, the backend handles it via usage scanning
+      pageIds: pageIds
+    } 
+  }, '*');
+}
+
+// Analyze component hygiene (unused components)
+function analyzeComponentHygiene() {
+  console.log('analyzeComponentHygiene called');
+
+  const selectedIds = MultiPageSelector.getSelectedIds();
+  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
+  const pageIds = selectedIds.length > 0 ? selectedIds : null;
+
+  // Send message to plugin backend
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'analyze-component-hygiene',
+        scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
+        pageIds: pageIds
+      },
+    },
+    '*',
+  );
+}
+
+// Analyze variable hygiene (unused variables)
+function analyzeVariableHygiene() {
+  console.log('analyzeVariableHygiene called');
+
+  const selectedIds = MultiPageSelector.getSelectedIds();
+  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
+  const pageIds = selectedIds.length > 0 ? selectedIds : null;
+
+  // Send message to plugin backend
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: 'analyze-variable-hygiene',
+        scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
+        pageIds: pageIds
+      },
+    },
+    '*',
+  );
+}
+
+// Smooth gradient from red (0) → yellow (50) → green (100) using HSL
 function getScoreColor(score) {
-  if (!score && score !== 0) return '#22c55e'; // Default to green
-  // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
-  // Hue: 0 = red, 60 = yellow, 120 = green
-  // Map score 0-100 to hue 0-120
-  const hue = Math.min(120, Math.max(0, (score / 100) * 120));
-  // Keep saturation and lightness consistent for vibrant colors
-  return `hsl(${hue}, 70%, 50%)`;
+  if (score === undefined || score === null) return '#ffffff';
+  if (score < 40) return '#ef4444'; // Red
+  if (score < 80) return '#fbbf24'; // Yellow/Orange
+  return '#22c55e'; // Green
 }
 
 // Update analysis scope
@@ -4885,28 +5837,30 @@ window.toggleStatsSort = function(column) {
   }
 };
 
+// Filter stats by unused
+window.filterByUnused = function() {
+  if (!componentStatsData) return;
+  const unused = componentStatsData.filter(item => item.count === 0);
+  renderStats(componentStatsData, unused);
+  
+  // Reset search input value to avoid confusion
+  const searchInput = document.getElementById('stats-search');
+  if (searchInput) searchInput.value = '';
+};
+
 // Render component stats
 function renderStats(statsData, filteredData = null) {
   const container = document.getElementById('stats-container');
+  const summaryContainer = document.getElementById('stats-summary-container');
+  
   if (!container) return;
 
-  if (!statsData || statsData.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📊</div>
-        <div class="empty-text">No local components found in this file</div>
-        <div class="empty-subtext">Components defined in this file will appear here</div>
-      </div>
-    `;
-    return;
-  }
-
   // Calculate totals from the FULL dataset (statsData)
-  const totalComponents = statsData.length;
-  const totalInstances = statsData.reduce((sum, item) => sum + item.count, 0);
+  const totalComponents = statsData ? statsData.length : 0;
+  const totalInstances = statsData ? statsData.reduce((sum, item) => sum + item.count, 0) : 0;
 
   // Metrics: Unused
-  const unusedComponents = statsData.filter((item) => item.count === 0).length;
+  const unusedComponents = statsData ? statsData.filter((item) => item.count === 0).length : 0;
 
   // Calculate filtered stats if provided
   let filteredComponents = 0;
@@ -4919,29 +5873,46 @@ function renderStats(statsData, filteredData = null) {
       filteredUnused = filteredData.filter((item) => item.count === 0).length;
   }
 
-  let html = `
-    <!-- Top Summary Cards -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${filteredData ? `${filteredComponents} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalComponents}</span>` : totalComponents}
+  // 1. Render Summary Cards to Top Container
+  if (summaryContainer) {
+    summaryContainer.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div onclick="window.filterStats(null)" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+          <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
+              ${filteredData ? `${filteredComponents} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalComponents}</span>` : totalComponents}
+          </div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
         </div>
-        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
-      </div>
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-            ${filteredData ? `${filteredInstances} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalInstances}</span>` : totalInstances}
+        <div onclick="window.filterStats(null)" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+          <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
+              ${filteredData ? `${filteredInstances} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalInstances}</span>` : totalInstances}
+          </div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
         </div>
-        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
-      </div>
-      <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-        <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-             ${filteredData ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
+        <div onclick="window.filterByUnused()" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+          <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
+              ${filteredData ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
+          </div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
         </div>
-        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
       </div>
-    </div>
+    `;
+  }
 
+  // 2. Render Table or Empty State to Bottom Container
+  if (!statsData || statsData.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">No local components found in this file</div>
+        <div class="empty-subtext">Components defined in this file will appear here</div>
+      </div>
+    `;
+    return;
+  }
+
+
+  let html = `
     <!-- Stats Table -->
     <div class="stats-table">
         <!-- Table Header -->
@@ -5016,89 +5987,99 @@ function renderStats(statsData, filteredData = null) {
 
 // Function to render Tailwind Readiness section
 function renderTailwindReadinessSection(validation) {
-  if (!validation || !validation.invalidGroups || validation.invalidGroups.length === 0) {
-
-    return '';
-  }
-
-
-
-  // Separate standalone variables from grouped variables
-  const invalidGroupNames = validation.invalidGroups;
-  const allInvalidGroups = validation.groups.filter(g => invalidGroupNames.includes(g.name));
-  const standaloneVariables = allInvalidGroups.filter(g => g.isStandalone);
-  const groupedVariables = allInvalidGroups.filter(g => !g.isStandalone);
+  // Always render the section wrapper, even if empty/success
+  const sectionId = 'tailwind-readiness-section';
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] === true; 
+  
+  // Calculate stats (handle empty/null validation gracefully)
+  const score = validation ? (validation.readinessScore || 0) : 0;
+  const totalInvalid = validation ? (validation.totalInvalid || 0) : 0;
+  const totalVariables = validation ? (validation.totalVariables || 0) : 0;
+  const hasIssues = totalInvalid > 0;
 
   let html = `
-    <!-- Tailwind Readiness Header -->
-    <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
-        <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
-          <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">verified</span>
-          Tailwind Readiness
-        </h2>
+    <!-- Section Divider -->
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 16px 0;"></div>
+    
+    <!-- Tailwind Readiness Collapsible Section -->
+    <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
+      <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 8px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+        <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: rgba(255,255,255,0.4); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
+        <!-- Stats -->
+        ${renderCategoryStats(
+            score,
+            totalInvalid,
+            totalVariables,
+            'Tailwind Incompatible Variables'
+        )}
       </div>
-      <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-        Variables that need Tailwind v4 compatible namespaces. Fix them individually or by group.
-      </p>
-    </div>
+      <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+          Variables that need Tailwind v4 compatible namespaces. Fix them individually or by group.
+        </p>
   `;
 
-  // Render Standalone Variables collapsible (if any exist)
-  if (standaloneVariables.length > 0) {
-    const standaloneGroupId = 'tailwind-standalone-group';
-    // Auto-expand if we just fixed a standalone variable or general fix
-    const standaloneIsExpanded = window.justFixedTailwind === true;
+  if (hasIssues) {
+      // Separate standalone variables from grouped variables
+      const invalidGroupNames = validation.invalidGroups || [];
+      const allInvalidGroups = (validation.groups || []).filter(g => invalidGroupNames.includes(g.name));
+      const standaloneVariables = allInvalidGroups.filter(g => g.isStandalone);
+      const groupedVariables = allInvalidGroups.filter(g => !g.isStandalone);
 
-    html += `
-      <div id="${standaloneGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
-        <div class="collection-header header ${standaloneIsExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${standaloneGroupId}')">
-          <div class="collection-info">
-            <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-              <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
-              Standalone Variables
+      // Render Standalone Variables collapsible (if any exist)
+      if (standaloneVariables.length > 0) {
+        const standaloneGroupId = 'tailwind-standalone-group';
+        // Auto-expand if we just fixed a standalone variable or general fix
+        const standaloneIsExpanded = window.justFixedTailwind === true;
+
+        html += `
+          <div id="${standaloneGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
+            <div class="collection-header header ${standaloneIsExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${standaloneGroupId}')">
+              <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+              <div class="collection-info">
+                <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                  Standalone Variables
+                </div>
+              </div>
               <span class="subgroup-stats">${standaloneVariables.length}</span>
             </div>
-          </div>
-          <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
-        </div>
-        <div id="${standaloneGroupId}-content" class="collection-content ${standaloneIsExpanded ? '' : 'collapsed'}">
-          <div style="padding: 12px;">
-    `;
+            <div id="${standaloneGroupId}-content" class="collection-content ${standaloneIsExpanded ? '' : 'collapsed'}">
+              <div style="padding: 12px;">
+        `;
 
-    standaloneVariables.forEach((variable, idx) => {
-      const itemId = `tailwind-standalone-${idx}`;
-      const displayName = SecurityUtils.escapeHTML(variable.name);
+        standaloneVariables.forEach((variable, idx) => {
+          const itemId = `tailwind-standalone-${idx}`;
+          const displayName = SecurityUtils.escapeHTML(variable.name);
 
-      html += `
-        <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${displayName}
-              </div>
-   
-            </div>
-            <div style="display: flex; gap: 6px; align-items: center;">
-               <select 
-                id="${itemId}-namespace-select" 
-                class="token-fix-select" 
-                style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
-                onchange="updateTailwindActionButtonsState('${itemId}', true)"
-              >
-                <option value="">Select namespace...</option>
-                ${getTailwindNamespaceOptions(variable.name)}
-              </select>
-              <button 
-                id="${itemId}-add-prefix-btn" 
-                class="token-fix-apply-btn" 
-                onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}');refreshData()"
-                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
-                disabled
-                title="Add namespace prefix"
-              >
-                <span class="material-symbols-outlined">add</span>
-                Add prefix
+          html += `
+            <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${displayName}
+                  </div>
+       
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                   <select 
+                    id="${itemId}-namespace-select" 
+                    class="token-fix-select" 
+                    style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
+                    onchange="updateTailwindActionButtonsState('${itemId}', true)"
+                  >
+                    <option value="">Select namespace...</option>
+                    ${getTailwindNamespaceOptions(variable.name)}
+                  </select>
+                  <button 
+                    id="${itemId}-add-prefix-btn" 
+                    class="token-fix-apply-btn" 
+                    onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}');refreshData()"
+                      style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
+                    disabled
+                    title="Add namespace prefix"
+                  >
+                    <span class="material-symbols-outlined">add</span>
+                    Add prefix
               </button>
             </div>
           </div>
@@ -5122,14 +6103,13 @@ function renderTailwindReadinessSection(validation) {
     html += `
       <div id="${groupsGroupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
         <div class="collection-header header ${groupsIsExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupsGroupId}')">
+          <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
           <div class="collection-info">
             <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-              <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px; color: var(--purple-light);">warning</span>
               Invalid Groups
-              <span class="subgroup-stats">${groupedVariables.length}</span>
             </div>
           </div>
-          <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
+          <span class="subgroup-stats">${groupedVariables.length}</span>
         </div>
         <div id="${groupsGroupId}-content" class="collection-content ${groupsIsExpanded ? '' : 'collapsed'}">
           <div style="padding: 12px;">
@@ -5198,7 +6178,342 @@ function renderTailwindReadinessSection(validation) {
     `;
   }
 
+  }
+
+  // Close Tailwind Readiness section
+  html += `
+      </div>
+    </div>
+  `;
+
   return html;
+}
+
+// Function to display Component Hygiene section
+function displayComponentHygieneSection(result) {
+  if (!result) {
+    // Basic validation only
+    return;
+  }
+
+  const resultsContainer = document.getElementById('quality-dashboard-container');
+  if (!resultsContainer) {
+    return;
+  }
+
+  const componentHygieneId = 'component-hygiene-section';
+  const sectionId = 'unused-components-section';
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] === true; // Default collapsed
+
+  // Update global state
+  if (window.qualityAnalysisState) {
+      window.qualityAnalysisState.subScores.componentHygiene = result.hygieneScore || 0;
+      window.qualityAnalysisState.componentIssues = result.unusedCount || 0;
+      updateQualityScoreUI();
+  }
+
+  let html = `
+    <!-- Section Divider -->
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 16px 0;"></div>
+    
+    <!-- Unused Components Collapsible Section -->
+    <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
+      <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 8px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+        <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: rgba(255,255,255,0.4); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
+        <!-- Stats -->
+        ${renderCategoryStats(
+            result.hygieneScore || 0,
+            result.unusedCount,
+            result.totalComponents,
+            'Unused Components'
+        )}
+      </div>
+      <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+          ${result.unusedCount} unused component${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalComponents} total. Remove unused components to improve your design system hygiene.
+        </p>
+        <div style="padding-left: 0;">
+  `;
+
+  result.unusedComponents.forEach((component, idx) => {
+    const itemId = `component-hygiene-${idx}`;
+    const displayName = SecurityUtils.escapeHTML(component.name);
+
+    // Determine if this is a component set with variants
+    const isComponentSet = component.type === 'COMPONENT_SET';
+    const hasVariants = isComponentSet && component.unusedVariants && component.unusedVariants.length > 0;
+    const isFullyUnused = component.isFullyUnused;
+
+    // Build variant usage label for component sets
+    let variantLabel = '';
+    if (isComponentSet) {
+      variantLabel = `<span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px; background: rgba(139, 92, 246, 0.2); color: var(--purple-light); border: 1px solid rgba(139, 92, 246, 0.3);">${component.unusedVariantCount}/${component.totalVariants}</span>`;
+    }
+
+    // Build the main component card
+    let componentHtml = `
+      <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 4px; display: block; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; display: flex; align-items: center;">
+    `;
+
+    // All component sets (whether fully or partially unused) get expandable view
+    if (hasVariants) {
+      const groupId = `${itemId}-variants`;
+
+      // Build variant IDs for batch deletion
+      const variantIds = component.unusedVariants.map(v => v.id).join(',');
+
+      componentHtml += `
+        <div class="node-header" style="display: flex; align-items: center; gap: 6px;">
+          <div onclick="toggleComponentHygieneGroup('${groupId}')" style="display: flex; align-items: center; flex: 1; cursor: pointer; min-width: 0;">
+            <span style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</span>
+            <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-left: 8px;" id="${groupId}-toggle">
+              <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
+            </button>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            ${variantLabel}
+            <button 
+              class="icon-button delete-btn" 
+              data-component-id="${component.id}"
+              onclick="event.stopPropagation(); deleteAllUnusedVariants('${component.id}', '${displayName}', '${variantIds}')" 
+              title="Delete all ${component.unusedVariantCount} unused variants"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+            </button>
+          </div>
+        </div>
+        
+        <div id="${groupId}" class="node-instances" style="display: none; padding-left: 28px; margin-top: 8px; border-left: 2px solid rgba(139, 92, 246, 0.2); margin-left: 9px;">
+      `;
+
+      // Add each unused variant
+      component.unusedVariants.forEach((variant) => {
+        const variantName = SecurityUtils.escapeHTML(variant.name);
+        componentHtml += `
+          <div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
+              <span class="instance-label" title="${variantName}" style="font-size: 12px; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${variantName}</span>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button 
+                class="icon-button focus-btn" 
+                onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" 
+                title="Focus on variant"
+              >
+                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+              </button>
+              <button 
+                class="icon-button delete-btn" 
+                data-component-id="${variant.id}"
+                onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${component.id}')" 
+                title="Delete variant"
+              >
+                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      componentHtml += `
+        </div>
+      `;
+    } else {
+      // Regular component (not a component set) - simple non-expandable card
+      const componentType = 'Component';
+      const deleteType = 'component';
+
+      componentHtml += `
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${displayName}
+              </div>
+              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 2px;">
+                ${componentType}
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            ${variantLabel}
+            <button 
+              class="icon-button focus-btn" 
+              onclick="focusOnComponent('${component.id}')" 
+              title="Focus on component"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span>
+            </button>
+            <button 
+              class="icon-button delete-btn" 
+              data-component-id="${component.id}"
+              onclick="deleteComponent('${component.id}', '${displayName}', '${deleteType}')" 
+              title="Delete ${componentType.toLowerCase()}"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    componentHtml += `
+      </div>
+    `;
+
+    html += componentHtml;
+  });
+
+  // Close the components list and section
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Append the HTML to the results container placeholder
+  const target = document.getElementById('component-hygiene-results-placeholder');
+  if (target) {
+    target.innerHTML = `
+      <div id="${componentHygieneId}">
+        ${html}
+      </div>
+    `;
+    
+    // Register for sequential animation
+    if (window.QualityAnimationController) {
+        window.QualityAnimationController.registerData('Unused Components');
+    }
+  }
+}
+
+// Function to display Variable Hygiene section
+function displayVariableHygieneSection(result) {
+  if (!result) {
+    // Basic validation only
+    return;
+  }
+
+  const resultsContainer = document.getElementById('quality-dashboard-container');
+  if (!resultsContainer) {
+    return;
+  }
+
+  const variableHygieneId = 'variable-hygiene-section';
+  const sectionId = 'unused-variables-section';
+  const isSectionExpanded = window.qualitySectionStates && window.qualitySectionStates[sectionId] === true; // Default collapsed
+
+  // Update global state
+  if (window.qualityAnalysisState) {
+      window.qualityAnalysisState.subScores.variableHygiene = result.hygieneScore || 0;
+      window.qualityAnalysisState.variableIssues = result.unusedCount || 0;
+      updateQualityScoreUI();
+  }
+
+  let html = `
+    <!-- Section Divider -->
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 16px 0;"></div>
+    
+    <!-- Unused Variables Collapsible Section -->
+    <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
+      <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 8px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+        <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: rgba(255,255,255,0.4); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
+        <!-- Stats -->
+        ${renderCategoryStats(
+            result.hygieneScore || 0,
+            result.unusedCount,
+            result.totalVariables,
+            'Unused Variables'
+        )}
+      </div>
+      <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
+        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+          ${result.unusedCount} unused variable${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalVariables} total. Remove unused variables to improve your design system hygiene.
+        </p>
+        <div style="padding-left: 0;">
+  `;
+
+  // Group variables by collection
+  const groups = {};
+  result.unusedVariables.forEach(v => {
+    if (!groups[v.collectionName]) groups[v.collectionName] = [];
+    groups[v.collectionName].push(v);
+  });
+
+  Object.entries(groups).forEach(([collectionName, variables], gIdx) => {
+    const groupId = `unused-var-group-${gIdx}`;
+    const escapedCollectionName = SecurityUtils.escapeHTML(collectionName);
+    
+    html += `
+      <div class="variable-collection" style="margin-bottom: 8px;">
+        <div class="collection-header collapsed" 
+             onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
+             style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 18px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${escapedCollectionName}</span>
+          <span style="font-size: 10px; color: rgba(255,255,255,0.3); background: none; border: none; padding: 1px 6px;">${variables.length}</span>
+        </div>
+        <div id="${groupId}-content" style="display: none; padding: 4px 0 4px 0;">
+    `;
+
+    variables.forEach((variable, vIdx) => {
+      const itemId = `variable-hygiene-${gIdx}-${vIdx}`;
+      const displayName = SecurityUtils.escapeHTML(variable.name);
+
+      // Color Preview Logic
+      const isColorValue = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(variable.resolvedValue || '');
+      const isColor = variable.resolvedType === 'COLOR' || isColorValue;
+      
+      const colorPreview = isColor && variable.resolvedValue
+        ? `<div style="width: 14px; height: 14px; border-radius: 3px; background: ${variable.resolvedValue}; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-left: 8px;"></div>` 
+        : '';
+
+      html += `
+        <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 2px; display: block; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
+            <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
+              <div style="width: 160px; flex-shrink: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${displayName}
+              </div>
+              ${colorPreview}
+            </div>
+            <button 
+              class="icon-button delete-btn" 
+              data-variable-id="${variable.id}"
+              onclick="deleteUnusedVariable('${variable.id}', '${displayName}')" 
+              title="Delete variable"
+            >
+              <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+  });
+
+  // Close the variables list and section
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Append the HTML to the results container placeholder
+  const target = document.getElementById('variable-hygiene-results-placeholder');
+  if (target) {
+    target.innerHTML = `
+      <div id="${variableHygieneId}">
+        ${html}
+      </div>
+    `;
+    
+    // Register for sequential animation
+    if (window.QualityAnimationController) {
+        window.QualityAnimationController.registerData('Unused Variables');
+    }
+  }
 }
 
 // Helper function to get Tailwind namespace options
@@ -5251,198 +6566,732 @@ function getTailwindNamespaceOptions(currentName) {
   return html;
 }
 
+// Quality Animation Controller
+window.QualityAnimationController = {
+  activeCategories: new Set(),
+  completedCategories: new Set(),
+  isRunning: false,
+  
+  isRunning: false,
+  
+  // Reset state for new analysis
+  reset() {
+      console.log('AnimationController: resetting state');
+      this.activeCategories = new Set();
+      this.completedCategories = new Set();
+      this.isRunning = false;
+  },
+
+  // Register a category as "data received"
+  registerData(categoryLabel) {
+    console.log('AnimationController: registered', categoryLabel);
+    this.activeCategories.add(categoryLabel);
+    this.tryStart();
+  },
+  
+  async tryStart() {
+    if (this.isRunning) return;
+    
+    this.isRunning = true;
+    
+    // Categories in order
+    const sequence = [
+      'Missing Variables',
+      'Unused Variables',
+      'Unused Components',
+      'Tailwind Incompatible Variables'
+    ];
+    
+    let animatedSomething = false;
+
+    for (const label of sequence) {
+      if (this.completedCategories.has(label)) continue;
+
+      const safe = label.replace(/\s+/g, '-').toLowerCase();
+      // Check if elements exist in DOM
+      const bar = document.getElementById(`bar-${safe}`);
+      const hasData = this.activeCategories.has(label);
+
+      // Only animate when data has been explicitly registered AND DOM element exists
+      // Using just `bar` would animate stale elements from a previous scan
+      if (hasData && bar) {
+        await this.animateCategory(label);
+        this.completedCategories.add(label);
+        animatedSomething = true;
+      }
+    }
+    
+    // Check if we are done based on DOM presence/sequence
+    const totalPossible = sequence.length;
+    
+    // If we've completed all possible or loop finished with nothing new, stop
+    // But we should keep checking if we expect more (lazy loading)
+    // For now, simple logic: if we did something, maybe there is more?
+    // Determine if we should keep polling
+    
+    const visibleSections = sequence.filter(l => {
+       const safe = l.replace(/\s+/g, '-').toLowerCase();
+       return document.getElementById(`bar-${safe}`);
+    }).length;
+
+    if (this.completedCategories.size >= visibleSections && visibleSections > 0) {
+        // All currently visible sections are animated
+        if (this.completedCategories.size >= sequence.length) {
+            // All possible sections done
+            await this.animateFinalScore();
+            this.reset(); // Reset for next run completely
+        } else {
+             // Some sections missing from DOM, might appear later
+             this.isRunning = false;
+             // Poll less frequently
+             setTimeout(() => this.tryStart(), 1000);
+        }
+    } else {
+      // Still waiting for some data or animations pending
+      this.isRunning = false;
+      setTimeout(() => this.tryStart(), 500);
+    }
+  },
+  
+  async animateCategory(label) {
+    const safeLabel = label.replace(/\s+/g, '-').toLowerCase();
+    const badCountEl = document.getElementById(`count-${safeLabel}`);
+    const goodCountEl = document.getElementById(`count-good-${safeLabel}`);
+    const barEl = document.getElementById(`bar-${safeLabel}`);
+    const percentEl = document.getElementById(`percent-${safeLabel}`);
+    
+    if (!badCountEl || !barEl || !percentEl) return;
+    
+    console.log('AnimationController: animating', label);
+    
+    const badTarget = parseInt(badCountEl.dataset.target) || 0;
+    const goodTarget = goodCountEl ? (parseInt(goodCountEl.dataset.target) || 0) : 0;
+    const scoreTarget = parseInt(barEl.dataset.score) || 0;
+    
+    // SMART UPDATE: Read current values to animate from
+    // Parse current text content, removing suffixes/junk
+    const currentBad = parseInt(badCountEl.textContent.replace(/[^0-9-]/g, '')) || 0;
+    const currentGood = goodCountEl ? (parseInt(goodCountEl.textContent.replace(/[^0-9-]/g, '')) || 0) : 0;
+    const currentPercent = parseInt(percentEl.textContent.replace(/[^0-9-]/g, '')) || 0;
+    
+    // 1. Counts (Smart Transition)
+    // If target is 0 and we are not in background, start from 0 (initial load)
+    // If background mode, we always want to transition from current
+    const startBad = window.isBackgroundAnalysis ? currentBad : 0;
+    const startGood = window.isBackgroundAnalysis ? currentGood : 0;
+    const startPercent = window.isBackgroundAnalysis ? currentPercent : 0;
+    
+    // Animate both counts concurrently
+    const promises = [
+      this.animateValue(badCountEl, startBad, badTarget, 600),
+      this.animateValue(percentEl, startPercent, scoreTarget, 600, '%')
+    ];
+    
+    if (goodCountEl) {
+      promises.push(this.animateValue(goodCountEl, startGood, goodTarget, 600));
+    }
+    
+    // 2. Animate bar
+    barEl.style.transition = 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+    barEl.style.width = `${scoreTarget}%`;
+    
+    await Promise.all(promises);
+    
+    await new Promise(r => setTimeout(r, 200));
+  },
+  
+  async animateFinalScore() {
+    console.log('AnimationController: animating final score');
+    const scoreEl = document.getElementById('score-value') || document.querySelector('.quality-gauge-svg text');
+    const circle = document.getElementById('score-gauge-circle-fill');
+    
+    if (!scoreEl) return;
+    
+    // Get final score from state
+    const state = window.qualityAnalysisState;
+    if (!state) return;
+    
+    let totalScore = 0;
+    let weightSum = 0;
+    Object.keys(state.subScores).forEach(key => {
+        const weight = parseFloat(state.weights[key]) || 0;
+        if (weight > 0) {
+            totalScore += state.subScores[key] * (weight / 100);
+            weightSum += weight;
+        }
+    });
+    const finalScore = weightSum > 0 ? Math.round(totalScore * (100 / weightSum)) : 0;
+    state.score = finalScore;
+
+    // Animate circular gauge fill
+    if (circle) {
+         const radius = parseFloat(circle.getAttribute('r'));
+         const circumference = 2 * Math.PI * radius;
+         const offset = circumference * (1 - (finalScore / 100));
+         circle.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+         circle.style.strokeDashoffset = offset;
+         
+         // Color transition if needed
+         circle.style.stroke = getScoreColor(finalScore);
+         const text = document.querySelector('.quality-gauge-svg text');
+         if (text) text.style.fill = getScoreColor(finalScore);
+    }
+
+    // Count up score value
+    // SMART UPDATE: Read current score to animate from
+    const currentScore = parseInt(scoreEl.textContent.replace(/[^0-9-]/g, '')) || 0;
+    const startScore = window.isBackgroundAnalysis ? currentScore : 0;
+    
+    await this.animateValue(scoreEl, startScore, finalScore, 1000);
+  },
+  
+  animateValue(el, start, end, duration, suffix = '') {
+    return new Promise(resolve => {
+      let startTimestamp = null;
+      const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const current = Math.floor(progress * (end - start) + start);
+        el.textContent = current.toLocaleString() + suffix;
+        if (progress < 1) {
+          window.requestAnimationFrame(step);
+        } else {
+          el.textContent = end.toLocaleString() + suffix;
+          resolve();
+        }
+      };
+      window.requestAnimationFrame(step);
+    });
+  }
+};
+
+// Function from line 6221 moved down or assumed existing
+
+// Category Config Definition
+function getQualityCategories() {
+  return [
+    { key: 'tokenCoverage', color: 'white', label: 'Missing Variables' },
+    { key: 'tailwindReadiness', color: 'white', label: 'Incompatible Tailwind Variables' },
+    { key: 'componentHygiene', color: 'white', label: 'Component Hygiene' },
+    { key: 'variableHygiene', color: 'white', label: 'Variable Hygiene' }
+  ];
+}
+
+// SVG Arc Helpers
+function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+  return {
+    x: centerX + (radius * Math.cos(angleInRadians)),
+    y: centerY + (radius * Math.sin(angleInRadians))
+  };
+}
+
+function describeArc(x, y, radius, startAngle, endAngle) {
+  const start = polarToCartesian(x, y, radius, endAngle);
+  const end = polarToCartesian(x, y, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  const d = [
+    "M", start.x, start.y,
+    "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
+  ].join(" ");
+  return d;
+}
+
+function renderSegmentedGauge(subScores, weights, size = 150, options = {}) {
+  const showLabels = options.showLabels !== false;
+  const showCenterText = options.showCenterText !== false;
+  const strokeWidth = options.strokeWidth || (showLabels ? 10 : 6);
+
+  const state = window.qualityAnalysisState;
+  const score = state ? (function() {
+      let total = 0;
+      let wSum = 0;
+      Object.keys(state.subScores).forEach(key => {
+          const w = parseFloat(state.weights[key]) || 0;
+          if (w > 0) {
+              total += state.subScores[key] * (w / 100);
+              wSum += w;
+          }
+      });
+      return wSum > 0 ? Math.round(total * (100 / wSum)) : 0;
+  })() : 0;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  // When labels are shown, reserve 35px for them; otherwise just leave room for the stroke
+  const radius = showLabels ? (size / 2) - 35 : (size / 2) - strokeWidth / 2 - 2;
+  const color = getScoreColor(score);
+  
+  const categories = [
+    { key: 'tokenCoverage', label: 'Missing Variables' },
+    { key: 'variableHygiene', label: 'Unused Variables' },
+    { key: 'componentHygiene', label: 'Unused Components' },
+    { key: 'tailwindReadiness', label: 'Tailwind Incompatible Variables' }
+  ];
+
+  const activeCategories = categories.filter(cat => 
+    subScores && subScores[cat.key] !== undefined && 
+    weights && parseFloat(weights[cat.key]) > 0
+  );
+
+  const numSegments = activeCategories.length;
+  const gapAngle = 15; // Increased for better visual separation
+  const totalGapAngle = gapAngle * numSegments;
+  const segmentAngle = (360 - totalGapAngle) / numSegments;
+  
+  let html = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="quality-gauge-svg" style="display: block; margin: 0 auto; overflow: visible;">`;
+  
+  // Overall score in the center (skip for compact/header gauge)
+  if (showCenterText) {
+    html += `
+      <text id="quality-score-text" x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
+            style="fill: ${color}; font-size: 32px; font-weight: 800; font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace; transition: fill 0.6s ease;">
+        ${score}
+      </text>
+    `;
+  }
+
+  // 1. Total Score Ring (Default State)
+  const circumference = 2 * Math.PI * radius;
+  
+  html += `
+    <g class="total-score-ring">
+      <circle cx="${cx}" cy="${cy}" r="${radius}" 
+              fill="none" 
+              stroke="white" 
+              stroke-width="${strokeWidth}" 
+              stroke-opacity="0.08" 
+              stroke-linecap="round" />
+      <circle id="score-gauge-circle-fill" cx="${cx}" cy="${cy}" r="${radius}" 
+              fill="none" 
+              stroke="${color}" 
+              stroke-width="${strokeWidth}" 
+              stroke-linecap="round" 
+              stroke-dasharray="${circumference}"
+              stroke-dashoffset="${circumference}"
+              transform="rotate(-90 ${cx} ${cy})"
+              style="transition: stroke-dashoffset 1s ease-out;" />
+    </g>
+  `;
+
+  // 2. Category Segments (Hover State)
+  activeCategories.forEach((cat, i) => {
+    const catScore = subScores[cat.key];
+    const catColor = getScoreColor(catScore);
+    const startAngle = i * (segmentAngle + gapAngle);
+    const endAngle = startAngle + segmentAngle;
+    const scoreSweep = segmentAngle * (catScore / 100);
+
+    // Label positioning (only computed if labels are shown)
+    let labelHtml = '';
+    if (showLabels) {
+      const midAngle = startAngle + segmentAngle / 2;
+      const midAngleRad = (midAngle - 90) * (Math.PI / 180);
+
+      // Position labels significantly further out
+      const labelRadius = radius + 28;
+      const lx = cx + labelRadius * Math.cos(midAngleRad);
+      const ly = cy + labelRadius * Math.sin(midAngleRad);
+
+      // Quadrant-based alignment to prevent overlapping the circle
+      let textAnchor = 'middle';
+      let baseline = 'central';
+
+      // Normalize angle to [0, 360)
+      const normAngle = ((midAngle % 360) + 360) % 360;
+
+      if (normAngle > 20 && normAngle < 160) textAnchor = 'start';
+      else if (normAngle > 200 && normAngle < 340) textAnchor = 'end';
+
+      if (normAngle > 110 && normAngle < 250) baseline = 'hanging';
+      else if (normAngle > 290 || normAngle < 70) baseline = 'alphabetic';
+
+      // Split long labels into lines
+      const words = cat.label.split(' ');
+      const lines = [];
+      if (words.length > 2) {
+        lines.push(words.slice(0, 2).join(' '));
+        lines.push(words.slice(2).join(' '));
+      } else {
+        lines.push(cat.label);
+      }
+
+      labelHtml = `
+        <g class="gauge-label" style="opacity: 0; pointer-events: none; transition: all 0.3s ease;">
+          ${lines.map((line, idx) => `
+            <text x="${lx}" y="${ly + (idx * 12) - ((lines.length - 1) * 6)}"
+                  text-anchor="${textAnchor}"
+                  dominant-baseline="${baseline}"
+                  style="fill: white; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+              ${line}
+            </text>
+          `).join('')}
+        </g>
+      `;
+    }
+
+    html += `
+      <g class="gauge-category" data-category="${cat.key}" style="cursor: pointer;">
+        <path d="${describeArc(cx, cy, radius, startAngle, endAngle)}"
+              fill="none"
+              stroke="${catColor}"
+              stroke-width="${strokeWidth}"
+              stroke-opacity="0.15"
+              stroke-linecap="round" />
+
+        ${scoreSweep > 0 ? `
+          <path d="${describeArc(cx, cy, radius, startAngle, startAngle + Math.max(1, scoreSweep))}"
+                fill="none"
+                stroke="${catColor}"
+                stroke-width="${strokeWidth}"
+                stroke-linecap="round"
+                class="gauge-segment" />
+        ` : ''}
+
+        ${labelHtml}
+      </g>
+    `;
+  });
+
+  html += '</svg>';
+  return html;
+}
+
+// Function to render category progress bars
+function renderCategoryStats(score, badCount, totalCount, label) {
+  const color = getScoreColor(score);
+  const isSuccess = score === 100;
+  const safeLabel = label ? label.replace(/\s+/g, '-').toLowerCase() : 'unknown';
+  const countId = `count-${safeLabel}`;
+  const goodCountId = `count-good-${safeLabel}`;
+  const barId = `bar-${safeLabel}`;
+  const percentId = `percent-${safeLabel}`;
+
+  // Calculate Good count
+  const validBad = typeof badCount === 'number' ? badCount : 0;
+  const validTotal = typeof totalCount === 'number' ? totalCount : 0;
+  let goodCount = validTotal - validBad;
+  if (goodCount < 0) goodCount = 0;
+
+  // Restore Layout: H2 (Label) + Div (Stats) as siblings
+  return `
+    <h2 style="color: ${isSuccess ? color : 'white'}; display: flex; align-items: center; gap: 10px; font-size: 1.05rem; margin: 0; flex: 1;">
+      ${label}
+      ${isSuccess ? `<span class="material-symbols-outlined" style="font-size: 20px; color: ${color}; margin-left: -4px;">check_circle</span>` : ''}
+    </h2>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <!-- Good Count (Green) -->
+        <span id="${goodCountId}" class="quality-animate-count" data-target="${goodCount}" style="color: #4ade80; font-weight: 500; font-family: 'SF Mono', monospace; font-size: 12px; min-width: 20px; text-align: right;">0</span>
+        
+        <!-- Progress Bar (Red Background = Bad, Green Fill = Good) -->
+        <div style="width: 80px; height: 6px; background: #7f1d1d; border-radius: 3px; overflow: hidden; position: relative;">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #ef4444;"></div>
+            <div id="${barId}" class="quality-animate-bar" data-score="${score}" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #4ade80; border-radius: 3px; z-index: 2;"></div>
+        </div>
+        
+        <!-- Bad Count (Red) -->
+        <span id="${countId}" class="quality-animate-count" data-target="${validBad}" style="color: #f87171; font-weight: 500; font-family: 'SF Mono', monospace; font-size: 12px; min-width: 20px;">0</span>
+        
+        <!-- Percent -->
+        <span id="${percentId}" class="quality-animate-percent" data-score="${score}" style="font-size: 13px; font-weight: 700; color: ${color}; width: 36px; text-align: right; font-family: 'SF Mono', monospace;">0%</span>
+    </div>
+  `;
+}
+
+/**
+ * Centralized function to update the Quality Score UI components
+ * Updates the Gauge, Scanned Nodes count, and Total Issues count
+ */
+// Helper to animate numbers
+function animateValue(id, start, end, duration) {
+    if (start === end) return;
+    
+    // Find Element
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    
+    // Range
+    const range = end - start;
+    let current = start;
+    const increment = end > start ? 1 : -1;
+    const stepTime = Math.abs(Math.floor(duration / range));
+    
+    // Timer
+    const timer = setInterval(function() {
+        current += increment;
+        obj.innerHTML = current;
+        if (current == end) {
+            clearInterval(timer);
+        }
+    }, stepTime);
+}
+
+/**
+ * Centralized function to update the Quality Score UI components
+ * Updates the Gauge, Scanned Nodes count, and Total Issues count
+ */
+function updateQualityScoreUI() {
+    const state = window.qualityAnalysisState;
+    if (!state) return;
+
+    // 0. Update unified issue count
+    state.totalIssues = (state.tokenIssues || 0) + (state.variableIssues || 0) + (state.componentIssues || 0);
+
+    // 1. Calculate overall score based on current sub-scores and weights
+    let totalScore = 0;
+    let weightSum = 0;
+    
+    Object.keys(state.subScores).forEach(key => {
+        const weight = parseFloat(state.weights[key]) || 0;
+        if (weight > 0) {
+            totalScore += state.subScores[key] * (weight / 100);
+            weightSum += weight;
+        }
+    });
+    
+    // Normalize if weights don't sum to 100
+    const finalScore = weightSum > 0 ? Math.round(totalScore * (100 / weightSum)) : 0;
+
+    // Store computed score on state so other components (e.g. header gauge) can read it
+    state.score = finalScore;
+
+    // --- ANIMATION LOGIC ---
+    // Check if score IMPROVED
+    const previousScore = state.previousScore || 0;
+    const isImprovement = finalScore > previousScore;
+    
+    // Store current score as previous for NEXT time
+    state.previousScore = finalScore;
+
+    // 2. Update Gauge
+    const isAnimating = window.QualityAnimationController && window.QualityAnimationController.isRunning;
+    const gaugeWrapper = document.querySelector('.quality-gauge-wrapper');
+    
+    if (gaugeWrapper && !isAnimating) {
+        // Re-render gauge specifically to update segments
+        gaugeWrapper.innerHTML = `
+            ${renderSegmentedGauge(state.subScores, state.weights, 150)}
+        `;
+        
+        // Handle Score Animation Post-Render
+        // Animate if improved AND (not first load OR background mode)
+        if (isImprovement && (previousScore > 0 || window.isBackgroundAnalysis)) {
+             // Smart Start: Use previous score, unless it's 0 and we are in background (then scan DOM)
+             let startVal = previousScore;
+             if (window.isBackgroundAnalysis && startVal === 0) {
+                 const currentText = document.getElementById('quality-score-text');
+                 if (currentText) {
+                    startVal = parseInt(currentText.textContent) || 0;
+                 }
+             }
+            
+            // Trigger Count Up
+            animateValue("quality-score-text", startVal, finalScore, 600);
+            
+            // Trigger Visual Celebration
+            const scoreText = document.getElementById('quality-score-text');
+            if (scoreText) {
+                // Remove class to reset if already running
+                scoreText.classList.remove('score-celebration');
+                
+                // Force reflow
+                void scoreText.offsetWidth;
+                
+                // Add class
+                scoreText.classList.add('score-celebration');
+            }
+        }
+    }
+
+    // 3. Update Summary Stats
+    const summaryTarget = document.getElementById('quality-summary-stats');
+    if (summaryTarget) {
+        summaryTarget.textContent = `${state.totalNodes} nodes • ${state.totalIssues} issues`;
+    }
+}
+
+// 0. Reset Quality state for a fresh analysis
+function resetQualityState() {
+    if (!window.qualityAnalysisState) return;
+    
+    window.qualityAnalysisState.totalNodes = 0;
+    window.qualityAnalysisState.totalIssues = 0;
+    window.tokenFixInProgress = false;
+    
+    // Explicitly reset scores to 0 for the animation start state
+    // But keep state at 100 so if animation fails we fallback to green? 
+    // No, better to be accurate: Start at 100 (neutral/clean) but gauge visual start at 0?
+    // User wants "already there in the beginning but should be on 0"
+    
+    // Reset visually first
+    const gaugeWrapper = document.querySelector('.quality-gauge-wrapper');
+    if (gaugeWrapper) {
+         // Render a 0 score gauge initially
+         const zeroState = {
+             tokenCoverage: 0,
+             tailwindReadiness: 0,
+             componentHygiene: 0,
+             variableHygiene: 0
+         };
+         const zeroWeights = { ...window.qualityAnalysisState.weights }; // Keep weights logic
+         gaugeWrapper.innerHTML = `
+            ${renderSegmentedGauge(zeroState, zeroWeights, 150)}
+        `;
+    }
+    
+    // Reset scores to neutral 100 for actual data
+    Object.keys(window.qualityAnalysisState.subScores).forEach(key => {
+        window.qualityAnalysisState.subScores[key] = 100;
+    });
+    
+    // Update UI
+    updateQualityScoreUI();
+    
+    // Reset animation controller
+    if (window.QualityAnimationController && typeof window.QualityAnimationController.reset === 'function') {
+        window.QualityAnimationController.reset();
+    }
+    
+    console.log('Quality: State reset for re-analysis');
+}
+
 // Function to display token coverage results
 function displayTokenCoverageResults(result) {
   const resultsContainer = document.getElementById('token-coverage-results');
 
-  if (!result || result.totalIssues === 0) {
-    resultsContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #22c55e; margin-bottom: 16px;">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              <h3 style="color: #22c55e; margin-bottom: 8px;">Excellent Token Coverage!</h3>
-              <p style="color: rgba(255, 255, 255, 0.8);">All elements on this page use design tokens. No hard-coded values found.</p>
-              <p style="color: rgba(255, 255, 255, 0.6); font-size: 14px; margin-top: 8px;">Analyzed ${result.totalNodes} nodes</p>
-            </div>
-          `;
-    return;
+  // Removed the large green success box to keep the dashboard unified and clean
+  const hasNoIssues = !result || result.totalIssues === 0;
+
+
+  // Initialize/Update global state from Token Coverage result
+  if (window.qualityAnalysisState) {
+    // Token Coverage is the primary source of totalNodes
+    // Use existing state totalNodes as fallback if result is 0/undefined (to prevent flashing 0 during partial updates)
+    const effectiveTotalNodes = result.totalNodes || window.qualityAnalysisState.totalNodes || 0;
+    window.qualityAnalysisState.totalNodes = effectiveTotalNodes;
+    
+    // For totalIssues, we add the current category result
+    // We calculate a unified total by summing all sub-total issues in updateQualityScoreUI
+    window.qualityAnalysisState.tokenIssues = result.totalIssues || 0;
+    
+    if (result.subScores) {
+        window.qualityAnalysisState.subScores.tokenCoverage = result.subScores.tokenCoverage;
+        window.qualityAnalysisState.subScores.tailwindReadiness = result.subScores.tailwindReadiness;
+    }
+
+    // Sync dynamic weights from backend (they change based on export format)
+    if (result.weights) {
+        window.qualityAnalysisState.weights = result.weights;
+    }
+
+    updateQualityScoreUI();
   }
 
   // Calculate statistics
   const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
   const issuesByCategory = result.issuesByCategory;
 
+  // Target the new specialized container in body.html
+  const gaugeTarget = document.getElementById('quality-score-gauge-container');
+  if (gaugeTarget) {
+      gaugeTarget.innerHTML = `
+            <div style="position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center;" class="quality-gauge-wrapper">
+                ${renderSegmentedGauge(window.qualityAnalysisState.subScores, window.qualityAnalysisState.weights, 150)}
+            </div>
+      `;
+  }
+  
+  if (window.isEditMode) {
+      updateHeaderGauge();
+  }
+  
+  // SMART UPDATE: If background analysis, ONLY update stats and skip full re-render
+  if (window.isBackgroundAnalysis) {
+      console.log('UI: Performing Smart Background Update (Stats Only)');
+      
+      // Update Missing Variables Stats
+      const mvCount = document.getElementById('count-missing-variables');
+      const mvGoodCount = document.getElementById('count-good-missing-variables');
+      const mvBar = document.getElementById('bar-missing-variables');
+      const mvPercent = document.getElementById('percent-missing-variables');
+      
+      if (mvCount && mvBar && mvPercent) {
+          // Update data attributes for AnimationController
+          const score = result.subScores ? result.subScores.tokenCoverage : 0;
+          const totalIssues = result.totalIssues || 0;
+          const totalNodes = result.totalNodes || window.qualityAnalysisState.totalNodes || 0;
+          const goodCount = Math.max(0, totalNodes - totalIssues);
+
+          mvCount.dataset.target = totalIssues;
+          if (mvGoodCount) mvGoodCount.dataset.target = goodCount;
+          mvBar.dataset.score = score;
+          mvPercent.dataset.score = score;
+          
+          // Trigger Animation
+          if (window.QualityAnimationController) {
+              window.QualityAnimationController.registerData('Missing Variables');
+          }
+      }
+      
+      // Update Tailwind Incompatible Variables Stats (if present)
+      const twV4Invalid = window.tailwindV4Validation && window.tailwindV4Validation.invalidGroups && window.tailwindV4Validation.invalidGroups.length > 0;
+       if (twV4Invalid) {
+          const twCount = document.getElementById('count-incompatible-tailwind-variables');
+          const twGoodCount = document.getElementById('count-good-incompatible-tailwind-variables'); // Handle this too if it exists
+          const twBar = document.getElementById('bar-incompatible-tailwind-variables');
+          const twPercent = document.getElementById('percent-incompatible-tailwind-variables');
+          
+          if (twCount && twBar && twPercent) {
+              const twScore = result.subScores ? result.subScores.tailwindReadiness : 0;
+              const twIssues = window.tailwindV4Validation.totalInvalid; // Approximate
+              // Tailwind Readiness doesn't really have "Total Nodes" in the same way, need careful handling
+              // For now, assume good count is based on totalVariables if available or just ignore good count update for this specific metric if complex
+              
+              twCount.dataset.target = twIssues;
+              twBar.dataset.score = twScore;
+              twPercent.dataset.score = twScore;
+              
+              if (window.QualityAnimationController) {
+                  window.QualityAnimationController.registerData('Incompatible Tailwind Variables');
+              }
+          }
+       }
+
+      // Reset flag
+      window.isBackgroundAnalysis = false;
+      return; 
+  }
+
+  // Clear stale hygiene placeholders so the animation controller
+  // doesn't find old DOM elements from a previous scan
+  const hygieneVarPlaceholder = document.getElementById('variable-hygiene-results-placeholder');
+  const hygieneCompPlaceholder = document.getElementById('component-hygiene-results-placeholder');
+  if (hygieneVarPlaceholder) hygieneVarPlaceholder.innerHTML = '';
+  if (hygieneCompPlaceholder) hygieneCompPlaceholder.innerHTML = '';
+
   let html = `
-          <!-- Quality Score Card -->
-          <div style="margin-bottom: 24px; padding: 16px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="material-symbols-outlined" style="color: var(--purple-light);">analytics</span>
-                    <span style="font-size: 13px; font-weight: 600; color: var(--neutral-0); letter-spacing: 0.5px;">DESIGN QUALITY SCORE</span>
-                </div>
+
+
+          <!-- Section Divider (if not first section) -->
+          <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 16px 0;"></div>
+
+          <!-- Variable Coverage Collapsible Section -->
+          <div id="token-coverage-section" class="quality-section-collapsible" style="margin-bottom: 16px;">
+            <div class="section-header-collapsible" onclick="toggleQualitySection('token-coverage-section')" style="cursor: pointer; padding: 8px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
+              <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: rgba(255,255,255,0.4); transition: transform 0.3s ease; transform: rotate(-90deg);">expand_more</span>
+              <!-- Stats -->
+              ${renderCategoryStats(
+                   result.subScores ? result.subScores.tokenCoverage : 0,
+                   result.totalIssues,
+                   result.totalNodes || window.qualityAnalysisState.totalNodes || 0,
+                   'Missing Variables'
+               )}
             </div>
-
-            <!-- New Stats Grid: Scanned -> Issues -> Score -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: stretch; position: relative;">
-                
-                <!-- 1. Scanned Nodes (Left) -->
-                <div data-tooltip="Total number of design nodes analyzed" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; text-align: center; cursor: help;">
-                    <span style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Scanned Nodes</span>
-                    <div id="scanned-nodes-value" style="font-size: 32px; font-weight: 700; color: #d8b4fe; line-height: 1.2;">0</div>
-                </div>
-
-                <!-- 2. Total Issues (Middle) -->
-                 <div data-tooltip="Total number of design violations found" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; text-align: center; cursor: help;">
-                     <span style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Issues</span>
-                    <div id="total-issues-value" style="font-size: 32px; font-weight: 700; color: #fcd34d; line-height: 1.2;">0</div>
-                </div>
-
-                <!-- 3. Gauge (Right) -->
-                 <div data-tooltip="Overall health score of your design system usage" style="position: relative; width: 80px; height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-left: auto; cursor: help;">
-                    <svg width="80" height="80" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
-                        <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="none" />
-                        <circle id="score-gauge-circle" cx="50" cy="50" r="42" stroke="${getScoreColor(result.qualityScore)}" stroke-width="8" fill="none" 
-                                stroke-dasharray="${2 * Math.PI * 42}" 
-                                stroke-dashoffset="${2 * Math.PI * 42}" 
-                                style="stroke-linecap: round;" />
-                    </svg>
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <span id="score-value" style="font-size: 24px; font-weight: 800; color: white;">0</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Detailed View Toggle (Center Bottom) -->
-             <div onclick="toggleQualityBreakdown()" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); font-size: 10px; transition: color 0.2s;">
-                <span>See details</span>
-                <span id="breakdown-toggle-icon" class="material-symbols-outlined" style="font-size: 14px; transition: transform 0.3s;">expand_more</span>
-            </div>
-
-            <!-- Detailed Breakdown (Collapsible Grid) -->
-            ${
-              result.subScores
-                ? `
-            <div id="quality-breakdown-content" style="display: none; margin-top: 24px; animation: slideDown 0.3s ease-out;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    ${(() => {
-                      const renderRow = (label, score, weight, description, key) => {
-                        const color = getScoreColor(score);
-                        const isClickable = key === 'tokenCoverage' || key === 'tailwindReadiness';
-                        const clickAttr = isClickable ? `onclick="handleQualityBreakdownClick('${key}')"` : '';
-                        const cursorStyle = isClickable ? 'cursor: pointer;' : '';
-                        
-                        return `
-                                <div class="quality-breakdown-item" ${clickAttr} style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); ${cursorStyle} transition: background-color 0.2s;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                        <div style="color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px;">
-                                            ${label}
-                                            <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="${description}" onclick="event.stopPropagation()">help</span>
-                                        </div>
-                                        <div style="font-weight: 700; color: ${color}; font-size: 12px;">${score}%</div>
-                                    </div>
-                                    <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
-                                        <div style="width: ${score}%; height: 100%; background: ${color}; border-radius: 2px; transition: width 1s ease 0.5s;"></div>
-                                    </div>
-                                    <div style="color: rgba(255,255,255,0.3); font-size: 10px; margin-top: 6px;">Weight: ${weight}</div>
-                                </div>
-                             `;
-                      };
-
-                      const weights = result.weights || {
-                          tokenCoverage: '35%',
-                          tailwindReadiness: '20%',
-                          componentHygiene: '15%',
-                          variableHygiene: '15%'
-                      };
-
-                      return `
-                            ${renderRow('Token Coverage', result.subScores.tokenCoverage, weights.tokenCoverage, 'Percentage of styling properties using variables instead of hardcoded values.', 'tokenCoverage')}
-                            ${
-                              window.gitlabSettings?.exportFormat === 'tailwind-v4'
-                                ? renderRow(
-                                    'Tailwind Readiness',
-                                    result.subScores.tailwindReadiness,
-                                    weights.tailwindReadiness,
-                                    'Variable names following kebab-case convention for easy Tailwind CSS export.',
-                                    'tailwindReadiness'
-                                  )
-                                : ''
-                            }
-                            ${renderRow('Component Hygiene', result.subScores.componentHygiene, weights.componentHygiene, 'Usage of reusable Components and Instances versus raw Frames.', 'componentHygiene')}
-                            ${renderRow('Variable Hygiene', result.subScores.variableHygiene, weights.variableHygiene, 'Organization of variables into logical groups using slashes (e.g. color/primary).', 'variableHygiene')}
-                        `;
-                    })()}
-                </div>
-            </div>
-            `
-                : ''
-            }
-          </div>
-
-          <!-- Trigger Animation Script -->
-          <img src="" onerror="
-            (function() {
-                // Animation Helper
-                const animateValue = (id, start, end, duration, delay = 0) => {
-                    setTimeout(() => {
-                        const obj = document.getElementById(id);
-                        if (!obj) return;
-                        let startTimestamp = null;
-                        const step = (timestamp) => {
-                            if (!startTimestamp) startTimestamp = timestamp;
-                            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                            obj.innerHTML = Math.floor(progress * (end - start) + start);
-                            if (progress < 1) {
-                                window.requestAnimationFrame(step);
-                            } else {
-                                obj.innerHTML = end; // Ensure final value
-                            }
-                        };
-                        window.requestAnimationFrame(step);
-                    }, delay);
-                };
-
-                // Strictly Sequential Animations
-                
-                // 1. Scanned Nodes: 0ms -> 800ms
-                animateValue('scanned-nodes-value', 0, ${result.totalNodes}, 800, 100);
-
-                // 2. Total Issues: 900ms -> 1700ms (Starts after Scanned finishes)
-                animateValue('total-issues-value', 0, ${result.totalIssues}, 800, 900);
-
-                // 3. Score & Gauge: 1800ms -> 2800ms (Starts after Issues finishes)
-                
-                // Score Text
-                animateValue('score-value', 0, ${result.qualityScore !== undefined ? result.qualityScore : 100}, 1000, 1800);
-
-                // Gauge Stroke Animation
-                setTimeout(() => {
-                    const circle = document.getElementById('score-gauge-circle');
-                    if (circle) {
-                        const offset = 2 * Math.PI * 42 * (1 - (${result.qualityScore !== undefined ? result.qualityScore : 100} / 100));
-                        circle.style.transition = 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)';
-                        circle.style.strokeDashoffset = offset;
-                    }
-                }, 1800);
-
-            })()
-          " style="display:none;"/>
-
-
-          <!-- Token Coverage Header -->
-          <div class="tab-header" style="margin-bottom: 16px;">
-            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
-               <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
-                <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">fact_check</span>
-                Token Coverage
-              </h2>
-            </div>
-            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0;">
-              Identify elements using hard-coded values instead of design tokens.
-            </p>
-          </div>
+            <div class="section-content-collapsible" style="display: ${window.qualitySectionStates && window.qualitySectionStates['token-coverage-section'] ? 'block' : 'none'};">
+              <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
+                Identify elements using hard-coded values instead of design variables.
+              </p>
         `;
 
   // SNAPSHOT STATE: Before wiping innerHTML, capture current state
@@ -5478,16 +7327,19 @@ function displayTokenCoverageResults(result) {
     const isExpanded = prevExpandedCategories.has(groupId); 
 
     html += `
-            <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 12px;">
-              <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupId}')">
-                <div class="collection-info">
-                  <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-                    ${categoryIcons[category]} ${category}
-                    <span class="subgroup-stats">${issues.length}</span>
-                  </div>
+            <div id="${groupId}" class="variable-collection quality-collection" style="margin-bottom: 8px;">
+              <div class="collection-header header ${isExpanded ? '' : 'collapsed'}" onclick="toggleCollection('${groupId}')" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; cursor: pointer; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                   <!-- Chevron on the left -->
+                   <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 18px; transform: ${isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.2s; color: rgba(255, 255, 255, 0.4);">expand_more</span>
+                   
+                   <div class="collection-info">
+                      <div class="collection-name-title" style="display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5);">
+                        ${category}
+                      </div>
+                   </div>
                 </div>
-                <!-- Fix rotation based on state -->
-                <span class="material-symbols-outlined collection-toggle-icon" style="transform: ${isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}; transition: transform 0.2s;">expand_more</span>
+                <span class="subgroup-stats" style="font-size: 10px; color: rgba(255,255,255,0.3); background: none; border: none; padding: 1px 6px;">${issues.length}</span>
               </div>
               <div id="${groupId}-content" class="collection-content ${isExpanded ? '' : 'collapsed'}">
                 <div style="padding: 12px;">
@@ -5525,7 +7377,8 @@ function displayTokenCoverageResults(result) {
       // Generate Badges
       let badgesHtml = '';
       if (exactMatches.length > 0) {
-        badgesHtml += `<span class="match-badge match-badge-exact">${exactMatches.length} Exact</span>`;
+        // Updated to Violet (primary) style
+        badgesHtml += `<span class="match-badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3);">${exactMatches.length} Exact</span>`;
       }
       if (nearMatches.length > 0) {
         badgesHtml += `<span class="match-badge match-badge-near">${nearMatches.length} Near</span>`;
@@ -5536,11 +7389,12 @@ function displayTokenCoverageResults(result) {
                 <!-- Accordion Header -->
                 <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;">
                   <div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">
+                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 18px; opacity: 0.7;">chevron_right</span>
+                    
                     <!-- Property Name -->
                     <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; white-space: nowrap;">
                       ${issue.property}
                     </div>
-
                     <!-- Value (Inline) -->
                     <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         ${SecurityUtils.escapeHTML(issue.value)}
@@ -5556,9 +7410,9 @@ function displayTokenCoverageResults(result) {
                           return '';
                         })()}
                     </div>
-
-                    <!-- Badges (Toggleable via CSS) -->
-                    ${badgesHtml ? `<div class="match-badges-container" style="display: flex; gap: 4px; margin-left: 4px;">${badgesHtml}</div>` : ''}
+                    
+                    <!-- Badges (Restored to Header) -->
+                    ${badgesHtml ? `<div class="match-badges-container" style="display: none; gap: 4px; margin-left: 8px;">${badgesHtml}</div>` : ''}
                   </div>
                   
                   <div style="display: flex; align-items: center; gap: 12px;">
@@ -5566,7 +7420,6 @@ function displayTokenCoverageResults(result) {
                         <span class="material-symbols-outlined" style="font-size: 14px;">layers</span>
                         <span style="font-size: 11px; font-weight: 500;">${issue.totalNodes || issue.count}</span>
                     </div>
-                    <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 18px; opacity: 0.7;">chevron_right</span>
                   </div>
                 </div>
 
@@ -5599,47 +7452,81 @@ function displayTokenCoverageResults(result) {
                 </div>
             `;
       } else {
-        // HAVE Matches - Show Dropdown
+        // HAVE Matches - Show Custom Dropdown
+        let initialLabel = '(select Token to improve Design system)';
+        
+        // Find initial label if auto-selected
+        if (selectedId) {
+            const match = [...exactMatches, ...nearMatches].find(v => v.id === selectedId);
+            if (match) {
+                initialLabel = `${match.collectionName} / ${match.name}`;
+            } else if (selectedId === 'create-new') {
+                initialLabel = '+ Create new variable...';
+            }
+        }
+
         cardHtml += `
                   <div class="fix-actions-row">
-                    <select id="${issueId}-var-select" class="token-fix-select select-fix-variable" onchange="updateApplyButtonState('${issueId}')">
-                      <option value="">Select a token...</option>
+                    <div id="${issueId}-custom-select" class="custom-select" data-value="${selectedId || ''}">
+                      <div class="custom-select-trigger" onclick="toggleCustomSelect('${issueId}')" style="border: 2px solid #8b5cf6;">
+                        <span class="trigger-text">${initialLabel}</span>
+                        <span class="material-symbols-outlined trigger-icon">expand_more</span>
+                      </div>
+                      <div class="custom-select-menu">
             `;
 
         if (exactMatches.length > 0) {
-          cardHtml += `<optgroup label="Exact Matches">`;
+          cardHtml += `<div class="custom-select-group-header exact">Exact Matches</div>`;
           exactMatches.forEach((v) => {
             const isSelected = v.id === selectedId ? 'selected' : '';
-            cardHtml += `<option value="${v.id}" ${isSelected}>${v.collectionName} / ${v.name}</option>`;
+            cardHtml += `
+              <div class="custom-select-option ${isSelected}" 
+                   onclick="selectCustomOption('${issueId}', '${v.id}', '${v.collectionName} / ${v.name}', 'exact')">
+                ${v.collectionName} / ${v.name}
+                ${isSelected ? '<span class="material-symbols-outlined" style="font-size: 14px;">check</span>' : ''}
+              </div>`;
           });
-          cardHtml += `</optgroup>`;
         }
+
+        // Create new variable option (Moved here)
+        cardHtml += `
+                      <div class="custom-select-divider"></div>
+                      <div class="custom-select-option create-new" 
+                           onclick="selectCustomOption('${issueId}', 'create-new', '+ Create new variable...', '')">
+                        + Create new variable...
+                      </div>
+                    `;
 
         if (nearMatches.length > 0) {
-          cardHtml += `<optgroup label="Near Matches (±2px)">`;
+          cardHtml += `<div class="custom-select-divider"></div>`;
+          cardHtml += `<div class="custom-select-group-header near">Near Matches (±2px)</div>`;
           nearMatches.forEach((v) => {
-            cardHtml += `<option value="${v.id}">~ ${v.collectionName} / ${v.name} (${v.resolvedValue})</option>`;
+            const isSelected = v.id === selectedId ? 'selected' : '';
+            cardHtml += `
+              <div class="custom-select-option ${isSelected}" 
+                   onclick="selectCustomOption('${issueId}', '${v.id}', '~ ${v.collectionName} / ${v.name} (${v.resolvedValue})', 'near')">
+                ~ ${v.collectionName} / ${v.name} (${v.resolvedValue})
+                ${isSelected ? '<span class="material-symbols-outlined" style="font-size: 14px;">check</span>' : ''}
+              </div>`;
           });
-          cardHtml += `</optgroup>`;
         }
 
-        // Create new variable option (still keep it in dropdown for consistency if matches exist)
+        // Close dropdown divs
         cardHtml += `
-                      <option value="" disabled>──────────</option>
-                      <option value="create-new" style="font-weight: bold; color: #a78bfa;">+ Create new variable...</option>
-                    </select>
-                    <button 
-                      id="${issueId}-apply-btn" 
-                      class="token-fix-apply-btn btn-apply-fix" 
-                      onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
-                      data-original-onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
-                      disabled
-                    >
-                      <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span>
-                      Apply
-                    </button>
+                    </div>
                   </div>
+                  <button 
+                    id="${issueId}-apply-btn" 
+                    class="token-fix-apply-btn btn-apply-fix" 
+                    onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
+                    data-original-onclick="applyTokenToSelection('${issueId}', '${issue.property}', '${category}')"
+                    disabled
+                  >
+                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span>
+                    Apply
+                  </button>
                 </div>
+              </div>
             `;
       }
 
@@ -5686,15 +7573,15 @@ function displayTokenCoverageResults(result) {
         cardHtml += `
                 <div class="quality-node-item" data-issue-id="${issueId}">
                   <div class="node-header" onclick="toggleQualityNodeGroup('${groupId}')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                    <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 8px; cursor: pointer;" onclick="event.stopPropagation();">
-                    ${isComponent ? ' <svg width="12" height="12" viewBox="0 0 12 12" fill="none"  style="rotate: 45deg"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>' :
+                    <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">
+                    <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px; display: flex; align-items: center; justify-content: center;" id="${groupId}-toggle">
+                         <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
+                    </button>
+                    ${isComponent ? ' <svg width="12" height="12" viewBox="0 0 12 12" fill="none"  style="rotate: 45deg; margin-right: 8px;"><path d="M1 1h4v4H1zM7 1h4v4H7zM1 7h4v4H1zM7 7h4v4H7z" stroke="currentColor" stroke-width="1"/></svg>' :
                   '<span class="material-symbols-outlined node-icon" style="font-size: 16px; margin-right: 8px; opacity: 0.7; color: #a78bfa;">grid_3x3</span>'
               }
                     <span class="node-name" title="${SecurityUtils.escapeHTML(data.frame)}" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">${data.frame}</span>
-                    <span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);">${data.count}</span>
-                    <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4);" id="${groupId}-toggle">
-                         <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
-                    </button>
+                    <span class="list-badge" style="height: auto; font-size: 11px; margin-right: 4px; background: transparent; color: rgba(255,255,255,0.5); padding: 0;">${data.count}</span>
                   </div>
                   
                   <div id="${groupId}" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">
@@ -5706,7 +7593,7 @@ function displayTokenCoverageResults(result) {
                               <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>
                               <span class="instance-label" title="${SecurityUtils.escapeHTML(inst.name)}" style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${SecurityUtils.escapeHTML(inst.name)}</span>
                           </div>
-                          <button class="node-focus-btn" onclick="window.focusOnNode('${inst.id}')" style="opacity: 0.5; hover: opacity: 1;"><span class="material-symbols-outlined" style="font-size: 16px;">target</span></button>
+                          <button class="node-focus-btn" onclick="window.focusOnNode('${inst.id}')"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button>
                         </div>
                       `,
                         )
@@ -5730,13 +7617,19 @@ function displayTokenCoverageResults(result) {
       const body = document.getElementById(`${issueId}-body`);
 
       if (card && body) {
-        const isHidden = body.style.display === 'none';
+        const isHidden = body.style.display === 'none' || window.getComputedStyle(body).display === 'none';
         body.style.display = isHidden ? 'block' : 'none';
 
         if (isHidden) {
           card.classList.add('expanded');
+          // Show badges when expanded
+          const badges = card.querySelector('.match-badges-container');
+          if (badges) badges.style.display = 'flex';
         } else {
           card.classList.remove('expanded');
+          // Hide badges when collapsed
+          const badges = card.querySelector('.match-badges-container');
+          if (badges) badges.style.display = 'none';
         }
       }
     };
@@ -5752,7 +7645,7 @@ function displayTokenCoverageResults(result) {
     if (remainingIssues.length > 0) {
       html += `
               <div id="${groupId}-load-more" style="text-align: center; padding-top: 8px;">
-                <button onclick="loadMoreIssues('${category}', ${initialRenderCount})" class="secondary-button" style="width: 100%; font-size: 12px; padding: 8px;">
+                <button onclick="loadMoreIssues('${category}', ${initialRenderCount})" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">
                   Load ${remainingIssues.length} more issues
                 </button>
               </div>
@@ -5773,14 +7666,36 @@ function displayTokenCoverageResults(result) {
           `;
   });
 
-  // Add Tailwind Readiness section if Tailwind v4 is selected
-  const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
-  
-  if (isTailwindV4Selected && window.tailwindV4Validation && window.tailwindV4Validation.invalidGroups && window.tailwindV4Validation.invalidGroups.length > 0) {
-    html += renderTailwindReadinessSection(window.tailwindV4Validation);
-  }
+  // Close Token Coverage section and content wrapper
+  html += `
+            </div>
+          </div>
+        `;
 
   resultsContainer.innerHTML = html;
+  
+  // Register for sequential animation
+  if (window.QualityAnimationController) {
+      window.QualityAnimationController.registerData('Missing Variables');
+      
+      const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
+      if (isTailwindV4Selected && window.tailwindV4Validation && window.tailwindV4Validation.invalidGroups && window.tailwindV4Validation.invalidGroups.length > 0) {
+          window.QualityAnimationController.registerData('Tailwind Incompatible Variables');
+      }
+  }
+  
+  // Update Tailwind Readiness section separately if Tailwind v4 is selected
+  // This ensures it stays in the correct order (at the bottom)
+  const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
+  const tailwindTarget = document.getElementById('tailwind-readiness-results-placeholder');
+  
+  if (tailwindTarget) {
+      if (isTailwindV4Selected && window.tailwindV4Validation) {
+          tailwindTarget.innerHTML = renderTailwindReadinessSection(window.tailwindV4Validation);
+      } else {
+          tailwindTarget.innerHTML = '';
+      }
+  }
   
   // RESTORE STATE: Immediately restore scroll position
   if (prevScrollY > 0) {
@@ -5940,16 +7855,7 @@ function displayTokenCoverageResults(result) {
 }
 
 // Helper to toggle Quality Breakdown visibility
-window.toggleQualityBreakdown = function () {
-  const content = document.getElementById('quality-breakdown-content');
-  const icon = document.getElementById('breakdown-toggle-icon');
 
-  if (content && icon) {
-    const isHidden = content.style.display === 'none';
-    content.style.display = isHidden ? 'block' : 'none';
-    icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-  }
-};
 
 // Helper to setup listeners
 function setupIssueListeners(issueId) {
@@ -6016,7 +7922,7 @@ window.loadMoreIssues = function (category, currentCount) {
   // Update or remove load more button
   if (remaining.length > 0) {
     loadMoreContainer.innerHTML = `
-             <button onclick="loadMoreIssues('${category}', ${currentCount + batchSize})" class="secondary-button" style="width: 100%; font-size: 12px; padding: 8px;">
+             <button onclick="loadMoreIssues('${category}', ${currentCount + batchSize})" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">
                Load ${remaining.length} more issues
              </button>
           `;
@@ -6026,74 +7932,7 @@ window.loadMoreIssues = function (category, currentCount) {
 };
 
 // Handler for clickable Quality Breakdown items
-window.handleQualityBreakdownClick = function(key) {
-  console.log('Quality Breakdown Click:', key);
-  
-  if (key === 'tokenCoverage') {
-      // Find the first available coverage category
-      const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
-      for (const cat of categories) {
-          const groupId = `coverage-${cat}`;
-          const group = document.getElementById(groupId);
-          if (group) {
-              // Expand group
-              const header = group.querySelector('.collection-header');
-              const content = group.querySelector('.collection-content');
-              if (header && content) {
-                  header.classList.remove('collapsed');
-                  content.classList.remove('collapsed');
-                  const icon = header.querySelector('.collection-toggle-icon');
-                  if (icon) icon.style.transform = 'rotate(0deg)';
-              }
 
-              // Scroll to group
-              group.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-              // Expand first issue if available (give time for scroll/expand)
-              setTimeout(() => {
-                  const firstIssueCard = content.querySelector('.quality-issue-card');
-                  if (firstIssueCard) {
-                      // Extract issue ID from card ID
-                      const cardId = firstIssueCard.id; // e.g. issue-Layout-0-card
-                      const issueId = cardId.replace('-card', '');
-                      
-                      // Check if already expanded
-                      const body = document.getElementById(`${issueId}-body`);
-                      if (body && body.style.display === 'none') {
-                          window.toggleIssueCard(issueId);
-                      }
-                  }
-              }, 600);
-              return; // Stop after first found category
-          }
-      }
-  } else if (key === 'tailwindReadiness') {
-      // Try standalone first, then groups
-      const targets = ['tailwind-standalone-group', 'tailwind-invalid-groups'];
-      for (const targetId of targets) {
-          const group = document.getElementById(targetId);
-          if (group) {
-               // Expand group
-              const header = group.querySelector('.collection-header');
-              const content = group.querySelector('.collection-content');
-              if (header && content) {
-                  header.classList.remove('collapsed');
-                  content.classList.remove('collapsed');
-                  const icon = header.querySelector('.collection-toggle-icon');
-                  if (icon) icon.style.transform = 'rotate(0deg)';
-              }
-              
-              // Scroll to group
-              group.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              
-              // No "issue card expansion" needed for Tailwind as they are usually simple rows or don't have sub-bodies in the same way 
-              // (Standalone items are visible immediately inside group)
-              
-              return;
-          }
-      }
-  }
-};
 
 // Handle Create New Variable
 // Handle Create New Variable
@@ -6730,9 +8569,14 @@ function selectProvider(provider) {
   if (card) card.classList.add('selected');
 
   // Show sections
+  const connectionSection = document.getElementById('section-connection');
+  const structureSection = document.getElementById('section-structure');
+  
+  if (connectionSection) connectionSection.classList.remove('hidden-section');
+  if (structureSection) structureSection.classList.remove('hidden-section');
+
   const accordion = document.getElementById('settings-accordion');
   if (accordion) {
-    accordion.classList.add('visible');
     // Auto open first section if none open
     if (!accordion.querySelector('.accordion-item.expanded')) {
       toggleAccordion('section-connection');
@@ -9749,6 +11593,7 @@ function showPreview(tokens) {
                     return `
                     <div class="variable-subgroup" id="${groupId}">
                       <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
+                        <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                         <div class="subgroup-title">
                           <span class="material-symbols-outlined" style="font-size: 16px; margin-right: 6px; color: var(--text-secondary);">folder_open</span>
                           ${displayName}
@@ -9758,7 +11603,6 @@ function showPreview(tokens) {
                              ${aliasCount > 0 ? `<span class="status-badge alias" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(168, 85, 247, 0.2); color: #c084fc;">${aliasCount} refs</span>` : ''}
                           </div>
                         </div>
-                        <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                       </div>
                       <div class="subgroup-content collapsed" id="${groupId}-content">
                         <div class="variables-table">
@@ -9813,7 +11657,6 @@ function showPreview(tokens) {
           <div class="import-structure-preview">
             <div class="tab-header" style="margin-bottom: var(--space-2);">
                 <h3 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
-                  <span class="material-symbols-outlined" style="font-size: 22px; color: var(--purple-light);">palette</span>
                   Figma Styles Preview
                 </h3>
             </div>
@@ -9862,6 +11705,7 @@ function showPreview(tokens) {
                   return `
                   <div class="variable-subgroup" id="${categoryId}">
                     <div class="subgroup-header collapsed" onclick="toggleSubgroup('${categoryId}')">
+                      <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                       <div class="subgroup-title">
                         <span class="material-symbols-outlined" style="font-size: 16px; margin-right: 6px; color: var(--text-secondary);">${categoryIcons[category]}</span>
                         ${categoryNames[category]}
@@ -9870,8 +11714,8 @@ function showPreview(tokens) {
                           <span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${categoryTokens.length} new</span>
                         </div>
                       </div>
-                      <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                     </div>
+ historical (line 10622):
                     <div class="subgroup-content collapsed" id="${categoryId}-content">
                       <div class="styles-table">
                         ${categoryTokens
@@ -10557,6 +12401,10 @@ window.expandAllSubgroups = expandAllSubgroups;
 window.collapseAllSubgroups = collapseAllSubgroups;
 window.deleteVariable = deleteVariable;
 window.deleteStyle = deleteStyle;
+window.deleteComponent = deleteComponent;
+window.deleteUnusedVariable = deleteUnusedVariable;
+window.focusOnComponent = focusOnComponent;
+window.deleteAllUnusedVariants = deleteAllUnusedVariants;
 window.scrollToVariable = scrollToVariable;
 
 window.expandAllImportGroups = expandAllImportGroups;
@@ -10821,7 +12669,11 @@ window.addEventListener('message', function (event) {
   if (event.data.pluginMessage) {
     const message = event.data.pluginMessage;
 
-    if (message.type === 'preview-import-result') {
+    if (message.type === 'pages-list') {
+      if (window.MultiPageSelector) {
+        window.MultiPageSelector.handlePagesList(message.pages, message.currentPageId);
+      }
+    } else if (message.type === 'preview-import-result') {
       handleImportPreview(message);
     } else if (message.type === 'preview-import-error') {
       hideButtonLoading(document.getElementById('preview-import-btn'));
@@ -10971,11 +12823,9 @@ function updateVariablesSummary(variablesCount, collectionsCount) {
   if (summaryDiv) {
     summaryDiv.innerHTML = `
             <div class="summary-badge" data-tooltip="Total Variables">
-               <span class="material-symbols-outlined">data_object</span>
                <span>${variablesCount} Variables</span>
             </div>
             <div class="summary-badge" data-tooltip="Collections">
-               <span class="material-symbols-outlined">folder_open</span>
                <span>${collectionsCount} Collections</span>
             </div>
           `;
@@ -10990,11 +12840,9 @@ function updateComponentsSummary(componentsCount, setsCount) {
   if (summaryDiv) {
     summaryDiv.innerHTML = `
             <div class="summary-badge" data-tooltip="Total Components">
-               <span class="material-symbols-outlined">widgets</span>
                <span>${componentsCount} Components</span>
             </div>
             <div class="summary-badge" data-tooltip="Component Sets">
-               <span class="material-symbols-outlined">layers</span>
                <span>${setsCount} Sets</span>
             </div>
           `;
@@ -11211,6 +13059,47 @@ function toggleQualityNodeGroup(groupId) {
   }
 }
 
+// In-memory state for section expansion (localStorage not available in Figma's data: URL context)
+window.qualitySectionStates = window.qualitySectionStates || {
+  'token-coverage-section': false,
+  'tailwind-readiness-section': false,
+  'unused-components-section': false,
+  'unused-variables-section': false,
+};
+
+// Toggle quality section (main collapsible sections)
+function toggleQualitySection(sectionId) {
+  console.log('toggleQualitySection called with:', sectionId);
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    console.warn('Section not found:', sectionId);
+    return;
+  }
+
+  const content = section.querySelector('.section-content-collapsible');
+  const chevron = section.querySelector('.section-chevron');
+
+  if (!content) {
+    console.warn('Content not found in section:', sectionId);
+    return;
+  }
+
+  const isExpanded = content.style.display !== 'none';
+
+  // Toggle display
+  content.style.display = isExpanded ? 'none' : 'block';
+
+  // Rotate chevron
+  if (chevron) {
+    chevron.style.transform = isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)';
+  }
+
+  // Save state to in-memory storage
+  window.qualitySectionStates[sectionId] = !isExpanded;
+
+  console.log(`Section ${sectionId} ${isExpanded ? 'collapsed' : 'expanded'}`);
+}
+
 // Focus on a node in Figma
 function focusOnNode(nodeId) {
   console.log('focusOnNode called with:', nodeId);
@@ -11236,6 +13125,30 @@ function focusOnNode(nodeId) {
 window.setupQualitySearch = setupQualitySearch;
 window.filterQualityResults = filterQualityResults;
 window.toggleQualityNodeGroup = toggleQualityNodeGroup;
+window.toggleQualitySection = toggleQualitySection;
+
+// Toggle component hygiene variant group
+function toggleComponentHygieneGroup(groupId) {
+  console.log('toggleComponentHygieneGroup called with:', groupId);
+  const container = document.getElementById(groupId);
+  const toggle = document.getElementById(groupId + '-toggle');
+
+  console.log('Container found:', !!container, 'Toggle found:', !!toggle);
+
+  if (container) {
+    const isExpanded = container.style.display !== 'none';
+    container.style.display = isExpanded ? 'none' : 'block';
+
+    if (toggle) {
+      const icon = toggle.querySelector('.material-symbols-outlined');
+      if (icon) {
+        icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
+    }
+  }
+}
+
+window.toggleComponentHygieneGroup = toggleComponentHygieneGroup;
 window.focusOnNode = focusOnNode;
 window.expandAllQuality = expandAllQuality;
 window.collapseAllQuality = collapseAllQuality;
@@ -11356,13 +13269,98 @@ function toggleAllOccurrences(issueId) {
 }
 
 /**
+ * Toggle the custom select dropdown
+ */
+function toggleCustomSelect(issueId) {
+  const select = document.getElementById(`${issueId}-custom-select`);
+  if (!select) return;
+  
+  const trigger = select.querySelector('.custom-select-trigger');
+  const menu = select.querySelector('.custom-select-menu');
+  
+  // Close all other open selects first
+  document.querySelectorAll('.custom-select-menu.show').forEach(m => {
+    if (m !== menu) {
+      m.classList.remove('show');
+      m.previousElementSibling.classList.remove('active');
+    }
+  });
+  
+  menu.classList.toggle('show');
+  trigger.classList.toggle('active');
+  
+  // Prevent event from bubbling up to document listener
+  event.stopPropagation();
+}
+
+/**
+ * Handle custom option selection
+ */
+function selectCustomOption(issueId, value, label, type) {
+  const select = document.getElementById(`${issueId}-custom-select`);
+  if (!select) return;
+  
+  const trigger = select.querySelector('.custom-select-trigger');
+  const triggerText = trigger.querySelector('.trigger-text');
+  const menu = select.querySelector('.custom-select-menu');
+  
+  // Update state
+  select.dataset.value = value;
+  triggerText.textContent = label;
+  
+  // Close menu
+  menu.classList.remove('show');
+  trigger.classList.remove('active');
+  
+  // Handle "Create New" directly if selected
+  if (value === 'create-new') {
+    handleCreateNewVariable(issueId);
+    // Reset trigger if needed after create new? Or just let it stay
+  }
+  
+  // Update apply button
+  updateApplyButtonState(issueId);
+
+  // Auto-select all nodes if a specific variable was chosen (not "create new")
+  if (value && value !== 'create-new') {
+      const selectAllCheckbox = document.getElementById(`${issueId}-select-all`);
+      if (selectAllCheckbox && !selectAllCheckbox.checked) {
+          selectAllCheckbox.checked = true;
+          // Trigger the toggle function to update all individual checkboxes and the button state
+          toggleAllOccurrences(issueId); 
+      }
+  }
+}
+
+// Global click listener to close custom selects
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.custom-select')) {
+    document.querySelectorAll('.custom-select-menu.show').forEach(m => {
+      m.classList.remove('show');
+      m.previousElementSibling.classList.remove('active');
+    });
+  }
+});
+
+/**
  * Update the apply button state based on selection
  */
 function updateApplyButtonState(issueId) {
   const applyBtn = document.getElementById(`${issueId}-apply-btn`);
 
   if (!applyBtn) return;
+  
+  // Check both native select and custom select
   const varSelect = document.getElementById(`${issueId}-var-select`);
+  const customSelect = document.getElementById(`${issueId}-custom-select`);
+  
+  let selectedValue = '';
+  if (varSelect) {
+    selectedValue = varSelect.value;
+  } else if (customSelect) {
+    selectedValue = customSelect.dataset.value || '';
+  }
+  
   const occurrenceCheckboxes = document.querySelectorAll(
     `.occurrence-checkbox[data-issue-id="${issueId}"]`,
   );
@@ -11371,8 +13369,8 @@ function updateApplyButtonState(issueId) {
   const hasSelection = Array.from(occurrenceCheckboxes).some((cb) => cb.checked);
 
   // Check if a variable is selected (including create-new)
-  const isCreateNew = varSelect && varSelect.value === 'create-new';
-  const hasVariable = varSelect && varSelect.value !== '';
+  const isCreateNew = selectedValue === 'create-new';
+  const hasVariable = selectedValue !== '';
 
   // Enable button only if both conditions are met
   if (hasSelection && hasVariable) {
@@ -11452,7 +13450,14 @@ function updateApplyButtonState(issueId) {
  */
 function applyTokenToSelection(issueId, property, category) {
   const varSelect = document.getElementById(`${issueId}-var-select`);
-  const variableId = varSelect.value;
+  const customSelect = document.getElementById(`${issueId}-custom-select`);
+  
+  let variableId = '';
+  if (varSelect) {
+    variableId = varSelect.value;
+  } else if (customSelect) {
+    variableId = customSelect.dataset.value || '';
+  }
 
   if (!variableId) {
     console.warn('No variable selected');
