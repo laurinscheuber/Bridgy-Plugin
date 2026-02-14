@@ -88,30 +88,44 @@ export class TokenCoverageService {
    */
   static async analyzeCurrentPage(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
     const currentPage = figma.currentPage;
-    const allNodes = currentPage.findAll(
+    const nodes = currentPage.findAll(
       (node) =>
-        // node.type === 'FRAME' ||
-        node.type === 'COMPONENT' || node.type === 'COMPONENT_SET',
-      // node.type === 'INSTANCE'
+        node.type === 'FRAME' ||
+        node.type === 'SECTION' ||
+        node.type === 'GROUP' ||
+        node.type === 'COMPONENT' ||
+        node.type === 'COMPONENT_SET' ||
+        node.type === 'INSTANCE',
     );
 
-    return this.analyzeNodes(allNodes as SceneNode[], exportFormat);
+    return this.analyzeNodes(nodes as SceneNode[], exportFormat);
   }
 
   /**
-   * Analyzes the entire document for token coverage
+   * Analyzes the entire document or specific pages for token coverage
    */
-  static async analyzeDocument(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
+  static async analyzeDocument(
+    exportFormat: string = 'css',
+    pageIds?: string[],
+  ): Promise<TokenCoverageResult> {
     const allPages = figma.root.children;
     let allNodes: SceneNode[] = [];
 
-    // Iterate through all pages
+    // Iterate through pages
     for (const page of allPages) {
+      // If pageIds is provided, only include nodes from those pages
+      if (pageIds && pageIds.indexOf(page.id) === -1) {
+        continue;
+      }
+
       const pageNodes = page.findAll(
         (node) =>
-          // node.type === 'FRAME' ||
-          node.type === 'COMPONENT' || node.type === 'COMPONENT_SET',
-        // node.type === 'INSTANCE'
+          node.type === 'FRAME' ||
+          node.type === 'SECTION' ||
+          node.type === 'GROUP' ||
+          node.type === 'COMPONENT' ||
+          node.type === 'COMPONENT_SET' ||
+          node.type === 'INSTANCE',
       );
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
@@ -124,28 +138,39 @@ export class TokenCoverageService {
    * If current page has 0 issues, it searches other pages.
    * If another page has issues, it switches to that page and returns its results.
    */
-  static async analyzeSmart(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
-    // 1. Analyze current page
-    const currentPageResult = await this.analyzeCurrentPage(exportFormat);
+  static async analyzeSmart(
+    exportFormat: string = 'css',
+    pageIds?: string[],
+  ): Promise<TokenCoverageResult> {
+    const currentPageId = figma.currentPage.id;
+    const isCurrentPageSelected = !pageIds || pageIds.indexOf(currentPageId) !== -1;
 
-    // 2. If issues found, stick with current page
-    if (currentPageResult.totalIssues > 0) {
-      return currentPageResult;
+    // 1. Analyze current page if it's within the selection
+    if (isCurrentPageSelected) {
+      const currentPageResult = await this.analyzeCurrentPage(exportFormat);
+
+      // 2. If issues found, stick with current page
+      if (currentPageResult.totalIssues > 0) {
+        return currentPageResult;
+      }
     }
 
-    // 3. If no issues, look for a page that DOES have issues
+    // 3. If no issues (or current page skipped), look for another selected page that DOES have issues
     const allPages = figma.root.children;
-    const currentPageId = figma.currentPage.id;
 
     for (const page of allPages) {
-      // Skip the page we just checked
+      // Skip the page we just checked (current page) or skip if not in selection
       if (page.id === currentPageId) continue;
+      if (pageIds && pageIds.indexOf(page.id) === -1) continue;
 
       const pageNodes = page.findAll(
         (node) =>
-          // node.type === 'FRAME' ||
-          node.type === 'COMPONENT' || node.type === 'COMPONENT_SET',
-        // node.type === 'INSTANCE'
+          node.type === 'FRAME' ||
+          node.type === 'SECTION' ||
+          node.type === 'GROUP' ||
+          node.type === 'COMPONENT' ||
+          node.type === 'COMPONENT_SET' ||
+          node.type === 'INSTANCE',
       );
 
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[], exportFormat);
@@ -157,8 +182,66 @@ export class TokenCoverageService {
       }
     }
 
-    // 4. If no issues found anywhere, return the original clean result
-    return currentPageResult;
+    // 4. If no issues found anywhere (or current page was the only one and it had 0 issues),
+    // return a clean result for the current page if selected, or the first selected page.
+    if (isCurrentPageSelected) {
+      return this.analyzeCurrentPage(exportFormat);
+    } else if (pageIds && pageIds.length > 0) {
+      // Return results for the first selected page
+      const firstPage = allPages.find((p) => p.id === pageIds[0]);
+      if (firstPage) {
+        const firstPageNodes = firstPage.findAll(
+          (node) =>
+            node.type === 'FRAME' ||
+            node.type === 'SECTION' ||
+            node.type === 'GROUP' ||
+            node.type === 'COMPONENT' ||
+            node.type === 'COMPONENT_SET' ||
+            node.type === 'INSTANCE',
+        );
+        return this.analyzeNodes(firstPageNodes as SceneNode[], exportFormat);
+      }
+    }
+
+    return this.analyzeCurrentPage(exportFormat);
+  }
+
+  /**
+   * Analyze only the currently selected nodes (and their children)
+   */
+  static async analyzeSelection(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
+    const selection = figma.currentPage.selection;
+    let allNodes: SceneNode[] = [];
+
+    for (const node of selection) {
+      // Include the node itself if it matches our types
+      if (
+        node.type === 'FRAME' ||
+        node.type === 'SECTION' ||
+        node.type === 'GROUP' ||
+        node.type === 'COMPONENT' ||
+        node.type === 'COMPONENT_SET' ||
+        node.type === 'INSTANCE'
+      ) {
+        allNodes.push(node);
+      }
+
+      // Find children
+      if ('findAll' in node) {
+        const children = (node as any).findAll(
+          (n: any) =>
+            n.type === 'FRAME' ||
+            n.type === 'SECTION' ||
+            n.type === 'GROUP' ||
+            n.type === 'COMPONENT' ||
+            n.type === 'COMPONENT_SET' ||
+            n.type === 'INSTANCE',
+        );
+        allNodes = [...allNodes, ...children];
+      }
+    }
+
+    return this.analyzeNodes(allNodes, exportFormat);
   }
 
   /**
@@ -177,9 +260,7 @@ export class TokenCoverageService {
     let autoLayoutCount = 0;
 
     // Optimization: Fetch all variables once
-    console.log('Fetching variables for analysis...');
     const allVariables = await this.getAllVariables();
-    console.log(`Fetched ${allVariables.length} variables for analysis`);
 
     for (const node of nodes) {
       totalNodes++;
@@ -187,6 +268,8 @@ export class TokenCoverageService {
       // DSQ Metrics Collection (Node Level)
       if (
         node.type === 'FRAME' ||
+        node.type === 'SECTION' ||
+        node.type === 'GROUP' ||
         node.type === 'COMPONENT' ||
         node.type === 'COMPONENT_SET' ||
         node.type === 'INSTANCE'
@@ -283,26 +366,10 @@ export class TokenCoverageService {
     let totalVarsToCheck = allVariables.length;
 
     if (totalVarsToCheck > 0) {
-      console.log(
-        `[Coverage Debug] Checking Tailwind compatibility for ${allVariables.length} vars`,
-      );
-      allVariables.forEach((v, idx) => {
-        if (!v) {
-          console.warn(`[Coverage Debug] v is null at ${idx}`);
-          return;
-        }
-        if (!v.variable) {
-          console.warn(`[Coverage Debug] v.variable is null at ${idx}`);
-          return;
-        }
-        if (!v.variable.name) {
-          console.warn(
-            `[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`,
-          );
-          return;
-        }
+      allVariables.forEach((v) => {
+        if (!v || !v.variable || !v.variable.name) return;
 
-        if (v.variable && v.variable.name && isTailwindCompatible(v.variable.name)) {
+        if (isTailwindCompatible(v.variable.name)) {
           validTailwindNames++;
         }
       });
@@ -316,16 +383,14 @@ export class TokenCoverageService {
     // Logic: % of variables that use grouping (contain '/')
     let groupedVariables = 0;
     if (totalVarsToCheck > 0) {
-      console.log(`[Coverage Debug] Checking Variable Hygiene for ${allVariables.length} vars`);
-      allVariables.forEach((v, idx) => {
-        if (!v || !v.variable || !v.variable.name) return; // Silent skip for safety
+      allVariables.forEach((v) => {
+        if (!v || !v.variable || !v.variable.name) return;
 
-        if (v.variable && v.variable.name && v.variable.name.includes('/')) {
+        if (v.variable.name.includes('/')) {
           groupedVariables++;
         }
       });
     }
-    console.log('[Coverage Debug] Variable Hygiene check complete');
     const variableHygieneScore =
       totalVarsToCheck === 0 ? 100 : Math.round((groupedVariables / totalVarsToCheck) * 100);
 
@@ -363,34 +428,31 @@ export class TokenCoverageService {
 
     if (isTailwindV4) {
       // Scenario A: Tailwind Enabled (4 Active)
-      // Token: 40%, Tailwind: 20%, Component: 20%, Variable: 20%
       weightedScore = Math.round(
-        tokenCoverageScore * 0.4 +
-          tailwindScore * 0.2 +
-          componentHygieneScore * 0.2 +
-          variableHygieneScore * 0.2,
+        tokenCoverageScore * 0.25 +
+          tailwindScore * 0.25 +
+          componentHygieneScore * 0.25 +
+          variableHygieneScore * 0.25,
       );
       weights = {
-        tokenCoverage: '40%',
-        tailwindReadiness: '20%',
-        componentHygiene: '20%',
-        variableHygiene: '20%',
-      };
-    } else {
-      // Scenario B: Tailwind Disabled (3 Active)
-      // Token: 50%, Component: 25%, Variable: 25%
-      weightedScore = Math.round(
-        tokenCoverageScore * 0.5 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25,
-      );
-      weights = {
-        tokenCoverage: '50%',
-        tailwindReadiness: '0%', // Not shown
+        tokenCoverage: '25%',
+        tailwindReadiness: '25%',
         componentHygiene: '25%',
         variableHygiene: '25%',
       };
+    } else {
+      // Scenario B: Tailwind Disabled (3 Active)
+      weightedScore = Math.round(
+        (tokenCoverageScore + componentHygieneScore + variableHygieneScore) / 3,
+      );
+      weights = {
+        tokenCoverage: '33.3%',
+        tailwindReadiness: '0%', // Not shown
+        componentHygiene: '33.4%', // Slight adjustment to sum to 100
+        variableHygiene: '33.3%',
+      };
     }
 
-    console.log(`[Coverage Debug] Analysis complete. Returning ${issuesMap.size} issues.`);
     return {
       totalNodes,
       totalIssues: issuesMap.size,
@@ -465,10 +527,11 @@ export class TokenCoverageService {
     // Check if node has layout properties
     if (!('minWidth' in node)) return;
 
-    const layoutNode = node as FrameNode | ComponentNode | InstanceNode;
+    const layoutNode = node as FrameNode | ComponentNode | InstanceNode | SectionNode;
 
-    // Check minWidth - exclude zero values
+    // Min Width (skipped for Groups as they auto-resize)
     if (
+      'minWidth' in layoutNode &&
       layoutNode.minWidth !== null &&
       layoutNode.minWidth !== 0 &&
       !this.isVariableBound(layoutNode, 'minWidth')
@@ -487,6 +550,7 @@ export class TokenCoverageService {
 
     // Check width (if not auto) - exclude zero values and dynamic sizing
     if (
+      'width' in layoutNode &&
       layoutNode.width &&
       typeof layoutNode.width === 'number' &&
       layoutNode.width !== 0 &&
@@ -498,6 +562,7 @@ export class TokenCoverageService {
 
     // Check height (if not auto) - exclude zero values and dynamic sizing
     if (
+      'height' in layoutNode &&
       layoutNode.height &&
       typeof layoutNode.height === 'number' &&
       layoutNode.height !== 0 &&
@@ -509,6 +574,7 @@ export class TokenCoverageService {
 
     // Check minHeight - exclude zero values
     if (
+      'minHeight' in layoutNode &&
       layoutNode.minHeight !== null &&
       layoutNode.minHeight !== 0 &&
       !this.isVariableBound(layoutNode, 'minHeight')
@@ -524,6 +590,7 @@ export class TokenCoverageService {
 
     // Check maxHeight - exclude zero values
     if (
+      'maxHeight' in layoutNode &&
       layoutNode.maxHeight !== null &&
       layoutNode.maxHeight !== 0 &&
       !this.isVariableBound(layoutNode, 'maxHeight')
@@ -682,20 +749,39 @@ export class TokenCoverageService {
     }
 
     // Check corner radius - exclude zero values as they typically don't need tokens
-    if ('cornerRadius' in node) {
+    if ('cornerRadius' in node && (node as any).type !== 'SECTION') {
       const rectNode = node as RectangleNode | FrameNode | ComponentNode | InstanceNode;
 
       // Get all corner radius values
-      const topLeft = typeof rectNode.topLeftRadius === 'number' ? rectNode.topLeftRadius : 0;
-      const topRight = typeof rectNode.topRightRadius === 'number' ? rectNode.topRightRadius : 0;
+      const topLeft =
+        'topLeftRadius' in rectNode && typeof rectNode.topLeftRadius === 'number'
+          ? rectNode.topLeftRadius
+          : 0;
+      const topRight =
+        'topRightRadius' in rectNode && typeof rectNode.topRightRadius === 'number'
+          ? rectNode.topRightRadius
+          : 0;
       const bottomLeft =
-        typeof rectNode.bottomLeftRadius === 'number' ? rectNode.bottomLeftRadius : 0;
+        'bottomLeftRadius' in rectNode && typeof rectNode.bottomLeftRadius === 'number'
+          ? rectNode.bottomLeftRadius
+          : 0;
       const bottomRight =
-        typeof rectNode.bottomRightRadius === 'number' ? rectNode.bottomRightRadius : 0;
+        'bottomRightRadius' in rectNode && typeof rectNode.bottomRightRadius === 'number'
+          ? rectNode.bottomRightRadius
+          : 0;
 
       // Check if all corner radii are the same and not bound to variables
       const allRadiiSame =
         topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
+      
+      // Check for mixed radius (some nodes like Vector don't have individual corners)
+      if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === 'number') {
+         if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, 'cornerRadius') && !this.isVariableBound(rectNode, 'topLeftRadius')) {
+             this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance');
+             return;
+         }
+      }
+
       const anyRadiusBound =
         this.isVariableBound(rectNode, 'topLeftRadius') ||
         this.isVariableBound(rectNode, 'topRightRadius') ||

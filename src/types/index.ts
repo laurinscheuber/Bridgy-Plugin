@@ -124,4 +124,7 @@ export interface PluginMessage {
     overwriteExisting?: boolean;
   };
   scope?: 'PAGE' | 'ALL' | 'SMART_SCAN';
+  pageIds?: string[];
+  componentType?: string;
+  variantIds?: string[];
 }

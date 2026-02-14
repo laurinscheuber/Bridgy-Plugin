@@ -361,58 +361,12 @@ async function applyVariableToNode(
       return false;
     }
 
-    console.log(`[BRIDGY] Apply logic for ${property} on ${node.name} (ID: ${node.id})`);
-    console.log(
-      `[BRIDGY] Variable: ${variable.name} (Type: ${variable.resolvedType}), Figma Prop: ${figmaProperty}`,
-    );
-
     // Check if node supports this property
     if (!(figmaProperty in node)) {
       console.warn(
         `[BRIDGY] Node ${node.name} (${node.type}) does not support property: ${figmaProperty}`,
       );
       return false;
-    }
-
-    // Special handling for consolidated properties (Padding, Corner Radius)
-    if (
-      property === 'Padding' ||
-      property === 'Padding Left' ||
-      property === 'Padding Right' ||
-      property === 'Padding Top' ||
-      property === 'Padding Bottom'
-    ) {
-      // Note: The map redirects specific paddings to 'paddingLeft' etc, but 'Padding' hits this block logic if we check property name
-      // Actually, we should check checks based on the *category* or specific need.
-      // Existing logic uses `property === 'Padding'`. But the map handles 'Padding Left' -> 'paddingLeft'.
-      // If user applies 'Padding Left', it hits the 'else' block (default), which is correct.
-      // If user applies 'Padding' (all sides), it hits this block.
-
-      if (property === 'Padding') {
-        console.log(`[BRIDGY] Applying Consolidated Padding`);
-        const paddingNode = node as any;
-        if ('paddingLeft' in paddingNode && typeof paddingNode.setBoundVariable === 'function') {
-          try {
-            paddingNode.setBoundVariable('paddingLeft', variable);
-            paddingNode.setBoundVariable('paddingTop', variable);
-            paddingNode.setBoundVariable('paddingRight', variable);
-            paddingNode.setBoundVariable('paddingBottom', variable);
-            console.log(`[BRIDGY] Set padding variables success`);
-          } catch (e) {
-            console.error(`[BRIDGY] Failed to set padding variable:`, e);
-          }
-        } else {
-          console.warn(`[BRIDGY] Node missing paddingLeft or setBoundVariable`);
-        }
-      } else {
-        // Specific padding side, fall through to default
-        // But wait, the original code had:
-        // if (property === 'Padding') { ... } else if (property === 'Corner Radius') { ... }
-        // So specific paddings fell through to default. Correct.
-        // Replicating fall-through for specific sides by NOT putting them in this big if-block unless we want special logic.
-        // The replacement content must validly replace the target.
-        // I will simply stick to the original structure but add logs.
-      }
     }
 
     if (property === 'Padding') {
@@ -422,7 +376,6 @@ async function applyVariableToNode(
         paddingNode.setBoundVariable('paddingTop', variable);
         paddingNode.setBoundVariable('paddingRight', variable);
         paddingNode.setBoundVariable('paddingBottom', variable);
-        console.log(`[BRIDGY] Applied Padding to all sides`);
       }
     } else if (property === 'Corner Radius') {
       const radiusNode = node as any;
@@ -431,10 +384,8 @@ async function applyVariableToNode(
         radiusNode.setBoundVariable('topRightRadius', variable);
         radiusNode.setBoundVariable('bottomLeftRadius', variable);
         radiusNode.setBoundVariable('bottomRightRadius', variable);
-        console.log(`[BRIDGY] Applied Corner Radius to all corners`);
       }
     } else if (property === 'Fill Color') {
-      console.log(`[BRIDGY] Applying Fill Color`);
       const fillNode = node as any;
       if ('fills' in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
         const fills = [...fillNode.fills];
@@ -448,7 +399,6 @@ async function applyVariableToNode(
           fills[solidFillIndex] = { ...targetPaint, boundVariables: nextBound };
           try {
             fillNode.fills = fills;
-            console.log(`[BRIDGY] Set fills success`);
           } catch (err) {
             console.warn(`[BRIDGY] Failed to set fills on node ${fillNode.id}:`, err);
             throw err;
@@ -460,7 +410,6 @@ async function applyVariableToNode(
         console.warn(`[BRIDGY] Node has no fills`);
       }
     } else if (property === 'Stroke Color') {
-      console.log(`[BRIDGY] Applying Stroke Color`);
       const strokeNode = node as any;
       if (
         'strokes' in strokeNode &&
@@ -478,7 +427,6 @@ async function applyVariableToNode(
           strokes[solidStrokeIndex] = { ...targetPaint, boundVariables: nextBound };
           try {
             strokeNode.strokes = strokes;
-            console.log(`[BRIDGY] Set strokes success`);
           } catch (err) {
             console.warn(`[BRIDGY] Failed to set strokes on node ${strokeNode.id}:`, err);
             throw err;
@@ -494,9 +442,6 @@ async function applyVariableToNode(
         // Fix for Width/Height binding issues:
         if (figmaProperty === 'width' && 'layoutSizingHorizontal' in bindableNode) {
           if (bindableNode.layoutSizingHorizontal !== 'FIXED') {
-            console.log(
-              `Switching ${node.name} layoutSizingHorizontal from ${bindableNode.layoutSizingHorizontal} to FIXED for width binding`,
-            );
             try {
               bindableNode.layoutSizingHorizontal = 'FIXED';
             } catch (e) {
@@ -507,9 +452,6 @@ async function applyVariableToNode(
 
         if (figmaProperty === 'height' && 'layoutSizingVertical' in bindableNode) {
           if (bindableNode.layoutSizingVertical !== 'FIXED') {
-            console.log(
-              `Switching ${node.name} layoutSizingVertical from ${bindableNode.layoutSizingVertical} to FIXED for height binding`,
-            );
             try {
               bindableNode.layoutSizingVertical = 'FIXED';
             } catch (e) {
@@ -518,21 +460,7 @@ async function applyVariableToNode(
           }
         }
 
-        console.log(`[BRIDGY] calling setBoundVariable(${figmaProperty}, ${variable.name})`);
         bindableNode.setBoundVariable(figmaProperty, variable);
-
-        // VERIFY: Check if it actually stuck
-        const check = bindableNode.boundVariables && bindableNode.boundVariables[figmaProperty];
-        if (!check) {
-          console.warn(
-            `[BRIDGY] WARNING: setBoundVariable for ${figmaProperty} appeared to succeed but property is not in boundVariables immediately after!`,
-          );
-          console.log(
-            `[BRIDGY] Node: ${node.name}, Type: ${node.type}, Property: ${figmaProperty}, Bound: ${JSON.stringify(bindableNode.boundVariables)}`,
-          );
-        } else {
-          console.log(`[BRIDGY] SUCCESS: Verified binding for ${figmaProperty}`);
-        }
       } else {
         console.warn(
           `[BRIDGY] Node ${node.name} has property ${figmaProperty} but NO setBoundVariable method`,
@@ -550,7 +478,7 @@ async function applyVariableToNode(
 
 // Handle messages from the UI
 figma.ui.onmessage = async (msg: PluginMessage) => {
-  console.log('DEBUG: Received ANY message:', msg.type, msg);
+  // Message routing
   try {
     switch (msg.type) {
       case 'export-css':
@@ -615,19 +543,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case 'select-component':
         try {
-          console.log('Backend: Received select-component for ID:', msg.componentId);
-
           if (!msg.componentId) {
             throw new Error(`Missing required component ID for selection`);
           }
 
           const nodeToSelect = await figma.getNodeByIdAsync(msg.componentId);
-          console.log(
-            'Backend: Found node:',
-            nodeToSelect?.name,
-            nodeToSelect?.type,
-            nodeToSelect?.parent?.type,
-          );
 
           if (!nodeToSelect) {
             throw new Error(`Component with ID ${msg.componentId} not found`);
@@ -635,7 +555,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Check if node is a scene node (can be selected)
           const isSceneNode = nodeToSelect.type !== 'DOCUMENT' && nodeToSelect.type !== 'PAGE';
-          console.log('Backend: Is scene node:', isSceneNode);
 
           if (!isSceneNode) {
             throw new Error(
@@ -655,22 +574,17 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             currentNode = currentNode.parent;
           }
 
-          console.log('Backend: Found containing page:', containingPage?.name);
-
           // Check if we need to switch pages
           const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
 
           // Navigate to the correct page first if needed (use async method for dynamic-page access)
           if (needsPageSwitch && containingPage) {
-            console.log('Backend: Switching to page:', containingPage.name);
             await figma.setCurrentPageAsync(containingPage);
           }
 
           // Select and navigate to the component
           figma.currentPage.selection = [nodeToSelect as SceneNode];
           figma.viewport.scrollAndZoomIntoView([nodeToSelect as SceneNode]);
-
-          console.log('Backend: Successfully selected and navigated to component');
 
           figma.ui.postMessage({
             type: 'component-selected',
@@ -711,9 +625,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case 'save-git-settings':
         const gitService = GitServiceFactory.getService(msg.provider || 'gitlab');
-        console.log('DEBUG: gitService:', gitService);
-        console.log('DEBUG: gitService.saveSettings type:', typeof gitService?.saveSettings);
-        console.log('DEBUG: msg.provider:', msg.provider);
 
         const gitSettings: GitSettings = {
           provider: msg.provider || 'gitlab',
@@ -896,7 +807,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Iterate through all pages to gather comprehensive stats
           for (const page of figma.root.children) {
-            // Skip if page is internal or handled specially (optional check)
+            // If pageIds are provided, only count usage from those pages (empty array means scan all)
+            if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+              continue;
+            }
 
             // Find definitions using criteria (faster)
             const pageDefs = page.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
@@ -939,19 +853,16 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
           
           for (const instance of allInstances) {
-            // mainComponentId is typically available synchronously
-            let mainId = (instance as any).mainComponentId;
+            // Use getMainComponentAsync to avoid hygiene errors with dynamic pages
+            let mainId: string | undefined;
 
-            // Fallback: If mainId is missing use async lookup (slower but reliable)
-            if (!mainId) {
-               try {
-                   const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
-                   if (mainComponent) {
-                       mainId = mainComponent.id;
-                   }
-               } catch (e) {
-                   // Ignore error, skip instance
-               }
+            try {
+              const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
+              if (mainComponent) {
+                mainId = mainComponent.id;
+              }
+            } catch (e) {
+              // Ignore error, skip instance
             }
 
             if (!mainId) continue;
@@ -1003,6 +914,527 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           figma.ui.postMessage({
             type: 'component-stats-error',
             error: (err as Error).message,
+          });
+        }
+        break;
+
+      case 'analyze-component-hygiene':
+        try {
+          console.log('Analyzing component hygiene...');
+
+          // Ensure all pages are loaded
+          await figma.loadAllPagesAsync();
+
+          const localDefinitions = new Map<
+            string,
+            {
+              node: ComponentNode | ComponentSetNode;
+              name: string;
+              isSet: boolean;
+              instances: any[];
+            }
+          >();
+
+          const variantToSetId = new Map<string, string>();
+          const localNodes: (ComponentNode | ComponentSetNode)[] = [];
+          const allInstances: InstanceNode[] = [];
+
+          // Scan all pages for components and instances
+          for (const page of figma.root.children) {
+            // Apply scoping if pageIds are provided (empty array means scan all pages)
+            if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+              continue;
+            }
+
+            const pageDefs = page.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
+            localNodes.push(...pageDefs);
+
+            const pageInstances = page.findAllWithCriteria({ types: ['INSTANCE'] });
+            allInstances.push(...pageInstances);
+          }
+
+          // Process component definitions
+          // Track individual variants within component sets
+          const variantUsage = new Map<string, { name: string; parentId: string; instances: any[] }>();
+
+          for (const node of localNodes) {
+            if (node.type === 'COMPONENT_SET') {
+              localDefinitions.set(node.id, {
+                node: node as ComponentSetNode,
+                name: node.name,
+                isSet: true,
+                instances: [],
+              });
+
+              // Track each variant individually
+              for (const child of (node as ComponentSetNode).children) {
+                if (child.type === 'COMPONENT') {
+                  variantToSetId.set(child.id, node.id);
+                  variantUsage.set(child.id, {
+                    name: child.name,
+                    parentId: node.id,
+                    instances: [],
+                  });
+                }
+              }
+            } else if (node.type === 'COMPONENT') {
+              if (!node.parent || node.parent.type !== 'COMPONENT_SET') {
+                localDefinitions.set(node.id, {
+                  node: node as ComponentNode,
+                  name: node.name,
+                  isSet: false,
+                  instances: [],
+                });
+              }
+            }
+          }
+
+          // Match instances to definitions
+          for (const instance of allInstances) {
+            // Use getMainComponentAsync to avoid hygiene errors with dynamic pages
+            let mainId: string | undefined;
+
+            try {
+              const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
+              if (mainComponent) {
+                mainId = mainComponent.id;
+              }
+            } catch (e) {
+              // Component may be from external library or deleted
+              // Log for debugging but continue processing other instances
+              console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
+            }
+
+            if (!mainId) continue;
+
+            // Track variant usage
+            if (variantUsage.has(mainId)) {
+              const variantInfo = variantUsage.get(mainId);
+              variantInfo.instances.push({ id: instance.id });
+            }
+
+            // Track component set usage
+            let targetId = mainId;
+            if (variantToSetId.has(mainId)) {
+              targetId = variantToSetId.get(mainId);
+            }
+
+            if (localDefinitions.has(targetId)) {
+              const def = localDefinitions.get(targetId);
+              def.instances.push({ id: instance.id });
+            }
+          }
+
+          // Find components with no instances (unused components)
+          const unusedComponents: any[] = [];
+          
+          console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
+          console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
+
+
+          for (const [id, def] of localDefinitions.entries()) {
+            if (def.isSet) {
+              // For component sets, check individual variant usage
+              const componentSet = def.node as ComponentSetNode;
+              const variants = componentSet.children.filter(child => child.type === 'COMPONENT');
+              const unusedVariants: any[] = [];
+              const totalVariants = variants.length;
+              let unusedVariantCount = 0;
+
+              for (const variant of variants) {
+                const variantInfo = variantUsage.get(variant.id);
+                if (variantInfo && variantInfo.instances.length === 0) {
+                  unusedVariantCount++;
+                  unusedVariants.push({
+                    id: variant.id,
+                    name: variant.name,
+                  });
+                }
+              }
+
+              // Only include component sets that have at least one unused variant
+              if (unusedVariantCount > 0) {
+                unusedComponents.push({
+                  id: componentSet.id,
+                  name: componentSet.name,
+                  type: 'COMPONENT_SET',
+                  totalVariants: totalVariants,
+                  unusedVariantCount: unusedVariantCount,
+                  isFullyUnused: unusedVariantCount === totalVariants,
+                  unusedVariants: unusedVariants,
+                });
+              }
+            } else {
+              // Regular component (not in a set)
+              if (def.instances.length === 0) {
+                unusedComponents.push({
+                  id: def.node.id,
+                  name: def.name,
+                  type: 'COMPONENT',
+                  isFullyUnused: true,
+                });
+              }
+            }
+          }
+
+          const totalComponents = localDefinitions.size;
+          const unusedCount = unusedComponents.length;
+          const hygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedCount) / totalComponents) * 100);
+
+          console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
+
+          if (unusedCount === 0 && totalComponents > 0) {
+              console.log('DEBUG: 0 unused found. Dumping sample defs to check consistency:');
+              // Check the first few defs to see if they have instances
+              let i = 0;
+              for (const [id, def] of localDefinitions.entries()) {
+                  if (i++ > 5) break; 
+                  console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
+                  if (def.isSet) {
+                      const set = def.node as ComponentSetNode;
+                      console.log(` - Variants: ${set.children.length}`);
+                  }
+              }
+          }
+
+          figma.ui.postMessage({
+            type: 'component-hygiene-result',
+            result: {
+              totalComponents,
+              unusedComponents,
+              unusedCount,
+              hygieneScore,
+            },
+          });
+        } catch (err) {
+          console.error('Error analyzing component hygiene:', err);
+          figma.ui.postMessage({
+            type: 'component-hygiene-error',
+            error: (err as Error).message,
+          });
+        }
+        break;
+
+      case 'analyze-variable-hygiene':
+        try {
+          console.log('Analyzing variable hygiene...');
+
+          // Get all local variables
+          const allVariables = await figma.variables.getLocalVariablesAsync();
+          console.log(`Found ${allVariables.length} local variables`);
+
+          if (allVariables.length === 0) {
+            figma.ui.postMessage({
+              type: 'variable-hygiene-result',
+              result: {
+                totalVariables: 0,
+                unusedVariables: [],
+                unusedCount: 0,
+                hygieneScore: 100,
+              },
+            });
+            break;
+          }
+
+          // Track which variables are used
+          const variableUsage = new Map<string, { variable: Variable; usedBy: Set<string> }>();
+
+          // Initialize usage tracking
+          for (const variable of allVariables) {
+            variableUsage.set(variable.id, {
+              variable,
+              usedBy: new Set(),
+            });
+          }
+
+          // Check if variables are aliased by other variables
+          for (const variable of allVariables) {
+            for (const modeId of Object.keys(variable.valuesByMode)) {
+              const value = variable.valuesByMode[modeId];
+
+              // Check if this value is an alias to another variable
+              if (value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                const aliasedVarId = value.id;
+                if (variableUsage.has(aliasedVarId)) {
+                  variableUsage.get(aliasedVarId).usedBy.add(variable.id);
+                }
+              }
+            }
+          }
+
+          // Load all pages to scan for variable usage
+          await figma.loadAllPagesAsync();
+
+          // Scan all nodes for variable bindings
+          for (const page of figma.root.children) {
+            // Apply scoping if pageIds are provided (empty array means scan all pages)
+            if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+              continue;
+            }
+
+            const allNodes = page.findAll();
+
+            for (const node of allNodes) {
+              try {
+                // Check all possible variable bindings on the node
+                if ('boundVariables' in node && node.boundVariables) {
+                  const boundVars = node.boundVariables as any;
+
+                  // Iterate through all bound variable properties
+                  for (const propKey of Object.keys(boundVars)) {
+                    const binding = boundVars[propKey];
+                    if (binding && typeof binding === 'object') {
+                      // Handle single binding
+                      if ('id' in binding) {
+                        const varId = (binding as any).id;
+                        if (variableUsage.has(varId)) {
+                          variableUsage.get(varId).usedBy.add(node.id);
+                        }
+                      }
+                      // Handle array of bindings (for gradients, effects, etc.)
+                      else if (Array.isArray(binding)) {
+                        for (const item of binding) {
+                          if (item && typeof item === 'object' && 'id' in item) {
+                            const varId = item.id;
+                            if (variableUsage.has(varId)) {
+                              variableUsage.get(varId).usedBy.add(node.id);
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (nodeError) {
+                // Some nodes might not support variable bindings, continue
+                console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
+              }
+            }
+          }
+
+          // Find unused variables
+          const unusedVariables: any[] = [];
+
+          for (const [varId, usage] of variableUsage.entries()) {
+            if (usage.usedBy.size === 0) {
+              const variable = usage.variable;
+              const collection = await figma.variables.getVariableCollectionByIdAsync(
+                variable.variableCollectionId,
+              );
+
+              // Get resolved value for the default mode
+              const modeId = collection?.defaultModeId || Object.keys(variable.valuesByMode)[0];
+              const varValue = variable.valuesByMode[modeId];
+              let resolvedValue = '';
+
+              if (
+                variable.resolvedType === 'COLOR' &&
+                typeof varValue === 'object' &&
+                'r' in (varValue as any)
+              ) {
+                const color = varValue as { r: number; g: number; b: number; a?: number };
+                resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              } else if (variable.resolvedType === 'FLOAT') {
+                resolvedValue = String(varValue);
+              }
+
+              unusedVariables.push({
+                id: variable.id,
+                name: variable.name,
+                collectionId: variable.variableCollectionId,
+                collectionName: collection?.name || 'Unknown Collection',
+                resolvedType: variable.resolvedType,
+                resolvedValue: resolvedValue,
+                scopes: variable.scopes,
+              });
+            }
+          }
+
+          const totalVariables = allVariables.length;
+          const unusedCount = unusedVariables.length;
+          const hygieneScore = totalVariables === 0 ? 100 : Math.round(((totalVariables - unusedCount) / totalVariables) * 100);
+
+          console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+
+          figma.ui.postMessage({
+            type: 'variable-hygiene-result',
+            result: {
+              totalVariables,
+              unusedVariables,
+              unusedCount,
+              hygieneScore,
+            },
+          });
+        } catch (err) {
+          console.error('Error analyzing variable hygiene:', err);
+          figma.ui.postMessage({
+            type: 'variable-hygiene-error',
+            error: (err as Error).message,
+          });
+        }
+        break;
+
+      case 'delete-component':
+        try {
+          if (!msg.componentId) {
+            throw new Error('Component ID is required for deletion');
+          }
+
+          const componentNode = await figma.getNodeByIdAsync(msg.componentId);
+          if (!componentNode) {
+            throw new Error('Component not found');
+          }
+
+          const componentType = msg.componentType || 'component';
+          let componentName = componentNode.name;
+          let deletedType = '';
+
+          if (componentType === 'set') {
+            // Delete entire component set
+            if (componentNode.type !== 'COMPONENT_SET') {
+              throw new Error('Node is not a component set');
+            }
+            deletedType = 'component set';
+            componentNode.remove();
+          } else if (componentType === 'variant') {
+            // Delete individual variant from a component set
+            if (componentNode.type !== 'COMPONENT') {
+              throw new Error('Node is not a component variant');
+            }
+
+            const parent = componentNode.parent;
+            if (!parent || parent.type !== 'COMPONENT_SET') {
+              throw new Error('Component is not part of a component set');
+            }
+
+            const parentId = parent.id; // Store parent ID before deletion
+
+            // Check if this is the last variant
+            const remainingVariants = parent.children.filter(
+              child => child.type === 'COMPONENT' && child.id !== componentNode.id
+            );
+
+            if (remainingVariants.length === 0) {
+              throw new Error('Cannot delete the last variant. Delete the entire component set instead.');
+            }
+
+            deletedType = 'variant';
+            componentNode.remove();
+
+            // Send parent ID for UI update
+            figma.ui.postMessage({
+              type: 'component-deleted',
+              componentId: msg.componentId,
+              parentId: parentId,
+              componentName: componentName,
+              componentType: deletedType,
+            });
+            return; // Early return to avoid duplicate message
+          } else {
+            // Delete regular component
+            if (componentNode.type !== 'COMPONENT' && componentNode.type !== 'COMPONENT_SET') {
+              throw new Error('Node is not a component');
+            }
+            deletedType = 'component';
+            componentNode.remove();
+          }
+
+          console.log(`Successfully deleted ${deletedType}: ${componentName} (${msg.componentId})`);
+
+          figma.ui.postMessage({
+            type: 'component-deleted',
+            componentId: msg.componentId,
+            componentName: componentName,
+            componentType: deletedType,
+          });
+        } catch (deleteError: any) {
+          console.error('Error deleting component:', deleteError);
+          figma.ui.postMessage({
+            type: 'delete-component-error',
+            error: deleteError.message || 'Failed to delete component',
+          });
+        }
+        break;
+
+      case 'delete-all-unused-variants':
+        try {
+          if (!msg.variantIds || !Array.isArray(msg.variantIds) || msg.variantIds.length === 0) {
+            throw new Error('Variant IDs are required for batch deletion');
+          }
+
+          const deletionResults = [];
+          let successCount = 0;
+          let failCount = 0;
+
+          for (const variantId of msg.variantIds) {
+            try {
+              const variantNode = await figma.getNodeByIdAsync(variantId);
+              if (!variantNode || variantNode.type !== 'COMPONENT') {
+                console.warn(`Variant ${variantId} not found or not a component`);
+                failCount++;
+                continue;
+              }
+
+              const variantName = variantNode.name;
+              variantNode.remove();
+              deletionResults.push({ id: variantId, name: variantName, success: true });
+              successCount++;
+            } catch (error: any) {
+              console.error(`Error deleting variant ${variantId}:`, error);
+              deletionResults.push({ id: variantId, success: false, error: error.message });
+              failCount++;
+            }
+          }
+
+          console.log(`Batch deletion complete: ${successCount} succeeded, ${failCount} failed`);
+
+          figma.ui.postMessage({
+            type: 'batch-variants-deleted',
+            results: deletionResults,
+            successCount,
+            failCount,
+            componentId: msg.componentId, // Include componentId to help UI update
+            deletedAll: successCount === msg.variantIds.length, // True if all variants were successfully deleted
+          });
+        } catch (batchDeleteError: any) {
+          console.error('Error in batch variant deletion:', batchDeleteError);
+          figma.ui.postMessage({
+            type: 'delete-component-error',
+            error: batchDeleteError.message || 'Failed to delete variants',
+          });
+        }
+        break;
+
+      case 'delete-variable':
+        try {
+          if (!msg.variableId) {
+            throw new Error('Variable ID is required for deletion');
+          }
+
+          const variable = await figma.variables.getVariableByIdAsync(msg.variableId);
+          if (!variable) {
+            throw new Error('Variable not found');
+          }
+
+          const variableName = variable.name;
+          const variableType = variable.resolvedType;
+
+          // Remove the variable
+          variable.remove();
+
+          console.log(`Successfully deleted variable: ${variableName} (${msg.variableId})`);
+
+          figma.ui.postMessage({
+            type: 'variable-deleted',
+            variableId: msg.variableId,
+            variableName: variableName,
+            variableType: variableType,
+          });
+        } catch (deleteError: any) {
+          console.error('Error deleting variable:', deleteError);
+          figma.ui.postMessage({
+            type: 'delete-variable-error',
+            error: deleteError.message || 'Failed to delete variable',
           });
         }
         break;
@@ -1419,48 +1851,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
-      case 'delete-variable':
-        try {
-          if (!msg.variableId) {
-            throw new Error('Variable ID is required for deletion');
-          }
-
-          // Get the variable to check if it exists
-          const variableToDelete = await figma.variables.getVariableByIdAsync(msg.variableId);
-          if (!variableToDelete) {
-            throw new Error('Variable not found');
-          }
-
-          // Delete the variable from Figma
-          variableToDelete.remove();
-
-          console.log(
-            `Successfully deleted variable: ${variableToDelete.name} (${msg.variableId})`,
-          );
-
-          // Send success confirmation back to UI
-          figma.ui.postMessage({
-            type: 'variable-deleted',
-            variableId: msg.variableId,
-            variableName: variableToDelete.name,
-          });
-
-          // Refresh the variables data
-          const refreshedData = await collectDocumentData();
-          figma.ui.postMessage({
-            type: 'data-refreshed',
-            variables: refreshedData.variables,
-            components: refreshedData.components,
-          });
-        } catch (deleteError: any) {
-          console.error('Error deleting variable:', deleteError);
-          figma.ui.postMessage({
-            type: 'delete-error',
-            error: deleteError.message || 'Failed to delete variable',
-          });
-        }
-        break;
-
       case 'delete-style':
         try {
           const deleteStyleMsg = msg as any;
@@ -1519,7 +1909,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case 'analyze-token-coverage':
         try {
-          const scope = msg.scope || 'PAGE';
+          const scope = (msg.scope || 'PAGE') as string;
           console.log(`Analyzing token coverage (Scope: ${scope})...`);
 
           // Get settings to determine export format (for dynamic weighting)
@@ -1529,9 +1919,12 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           let coverageResult;
 
           if (scope === 'ALL') {
-            coverageResult = await TokenCoverageService.analyzeDocument(exportFormat);
+            coverageResult = await TokenCoverageService.analyzeDocument(exportFormat, msg.pageIds);
           } else if (scope === 'SMART_SCAN') {
-            coverageResult = await TokenCoverageService.analyzeSmart(exportFormat);
+            coverageResult = await TokenCoverageService.analyzeSmart(exportFormat, msg.pageIds);
+          } else if (scope === 'SELECTION') {
+            console.log('Analyzing selection...');
+            coverageResult = await TokenCoverageService.analyzeSelection(exportFormat);
           } else {
             coverageResult = await TokenCoverageService.analyzeCurrentPage(exportFormat);
           }
@@ -1549,6 +1942,22 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             type: 'token-coverage-error',
             error: coverageError.message || 'Failed to analyze token coverage',
           });
+        }
+        break;
+
+      case 'get-pages':
+        try {
+          const pages = figma.root.children.map(page => ({
+            id: page.id,
+            name: page.name
+          }));
+          figma.ui.postMessage({
+            type: 'pages-list',
+            pages: pages,
+            currentPageId: figma.currentPage.id
+          });
+        } catch (error) {
+          console.error('Error fetching pages:', error);
         }
         break;
 
@@ -1696,6 +2105,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // Best UX: Re-scan coverage + Refresh Data.
 
           // Send explicit success message with new variable details
+          // Send explicit success message with new variable details
           figma.ui.postMessage({
             type: 'variable-created',
             variable: {
@@ -1703,19 +2113,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               name: variable.name,
               key: variable.key,
               valuesByMode: variable.valuesByMode,
+              collectionName: collection.name,
+              resolvedValue: value,
             },
             context: (msg as any).context,
-          });
-
-          // Send explicit success message with new variable ID
-          figma.ui.postMessage({
-            type: 'variable-created',
-            variable: {
-              id: variable.id,
-              name: variable.name,
-              collectionName: collection.name,
-              resolvedValue: value, // Return the original string as resolved value for display match
-            },
           });
         } catch (createError: any) {
           console.error('Error creating variable:', createError);
