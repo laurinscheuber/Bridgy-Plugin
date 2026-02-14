@@ -4223,7 +4223,10 @@
                   isValid: true,
                   // Empty is technically valid
                   groups: [],
-                  invalidGroups: []
+                  invalidGroups: [],
+                  totalVariables: 0,
+                  totalInvalid: 0,
+                  readinessScore: 100
                 };
               }
               const allGroups = [];
@@ -4268,12 +4271,24 @@
                   }
                 }
               }
+              let totalVariables = 0;
+              let totalInvalid = 0;
+              for (const group of allGroups) {
+                totalVariables += group.variableCount;
+                if (!group.isValid) {
+                  totalInvalid += group.variableCount;
+                }
+              }
+              const readinessScore = totalVariables === 0 ? 100 : Math.round((totalVariables - totalInvalid) / totalVariables * 100);
               return {
                 isValid: invalidGroups.length === 0,
                 groups: allGroups,
                 invalidGroups,
-                standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : void 0
+                standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : void 0,
                 // Keep for backward compatibility
+                totalVariables,
+                totalInvalid,
+                readinessScore
               };
             }), {
               operation: "validate_tailwind_v4_groups",
@@ -7127,25 +7142,22 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const currentPage = figma.currentPage;
-            const allNodes = currentPage.findAll((node) => (
-              // node.type === 'FRAME' ||
-              node.type === "COMPONENT" || node.type === "COMPONENT_SET"
-            ));
-            return this.analyzeNodes(allNodes, exportFormat);
+            const nodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            return this.analyzeNodes(nodes, exportFormat);
           });
         }
         /**
-         * Analyzes the entire document for token coverage
+         * Analyzes the entire document or specific pages for token coverage
          */
         static analyzeDocument() {
-          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
             const allPages = figma.root.children;
             let allNodes = [];
             for (const page of allPages) {
-              const pageNodes = page.findAll((node) => (
-                // node.type === 'FRAME' ||
-                node.type === "COMPONENT" || node.type === "COMPONENT_SET"
-              ));
+              if (pageIds && pageIds.indexOf(page.id) === -1) {
+                continue;
+              }
+              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
               allNodes = [...allNodes, ...pageNodes];
             }
             return this.analyzeNodes(allNodes, exportFormat);
@@ -7157,27 +7169,57 @@ ${Object.keys(cssProperties).map((property) => {
          * If another page has issues, it switches to that page and returns its results.
          */
         static analyzeSmart() {
-          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
-            const currentPageResult = yield this.analyzeCurrentPage(exportFormat);
-            if (currentPageResult.totalIssues > 0) {
-              return currentPageResult;
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
+            const currentPageId = figma.currentPage.id;
+            const isCurrentPageSelected = !pageIds || pageIds.indexOf(currentPageId) !== -1;
+            if (isCurrentPageSelected) {
+              const currentPageResult = yield this.analyzeCurrentPage(exportFormat);
+              if (currentPageResult.totalIssues > 0) {
+                return currentPageResult;
+              }
             }
             const allPages = figma.root.children;
-            const currentPageId = figma.currentPage.id;
             for (const page of allPages) {
               if (page.id === currentPageId)
                 continue;
-              const pageNodes = page.findAll((node) => (
-                // node.type === 'FRAME' ||
-                node.type === "COMPONENT" || node.type === "COMPONENT_SET"
-              ));
+              if (pageIds && pageIds.indexOf(page.id) === -1)
+                continue;
+              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
               const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
               if (pageResult.totalIssues > 0) {
                 yield figma.setCurrentPageAsync(page);
                 return pageResult;
               }
             }
-            return currentPageResult;
+            if (isCurrentPageSelected) {
+              return this.analyzeCurrentPage(exportFormat);
+            } else if (pageIds && pageIds.length > 0) {
+              const firstPage = allPages.find((p) => p.id === pageIds[0]);
+              if (firstPage) {
+                const firstPageNodes = firstPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+                return this.analyzeNodes(firstPageNodes, exportFormat);
+              }
+            }
+            return this.analyzeCurrentPage(exportFormat);
+          });
+        }
+        /**
+         * Analyze only the currently selected nodes (and their children)
+         */
+        static analyzeSelection() {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
+            const selection = figma.currentPage.selection;
+            let allNodes = [];
+            for (const node of selection) {
+              if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
+                allNodes.push(node);
+              }
+              if ("findAll" in node) {
+                const children = node.findAll((n) => n.type === "FRAME" || n.type === "SECTION" || n.type === "GROUP" || n.type === "COMPONENT" || n.type === "COMPONENT_SET" || n.type === "INSTANCE");
+                allNodes = [...allNodes, ...children];
+              }
+            }
+            return this.analyzeNodes(allNodes, exportFormat);
           });
         }
         /**
@@ -7190,12 +7232,10 @@ ${Object.keys(cssProperties).map((property) => {
             let frameCount = 0;
             let instanceCount = 0;
             let autoLayoutCount = 0;
-            console.log("Fetching variables for analysis...");
             const allVariables = yield this.getAllVariables();
-            console.log(`Fetched ${allVariables.length} variables for analysis`);
             for (const node of nodes) {
               totalNodes++;
-              if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
+              if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
                 if ("layoutMode" in node && node.layoutMode !== "NONE") {
                   autoLayoutCount++;
                 }
@@ -7277,21 +7317,10 @@ ${Object.keys(cssProperties).map((property) => {
             let validTailwindNames = 0;
             let totalVarsToCheck = allVariables.length;
             if (totalVarsToCheck > 0) {
-              console.log(`[Coverage Debug] Checking Tailwind compatibility for ${allVariables.length} vars`);
-              allVariables.forEach((v, idx) => {
-                if (!v) {
-                  console.warn(`[Coverage Debug] v is null at ${idx}`);
+              allVariables.forEach((v) => {
+                if (!v || !v.variable || !v.variable.name)
                   return;
-                }
-                if (!v.variable) {
-                  console.warn(`[Coverage Debug] v.variable is null at ${idx}`);
-                  return;
-                }
-                if (!v.variable.name) {
-                  console.warn(`[Coverage Debug] v.variable.name is null at ${idx} (Type: ${typeof v.variable.name})`);
-                  return;
-                }
-                if (v.variable && v.variable.name && isTailwindCompatible(v.variable.name)) {
+                if (isTailwindCompatible(v.variable.name)) {
                   validTailwindNames++;
                 }
               });
@@ -7299,16 +7328,14 @@ ${Object.keys(cssProperties).map((property) => {
             const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
             let groupedVariables = 0;
             if (totalVarsToCheck > 0) {
-              console.log(`[Coverage Debug] Checking Variable Hygiene for ${allVariables.length} vars`);
-              allVariables.forEach((v, idx) => {
+              allVariables.forEach((v) => {
                 if (!v || !v.variable || !v.variable.name)
                   return;
-                if (v.variable && v.variable.name && v.variable.name.includes("/")) {
+                if (v.variable.name.includes("/")) {
                   groupedVariables++;
                 }
               });
             }
-            console.log("[Coverage Debug] Variable Hygiene check complete");
             const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round(groupedVariables / totalVarsToCheck * 100);
             const totalContainerNodes = instanceCount + frameCount;
             const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(instanceCount / totalContainerNodes * 100);
@@ -7322,24 +7349,24 @@ ${Object.keys(cssProperties).map((property) => {
               variableHygiene: "0%"
             };
             if (isTailwindV4) {
-              weightedScore = Math.round(tokenCoverageScore * 0.4 + tailwindScore * 0.2 + componentHygieneScore * 0.2 + variableHygieneScore * 0.2);
+              weightedScore = Math.round(tokenCoverageScore * 0.25 + tailwindScore * 0.25 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25);
               weights = {
-                tokenCoverage: "40%",
-                tailwindReadiness: "20%",
-                componentHygiene: "20%",
-                variableHygiene: "20%"
-              };
-            } else {
-              weightedScore = Math.round(tokenCoverageScore * 0.5 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25);
-              weights = {
-                tokenCoverage: "50%",
-                tailwindReadiness: "0%",
-                // Not shown
+                tokenCoverage: "25%",
+                tailwindReadiness: "25%",
                 componentHygiene: "25%",
                 variableHygiene: "25%"
               };
+            } else {
+              weightedScore = Math.round((tokenCoverageScore + componentHygieneScore + variableHygieneScore) / 3);
+              weights = {
+                tokenCoverage: "33.3%",
+                tailwindReadiness: "0%",
+                // Not shown
+                componentHygiene: "33.4%",
+                // Slight adjustment to sum to 100
+                variableHygiene: "33.3%"
+              };
             }
-            console.log(`[Coverage Debug] Analysis complete. Returning ${issuesMap.size} issues.`);
             return {
               totalNodes,
               totalIssues: issuesMap.size,
@@ -7397,22 +7424,22 @@ ${Object.keys(cssProperties).map((property) => {
           if (!("minWidth" in node))
             return;
           const layoutNode = node;
-          if (layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
+          if ("minWidth" in layoutNode && layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
             this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
           }
           if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
             this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
           }
-          if (layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
+          if ("width" in layoutNode && layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
             this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
           }
-          if (layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
+          if ("height" in layoutNode && layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
             this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
           }
-          if (layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
+          if ("minHeight" in layoutNode && layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
             this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
           }
-          if (layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
+          if ("maxHeight" in layoutNode && layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
             this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
           }
           if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
@@ -7492,13 +7519,19 @@ ${Object.keys(cssProperties).map((property) => {
           if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0 && !this.isVariableBound(node, "opacity")) {
             this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
           }
-          if ("cornerRadius" in node) {
+          if ("cornerRadius" in node && node.type !== "SECTION") {
             const rectNode = node;
-            const topLeft = typeof rectNode.topLeftRadius === "number" ? rectNode.topLeftRadius : 0;
-            const topRight = typeof rectNode.topRightRadius === "number" ? rectNode.topRightRadius : 0;
-            const bottomLeft = typeof rectNode.bottomLeftRadius === "number" ? rectNode.bottomLeftRadius : 0;
-            const bottomRight = typeof rectNode.bottomRightRadius === "number" ? rectNode.bottomRightRadius : 0;
+            const topLeft = "topLeftRadius" in rectNode && typeof rectNode.topLeftRadius === "number" ? rectNode.topLeftRadius : 0;
+            const topRight = "topRightRadius" in rectNode && typeof rectNode.topRightRadius === "number" ? rectNode.topRightRadius : 0;
+            const bottomLeft = "bottomLeftRadius" in rectNode && typeof rectNode.bottomLeftRadius === "number" ? rectNode.bottomLeftRadius : 0;
+            const bottomRight = "bottomRightRadius" in rectNode && typeof rectNode.bottomRightRadius === "number" ? rectNode.bottomRightRadius : 0;
             const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
+            if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === "number") {
+              if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, "cornerRadius") && !this.isVariableBound(rectNode, "topLeftRadius")) {
+                this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance");
+                return;
+              }
+            }
             const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
             if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
               this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance");
@@ -9366,31 +9399,9 @@ ${Object.keys(cssProperties).map((property) => {
               console.warn(`[BRIDGY] Unknown property: ${property}`);
               return false;
             }
-            console.log(`[BRIDGY] Apply logic for ${property} on ${node.name} (ID: ${node.id})`);
-            console.log(`[BRIDGY] Variable: ${variable.name} (Type: ${variable.resolvedType}), Figma Prop: ${figmaProperty}`);
             if (!(figmaProperty in node)) {
               console.warn(`[BRIDGY] Node ${node.name} (${node.type}) does not support property: ${figmaProperty}`);
               return false;
-            }
-            if (property === "Padding" || property === "Padding Left" || property === "Padding Right" || property === "Padding Top" || property === "Padding Bottom") {
-              if (property === "Padding") {
-                console.log(`[BRIDGY] Applying Consolidated Padding`);
-                const paddingNode = node;
-                if ("paddingLeft" in paddingNode && typeof paddingNode.setBoundVariable === "function") {
-                  try {
-                    paddingNode.setBoundVariable("paddingLeft", variable);
-                    paddingNode.setBoundVariable("paddingTop", variable);
-                    paddingNode.setBoundVariable("paddingRight", variable);
-                    paddingNode.setBoundVariable("paddingBottom", variable);
-                    console.log(`[BRIDGY] Set padding variables success`);
-                  } catch (e) {
-                    console.error(`[BRIDGY] Failed to set padding variable:`, e);
-                  }
-                } else {
-                  console.warn(`[BRIDGY] Node missing paddingLeft or setBoundVariable`);
-                }
-              } else {
-              }
             }
             if (property === "Padding") {
               const paddingNode = node;
@@ -9399,7 +9410,6 @@ ${Object.keys(cssProperties).map((property) => {
                 paddingNode.setBoundVariable("paddingTop", variable);
                 paddingNode.setBoundVariable("paddingRight", variable);
                 paddingNode.setBoundVariable("paddingBottom", variable);
-                console.log(`[BRIDGY] Applied Padding to all sides`);
               }
             } else if (property === "Corner Radius") {
               const radiusNode = node;
@@ -9408,10 +9418,8 @@ ${Object.keys(cssProperties).map((property) => {
                 radiusNode.setBoundVariable("topRightRadius", variable);
                 radiusNode.setBoundVariable("bottomLeftRadius", variable);
                 radiusNode.setBoundVariable("bottomRightRadius", variable);
-                console.log(`[BRIDGY] Applied Corner Radius to all corners`);
               }
             } else if (property === "Fill Color") {
-              console.log(`[BRIDGY] Applying Fill Color`);
               const fillNode = node;
               if ("fills" in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
                 const fills = [...fillNode.fills];
@@ -9423,7 +9431,6 @@ ${Object.keys(cssProperties).map((property) => {
                   fills[solidFillIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
                   try {
                     fillNode.fills = fills;
-                    console.log(`[BRIDGY] Set fills success`);
                   } catch (err) {
                     console.warn(`[BRIDGY] Failed to set fills on node ${fillNode.id}:`, err);
                     throw err;
@@ -9435,7 +9442,6 @@ ${Object.keys(cssProperties).map((property) => {
                 console.warn(`[BRIDGY] Node has no fills`);
               }
             } else if (property === "Stroke Color") {
-              console.log(`[BRIDGY] Applying Stroke Color`);
               const strokeNode = node;
               if ("strokes" in strokeNode && Array.isArray(strokeNode.strokes) && strokeNode.strokes.length > 0) {
                 const strokes = [...strokeNode.strokes];
@@ -9447,7 +9453,6 @@ ${Object.keys(cssProperties).map((property) => {
                   strokes[solidStrokeIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
                   try {
                     strokeNode.strokes = strokes;
-                    console.log(`[BRIDGY] Set strokes success`);
                   } catch (err) {
                     console.warn(`[BRIDGY] Failed to set strokes on node ${strokeNode.id}:`, err);
                     throw err;
@@ -9461,7 +9466,6 @@ ${Object.keys(cssProperties).map((property) => {
               if (typeof bindableNode.setBoundVariable === "function") {
                 if (figmaProperty === "width" && "layoutSizingHorizontal" in bindableNode) {
                   if (bindableNode.layoutSizingHorizontal !== "FIXED") {
-                    console.log(`Switching ${node.name} layoutSizingHorizontal from ${bindableNode.layoutSizingHorizontal} to FIXED for width binding`);
                     try {
                       bindableNode.layoutSizingHorizontal = "FIXED";
                     } catch (e) {
@@ -9471,7 +9475,6 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 if (figmaProperty === "height" && "layoutSizingVertical" in bindableNode) {
                   if (bindableNode.layoutSizingVertical !== "FIXED") {
-                    console.log(`Switching ${node.name} layoutSizingVertical from ${bindableNode.layoutSizingVertical} to FIXED for height binding`);
                     try {
                       bindableNode.layoutSizingVertical = "FIXED";
                     } catch (e) {
@@ -9479,15 +9482,7 @@ ${Object.keys(cssProperties).map((property) => {
                     }
                   }
                 }
-                console.log(`[BRIDGY] calling setBoundVariable(${figmaProperty}, ${variable.name})`);
                 bindableNode.setBoundVariable(figmaProperty, variable);
-                const check = bindableNode.boundVariables && bindableNode.boundVariables[figmaProperty];
-                if (!check) {
-                  console.warn(`[BRIDGY] WARNING: setBoundVariable for ${figmaProperty} appeared to succeed but property is not in boundVariables immediately after!`);
-                  console.log(`[BRIDGY] Node: ${node.name}, Type: ${node.type}, Property: ${figmaProperty}, Bound: ${JSON.stringify(bindableNode.boundVariables)}`);
-                } else {
-                  console.log(`[BRIDGY] SUCCESS: Verified binding for ${figmaProperty}`);
-                }
               } else {
                 console.warn(`[BRIDGY] Node ${node.name} has property ${figmaProperty} but NO setBoundVariable method`);
                 return false;
@@ -9501,8 +9496,6 @@ ${Object.keys(cssProperties).map((property) => {
         });
       }
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a;
-        console.log("DEBUG: Received ANY message:", msg.type, msg);
         try {
           switch (msg.type) {
             case "export-css":
@@ -9551,17 +9544,14 @@ ${Object.keys(cssProperties).map((property) => {
               break;
             case "select-component":
               try {
-                console.log("Backend: Received select-component for ID:", msg.componentId);
                 if (!msg.componentId) {
                   throw new Error(`Missing required component ID for selection`);
                 }
                 const nodeToSelect = yield figma.getNodeByIdAsync(msg.componentId);
-                console.log("Backend: Found node:", nodeToSelect === null || nodeToSelect === void 0 ? void 0 : nodeToSelect.name, nodeToSelect === null || nodeToSelect === void 0 ? void 0 : nodeToSelect.type, (_a = nodeToSelect === null || nodeToSelect === void 0 ? void 0 : nodeToSelect.parent) === null || _a === void 0 ? void 0 : _a.type);
                 if (!nodeToSelect) {
                   throw new Error(`Component with ID ${msg.componentId} not found`);
                 }
                 const isSceneNode = nodeToSelect.type !== "DOCUMENT" && nodeToSelect.type !== "PAGE";
-                console.log("Backend: Is scene node:", isSceneNode);
                 if (!isSceneNode) {
                   throw new Error(`Node ${msg.componentId} is not a selectable scene node (type: ${nodeToSelect.type})`);
                 }
@@ -9574,15 +9564,12 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                   currentNode = currentNode.parent;
                 }
-                console.log("Backend: Found containing page:", containingPage === null || containingPage === void 0 ? void 0 : containingPage.name);
                 const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
                 if (needsPageSwitch && containingPage) {
-                  console.log("Backend: Switching to page:", containingPage.name);
                   yield figma.setCurrentPageAsync(containingPage);
                 }
                 figma.currentPage.selection = [nodeToSelect];
                 figma.viewport.scrollAndZoomIntoView([nodeToSelect]);
-                console.log("Backend: Successfully selected and navigated to component");
                 figma.ui.postMessage({
                   type: "component-selected",
                   componentId: msg.componentId,
@@ -9617,9 +9604,6 @@ ${Object.keys(cssProperties).map((property) => {
               break;
             case "save-git-settings":
               const gitService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
-              console.log("DEBUG: gitService:", gitService);
-              console.log("DEBUG: gitService.saveSettings type:", typeof (gitService === null || gitService === void 0 ? void 0 : gitService.saveSettings));
-              console.log("DEBUG: msg.provider:", msg.provider);
               const gitSettings = {
                 provider: msg.provider || "gitlab",
                 baseUrl: msg.baseUrl,
@@ -9756,6 +9740,9 @@ ${Object.keys(cssProperties).map((property) => {
                 const localNodes = [];
                 const allInstances = [];
                 for (const page of figma.root.children) {
+                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+                    continue;
+                  }
                   const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
                   localNodes.push(...pageDefs);
                   const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
@@ -9787,15 +9774,13 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
                 for (const instance of allInstances) {
-                  let mainId = instance.mainComponentId;
-                  if (!mainId) {
-                    try {
-                      const mainComponent = yield instance.getMainComponentAsync();
-                      if (mainComponent) {
-                        mainId = mainComponent.id;
-                      }
-                    } catch (e) {
+                  let mainId;
+                  try {
+                    const mainComponent = yield instance.getMainComponentAsync();
+                    if (mainComponent) {
+                      mainId = mainComponent.id;
                     }
+                  } catch (e) {
                   }
                   if (!mainId)
                     continue;
@@ -9835,6 +9820,406 @@ ${Object.keys(cssProperties).map((property) => {
                 figma.ui.postMessage({
                   type: "component-stats-error",
                   error: err.message
+                });
+              }
+              break;
+            case "analyze-component-hygiene":
+              try {
+                console.log("Analyzing component hygiene...");
+                yield figma.loadAllPagesAsync();
+                const localDefinitions = /* @__PURE__ */ new Map();
+                const variantToSetId = /* @__PURE__ */ new Map();
+                const localNodes = [];
+                const allInstances = [];
+                for (const page of figma.root.children) {
+                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+                    continue;
+                  }
+                  const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
+                  localNodes.push(...pageDefs);
+                  const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
+                  allInstances.push(...pageInstances);
+                }
+                const variantUsage = /* @__PURE__ */ new Map();
+                for (const node of localNodes) {
+                  if (node.type === "COMPONENT_SET") {
+                    localDefinitions.set(node.id, {
+                      node,
+                      name: node.name,
+                      isSet: true,
+                      instances: []
+                    });
+                    for (const child of node.children) {
+                      if (child.type === "COMPONENT") {
+                        variantToSetId.set(child.id, node.id);
+                        variantUsage.set(child.id, {
+                          name: child.name,
+                          parentId: node.id,
+                          instances: []
+                        });
+                      }
+                    }
+                  } else if (node.type === "COMPONENT") {
+                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
+                      localDefinitions.set(node.id, {
+                        node,
+                        name: node.name,
+                        isSet: false,
+                        instances: []
+                      });
+                    }
+                  }
+                }
+                for (const instance of allInstances) {
+                  let mainId;
+                  try {
+                    const mainComponent = yield instance.getMainComponentAsync();
+                    if (mainComponent) {
+                      mainId = mainComponent.id;
+                    }
+                  } catch (e) {
+                    console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
+                  }
+                  if (!mainId)
+                    continue;
+                  if (variantUsage.has(mainId)) {
+                    const variantInfo = variantUsage.get(mainId);
+                    variantInfo.instances.push({ id: instance.id });
+                  }
+                  let targetId = mainId;
+                  if (variantToSetId.has(mainId)) {
+                    targetId = variantToSetId.get(mainId);
+                  }
+                  if (localDefinitions.has(targetId)) {
+                    const def = localDefinitions.get(targetId);
+                    def.instances.push({ id: instance.id });
+                  }
+                }
+                const unusedComponents = [];
+                console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
+                console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
+                for (const [id, def] of localDefinitions.entries()) {
+                  if (def.isSet) {
+                    const componentSet = def.node;
+                    const variants = componentSet.children.filter((child) => child.type === "COMPONENT");
+                    const unusedVariants = [];
+                    const totalVariants = variants.length;
+                    let unusedVariantCount = 0;
+                    for (const variant of variants) {
+                      const variantInfo = variantUsage.get(variant.id);
+                      if (variantInfo && variantInfo.instances.length === 0) {
+                        unusedVariantCount++;
+                        unusedVariants.push({
+                          id: variant.id,
+                          name: variant.name
+                        });
+                      }
+                    }
+                    if (unusedVariantCount > 0) {
+                      unusedComponents.push({
+                        id: componentSet.id,
+                        name: componentSet.name,
+                        type: "COMPONENT_SET",
+                        totalVariants,
+                        unusedVariantCount,
+                        isFullyUnused: unusedVariantCount === totalVariants,
+                        unusedVariants
+                      });
+                    }
+                  } else {
+                    if (def.instances.length === 0) {
+                      unusedComponents.push({
+                        id: def.node.id,
+                        name: def.name,
+                        type: "COMPONENT",
+                        isFullyUnused: true
+                      });
+                    }
+                  }
+                }
+                const totalComponents = localDefinitions.size;
+                const unusedCount = unusedComponents.length;
+                const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
+                console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
+                if (unusedCount === 0 && totalComponents > 0) {
+                  console.log("DEBUG: 0 unused found. Dumping sample defs to check consistency:");
+                  let i = 0;
+                  for (const [id, def] of localDefinitions.entries()) {
+                    if (i++ > 5)
+                      break;
+                    console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
+                    if (def.isSet) {
+                      const set = def.node;
+                      console.log(` - Variants: ${set.children.length}`);
+                    }
+                  }
+                }
+                figma.ui.postMessage({
+                  type: "component-hygiene-result",
+                  result: {
+                    totalComponents,
+                    unusedComponents,
+                    unusedCount,
+                    hygieneScore
+                  }
+                });
+              } catch (err) {
+                console.error("Error analyzing component hygiene:", err);
+                figma.ui.postMessage({
+                  type: "component-hygiene-error",
+                  error: err.message
+                });
+              }
+              break;
+            case "analyze-variable-hygiene":
+              try {
+                console.log("Analyzing variable hygiene...");
+                const allVariables = yield figma.variables.getLocalVariablesAsync();
+                console.log(`Found ${allVariables.length} local variables`);
+                if (allVariables.length === 0) {
+                  figma.ui.postMessage({
+                    type: "variable-hygiene-result",
+                    result: {
+                      totalVariables: 0,
+                      unusedVariables: [],
+                      unusedCount: 0,
+                      hygieneScore: 100
+                    }
+                  });
+                  break;
+                }
+                const variableUsage = /* @__PURE__ */ new Map();
+                for (const variable of allVariables) {
+                  variableUsage.set(variable.id, {
+                    variable,
+                    usedBy: /* @__PURE__ */ new Set()
+                  });
+                }
+                for (const variable of allVariables) {
+                  for (const modeId of Object.keys(variable.valuesByMode)) {
+                    const value = variable.valuesByMode[modeId];
+                    if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
+                      const aliasedVarId = value.id;
+                      if (variableUsage.has(aliasedVarId)) {
+                        variableUsage.get(aliasedVarId).usedBy.add(variable.id);
+                      }
+                    }
+                  }
+                }
+                yield figma.loadAllPagesAsync();
+                for (const page of figma.root.children) {
+                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+                    continue;
+                  }
+                  const allNodes = page.findAll();
+                  for (const node of allNodes) {
+                    try {
+                      if ("boundVariables" in node && node.boundVariables) {
+                        const boundVars = node.boundVariables;
+                        for (const propKey of Object.keys(boundVars)) {
+                          const binding = boundVars[propKey];
+                          if (binding && typeof binding === "object") {
+                            if ("id" in binding) {
+                              const varId = binding.id;
+                              if (variableUsage.has(varId)) {
+                                variableUsage.get(varId).usedBy.add(node.id);
+                              }
+                            } else if (Array.isArray(binding)) {
+                              for (const item of binding) {
+                                if (item && typeof item === "object" && "id" in item) {
+                                  const varId = item.id;
+                                  if (variableUsage.has(varId)) {
+                                    variableUsage.get(varId).usedBy.add(node.id);
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    } catch (nodeError) {
+                      console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
+                    }
+                  }
+                }
+                const unusedVariables = [];
+                for (const [varId, usage] of variableUsage.entries()) {
+                  if (usage.usedBy.size === 0) {
+                    const variable = usage.variable;
+                    const collection = yield figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+                    const modeId = (collection === null || collection === void 0 ? void 0 : collection.defaultModeId) || Object.keys(variable.valuesByMode)[0];
+                    const varValue = variable.valuesByMode[modeId];
+                    let resolvedValue = "";
+                    if (variable.resolvedType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+                      const color = varValue;
+                      resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+                    } else if (variable.resolvedType === "FLOAT") {
+                      resolvedValue = String(varValue);
+                    }
+                    unusedVariables.push({
+                      id: variable.id,
+                      name: variable.name,
+                      collectionId: variable.variableCollectionId,
+                      collectionName: (collection === null || collection === void 0 ? void 0 : collection.name) || "Unknown Collection",
+                      resolvedType: variable.resolvedType,
+                      resolvedValue,
+                      scopes: variable.scopes
+                    });
+                  }
+                }
+                const totalVariables = allVariables.length;
+                const unusedCount = unusedVariables.length;
+                const hygieneScore = totalVariables === 0 ? 100 : Math.round((totalVariables - unusedCount) / totalVariables * 100);
+                console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+                figma.ui.postMessage({
+                  type: "variable-hygiene-result",
+                  result: {
+                    totalVariables,
+                    unusedVariables,
+                    unusedCount,
+                    hygieneScore
+                  }
+                });
+              } catch (err) {
+                console.error("Error analyzing variable hygiene:", err);
+                figma.ui.postMessage({
+                  type: "variable-hygiene-error",
+                  error: err.message
+                });
+              }
+              break;
+            case "delete-component":
+              try {
+                if (!msg.componentId) {
+                  throw new Error("Component ID is required for deletion");
+                }
+                const componentNode = yield figma.getNodeByIdAsync(msg.componentId);
+                if (!componentNode) {
+                  throw new Error("Component not found");
+                }
+                const componentType = msg.componentType || "component";
+                let componentName = componentNode.name;
+                let deletedType = "";
+                if (componentType === "set") {
+                  if (componentNode.type !== "COMPONENT_SET") {
+                    throw new Error("Node is not a component set");
+                  }
+                  deletedType = "component set";
+                  componentNode.remove();
+                } else if (componentType === "variant") {
+                  if (componentNode.type !== "COMPONENT") {
+                    throw new Error("Node is not a component variant");
+                  }
+                  const parent = componentNode.parent;
+                  if (!parent || parent.type !== "COMPONENT_SET") {
+                    throw new Error("Component is not part of a component set");
+                  }
+                  const parentId = parent.id;
+                  const remainingVariants = parent.children.filter((child) => child.type === "COMPONENT" && child.id !== componentNode.id);
+                  if (remainingVariants.length === 0) {
+                    throw new Error("Cannot delete the last variant. Delete the entire component set instead.");
+                  }
+                  deletedType = "variant";
+                  componentNode.remove();
+                  figma.ui.postMessage({
+                    type: "component-deleted",
+                    componentId: msg.componentId,
+                    parentId,
+                    componentName,
+                    componentType: deletedType
+                  });
+                  return;
+                } else {
+                  if (componentNode.type !== "COMPONENT" && componentNode.type !== "COMPONENT_SET") {
+                    throw new Error("Node is not a component");
+                  }
+                  deletedType = "component";
+                  componentNode.remove();
+                }
+                console.log(`Successfully deleted ${deletedType}: ${componentName} (${msg.componentId})`);
+                figma.ui.postMessage({
+                  type: "component-deleted",
+                  componentId: msg.componentId,
+                  componentName,
+                  componentType: deletedType
+                });
+              } catch (deleteError) {
+                console.error("Error deleting component:", deleteError);
+                figma.ui.postMessage({
+                  type: "delete-component-error",
+                  error: deleteError.message || "Failed to delete component"
+                });
+              }
+              break;
+            case "delete-all-unused-variants":
+              try {
+                if (!msg.variantIds || !Array.isArray(msg.variantIds) || msg.variantIds.length === 0) {
+                  throw new Error("Variant IDs are required for batch deletion");
+                }
+                const deletionResults = [];
+                let successCount = 0;
+                let failCount = 0;
+                for (const variantId of msg.variantIds) {
+                  try {
+                    const variantNode = yield figma.getNodeByIdAsync(variantId);
+                    if (!variantNode || variantNode.type !== "COMPONENT") {
+                      console.warn(`Variant ${variantId} not found or not a component`);
+                      failCount++;
+                      continue;
+                    }
+                    const variantName = variantNode.name;
+                    variantNode.remove();
+                    deletionResults.push({ id: variantId, name: variantName, success: true });
+                    successCount++;
+                  } catch (error) {
+                    console.error(`Error deleting variant ${variantId}:`, error);
+                    deletionResults.push({ id: variantId, success: false, error: error.message });
+                    failCount++;
+                  }
+                }
+                console.log(`Batch deletion complete: ${successCount} succeeded, ${failCount} failed`);
+                figma.ui.postMessage({
+                  type: "batch-variants-deleted",
+                  results: deletionResults,
+                  successCount,
+                  failCount,
+                  componentId: msg.componentId,
+                  // Include componentId to help UI update
+                  deletedAll: successCount === msg.variantIds.length
+                  // True if all variants were successfully deleted
+                });
+              } catch (batchDeleteError) {
+                console.error("Error in batch variant deletion:", batchDeleteError);
+                figma.ui.postMessage({
+                  type: "delete-component-error",
+                  error: batchDeleteError.message || "Failed to delete variants"
+                });
+              }
+              break;
+            case "delete-variable":
+              try {
+                if (!msg.variableId) {
+                  throw new Error("Variable ID is required for deletion");
+                }
+                const variable = yield figma.variables.getVariableByIdAsync(msg.variableId);
+                if (!variable) {
+                  throw new Error("Variable not found");
+                }
+                const variableName = variable.name;
+                const variableType = variable.resolvedType;
+                variable.remove();
+                console.log(`Successfully deleted variable: ${variableName} (${msg.variableId})`);
+                figma.ui.postMessage({
+                  type: "variable-deleted",
+                  variableId: msg.variableId,
+                  variableName,
+                  variableType
+                });
+              } catch (deleteError) {
+                console.error("Error deleting variable:", deleteError);
+                figma.ui.postMessage({
+                  type: "delete-variable-error",
+                  error: deleteError.message || "Failed to delete variable"
                 });
               }
               break;
@@ -10160,36 +10545,6 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
-            case "delete-variable":
-              try {
-                if (!msg.variableId) {
-                  throw new Error("Variable ID is required for deletion");
-                }
-                const variableToDelete = yield figma.variables.getVariableByIdAsync(msg.variableId);
-                if (!variableToDelete) {
-                  throw new Error("Variable not found");
-                }
-                variableToDelete.remove();
-                console.log(`Successfully deleted variable: ${variableToDelete.name} (${msg.variableId})`);
-                figma.ui.postMessage({
-                  type: "variable-deleted",
-                  variableId: msg.variableId,
-                  variableName: variableToDelete.name
-                });
-                const refreshedData = yield collectDocumentData();
-                figma.ui.postMessage({
-                  type: "data-refreshed",
-                  variables: refreshedData.variables,
-                  components: refreshedData.components
-                });
-              } catch (deleteError) {
-                console.error("Error deleting variable:", deleteError);
-                figma.ui.postMessage({
-                  type: "delete-error",
-                  error: deleteError.message || "Failed to delete variable"
-                });
-              }
-              break;
             case "delete-style":
               try {
                 const deleteStyleMsg = msg;
@@ -10241,9 +10596,12 @@ ${Object.keys(cssProperties).map((property) => {
                 const exportFormat = msg.exportFormat || (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
                 let coverageResult;
                 if (scope === "ALL") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat);
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat, msg.pageIds);
                 } else if (scope === "SMART_SCAN") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat);
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat, msg.pageIds);
+                } else if (scope === "SELECTION") {
+                  console.log("Analyzing selection...");
+                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSelection(exportFormat);
                 } else {
                   coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
                 }
@@ -10259,6 +10617,21 @@ ${Object.keys(cssProperties).map((property) => {
                   type: "token-coverage-error",
                   error: coverageError.message || "Failed to analyze token coverage"
                 });
+              }
+              break;
+            case "get-pages":
+              try {
+                const pages = figma.root.children.map((page) => ({
+                  id: page.id,
+                  name: page.name
+                }));
+                figma.ui.postMessage({
+                  type: "pages-list",
+                  pages,
+                  currentPageId: figma.currentPage.id
+                });
+              } catch (error) {
+                console.error("Error fetching pages:", error);
               }
               break;
             case "set-client-storage":
@@ -10365,19 +10738,11 @@ ${Object.keys(cssProperties).map((property) => {
                     id: variable.id,
                     name: variable.name,
                     key: variable.key,
-                    valuesByMode: variable.valuesByMode
-                  },
-                  context: msg.context
-                });
-                figma.ui.postMessage({
-                  type: "variable-created",
-                  variable: {
-                    id: variable.id,
-                    name: variable.name,
+                    valuesByMode: variable.valuesByMode,
                     collectionName: collection.name,
                     resolvedValue: value
-                    // Return the original string as resolved value for display match
-                  }
+                  },
+                  context: msg.context
                 });
               } catch (createError) {
                 console.error("Error creating variable:", createError);
