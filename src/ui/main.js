@@ -6200,8 +6200,8 @@ function displayComponentHygieneSection(result) {
 
   // Update global state
   if (window.qualityAnalysisState) {
-      window.qualityAnalysisState.subScores.componentHygiene = result.hygieneScore || 0;
-      window.qualityAnalysisState.componentIssues = result.unusedCount || 0;
+      window.qualityAnalysisState.subScores.componentHygiene = (result.subScores ? result.subScores.componentHygiene : 0) || 0;
+      window.qualityAnalysisState.componentIssues = result.unusedComponentCount || result.unusedCount || 0;
       updateQualityScoreUI();
   }
 
@@ -6215,15 +6215,15 @@ function displayComponentHygieneSection(result) {
         <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: rgba(255,255,255,0.4); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
         <!-- Stats -->
         ${renderCategoryStats(
-            result.hygieneScore || 0,
-            result.unusedCount,
-            result.totalComponents,
+            (result.subScores ? result.subScores.componentHygiene : 0) || 0,
+            result.unusedComponentCount || result.unusedCount || 0,
+            result.totalComponents || 0,
             'Unused Components'
         )}
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
-          ${result.unusedCount} unused component${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalComponents} total. Remove unused components to improve your design system hygiene.
+          ${result.unusedComponentCount || result.unusedCount || 0} unused component${(result.unusedComponentCount || result.unusedCount) !== 1 ? 's' : ''} found out of ${result.totalComponents || 0} total. Remove unused components to improve your design system hygiene.
         </p>
         <div style="padding-left: 0;">
   `;
@@ -6398,8 +6398,8 @@ function displayVariableHygieneSection(result) {
 
   // Update global state
   if (window.qualityAnalysisState) {
-      window.qualityAnalysisState.subScores.variableHygiene = result.hygieneScore || 0;
-      window.qualityAnalysisState.variableIssues = result.unusedCount || 0;
+      window.qualityAnalysisState.subScores.variableHygiene = (result.subScores ? result.subScores.variableHygiene : 0) || 0;
+      window.qualityAnalysisState.variableIssues = result.unusedVariableCount || result.unusedCount || 0;
       updateQualityScoreUI();
   }
 
@@ -6413,15 +6413,15 @@ function displayVariableHygieneSection(result) {
         <span class="material-symbols-outlined section-chevron" style="font-size: 20px; color: rgba(255,255,255,0.4); transition: transform 0.3s ease; ${isSectionExpanded ? '' : 'transform: rotate(-90deg);'}">expand_more</span>
         <!-- Stats -->
         ${renderCategoryStats(
-            result.hygieneScore || 0,
-            result.unusedCount,
-            result.totalVariables,
+            (result.subScores ? result.subScores.variableHygiene : 0) || 0,
+            result.unusedVariableCount || result.unusedCount || 0,
+            result.totalVariables || 0,
             'Unused Variables'
         )}
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
-          ${result.unusedCount} unused variable${result.unusedCount !== 1 ? 's' : ''} found out of ${result.totalVariables} total. Remove unused variables to improve your design system hygiene.
+          ${result.unusedVariableCount || result.unusedCount || 0} unused variable${(result.unusedVariableCount || result.unusedCount) !== 1 ? 's' : ''} found out of ${result.totalVariables || 0} total. Remove unused variables to improve your design system hygiene.
         </p>
         <div style="padding-left: 0;">
   `;
@@ -7133,9 +7133,9 @@ function resetQualityState() {
         `;
     }
     
-    // Reset scores to neutral 100 for actual data
+    // Reset scores to 0 for actual data to prevent flashing high scores
     Object.keys(window.qualityAnalysisState.subScores).forEach(key => {
-        window.qualityAnalysisState.subScores[key] = 100;
+        window.qualityAnalysisState.subScores[key] = 0;
     });
     
     // Update UI
@@ -7147,6 +7147,36 @@ function resetQualityState() {
     }
     
     console.log('Quality: State reset for re-analysis');
+
+    // Inject Loading States into placeholders
+    const componentPlaceholder = document.getElementById('component-hygiene-results-placeholder');
+    if (componentPlaceholder) {
+        componentPlaceholder.innerHTML = `
+            <div class="content-loading">
+                <div class="plugin-loading-spinner"></div>
+                <div class="content-loading-text">Analyzing components...</div>
+            </div>
+        `;
+    }
+
+    const variablePlaceholder = document.getElementById('variable-hygiene-results-placeholder');
+    if (variablePlaceholder) {
+        variablePlaceholder.innerHTML = `
+            <div class="content-loading">
+                <div class="content-loading-spinner"></div>
+                <div class="content-loading-text">Analyzing variables...</div>
+            </div>
+        `;
+    }
+
+    const tailwindPlaceholder = document.getElementById('tailwind-readiness-results-placeholder');
+    // Only show if Tailwind is enabled? No, analysis runs for all, just display determines what shows.
+    // Better to show generic loading or nothing? 
+    // Tailwind readiness is usually fast. Let's add it for consistency if the placeholder exists.
+    if (tailwindPlaceholder) {
+         tailwindPlaceholder.innerHTML = ''; // Keep empty until we know if it's needed? 
+         // Actually, let's leave it empty to avoid clutter if not using Tailwind.
+    }
 }
 
 // Function to display token coverage results

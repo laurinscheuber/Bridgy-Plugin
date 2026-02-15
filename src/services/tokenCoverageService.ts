@@ -46,6 +46,11 @@ export interface TokenCoverageResult {
     variableHygiene: number;
     layoutHygiene: number;
   };
+  // Metrics for UI
+  totalVariables?: number;
+  totalComponents?: number;
+  unusedVariableCount?: number;
+  unusedComponentCount?: number;
   weights?: {
     tokenCoverage: string;
     tailwindReadiness: string;
@@ -615,6 +620,11 @@ export class TokenCoverageService {
       // Detailed Data
       unusedVariables,
       unusedComponents,
+      // Metrics
+      totalVariables: totalVarsToCheck,
+      totalComponents: totalComponents,
+      unusedVariableCount: unusedVariables.length,
+      unusedComponentCount: unusedComponents.length,
       tailwindValidation
     };
   }
