@@ -42,15 +42,23 @@ function minifyCSS(css) {
   );
 }
 
-// Simple JS minifier (removes comments and unnecessary whitespace)
+// Use esbuild for JS minification
 function minifyJS(js) {
-  // DISABLED: Minification was breaking the JavaScript code
-  // The aggressive regex replacements were corrupting message handlers
-  // and other critical code, causing the plugin to fail
-  //
-  // For now, we keep JS unminified even in production
-  // Future: Use a proper minifier like Terser or esbuild if needed
-  return js;
+  if (isDev) return js;
+
+  try {
+    const esbuild = require('esbuild');
+    const result = esbuild.transformSync(js, {
+      minify: true,
+      loader: 'js',
+      target: 'es2015', // Ensure compatibility
+    });
+    return result.code;
+  } catch (error) {
+    console.error('❌ JS Minification failed:', error);
+    // Fallback to original JS to prevent build failure, but log error
+    return js;
+  }
 }
 
 async function buildUI() {
@@ -85,10 +93,12 @@ async function buildUI() {
     }
 
     // Inject into template
+    // Inject into template using callback to avoid special replacement patterns (like $&)
+    // and escape closing script tags to prevent HTML parsing errors
     let output = template
-      .replace('/* INJECT_CSS */', minifiedCSS)
-      .replace('/* INJECT_JS */', minifiedJS)
-      .replace('<!-- INJECT_HTML -->', bodyHtml);
+      .replace('/* INJECT_CSS */', () => minifiedCSS)
+      .replace('/* INJECT_JS */', () => minifiedJS.replace(/<\/script>/g, '<\\/script>'))
+      .replace('<!-- INJECT_HTML -->', () => bodyHtml);
 
     // Write to dist and root
     fs.writeFileSync(path.join(__dirname, '../ui.html'), output);
