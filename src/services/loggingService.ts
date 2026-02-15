@@ -39,13 +39,7 @@ export class LoggingService {
     this.currentLevel = level;
   }
 
-  // TODO: is this method used anywhere?
-  /**
-   * Get the current logging level
-   */
-  static getLogLevel(): LogLevel {
-    return this.currentLevel;
-  }
+
 
   /**
    * Check if a log level should be output
@@ -89,7 +83,6 @@ export class LoggingService {
     console.debug(`[DEBUG]${category ? ` [${category}]` : ''} ${message}`, data || '');
   }
 
-  // TODO: is this method used anywhere?
   /**
    * Info level logging
    */
@@ -99,6 +92,8 @@ export class LoggingService {
     this.addLogEntry(LogLevel.INFO, message, data, category);
     console.info(`[INFO]${category ? ` [${category}]` : ''} ${message}`, data || '');
   }
+
+
 
   /**
    * Warning level logging
@@ -114,137 +109,8 @@ export class LoggingService {
    * Error level logging
    */
   static error(message: string, error?: any, category?: string): void {
-    if (!this.shouldLog(LogLevel.ERROR)) return;
-
-    this.addLogEntry(LogLevel.ERROR, message, error, category);
     console.error(`[ERROR]${category ? ` [${category}]` : ''} ${message}`, error || '');
   }
-
-  // TODO: all the methods below seem not used anywhere
-  /**
-   * Get all log entries
-   */
-  static getLogs(): LogEntry[] {
-    return [...this.logs];
-  }
-
-  /**
-   * Get log entries by level
-   */
-  static getLogsByLevel(level: LogLevel): LogEntry[] {
-    return this.logs.filter((log) => log.level === level);
-  }
-
-  /**
-   * Get log entries by category
-   */
-  static getLogsByCategory(category: string): LogEntry[] {
-    return this.logs.filter((log) => log.category === category);
-  }
-
-  /**
-   * Clear all log entries
-   */
-  static clearLogs(): void {
-    this.logs = [];
-  }
-
-  /**
-   * Get log summary (counts by level)
-   */
-  static getLogsSummary(): Record<string, number> {
-    const summary = {
-      debug: 0,
-      info: 0,
-      warn: 0,
-      error: 0,
-    };
-
-    this.logs.forEach((log) => {
-      switch (log.level) {
-        case LogLevel.DEBUG:
-          summary.debug++;
-          break;
-        case LogLevel.INFO:
-          summary.info++;
-          break;
-        case LogLevel.WARN:
-          summary.warn++;
-          break;
-        case LogLevel.ERROR:
-          summary.error++;
-          break;
-      }
-    });
-
-    return summary;
-  }
-
-  /**
-   * Export logs as JSON string
-   */
-  static exportLogs(): string {
-    return JSON.stringify(this.logs, null, 2);
-  }
-
-  /**
-   * Format log entry for display
-   */
-  static formatLogEntry(entry: LogEntry): string {
-    const timestamp = entry.timestamp.toISOString();
-    const level = LogLevel[entry.level];
-    const category = entry.category ? ` [${entry.category}]` : '';
-    const data = entry.data ? ` | ${JSON.stringify(entry.data)}` : '';
-
-    return `${timestamp} [${level}]${category} ${entry.message}${data}`;
-  }
-
-  /**
-   * Performance timing helper
-   */
-  static time(label: string, category?: string): () => void {
-    const start = performance.now();
-    this.debug(`Timer started: ${label}`, undefined, category);
-
-    return () => {
-      const duration = performance.now() - start;
-      this.debug(`Timer finished: ${label} (${duration.toFixed(2)}ms)`, { duration }, category);
-    };
-  }
-
-  /**
-   * Log with performance measurement
-   */
-  static withTiming<T>(operation: () => T, label: string, category?: string): T {
-    const endTimer = this.time(label, category);
-    try {
-      const result = operation();
-      endTimer();
-      return result;
-    } catch (error) {
-      endTimer();
-      this.error(`Error in ${label}:`, error, category);
-      throw error;
-    }
-  }
-
-  /**
-   * Log with performance measurement for async operations
-   */
-  static async withTimingAsync<T>(
-    operation: () => Promise<T>,
-    label: string,
-    category?: string,
-  ): Promise<T> {
-    const endTimer = this.time(label, category);
-    try {
-      const result = await operation();
-      endTimer();
-      return result;
-    } catch (error) {
-      endTimer();
-      this.error(`Error in ${label}:`, error, category);
-      throw error;
-    }
-  }
 }
+
+
