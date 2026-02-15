@@ -42,7 +42,7 @@ export class VariableImportService {
       }
 
       if (match) {
-        let name = match[1].trim();
+        const name = match[1].trim();
         let value = match[2].trim();
 
         // Remove !default for SCSS if present

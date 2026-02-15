@@ -13,7 +13,7 @@ import { objectEntries, objectValues } from '../utils/es2015-helpers';
 figma.showUI(__html__, { width: 650, height: 900, themeColors: true });
 
 // Store component data for later use
-let componentMap = new Map<string, any>();
+const componentMap = new Map<string, any>();
 
 // Collect all variables and components from the document
 async function collectDocumentData() {
@@ -1286,7 +1286,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           }
 
           const componentType = msg.componentType || 'component';
-          let componentName = componentNode.name;
+          const componentName = componentNode.name;
           let deletedType = '';
 
           if (componentType === 'set') {

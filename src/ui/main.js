@@ -969,7 +969,7 @@ document.addEventListener('DOMContentLoaded', function () {
   window.MultiPageSelector.init();
 
   console.log('Available elements:', {
-    componentsContainer: !!document.getElementById('components-container'),
+    componentsContainer: !!document.getElementById('stats-container'),
     variablesContainer: !!document.getElementById('variables-container'),
   });
   updatePluginLoadingProgress(loadingSteps[0], 10);
@@ -2274,7 +2274,7 @@ window.onmessage = (event) => {
       console.error('Error loading components:', message.error);
 
       // Show error to user
-      const componentsContainer = document.getElementById('components-container');
+      const componentsContainer = document.getElementById('stats-container');
       if (componentsContainer) {
         componentsContainer.innerHTML = `
               <div style="color: #ef4444; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px;">
@@ -3011,13 +3011,6 @@ window.onmessage = (event) => {
       } else {
         // Quality Analysis success - normal flow
         displayTokenCoverageResults(message.result);
-        
-        // Automatically trigger component hygiene analysis after token coverage completes
-        // This ensures both metrics appear together without requiring a separate user action
-        analyzeComponentHygiene();
-
-        // Also trigger variable hygiene analysis
-        analyzeVariableHygiene();
       }
 
       if (window.currentAnalysisNotification) {
@@ -7258,17 +7251,28 @@ function displayTokenCoverageResults(result) {
           }
        }
 
-      // Reset flag
+  // Reset flag
       window.isBackgroundAnalysis = false;
       return; 
   }
 
-  // Clear stale hygiene placeholders so the animation controller
-  // doesn't find old DOM elements from a previous scan
-  const hygieneVarPlaceholder = document.getElementById('variable-hygiene-results-placeholder');
-  const hygieneCompPlaceholder = document.getElementById('component-hygiene-results-placeholder');
-  if (hygieneVarPlaceholder) hygieneVarPlaceholder.innerHTML = '';
-  if (hygieneCompPlaceholder) hygieneCompPlaceholder.innerHTML = '';
+  // Update global state for Tailwind Validation from the consolidated result
+  if (result.tailwindValidation) {
+      window.tailwindV4Validation = result.tailwindValidation;
+      // Also update the readiness score in validation object to match subScores if needed
+      if (result.subScores && result.subScores.tailwindReadiness !== undefined) {
+          window.tailwindV4Validation.readinessScore = result.subScores.tailwindReadiness;
+      }
+      // Update total variables count in validation object
+      if (window.tailwindV4Validation) {
+         window.tailwindV4Validation.totalVariables = result.totalVariables || (result.subScores ? result.subScores.totalVariables : 0) || 0; 
+      }
+  }
+
+  // Render Hygiene Sections Immediately
+  // (These functions handle their own innerHTML and animation registration)
+  displayComponentHygieneSection(result);
+  displayVariableHygieneSection(result);
 
   let html = `
 
@@ -7689,9 +7693,14 @@ function displayTokenCoverageResults(result) {
   const isTailwindV4Selected = window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4';
   const tailwindTarget = document.getElementById('tailwind-readiness-results-placeholder');
   
+  
   if (tailwindTarget) {
       if (isTailwindV4Selected && window.tailwindV4Validation) {
           tailwindTarget.innerHTML = renderTailwindReadinessSection(window.tailwindV4Validation);
+          // Register animation
+          if (window.QualityAnimationController) {
+              window.QualityAnimationController.registerData('Tailwind Incompatible Variables');
+          }
       } else {
           tailwindTarget.innerHTML = '';
       }

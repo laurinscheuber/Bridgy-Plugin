@@ -257,7 +257,7 @@ export class SecurityUtils {
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
   private static btoaPolyfill(input: string): string {
-    let str = input;
+    const str = input;
     let output = '';
 
     for (
@@ -322,7 +322,7 @@ export class SecurityUtils {
 
   private static atobPolyfill(input: string): string {
     const chars = SecurityUtils.b64chars;
-    let str = input.replace(/=+$/, '');
+    const str = input.replace(/=+$/, '');
     let output = '';
 
     if (str.length % 4 === 1) {
