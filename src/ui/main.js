@@ -1164,6 +1164,9 @@ window.refreshData = function () {
     // FIX: ensure we are not stuck in "fix in progress" state
     window.tokenFixInProgress = false;
     
+    // Reset/Loading state first
+    resetQualityState();
+
     // Send message to backend to collect fresh data FIRST
     parent.postMessage(
       {
@@ -7155,6 +7158,16 @@ function resetQualityState() {
             <div class="content-loading">
                 <div class="plugin-loading-spinner"></div>
                 <div class="content-loading-text">Analyzing components...</div>
+            </div>
+        `;
+    }
+
+    const tokenPlaceholder = document.getElementById('token-coverage-results');
+    if (tokenPlaceholder) {
+        tokenPlaceholder.innerHTML = `
+            <div class="content-loading">
+                <div class="plugin-loading-spinner"></div>
+                <div class="content-loading-text">Analyzing token coverage...</div>
             </div>
         `;
     }
