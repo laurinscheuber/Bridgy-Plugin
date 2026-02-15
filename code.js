@@ -702,33 +702,6 @@
   var require_loggingService = __commonJS({
     "dist/services/loggingService.js"(exports) {
       "use strict";
-      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
-        function adopt(value) {
-          return value instanceof P ? value : new P(function(resolve) {
-            resolve(value);
-          });
-        }
-        return new (P || (P = Promise))(function(resolve, reject) {
-          function fulfilled(value) {
-            try {
-              step(generator.next(value));
-            } catch (e) {
-              reject(e);
-            }
-          }
-          function rejected(value) {
-            try {
-              step(generator["throw"](value));
-            } catch (e) {
-              reject(e);
-            }
-          }
-          function step(result) {
-            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
-          }
-          step((generator = generator.apply(thisArg, _arguments || [])).next());
-        });
-      };
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.LoggingService = exports.LogLevel = void 0;
       var LogLevel;
@@ -744,13 +717,6 @@
          */
         static setLogLevel(level) {
           this.currentLevel = level;
-        }
-        // TODO: is this method used anywhere?
-        /**
-         * Get the current logging level
-         */
-        static getLogLevel() {
-          return this.currentLevel;
         }
         /**
          * Check if a log level should be output
@@ -783,7 +749,6 @@
           this.addLogEntry(LogLevel.DEBUG, message, data, category);
           console.debug(`[DEBUG]${category ? ` [${category}]` : ""} ${message}`, data || "");
         }
-        // TODO: is this method used anywhere?
         /**
          * Info level logging
          */
@@ -806,122 +771,7 @@
          * Error level logging
          */
         static error(message, error, category) {
-          if (!this.shouldLog(LogLevel.ERROR))
-            return;
-          this.addLogEntry(LogLevel.ERROR, message, error, category);
           console.error(`[ERROR]${category ? ` [${category}]` : ""} ${message}`, error || "");
-        }
-        // TODO: all the methods below seem not used anywhere
-        /**
-         * Get all log entries
-         */
-        static getLogs() {
-          return [...this.logs];
-        }
-        /**
-         * Get log entries by level
-         */
-        static getLogsByLevel(level) {
-          return this.logs.filter((log) => log.level === level);
-        }
-        /**
-         * Get log entries by category
-         */
-        static getLogsByCategory(category) {
-          return this.logs.filter((log) => log.category === category);
-        }
-        /**
-         * Clear all log entries
-         */
-        static clearLogs() {
-          this.logs = [];
-        }
-        /**
-         * Get log summary (counts by level)
-         */
-        static getLogsSummary() {
-          const summary = {
-            debug: 0,
-            info: 0,
-            warn: 0,
-            error: 0
-          };
-          this.logs.forEach((log) => {
-            switch (log.level) {
-              case LogLevel.DEBUG:
-                summary.debug++;
-                break;
-              case LogLevel.INFO:
-                summary.info++;
-                break;
-              case LogLevel.WARN:
-                summary.warn++;
-                break;
-              case LogLevel.ERROR:
-                summary.error++;
-                break;
-            }
-          });
-          return summary;
-        }
-        /**
-         * Export logs as JSON string
-         */
-        static exportLogs() {
-          return JSON.stringify(this.logs, null, 2);
-        }
-        /**
-         * Format log entry for display
-         */
-        static formatLogEntry(entry) {
-          const timestamp = entry.timestamp.toISOString();
-          const level = LogLevel[entry.level];
-          const category = entry.category ? ` [${entry.category}]` : "";
-          const data = entry.data ? ` | ${JSON.stringify(entry.data)}` : "";
-          return `${timestamp} [${level}]${category} ${entry.message}${data}`;
-        }
-        /**
-         * Performance timing helper
-         */
-        static time(label, category) {
-          const start = performance.now();
-          this.debug(`Timer started: ${label}`, void 0, category);
-          return () => {
-            const duration = performance.now() - start;
-            this.debug(`Timer finished: ${label} (${duration.toFixed(2)}ms)`, { duration }, category);
-          };
-        }
-        /**
-         * Log with performance measurement
-         */
-        static withTiming(operation, label, category) {
-          const endTimer = this.time(label, category);
-          try {
-            const result = operation();
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            this.error(`Error in ${label}:`, error, category);
-            throw error;
-          }
-        }
-        /**
-         * Log with performance measurement for async operations
-         */
-        static withTimingAsync(operation, label, category) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const endTimer = this.time(label, category);
-            try {
-              const result = yield operation();
-              endTimer();
-              return result;
-            } catch (error) {
-              endTimer();
-              this.error(`Error in ${label}:`, error, category);
-              throw error;
-            }
-          });
         }
       };
       exports.LoggingService = LoggingService;
@@ -1165,7 +1015,7 @@
           return _SecurityUtils.toBase64(`${fileId}:${sessionId}:${timestamp}`).slice(0, 32);
         }
         static btoaPolyfill(input) {
-          let str = input;
+          const str = input;
           let output = "";
           for (let block = 0, charCode, i = 0, map = _SecurityUtils.b64chars; str.charAt(i | 0) || (map = "=", i % 1); output += map.charAt(63 & block >> 8 - i % 1 * 8)) {
             charCode = str.charCodeAt(i += 3 / 4);
@@ -1208,7 +1058,7 @@
         }
         static atobPolyfill(input) {
           const chars = _SecurityUtils.b64chars;
-          let str = input.replace(/=+$/, "");
+          const str = input.replace(/=+$/, "");
           let output = "";
           if (str.length % 4 === 1) {
             throw new Error("'atob' failed: The string to be decoded is not correctly encoded.");
@@ -4223,10 +4073,7 @@
                   isValid: true,
                   // Empty is technically valid
                   groups: [],
-                  invalidGroups: [],
-                  totalVariables: 0,
-                  totalInvalid: 0,
-                  readinessScore: 100
+                  invalidGroups: []
                 };
               }
               const allGroups = [];
@@ -4271,24 +4118,12 @@
                   }
                 }
               }
-              let totalVariables = 0;
-              let totalInvalid = 0;
-              for (const group of allGroups) {
-                totalVariables += group.variableCount;
-                if (!group.isValid) {
-                  totalInvalid += group.variableCount;
-                }
-              }
-              const readinessScore = totalVariables === 0 ? 100 : Math.round((totalVariables - totalInvalid) / totalVariables * 100);
               return {
                 isValid: invalidGroups.length === 0,
                 groups: allGroups,
                 invalidGroups,
-                standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : void 0,
+                standaloneVariables: standaloneVariables.length > 0 ? standaloneVariables[0] : void 0
                 // Keep for backward compatibility
-                totalVariables,
-                totalInvalid,
-                readinessScore
               };
             }), {
               operation: "validate_tailwind_v4_groups",
@@ -7227,13 +7062,26 @@ ${Object.keys(cssProperties).map((property) => {
          */
         static analyzeNodes(nodes_1) {
           return __awaiter(this, arguments, void 0, function* (nodes, exportFormat = "css") {
-            const issuesMap = /* @__PURE__ */ new Map();
+            const variableUsage = /* @__PURE__ */ new Map();
+            const localComponentDefs = /* @__PURE__ */ new Map();
+            const componentUsage = /* @__PURE__ */ new Map();
+            const variantToSetId = /* @__PURE__ */ new Map();
             let totalNodes = 0;
-            let frameCount = 0;
-            let instanceCount = 0;
             let autoLayoutCount = 0;
+            let instanceCount = 0;
+            let frameCount = 0;
+            const issuesMap = /* @__PURE__ */ new Map();
             const allVariables = yield this.getAllVariables();
-            for (const node of nodes) {
+            allVariables.forEach((v) => {
+              if (v.variable) {
+                variableUsage.set(v.variable.id, /* @__PURE__ */ new Set());
+              }
+            });
+            for (let i = 0; i < nodes.length; i++) {
+              const node = nodes[i];
+              if (i % 50 === 0) {
+                yield new Promise((resolve) => setTimeout(resolve, 0));
+              }
               totalNodes++;
               if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
                 if ("layoutMode" in node && node.layoutMode !== "NONE") {
@@ -7245,8 +7093,118 @@ ${Object.keys(cssProperties).map((property) => {
                   frameCount++;
                 }
               }
+              if (node.type === "COMPONENT") {
+                if (node.parent && node.parent.type === "COMPONENT_SET") {
+                  variantToSetId.set(node.id, node.parent.id);
+                } else {
+                  localComponentDefs.set(node.id, node);
+                }
+              } else if (node.type === "COMPONENT_SET") {
+                localComponentDefs.set(node.id, node);
+                node.children.forEach((child) => {
+                  if (child.type === "COMPONENT") {
+                    variantToSetId.set(child.id, node.id);
+                  }
+                });
+              }
+              if (node.type === "INSTANCE") {
+                let mainId = null;
+                try {
+                  const main = yield node.getMainComponentAsync();
+                  if (main)
+                    mainId = main.id;
+                } catch (e) {
+                }
+                if (mainId) {
+                  if (!componentUsage.has(mainId)) {
+                    componentUsage.set(mainId, /* @__PURE__ */ new Set());
+                  }
+                  componentUsage.get(mainId).add(node.id);
+                  const setId = variantToSetId.get(mainId);
+                  if (setId) {
+                    if (!componentUsage.has(setId)) {
+                      componentUsage.set(setId, /* @__PURE__ */ new Set());
+                    }
+                    componentUsage.get(setId).add(node.id);
+                  }
+                }
+              }
+              if ("boundVariables" in node && node.boundVariables) {
+                const boundVars = node.boundVariables;
+                for (const propKey of Object.keys(boundVars)) {
+                  const binding = boundVars[propKey];
+                  if (binding) {
+                    const checkId = (id) => {
+                      if (variableUsage.has(id)) {
+                        variableUsage.get(id).add(node.id);
+                      }
+                    };
+                    if (Array.isArray(binding)) {
+                      binding.forEach((b) => b.id && checkId(b.id));
+                    } else if (typeof binding === "object" && binding.id) {
+                      checkId(binding.id);
+                    }
+                  }
+                }
+              }
               yield this.analyzeNode(node, issuesMap);
             }
+            const unusedVariables = [];
+            allVariables.forEach((v) => {
+              if (!v || !v.variable)
+                return;
+              const usage = variableUsage.get(v.variable.id);
+              if (!usage || usage.size === 0) {
+                let resolvedValue = "";
+                const modeId = Object.keys(v.variable.valuesByMode)[0];
+                const val = v.variable.valuesByMode[modeId];
+                if (v.variable.resolvedType === "COLOR" && val && typeof val === "object" && "r" in val) {
+                  const c = val;
+                  resolvedValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+                } else if (val !== void 0) {
+                  resolvedValue = String(val);
+                }
+                unusedVariables.push({
+                  id: v.variable.id,
+                  name: v.variable.name,
+                  resolvedType: v.variable.resolvedType,
+                  resolvedValue,
+                  collectionName: v.collectionName
+                });
+              }
+            });
+            const totalVarsToCheck = allVariables.length;
+            const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round((totalVarsToCheck - unusedVariables.length) / totalVarsToCheck * 100);
+            const unusedComponents = [];
+            for (const [id, def] of localComponentDefs.entries()) {
+              if (def.type === "COMPONENT_SET") {
+                const set = def;
+                const variants = set.children.filter((c) => c.type === "COMPONENT");
+                const unusedVariants = variants.filter((v) => !componentUsage.has(v.id) || componentUsage.get(v.id).size === 0);
+                if (unusedVariants.length > 0) {
+                  unusedComponents.push({
+                    id: set.id,
+                    name: set.name,
+                    type: "COMPONENT_SET",
+                    totalVariants: variants.length,
+                    unusedVariantCount: unusedVariants.length,
+                    isFullyUnused: unusedVariants.length === variants.length,
+                    unusedVariants: unusedVariants.map((v) => ({ id: v.id, name: v.name }))
+                  });
+                }
+              } else {
+                if (!componentUsage.has(id) || componentUsage.get(id).size === 0) {
+                  unusedComponents.push({
+                    id: def.id,
+                    name: def.name,
+                    type: "COMPONENT",
+                    isFullyUnused: true
+                  });
+                }
+              }
+            }
+            const totalComponents = localComponentDefs.size;
+            const componentHygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedComponents.length) / totalComponents * 100);
             for (const issue of issuesMap.values()) {
               issue.matchingVariables = yield this.findMatchingVariables(issue.value, issue.category, allVariables);
             }
@@ -7274,71 +7232,44 @@ ${Object.keys(cssProperties).map((property) => {
             }
             const TAILWIND_PREFIXES = [
               "color",
-              // Color utilities (bg-red-500, text-sky-300)
               "font",
-              // Font family utilities (font-sans)
               "text",
-              // Font size utilities (text-xl)
               "font-weight",
-              // Font weight utilities (font-bold)
               "tracking",
-              // Letter spacing utilities (tracking-wide)
               "leading",
-              // Line height utilities (leading-tight)
               "breakpoint",
-              // Responsive breakpoint variants (sm:*)
               "container",
-              // Container query variants (@sm:*, max-w-md)
               "spacing",
-              // Spacing and sizing utilities (px-4, max-h-16)
               "radius",
-              // Border radius utilities (rounded-sm)
               "shadow",
-              // Box shadow utilities (shadow-md)
               "inset-shadow",
-              // Inset box shadow utilities (inset-shadow-xs)
               "drop-shadow",
-              // Drop shadow filter utilities (drop-shadow-md)
               "blur",
-              // Blur filter utilities (blur-md)
               "perspective",
-              // Perspective utilities (perspective-near)
               "aspect",
-              // Aspect ratio utilities (aspect-video)
               "ease",
-              // Transition timing function utilities (ease-out)
               "animate"
-              // Animation utilities (animate-spin)
             ];
             const isTailwindCompatible = (name) => {
               const normalizedName = name.replace(/\//g, "-");
               return TAILWIND_PREFIXES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
             };
             let validTailwindNames = 0;
-            let totalVarsToCheck = allVariables.length;
+            const tailwindValidation = { valid: [], invalid: [] };
             if (totalVarsToCheck > 0) {
               allVariables.forEach((v) => {
                 if (!v || !v.variable || !v.variable.name)
                   return;
                 if (isTailwindCompatible(v.variable.name)) {
                   validTailwindNames++;
+                  tailwindValidation.valid.push({ id: v.variable.id, name: v.variable.name });
+                } else {
+                  tailwindValidation.invalid.push({ id: v.variable.id, name: v.variable.name });
                 }
               });
             }
             const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
-            let groupedVariables = 0;
-            if (totalVarsToCheck > 0) {
-              allVariables.forEach((v) => {
-                if (!v || !v.variable || !v.variable.name)
-                  return;
-                if (v.variable.name.includes("/")) {
-                  groupedVariables++;
-                }
-              });
-            }
-            const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round(groupedVariables / totalVarsToCheck * 100);
             const totalContainerNodes = instanceCount + frameCount;
-            const componentHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(instanceCount / totalContainerNodes * 100);
             const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
             const isTailwindV4 = exportFormat === "tailwind-v4";
             let weightedScore = 0;
@@ -7379,7 +7310,11 @@ ${Object.keys(cssProperties).map((property) => {
                 variableHygiene: variableHygieneScore,
                 layoutHygiene: layoutHygieneScore
               },
-              weights
+              weights,
+              // Detailed Data
+              unusedVariables,
+              unusedComponents,
+              tailwindValidation
             };
           });
         }
@@ -7679,17 +7614,25 @@ ${Object.keys(cssProperties).map((property) => {
             const allVars = [];
             try {
               const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              const promises = [];
               for (const collection of collections) {
                 for (const varId of collection.variableIds) {
-                  const variable = yield figma.variables.getVariableByIdAsync(varId);
-                  if (variable) {
-                    allVars.push({
-                      variable,
-                      collection
-                    });
-                  }
+                  promises.push(figma.variables.getVariableByIdAsync(varId).then((variable) => {
+                    if (variable) {
+                      return {
+                        variable,
+                        collection
+                      };
+                    }
+                    return null;
+                  }));
                 }
               }
+              const results = yield Promise.all(promises);
+              results.forEach((res) => {
+                if (res)
+                  allVars.push(res);
+              });
             } catch (e) {
               console.error("Error fetching all variables:", e);
             }
@@ -7845,7 +7788,7 @@ ${Object.keys(cssProperties).map((property) => {
               isScss = true;
             }
             if (match) {
-              let name = match[1].trim();
+              const name = match[1].trim();
               let value = match[2].trim();
               if (isScss) {
                 value = value.replace(/\s*!default\s*$/, "");
@@ -10098,7 +10041,7 @@ ${Object.keys(cssProperties).map((property) => {
                   throw new Error("Component not found");
                 }
                 const componentType = msg.componentType || "component";
-                let componentName = componentNode.name;
+                const componentName = componentNode.name;
                 let deletedType = "";
                 if (componentType === "set") {
                   if (componentNode.type !== "COMPONENT_SET") {
