@@ -3405,7 +3405,7 @@ window.onmessage = (event) => {
             btn.disabled = false;
             btn.innerHTML =
               '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
-            updateApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
+            updateIssueApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
 
             // Clean up token fix state on error
             if (window.tokenFixScrollPosition !== undefined) {
@@ -3424,7 +3424,7 @@ window.onmessage = (event) => {
               btn.classList.remove('btn-success');
               btn.innerHTML =
                 '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
-              updateApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
+              updateIssueApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
             }
             window.lastApplyButtonId = null;
           }, 2000);
@@ -7537,7 +7537,7 @@ function displayTokenCoverageResults(result) {
       // Trigger update of button state slightly after rendering if auto-selected
       if (selectedId && selectedId !== 'create-new') {
         setTimeout(() => {
-          updateApplyButtonState(issueId);
+          updateIssueApplyButtonState(issueId);
         }, 0);
       }
 
@@ -7577,7 +7577,7 @@ function displayTokenCoverageResults(result) {
         cardHtml += `
                 <div class="quality-node-item" data-issue-id="${issueId}">
                   <div class="node-header" onclick="toggleQualityNodeGroup('${groupId}')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                    <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateApplyButtonState('${issueId}')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="occurrence-checkbox" data-issue-id="${issueId}" data-node-ids='${SecurityUtils.escapeHTML(JSON.stringify(data.ids))}' onchange="updateIssueApplyButtonState('${issueId}')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">
                     <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px; display: flex; align-items: center; justify-content: center;" id="${groupId}-toggle">
                          <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
                     </button>
@@ -7875,7 +7875,7 @@ function setupIssueListeners(issueId) {
         // Handle create new variable
         handleCreateNewVariable(issueId);
       } else {
-        updateApplyButtonState(issueId);
+        updateIssueApplyButtonState(issueId);
       }
     });
   }
@@ -13274,7 +13274,7 @@ function toggleAllOccurrences(issueId) {
     cb.checked = selectAllCheckbox.checked;
   });
 
-  updateApplyButtonState(issueId);
+  updateIssueApplyButtonState(issueId);
 }
 
 /**
@@ -13328,7 +13328,7 @@ function selectCustomOption(issueId, value, label, type) {
   }
   
   // Update apply button
-  updateApplyButtonState(issueId);
+  updateIssueApplyButtonState(issueId);
 
   // Auto-select all nodes if a specific variable was chosen (not "create new")
   if (value && value !== 'create-new') {
@@ -13354,7 +13354,7 @@ document.addEventListener('click', (e) => {
 /**
  * Update the apply button state based on selection
  */
-function updateApplyButtonState(issueId) {
+function updateIssueApplyButtonState(issueId) {
   const applyBtn = document.getElementById(`${issueId}-apply-btn`);
 
   if (!applyBtn) return;
@@ -13556,12 +13556,12 @@ function applyTokenToSelection(issueId, property, category) {
       applyBtn.classList.remove('btn-loading');
       applyBtn.innerHTML =
         '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
-      updateApplyButtonState(issueId);
+      updateIssueApplyButtonState(issueId);
     }
   }, 5000);
 }
 
 // Expose to window
 window.toggleAllOccurrences = toggleAllOccurrences;
-window.updateApplyButtonState = updateApplyButtonState;
+window.updateIssueApplyButtonState = updateIssueApplyButtonState;
 window.applyTokenToSelection = applyTokenToSelection;
