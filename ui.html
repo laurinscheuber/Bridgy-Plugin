@@ -134,29 +134,6 @@
       </button>
     </div>
   </div>
-
-  <!-- Edit Mode Header (Replaces Tabs) -->
-  <div id="edit-mode-header" class="edit-mode-header" style="display: none;">
-    <div class="edit-mode-title">
-        <span class="material-symbols-outlined">build_circle</span>
-        <span>Improvement Session</span>
-    </div>
-    
-    <div id="edit-mode-gauge-container">
-        <!-- Gauge injected here -->
-    </div>
-    
-    <button
-      id="finish-improving-btn"
-      class="primary-action-btn finish-btn"
-      onclick="finishImproving()"
-      title="Finish and see results"
-    >
-      <span class="material-symbols-outlined">check_circle</span>
-      <span class="toolbar-btn-text">Finish Improving</span>
-    </button>
-  </div>
-
   <div class="tabs" id="main-tabs">
     <div class="tab active" data-tab="quality">Quality</div>
     <div class="tab" data-tab="variables">Variables</div>
@@ -264,73 +241,129 @@
 
   <div class="tab-content active" id="quality-content">
     <div class="content-padding">
-      <!-- Tab Header -->
-
-      <div id="quality-page-selector-container" style="display: flex; align-items: center; gap: 8px; margin-bottom: 24px; min-height: 32px; padding-left: 8px;">
-        <div style="font-size: 11px; opacity: 0.5;">Checking Pages...</div>
-      </div>
-
-      <div class="quality-header" style="display: flex; justify-content: center; align-items: center; margin-bottom: 48px; gap: 64px; padding: 0 16px; min-height: 200px;">
-        <!-- Left: Score Gauge -->
-        <div id="quality-header-left" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-          <div id="quality-score-gauge-container" style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center;">
-            <!-- Dynamic Gauge will be injected here -->
+      <!-- Quality Header -->
+      <div class="quality-header-new">
+        <div class="quality-header-controls">
+          <!-- Page Selection Dropdown -->
+          <div id="quality-page-selector-container" class="quality-page-selector">
+            <div style="font-size: 11px; opacity: 0.5;">Checking Pages...</div>
           </div>
-          <div style="text-align: center;">
-            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; opacity: 0.4; font-weight: 700;">Design System</div>
-            <div style="font-size: 18px; font-weight: 800; color: white; letter-spacing: -0.2px; margin-top: -1px;">Quality Score</div>
-            <div id="quality-summary-stats" style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 500; margin-top: 4px;">0 nodes • 0 issues</div>
-          </div>
-        </div>
-
-        <!-- Right: Actions & Info -->
-        <div id="quality-header-right" style="display: flex; flex-direction: column; justify-content: center; gap: 32px; padding: 0;">
-          <!-- Legend centered vertically relative to Gauge -->
-          <div class="quality-legend" id="quality-legend" style="display: flex; flex-direction: column; gap: 8px;">
-            <div class="legend-item" style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 10px; height: 10px; border-radius: 3px; background: #ef4444; border: 1px solid rgba(255,255,255,0.15);"></div>
-              <span style="font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 600;">0 - 49 (Critical)</span>
-            </div>
-            <div class="legend-item" style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 10px; height: 10px; border-radius: 3px; background: #fbbf24; border: 1px solid rgba(255,255,255,0.15);"></div>
-              <span style="font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 600;">50 - 89 (Average)</span>
-            </div>
-            <div class="legend-item" style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 10px; height: 10px; border-radius: 3px; background: #22c55e; border: 1px solid rgba(255,255,255,0.15);"></div>
-              <span style="font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 600;">90 - 100 (Optimal)</span>
-            </div>
-          </div>
-
-          <!-- Button positioned below legend -->
-          <button
-            class="btn-primary"
-            style="padding: 0 24px; font-size: 11px; height: 34px; border-radius: 17px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; background: #8b5cf6; color: white; border: none; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); cursor: pointer; transition: all 0.2s ease;"
-            onclick="handleImproveDesignSystem()"
-            id="improve-design-btn"
-          >
-            Improve Score
+          <!-- Refresh Button -->
+          <button id="quality-refresh-btn" class="quality-refresh-btn" onclick="refreshQualityAnalysis()" title="Refresh Analysis">
+            <span class="material-symbols-outlined">refresh</span>
           </button>
         </div>
+
+        <div class="quality-score-section">
+          <!-- Left: Circular Score -->
+          <div class="quality-score-gauge">
+            <div id="quality-score-ring-container" class="quality-score-ring">
+              <!-- SVG gauge injected here -->
+            </div>
+            <div class="quality-score-label">
+              <div class="quality-score-label-sub">Design System</div>
+              <div class="quality-score-label-main">Quality Score</div>
+              <div id="quality-summary-stats" class="quality-score-label-stats">0 nodes • 0 issues</div>
+            </div>
+          </div>
+          <!-- Right: Legend -->
+          <div class="quality-score-legend">
+            <div class="legend-item"><span class="legend-dot legend-critical"></span> 0 - 49 (Critical)</div>
+            <div class="legend-item"><span class="legend-dot legend-average"></span> 50 - 89 (Average)</div>
+            <div class="legend-item"><span class="legend-dot legend-optimal"></span> 90 - 100 (Optimal)</div>
+          </div>
+        </div>
       </div>
 
-
-      <div id="quality-dashboard-container">
+      <!-- Quality Categories Dashboard -->
+      <div id="quality-dashboard-container" class="quality-dashboard">
         <!-- 1. Missing Variables -->
-        <div id="token-coverage-results">
-          <div class="content-loading" style="display: none">
-            <div class="content-loading-spinner"></div>
-            <div class="content-loading-text">Analyzing variables...</div>
+        <div id="quality-cat-missing-variables" class="quality-category-section">
+          <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-missing-variables')">
+            <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
+            <h3 class="quality-category-title">Missing Variables</h3>
+            <div class="quality-category-stats" id="stats-missing-variables">
+              <span class="cat-good-count" id="good-missing-variables">0</span>
+              <div class="quality-progress-bar">
+                <div class="quality-progress-fill" id="bar-missing-variables" style="width: 0%"></div>
+              </div>
+              <span class="cat-bad-count" id="bad-missing-variables">0</span>
+              <span class="cat-percent" id="pct-missing-variables">0%</span>
+            </div>
+          </div>
+          <div class="quality-category-body" id="body-missing-variables" style="display: none;">
+            <p class="quality-category-desc">Identify elements using hard-coded values instead of design variables.</p>
+            <div id="missing-variables-content">
+              <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
+            </div>
           </div>
         </div>
 
-        <!-- 2. Variable Hygiene -->
-        <div id="variable-hygiene-results-placeholder"></div>
+        <!-- 2. Unused Variables -->
+        <div id="quality-cat-unused-variables" class="quality-category-section">
+          <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-unused-variables')">
+            <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
+            <h3 class="quality-category-title">Unused Variables</h3>
+            <div class="quality-category-stats" id="stats-unused-variables">
+              <span class="cat-good-count" id="good-unused-variables">0</span>
+              <div class="quality-progress-bar">
+                <div class="quality-progress-fill" id="bar-unused-variables" style="width: 0%"></div>
+              </div>
+              <span class="cat-bad-count" id="bad-unused-variables">0</span>
+              <span class="cat-percent" id="pct-unused-variables">0%</span>
+            </div>
+          </div>
+          <div class="quality-category-body" id="body-unused-variables" style="display: none;">
+            <p class="quality-category-desc">Variables not used in any component, variant, instance, or styling property.</p>
+            <div id="unused-variables-content">
+              <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
+            </div>
+          </div>
+        </div>
 
-        <!-- 3. Component Hygiene -->
-        <div id="component-hygiene-results-placeholder"></div>
+        <!-- 3. Unused Components -->
+        <div id="quality-cat-unused-components" class="quality-category-section">
+          <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-unused-components')">
+            <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
+            <h3 class="quality-category-title">Unused Components</h3>
+            <div class="quality-category-stats" id="stats-unused-components">
+              <span class="cat-good-count" id="good-unused-components">0</span>
+              <div class="quality-progress-bar">
+                <div class="quality-progress-fill" id="bar-unused-components" style="width: 0%"></div>
+              </div>
+              <span class="cat-bad-count" id="bad-unused-components">0</span>
+              <span class="cat-percent" id="pct-unused-components">0%</span>
+            </div>
+          </div>
+          <div class="quality-category-body" id="body-unused-components" style="display: none;">
+            <p class="quality-category-desc">Components or variants that are not used anywhere in the design file.</p>
+            <div id="unused-components-content">
+              <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
+            </div>
+          </div>
+        </div>
 
-        <!-- 4. Tailwind Readiness -->
-        <div id="tailwind-readiness-results-placeholder"></div>
+        <!-- 4. Tailwind Incompatible Variables (conditional) -->
+        <div id="quality-cat-tailwind" class="quality-category-section" style="display: none;">
+          <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-tailwind')">
+            <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
+            <h3 class="quality-category-title">Tailwind Incompatible Variables</h3>
+            <div class="quality-category-stats" id="stats-tailwind">
+              <span class="cat-good-count" id="good-tailwind">0</span>
+              <div class="quality-progress-bar">
+                <div class="quality-progress-fill" id="bar-tailwind" style="width: 0%"></div>
+              </div>
+              <span class="cat-bad-count" id="bad-tailwind">0</span>
+              <span class="cat-percent" id="pct-tailwind">0%</span>
+            </div>
+          </div>
+          <div class="quality-category-body" id="body-tailwind" style="display: none;">
+            <p class="quality-category-desc">Variables that need Tailwind v4 compatible namespaces.</p>
+            <div id="tailwind-content">
+              <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -851,40 +884,6 @@
       </div>
     </div>
   </div>
-</div>
-
-<!-- Celebration Overlay -->
-<div id="celebration-overlay" class="celebration-overlay" style="display: none;">
-    <div class="celebration-content">
-        <div class="celebration-icon">🎉</div>
-        <h2 class="celebration-title">Great Job!</h2>
-        <p class="celebration-subtitle">You've improved the Design System Quality.</p>
-        
-        <!-- Gauge Container -->
-        <div id="celebration-gauge-container" style="margin-bottom: 24px; display: flex; justify-content: center;"></div>
-        
-        <div class="celebration-score-comparison">
-            <div class="score-box">
-                <span class="score-label">From</span>
-                <span class="score-value" id="celebration-score-start">0</span>
-            </div>
-            <div class="score-arrow">
-                <span class="material-symbols-outlined">arrow_forward</span>
-            </div>
-            <div class="score-box highlight">
-                <span class="score-label">To</span>
-                <span class="score-value" id="celebration-score-end">0</span>
-            </div>
-        </div>
-        
-        <div class="celebration-stats-grid" id="celebration-stats-grid">
-            <!-- Stats injected here -->
-        </div>
-        
-        <button class="btn-primary-gradient celebration-close-btn" onclick="closeCelebration()">
-            Back to Dashboard
-        </button>
-    </div>
 </div>
 
 <!-- User Guide Modal -->
