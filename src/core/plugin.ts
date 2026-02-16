@@ -1104,6 +1104,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               unusedComponents,
               unusedCount,
               hygieneScore,
+              subScores: { componentHygiene: hygieneScore },
             },
           });
         } catch (err) {
@@ -1132,6 +1133,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 unusedCount: 0,
                 hygieneScore: 100,
               },
+              subScores: { variableHygiene: 100 },
             });
             break;
           }
@@ -1263,6 +1265,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               unusedVariables,
               unusedCount,
               hygieneScore,
+              subScores: { variableHygiene: hygieneScore },
             },
           });
         } catch (err) {

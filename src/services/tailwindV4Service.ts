@@ -57,6 +57,14 @@ export class TailwindV4Service {
   }
 
   /**
+   * Check if a variable name is compatible with Tailwind v4 (starts with valid namespace)
+   */
+  static isCompatible(name: string): boolean {
+    const normalizedName = name.replace(/\//g, '-').toLowerCase();
+    return TAILWIND_V4_NAMESPACES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
+  }
+
+  /**
    * Validate all variable groups for Tailwind v4 compatibility
    */
   static async validateVariableGroups(): Promise<ValidationResult> {

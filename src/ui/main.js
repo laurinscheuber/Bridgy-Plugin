@@ -589,9 +589,9 @@ window.MultiPageSelector = {
     
     // Trigger unified re-analysis of the entire dashboard
     // Quality Score (Gauge + Sub-scores)
-    // The token-coverage-result handler will automatically trigger the other analyses
-    // to ensure sequential data flow and correct animation registration
     analyzeTokenCoverage();
+    analyzeComponentHygiene();
+    analyzeVariableHygiene();
     
     // Supporting metrics (even if not on active tab)
     analyzeStats();
@@ -1247,14 +1247,21 @@ window.refreshStats = function (notificationElement) {
 window.filterStats = function(query) {
   if (!componentStatsData) return;
   
-  const term = query.toLowerCase().trim();
+  let sourceData = componentStatsData;
+  // Apply active filter first (e.g. Unused)
+  if (window.activeStatsFilter === 'unused') {
+      sourceData = sourceData.filter(item => item.count === 0);
+  }
+  
+  const term = query ? query.toLowerCase().trim() : '';
   if (!term) {
-    renderStats(componentStatsData);
+    // If no search term, just render based on active filter
+    renderStats(componentStatsData, window.activeStatsFilter === 'unused' ? sourceData : null);
     return;
   }
   
   // Filter parent components or those with matching children
-  const filtered = componentStatsData.filter(item => {
+  const filtered = sourceData.filter(item => {
     const parentMatch = item.name.toLowerCase().includes(term);
     const childrenMatch = item.instances.some(inst => 
       inst.name.toLowerCase().includes(term) || 
@@ -1266,19 +1273,8 @@ window.filterStats = function(query) {
   renderStats(componentStatsData, filtered);
 };
 
-window.toggleStatsSort = function(column) {
-  if (statsSortState.column === column) {
-    statsSortState.direction = statsSortState.direction === 'asc' ? 'desc' : 'asc';
-  } else {
-    statsSortState.column = column;
-    statsSortState.direction = column === 'name' ? 'asc' : 'desc';
-  }
-  
-  // Re-apply filter which triggers render with new sort
-  const searchInput = document.getElementById('stats-search-input'); // Assuming ID, fallback to global filter
-  const query = searchInput ? searchInput.value : '';
-  window.filterStats(query);
-};
+// Obsolete duplicate toggleStatsSort removed
+// The canonical version is defined later in the file with updated sort logic.
 
 // ===== FEEDBACK SYSTEM =====
 window.dismissFeedback = function () {
@@ -1907,21 +1903,19 @@ document.querySelectorAll('.tab').forEach((tab) => {
       if (!window.qualityScanPerformed) {
         console.log('First visit to Quality tab - Triggering initial scan...');
 
-        const container = document.getElementById('token-coverage-results'); // FIXED: Correct ID
-        if (container) {
-          // Manual spinner injection to ensure it shows immediately
-          container.innerHTML = `
-                  <div class="content-loading">
-                    <div class="plugin-loading-spinner"></div>
-                    <div class="content-loading-text">Analyzing design for issues...</div>
-                  </div>
-                 `;
-        }
+        // Use centralized reset to show all spinners
+        resetQualityState();
 
         // Defer actual scan slightly to allow UI paint
         setTimeout(() => {
-          analyzeTokenCoverage('SMART_SCAN');
-          window.qualityScanPerformed = true; // Mark as scanned
+          try {
+             analyzeTokenCoverage('SMART_SCAN');
+             analyzeComponentHygiene();
+             analyzeVariableHygiene();
+             window.qualityScanPerformed = true; // Mark as scanned
+          } catch (e) {
+             console.error('Error triggering quality analysis:', e);
+          }
         }, 50);
       }
     }
@@ -2999,7 +2993,10 @@ window.onmessage = (event) => {
            // But 'SMART_SCAN' usually shows its own notification or uses the one passed.
            // Let's use silent mode or just a standard run. Standard run is better for feedback.
 
+           // Trigger independent analyses for each section to ensure correct scoping
            analyzeTokenCoverage('SMART_SCAN');
+           analyzeComponentHygiene();
+           analyzeVariableHygiene();
         }
       }
       
@@ -3309,6 +3306,28 @@ window.onmessage = (event) => {
                 // After animation completes, fully hide with display: none
                 setTimeout(() => {
                   issueCard.style.display = 'none';
+
+                  // AUTO-ADVANCE: Find and open the next issue
+                  let nextCard = issueCard.nextElementSibling;
+                  // Skip non-issue elements (like load more buttons or hidden elements)
+                  while (nextCard && (!nextCard.classList.contains('quality-issue-card') || nextCard.style.display === 'none')) {
+                      nextCard = nextCard.nextElementSibling;
+                  }
+                  
+                  if (nextCard && nextCard.id) {
+                      const nextIssueId = nextCard.id.replace('-card', '');
+                      console.log('Auto-advancing to next issue:', nextIssueId);
+                      
+                      if (window.toggleIssueCard) {
+                          // toggling it will expand it (assuming it starts collapsed)
+                          window.toggleIssueCard(nextIssueId);
+                          
+                          // Scroll into view with a slight delay to allow expansion
+                          setTimeout(() => {
+                              nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 100);
+                      }
+                  }
 
                   // Update count badge for the collection
                   if (window.tokenFixActiveCollectionId) {
@@ -3968,7 +3987,7 @@ function renderStyleGroup(name, styles, type, collectionId) {
                             </div>
                             <span class="subgroup-stats">${ungrouped.length}</span>
                         </div>
- historical (line 3444):
+
                         <div class="subgroup-content collapsed" id="${groupId}-content">
                             ${renderStyleTable(ungrouped, type, true)}
                         </div>
@@ -5761,42 +5780,50 @@ function analyzeStats() {
 function analyzeComponentHygiene() {
   console.log('analyzeComponentHygiene called');
 
-  const selectedIds = MultiPageSelector.getSelectedIds();
-  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
-  const pageIds = selectedIds.length > 0 ? selectedIds : null;
+  try {
+    const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
+    // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
+    const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
 
-  // Send message to plugin backend
-  parent.postMessage(
-    {
-      pluginMessage: {
-        type: 'analyze-component-hygiene',
-        scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
-        pageIds: pageIds
+    // Send message to plugin backend
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'analyze-component-hygiene',
+          scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
+          pageIds: pageIds
+        },
       },
-    },
-    '*',
-  );
+      '*',
+    );
+  } catch (error) {
+    console.error('Error in analyzeComponentHygiene:', error);
+  }
 }
 
 // Analyze variable hygiene (unused variables)
 function analyzeVariableHygiene() {
   console.log('analyzeVariableHygiene called');
 
-  const selectedIds = MultiPageSelector.getSelectedIds();
-  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
-  const pageIds = selectedIds.length > 0 ? selectedIds : null;
+  try {
+    const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
+    // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
+    const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
 
-  // Send message to plugin backend
-  parent.postMessage(
-    {
-      pluginMessage: {
-        type: 'analyze-variable-hygiene',
-        scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
-        pageIds: pageIds
+    // Send message to plugin backend
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: 'analyze-variable-hygiene',
+          scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
+          pageIds: pageIds
+        },
       },
-    },
-    '*',
-  );
+      '*',
+    );
+  } catch (error) {
+    console.error('Error in analyzeVariableHygiene:', error);
+  }
 }
 
 // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
@@ -5814,35 +5841,64 @@ function updateAnalysisScope(scope) {
   analyzeTokenCoverage();
 }
 
+// Track active filter state
+window.activeStatsFilter = null; // 'unused' or null
+
 // Toggle sort order
 window.toggleStatsSort = function(column) {
   if (statsSortState.column === column) {
     statsSortState.direction = statsSortState.direction === 'asc' ? 'desc' : 'asc';
   } else {
     statsSortState.column = column;
-    statsSortState.direction = column === 'name' ? 'asc' : 'desc';
+    // Default sort direction logic: 
+    // - Name: Ascending (A-Z)
+    // - Count/Variants: Descending (High-Low)
+    if (column === 'name') {
+        statsSortState.direction = 'asc';
+    } else {
+        statsSortState.direction = 'desc';
+    }
   }
   
   // Re-apply filter which triggers render with new sort
-  const searchInput = document.getElementById('stats-search');
-  const query = searchInput ? searchInput.value : '';
-  if (window.filterStats) {
-      window.filterStats(query);
-  } else {
-      renderStats(componentStatsData);
-  }
+  applyStatsView();
 };
 
-// Filter stats by unused
-window.filterByUnused = function() {
+// Toggle unused filter
+window.toggleUnusedFilter = function() {
   if (!componentStatsData) return;
-  const unused = componentStatsData.filter(item => item.count === 0);
-  renderStats(componentStatsData, unused);
   
-  // Reset search input value to avoid confusion
-  const searchInput = document.getElementById('stats-search');
-  if (searchInput) searchInput.value = '';
+  // Toggle filter state
+  if (window.activeStatsFilter === 'unused') {
+      window.activeStatsFilter = null; // Unfilter
+  } else {
+      window.activeStatsFilter = 'unused'; // Filter
+  }
+  
+  applyStatsView();
 };
+
+// Helper to apply current sort and filter state
+function applyStatsView() {
+    const searchInput = document.getElementById('stats-search');
+    const query = searchInput ? searchInput.value : '';
+    
+    // Priority: 1. Search, 2. Filter, 3. Default
+    if (query && window.filterStats) {
+        // Search overrides unused filter for now, or works with it?
+        // Current implementation of filterStats might not respect activeStatsFilter.
+        // Let's make filterStats respect it or just use it.
+        window.filterStats(query); 
+    } else if (window.activeStatsFilter === 'unused') {
+        const unused = componentStatsData.filter(item => item.count === 0);
+        renderStats(componentStatsData, unused);
+    } else {
+        renderStats(componentStatsData);
+    }
+}
+
+// Legacy alias for compatibility if needed, but updated to use toggle
+window.filterByUnused = window.toggleUnusedFilter;
 
 // Render component stats
 function renderStats(statsData, filteredData = null) {
@@ -5885,9 +5941,9 @@ function renderStats(statsData, filteredData = null) {
           </div>
           <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
         </div>
-        <div onclick="window.filterByUnused()" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+        <div onclick="window.toggleUnusedFilter()" style="background: ${window.activeStatsFilter === 'unused' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)'}; padding: 12px; border-radius: 8px; border: ${window.activeStatsFilter === 'unused' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255,255,255,0.05)'}; cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='${window.activeStatsFilter === 'unused' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)'}'">
           <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
-              ${filteredData ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
+              ${filteredData && window.activeStatsFilter === 'unused' ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
           </div>
           <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
         </div>
@@ -7111,7 +7167,10 @@ function updateQualityScoreUI() {
 function resetQualityState() {
     if (!window.qualityAnalysisState) return;
     
-    window.qualityAnalysisState.totalNodes = 0;
+    console.trace('resetQualityState called'); // Trace who called it
+
+    
+    // window.qualityAnalysisState.totalNodes = 0; // Preserved for fallback logic
     window.qualityAnalysisState.totalIssues = 0;
     window.tokenFixInProgress = false;
     
@@ -7194,6 +7253,11 @@ function resetQualityState() {
 
 // Function to display token coverage results
 function displayTokenCoverageResults(result) {
+  console.log('displayTokenCoverageResults received:', result);
+  if (!result || result.totalNodes === 0) {
+      console.warn('displayTokenCoverageResults: Received 0 nodes. Using fallback if available.');
+  }
+
   const resultsContainer = document.getElementById('token-coverage-results');
 
   // Removed the large green success box to keep the dashboard unified and clean
@@ -7204,7 +7268,9 @@ function displayTokenCoverageResults(result) {
   if (window.qualityAnalysisState) {
     // Token Coverage is the primary source of totalNodes
     // Use existing state totalNodes as fallback if result is 0/undefined (to prevent flashing 0 during partial updates)
-    const effectiveTotalNodes = result.totalNodes || window.qualityAnalysisState.totalNodes || 0;
+    // CRITICAL FIX: Only update totalNodes if the new result actually has nodes, OR if we are explicitly resetting (not implemented here but implied)
+    // This prevents a "0 nodes" result (e.g. from a transient empty selection scan) from wiping out the global stats
+    const effectiveTotalNodes = result.totalNodes > 0 ? result.totalNodes : (window.qualityAnalysisState.totalNodes || 0);
     window.qualityAnalysisState.totalNodes = effectiveTotalNodes;
     
     // For totalIssues, we add the current category result
@@ -7313,9 +7379,10 @@ function displayTokenCoverageResults(result) {
   }
 
   // Render Hygiene Sections Immediately
-  // (These functions handle their own innerHTML and animation registration)
-  displayComponentHygieneSection(result);
-  displayVariableHygieneSection(result);
+  // DECOUPLED: Hygiene sections are now handled by their own independent analysis calls
+  // (analyzeComponentHygiene/analyzeVariableHygiene) to ensure correct global scope
+  // irrespective of the smart/local scope used for token coverage.
+
 
   let html = `
 
@@ -11767,7 +11834,7 @@ function showPreview(tokens) {
                         </div>
                       </div>
                     </div>
- historical (line 10622):
+
                     <div class="subgroup-content collapsed" id="${categoryId}-content">
                       <div class="styles-table">
                         ${categoryTokens
@@ -12132,222 +12199,6 @@ function resetImportView() {
   }
 }
 
-function resetImportView_OLD() {
-  console.log('[UI] Resetting import view (OLD)');
-  try {
-    const importContent = document.getElementById('variable-import-container');
-    if (!importContent) {
-      console.error('[UI] Import content container not found');
-      return;
-    }
-
-    // Re-render the initial import view structure
-    importContent.innerHTML = `
-              <div class="import-section">
-                <div class="import-input-area">
-                  <textarea 
-                    id="import-input" 
-                    placeholder="Paste your code here...&#10;CSS/SCSS: :root { --primary: #3b82f6; }&#10;Tailwind Config: { theme: { colors: { primary: '#3b82f6' } } }"
-                    spellcheck="false"
-                  ></textarea>
-                </div>
-
-                <div class="import-actions-bar">
-                  <div class="import-options">
-                     <select id="import-collection-select" class="select-input">
-                       <option value="">New Collection...</option>
-                     </select>
-                  </div>
-                  <button id="preview-import-btn" class="btn-primary" disabled>
-                    Preview Import
-                  </button>
-                </div>
-
-                <!-- Preview Section (Hidden by default) -->
-                <div id="import-preview-section" class="import-preview-section hidden">
-                  <div class="preview-header">
-                    <h4 style="display: flex; align-items: center; gap: 8px;">
-                      <span class="material-symbols-outlined" style="font-size: 18px; color: var(--purple-light);">preview</span>
-                      Import Preview
-                    </h4>
-                    <div class="preview-stats">
-                      <span id="preview-stat-total" class="badge" style="display: flex; align-items: center; gap: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 14px;">functions</span>
-                        <span>0</span>
-                      </span>
-                      <span id="preview-stat-new" class="badge badge-success" style="display: flex; align-items: center; gap: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 14px;">add_circle</span>
-                        <span>0</span>
-                      </span>
-                      <span id="preview-stat-update" class="badge badge-warning" style="display: flex; align-items: center; gap: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 14px;">sync</span>
-                        <span>0</span>
-                      </span>
-                      <span id="preview-stat-conflict" class="badge badge-danger" style="display: flex; align-items: center; gap: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 14px;">warning</span>
-                        <span>0</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="preview-toolbar" style="display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-md); align-items: center;">
-                    <button class="compact-action-btn" id="select-all-import" data-tooltip="Select All" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;">
-                      <span class="material-symbols-outlined" style="font-size: 18px;">select_all</span>
-                    </button>
-                    <button class="compact-action-btn" id="deselect-all-import" data-tooltip="Deselect All" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;">
-                      <span class="material-symbols-outlined" style="font-size: 18px;">deselect</span>
-                    </button>
-                    <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 16px; margin: 0 4px;"></div>
-                    <button class="compact-action-btn" id="expand-all-import" data-tooltip="Expand All Groups" style="width: 28px; height: 28px;">
-                      <span class="material-symbols-outlined" style="font-size: 18px;">unfold_more</span>
-                    </button>
-                    <button class="compact-action-btn" id="collapse-all-import" data-tooltip="Collapse All Groups" style="width: 28px; height: 28px;">
-                      <span class="material-symbols-outlined" style="font-size: 18px;">unfold_less</span>
-                    </button>
-                  </div>
-
-                  <div class="import-settings" style="margin-bottom: 16px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
-                    <h5 style="margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; font-weight: 600;">Settings</h5>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                      <label class="toggle-switch">
-                        <input type="checkbox" class="toggle-input" id="organize-by-categories" checked>
-                        <div class="toggle-slider"></div>
-                        <span class="settings-label" style="margin-bottom: 0;">Organize by categories</span>
-                        <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Group variables into categories based on their names (e.g. 'color/primary' -> 'color' group)">help</span>
-                      </label>
-
-                      <label class="toggle-switch">
-                        <input type="checkbox" class="toggle-input" id="overwrite-existing" onchange="document.getElementById('overwrite-warning').style.display = this.checked ? 'flex' : 'none'">
-                        <div class="toggle-slider"></div>
-                        <span class="settings-label" style="margin-bottom: 0;">Overwrite existing variables</span>
-                        <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="If checked, existing variables with the same name will be overwritten.">help</span>
-                      </label>
-                    </div>
-                    
-                    <div id="overwrite-warning" class="info-banner warning" style="margin-top: 12px; display: none; font-size: 11px; padding: 8px 12px; border-radius: 6px; background: rgba(234, 179, 8, 0.1); color: #facc15; align-items: flex-start; gap: 8px; line-height: 1.4;">
-                      <span class="material-symbols-outlined" style="font-size: 16px;">warning</span>
-                      <span>Existing variables with the exact same name will be updated with new values.</span>
-                    </div>
-                  </div>
-
-                  <div class="preview-table-container" style="max-height: 250px;">
-                    <table class="preview-table">
-                      <thead>
-                        <tr>
-                          <th style="width: 40%;">Variable</th>
-                          <th style="width: 15%;">Type</th>
-                          <th style="width: 30%;">Value</th>
-                          <th style="width: 15%;">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody id="preview-table-body">
-                        <!-- Populated dynamically -->
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div class="import-confirmation-actions" style="margin-top: 12px;">
-                    <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
-                    <button id="confirm-import-btn" class="btn-primary" style="display: flex; align-items: center; gap: 6px;">
-                      <span class="material-symbols-outlined" style="font-size: 18px;">upload</span>
-                      Import Variables
-                    </button>
-                  </div>
-                </div>
-              </div>
-            `;
-
-    console.log('[UI] Initializing import tab listeners');
-    initializeImportTab();
-
-    // Re-attach listeners for the newly created elements
-    const inputEl = document.getElementById('import-input');
-    if (inputEl) {
-      inputEl.addEventListener('input', function (e) {
-        const btn = document.getElementById('preview-import-btn');
-        if (btn) btn.disabled = !e.target.value.trim();
-      });
-    }
-
-    document.getElementById('preview-import-btn')?.addEventListener('click', function () {
-      const content = document.getElementById('import-input').value;
-      const collectionId = document.getElementById('import-collection-select').value;
-
-      if (!content) return;
-
-      showButtonLoading(this, 'Analyzing...');
-
-      parent.postMessage(
-        {
-          pluginMessage: {
-            type: 'preview-import',
-            content: content,
-            options: {
-              collectionId: collectionId,
-            },
-          },
-        },
-        '*',
-      );
-    });
-
-    document.getElementById('cancel-import-btn')?.addEventListener('click', function () {
-      document.getElementById('import-preview-section').classList.add('hidden');
-      document.getElementById('preview-import-btn').disabled = false;
-      document.getElementById('import-input').disabled = false;
-    });
-
-    // Re-attach confirm listener (copying logic from initializeImportTab or defining new)
-    // Ideally we should extract this attachment to a function to avoid code duplication.
-    // But since `initializeImportTab` does setup, maybe we can rely on it?
-    // `initializeImportTab` only sets up collections dropdown. It DOES NOT set up listeners in current implementation?
-    // Wait, previous `view_file` showed `initializeImportTab` ONLY doing collection loading.
-    // The listeners were added globally below it.
-    // Since we overwrote the DOM elements, the global listeners attached earlier are GONE for these elements.
-    // So we MUST re-attach them here.
-
-    document.getElementById('confirm-import-btn')?.addEventListener('click', function () {
-      if (!currentImportPreview) return;
-
-      // Use the overwrite-existing checkbox to determine strategy
-      const overwriteCheckbox = document.getElementById('overwrite-existing');
-      const strategy = overwriteCheckbox && overwriteCheckbox.checked ? 'overwrite' : 'skip';
-      const collectionSelect = document.getElementById('import-collection-select');
-      const collectionId = collectionSelect.value;
-      const collectionName = collectionId
-        ? collectionSelect.options[collectionSelect.selectedIndex].text
-        : 'Imported Variables';
-
-      showButtonLoading(this, 'Importing...');
-
-      const tokensToImport = [
-        ...currentImportPreview.added,
-        ...currentImportPreview.modified.map((m) => m.token),
-        ...currentImportPreview.unchanged,
-        ...currentImportPreview.conflicts.map((c) => c.token),
-      ];
-
-      parent.postMessage(
-        {
-          pluginMessage: {
-            type: 'import-tokens',
-            tokens: tokensToImport,
-            options: {
-              collectionId: collectionId,
-              collectionName: collectionName,
-              strategy: strategy,
-            },
-          },
-        },
-        '*',
-      );
-    });
-  } catch (e) {
-    console.error('[UI] Error resetting import view:', e);
-    showError('UI Error', 'Failed to reset import view. Please reload the plugin.');
-  }
-}
 window.resetImportView = resetImportView;
 
 function showImportError(error) {
@@ -13608,3 +13459,27 @@ function applyTokenToSelection(issueId, property, category) {
 window.toggleAllOccurrences = toggleAllOccurrences;
 window.updateIssueApplyButtonState = updateIssueApplyButtonState;
 window.applyTokenToSelection = applyTokenToSelection;
+
+// Initialization: Check active tab on load
+document.addEventListener('DOMContentLoaded', () => {
+  // Allow time for other initializations
+  setTimeout(() => {
+    const activeTab = document.querySelector('.tab.active');
+    if (activeTab && activeTab.dataset.tab === 'quality') {
+       if (!window.qualityScanPerformed) {
+           console.log('Plugin loaded with Quality tab active - Triggering initial scan...');
+           resetQualityState();
+           setTimeout(() => {
+              try {
+                if (typeof analyzeTokenCoverage === 'function') analyzeTokenCoverage('SMART_SCAN');
+                if (typeof analyzeComponentHygiene === 'function') analyzeComponentHygiene();
+                if (typeof analyzeVariableHygiene === 'function') analyzeVariableHygiene();
+                window.qualityScanPerformed = true;
+              } catch (e) {
+                console.error('Error in initial quality scan:', e);
+              }
+           }, 100);
+       }
+    }
+  }, 200);
+});

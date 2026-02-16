@@ -10,6 +10,8 @@
  */
 const VALUE_MATCH_TOLERANCE = 0.01;
 
+import { TailwindV4Service } from './tailwindV4Service';
+
 export interface MatchingVariable {
   id: string;
   name: string;
@@ -104,7 +106,15 @@ export class TokenCoverageService {
         node.type === 'GROUP' ||
         node.type === 'COMPONENT' ||
         node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE',
+        node.type === 'INSTANCE' ||
+        node.type === 'RECTANGLE' ||
+        node.type === 'ELLIPSE' ||
+        node.type === 'POLYGON' ||
+        node.type === 'STAR' ||
+        node.type === 'VECTOR' ||
+        node.type === 'TEXT' ||
+        node.type === 'LINE' ||
+        node.type === 'BOOLEAN_OPERATION',
     );
 
     return this.analyzeNodes(nodes as SceneNode[], exportFormat);
@@ -134,7 +144,15 @@ export class TokenCoverageService {
           node.type === 'GROUP' ||
           node.type === 'COMPONENT' ||
           node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE',
+          node.type === 'INSTANCE' ||
+          node.type === 'RECTANGLE' ||
+          node.type === 'ELLIPSE' ||
+          node.type === 'POLYGON' ||
+          node.type === 'STAR' ||
+          node.type === 'VECTOR' ||
+          node.type === 'TEXT' ||
+          node.type === 'LINE' ||
+          node.type === 'BOOLEAN_OPERATION',
       );
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
@@ -151,20 +169,28 @@ export class TokenCoverageService {
     exportFormat: string = 'css',
     pageIds?: string[],
   ): Promise<TokenCoverageResult> {
+    console.log('analyzeSmart called', { exportFormat, pageIds });
     const currentPageId = figma.currentPage.id;
     const isCurrentPageSelected = !pageIds || pageIds.indexOf(currentPageId) !== -1;
+
+    // Track the "best" result found so far (in case no issues are found anywhere)
+    // We prioritize results with the most nodes to avoid returning an empty page's result (0/0)
+    let bestResult: TokenCoverageResult | null = null;
 
     // 1. Analyze current page if it's within the selection
     if (isCurrentPageSelected) {
       const currentPageResult = await this.analyzeCurrentPage(exportFormat);
-
-      // 2. If issues found, stick with current page
+      
+      // If issues found, return immediately
       if (currentPageResult.totalIssues > 0) {
         return currentPageResult;
       }
+      
+      // Otherwise, keep as baseline
+      bestResult = currentPageResult;
     }
 
-    // 3. If no issues (or current page skipped), look for another selected page that DOES have issues
+    // 2. Iterate other selected pages
     const allPages = figma.root.children;
 
     for (const page of allPages) {
@@ -179,40 +205,39 @@ export class TokenCoverageService {
           node.type === 'GROUP' ||
           node.type === 'COMPONENT' ||
           node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE',
+          node.type === 'INSTANCE' ||
+          node.type === 'RECTANGLE' ||
+          node.type === 'ELLIPSE' ||
+          node.type === 'POLYGON' ||
+          node.type === 'STAR' ||
+          node.type === 'VECTOR' ||
+          node.type === 'TEXT' ||
+          node.type === 'LINE' ||
+          node.type === 'BOOLEAN_OPERATION',
       );
 
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[], exportFormat);
 
+      console.log('analyzeSmart: page result', { pageId: page.id, issues: pageResult.totalIssues, nodes: pageResult.totalNodes });
+
       if (pageResult.totalIssues > 0) {
-        // Found a page with issues! Switch to it.
+        // Found a page with issues! Switch to it and return.
         await figma.setCurrentPageAsync(page);
         return pageResult;
       }
-    }
-
-    // 4. If no issues found anywhere (or current page was the only one and it had 0 issues),
-    // return a clean result for the current page if selected, or the first selected page.
-    if (isCurrentPageSelected) {
-      return this.analyzeCurrentPage(exportFormat);
-    } else if (pageIds && pageIds.length > 0) {
-      // Return results for the first selected page
-      const firstPage = allPages.find((p) => p.id === pageIds[0]);
-      if (firstPage) {
-        const firstPageNodes = firstPage.findAll(
-          (node) =>
-            node.type === 'FRAME' ||
-            node.type === 'SECTION' ||
-            node.type === 'GROUP' ||
-            node.type === 'COMPONENT' ||
-            node.type === 'COMPONENT_SET' ||
-            node.type === 'INSTANCE',
-        );
-        return this.analyzeNodes(firstPageNodes as SceneNode[], exportFormat);
+      
+      // No issues, but check if this page has more content than our current best
+      if (!bestResult || (pageResult.totalNodes > bestResult.totalNodes)) {
+          console.log('analyzeSmart: New best result (clean)', pageResult.totalNodes);
+          bestResult = pageResult;
       }
     }
 
-    return this.analyzeCurrentPage(exportFormat);
+    // 3. Logic for when NO issues are found anywhere:
+    console.log('analyzeSmart: No issues found anywhere. Returning best result:', bestResult);
+    // Return the result with the most nodes (to confirm we actually scanned something)
+    // If we haven't scanned anything yet (e.g. current page not selected and no other pages selected), default to current.
+    return bestResult || this.analyzeCurrentPage(exportFormat);
   }
 
   /**
@@ -529,19 +554,18 @@ export class TokenCoverageService {
 
     // 2. Tailwind Readiness Score (20%)
     // Logic: % of variables that match Tailwind v4 CSS variable naming conventions
-    const TAILWIND_PREFIXES = [
-      'color', 'font', 'text', 'font-weight', 'tracking', 'leading', 
-      'breakpoint', 'container', 'spacing', 'radius', 'shadow', 
-      'inset-shadow', 'drop-shadow', 'blur', 'perspective', 'aspect', 'ease', 'animate',
-    ];
-
     const isTailwindCompatible = (name: string): boolean => {
-      const normalizedName = name.replace(/\//g, '-');
-      return TAILWIND_PREFIXES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
+      return TailwindV4Service.isCompatible(name);
     };
 
     let validTailwindNames = 0;
-    const tailwindValidation: any = { valid: [], invalid: [] }; // Detailed list
+    const tailwindValidation: any = { 
+        valid: [], 
+        invalid: [],
+        totalInvalid: 0,
+        totalVariables: 0,
+        readinessScore: 0
+    }; // Detailed list
 
     if (totalVarsToCheck > 0) {
       allVariables.forEach((v) => {
@@ -557,6 +581,11 @@ export class TokenCoverageService {
     }
     const tailwindScore =
       totalVarsToCheck === 0 ? 100 : Math.round((validTailwindNames / totalVarsToCheck) * 100);
+    
+    // Populate summary stats in validation object
+    tailwindValidation.totalVariables = totalVarsToCheck;
+    tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
+    tailwindValidation.readinessScore = tailwindScore;
 
 
     // 5. Layout Hygiene Score (15%)
