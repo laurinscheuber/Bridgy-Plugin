@@ -343,4 +343,36 @@ export class PerformanceCache extends CacheService<number> {
   }
 }
 
+/**
+ * Quality report cache for avoiding redundant analysis runs
+ */
+export class QualityReportCache extends CacheService<any> {
+  private static instance: QualityReportCache;
+
+  constructor() {
+    super({
+      maxSize: 10,
+      defaultTtl: 5 * 60 * 1000, // 5 minutes
+      enableStats: true,
+    });
+  }
+
+  static getInstance(): QualityReportCache {
+    if (!QualityReportCache.instance) {
+      QualityReportCache.instance = new QualityReportCache();
+    }
+    return QualityReportCache.instance;
+  }
+
+  static generateKey(
+    scope: string,
+    pageIds: string[] | undefined,
+    exportFormat: string,
+    docVersion: number,
+  ): string {
+    const pageKey = pageIds ? pageIds.sort().join(',') : 'none';
+    return `qr-${scope}-${pageKey}-${exportFormat}-v${docVersion}`;
+  }
+}
+
 export default CacheService;

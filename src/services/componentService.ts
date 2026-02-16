@@ -1479,8 +1479,12 @@ ${Object.keys(cssProperties)
              }
         };
 
-        // Scan ALL pages for instances (Fast sync traversal)
+        // Scan pages for instances (Fast sync traversal)
+        // Apply scoping if pageIds are provided
         for (const page of figma.root.children) {
+             if (pageIds && pageIds.length > 0 && pageIds.indexOf(page.id) === -1) {
+               continue;
+             }
              for (const child of page.children) {
                  collectInstances(child);
              }

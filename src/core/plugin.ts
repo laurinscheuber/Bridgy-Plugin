@@ -1573,8 +1573,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           const settings = await GitLabService.loadSettings();
           const exportFormat = msg.exportFormat || settings?.exportFormat || 'css';
 
-          console.log(`[Plugin] Calling QualityService.generateReport with format: ${exportFormat}`);
-          const report = await QualityService.generateReport(scope, msg.pageIds, exportFormat);
+          console.log(`[Plugin] Calling QualityService.generateReport with format: ${exportFormat}, forceRefresh: ${!!msg.forceRefresh}`);
+          const report = await QualityService.generateReport(scope, msg.pageIds, exportFormat, !!msg.forceRefresh);
 
           console.log('[Plugin] Quality Analysis complete. Sending report...');
           figma.ui.postMessage({
@@ -1971,12 +1971,15 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
   if (figma.variables && typeof (figma.variables as any).on === 'function') {
     (figma.variables as any).on('change', (event: any) => {
       console.log('Variable change detected in Figma:', event);
-      
+
+      // Invalidate quality report cache so the next analysis runs fresh
+      QualityService.invalidateCache();
+
       // Clear existing timeout
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
-      
+
       // Debounce refresh (1 second)
       refreshTimeout = setTimeout(() => {
         console.log('Triggering auto-refresh due to variable changes...');

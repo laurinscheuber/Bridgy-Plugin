@@ -125,6 +125,7 @@ export interface PluginMessage {
   };
   scope?: 'PAGE' | 'ALL' | 'SMART_SCAN';
   pageIds?: string[];
+  forceRefresh?: boolean;
   componentType?: string;
   variantIds?: string[];
 }
