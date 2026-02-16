@@ -6931,6 +6931,153 @@ ${Object.keys(cssProperties).map((property) => {
           const perfCleared = perfCache.cleanup();
           return { cssCleared, perfCleared };
         }
+        static analyzeHygiene(pageIds) {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              console.log("Analyzing component hygiene...");
+              const localDefinitions = /* @__PURE__ */ new Map();
+              yield figma.loadAllPagesAsync();
+              const visitNodeForDefinitions = (node) => {
+                if (node.type === "COMPONENT") {
+                  if (node.parent && node.parent.type === "COMPONENT_SET") {
+                    return;
+                  }
+                  localDefinitions.set(node.id, {
+                    node,
+                    name: node.name,
+                    instances: [],
+                    isSet: false
+                  });
+                } else if (node.type === "COMPONENT_SET") {
+                  localDefinitions.set(node.id, {
+                    node,
+                    name: node.name,
+                    instances: [],
+                    isSet: true
+                  });
+                } else if ("children" in node) {
+                  for (const child of node.children) {
+                    visitNodeForDefinitions(child);
+                  }
+                }
+              };
+              for (const page of figma.root.children) {
+                for (const child of page.children) {
+                  visitNodeForDefinitions(child);
+                }
+              }
+              console.log(`Found ${localDefinitions.size} local component definitions/sets in scope.`);
+              if (localDefinitions.size === 0) {
+                return {
+                  totalComponents: 0,
+                  unusedComponents: [],
+                  unusedCount: 0,
+                  hygieneScore: 100,
+                  subScores: { componentHygiene: 100 }
+                };
+              }
+              const variantUsage = /* @__PURE__ */ new Map();
+              for (const [setID, def] of localDefinitions.entries()) {
+                if (def.isSet) {
+                  const set = def.node;
+                  for (const child of set.children) {
+                    variantUsage.set(child.id, { instances: [] });
+                  }
+                }
+              }
+              const instancesToProcess = [];
+              const collectInstances = (node) => {
+                if (node.type === "INSTANCE") {
+                  instancesToProcess.push(node);
+                } else if ("children" in node) {
+                  for (const child of node.children) {
+                    collectInstances(child);
+                  }
+                }
+              };
+              for (const page of figma.root.children) {
+                for (const child of page.children) {
+                  collectInstances(child);
+                }
+              }
+              const BATCH_SIZE = 50;
+              const processInstance = (node) => __awaiter(this, void 0, void 0, function* () {
+                let mainId;
+                try {
+                  const mainComponent = yield node.getMainComponentAsync();
+                  mainId = mainComponent === null || mainComponent === void 0 ? void 0 : mainComponent.id;
+                } catch (e) {
+                }
+                if (mainId) {
+                  if (localDefinitions.has(mainId)) {
+                    localDefinitions.get(mainId).instances.push(node);
+                  }
+                  if (variantUsage.has(mainId)) {
+                    variantUsage.get(mainId).instances.push(node);
+                  }
+                }
+              });
+              for (let i = 0; i < instancesToProcess.length; i += BATCH_SIZE) {
+                const batch = instancesToProcess.slice(i, i + BATCH_SIZE);
+                yield Promise.all(batch.map((node) => processInstance(node)));
+              }
+              const unusedComponents = [];
+              for (const [id, def] of localDefinitions.entries()) {
+                if (def.isSet) {
+                  const set = def.node;
+                  const variants = set.children;
+                  const unusedVariants = [];
+                  const totalVariants = variants.length;
+                  let unusedVariantCount = 0;
+                  for (const variant of variants) {
+                    const variantInfo = variantUsage.get(variant.id);
+                    if (variantInfo && variantInfo.instances.length === 0) {
+                      unusedVariantCount++;
+                      unusedVariants.push({
+                        id: variant.id,
+                        name: variant.name
+                      });
+                    }
+                  }
+                  if (unusedVariantCount > 0) {
+                    unusedComponents.push({
+                      id: set.id,
+                      name: set.name,
+                      type: "COMPONENT_SET",
+                      totalVariants,
+                      unusedVariantCount,
+                      isFullyUnused: unusedVariantCount === totalVariants,
+                      unusedVariants
+                    });
+                  }
+                } else {
+                  if (def.instances.length === 0) {
+                    unusedComponents.push({
+                      id: def.node.id,
+                      name: def.name,
+                      type: "COMPONENT",
+                      isFullyUnused: true
+                    });
+                  }
+                }
+              }
+              const totalComponents = localDefinitions.size;
+              const unusedCount = unusedComponents.length;
+              const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
+              return {
+                totalComponents,
+                unusedComponents,
+                unusedCount,
+                hygieneScore,
+                subScores: { componentHygiene: hygieneScore }
+              };
+            }), {
+              operation: "analyze_component_hygiene",
+              component: "ComponentService",
+              severity: "medium"
+            });
+          });
+        }
       };
       exports.ComponentService = ComponentService;
       ComponentService.componentMap = /* @__PURE__ */ new Map();
@@ -6940,801 +7087,6 @@ ${Object.keys(cssProperties).map((property) => {
       ComponentService.nameCache = /* @__PURE__ */ new Map();
       ComponentService.MAX_CACHE_SIZE = 1e3;
       ComponentService.CACHE_CLEANUP_THRESHOLD = 800;
-    }
-  });
-
-  // dist/services/tokenCoverageService.js
-  var require_tokenCoverageService = __commonJS({
-    "dist/services/tokenCoverageService.js"(exports) {
-      "use strict";
-      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
-        function adopt(value) {
-          return value instanceof P ? value : new P(function(resolve) {
-            resolve(value);
-          });
-        }
-        return new (P || (P = Promise))(function(resolve, reject) {
-          function fulfilled(value) {
-            try {
-              step(generator.next(value));
-            } catch (e) {
-              reject(e);
-            }
-          }
-          function rejected(value) {
-            try {
-              step(generator["throw"](value));
-            } catch (e) {
-              reject(e);
-            }
-          }
-          function step(result) {
-            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
-          }
-          step((generator = generator.apply(thisArg, _arguments || [])).next());
-        });
-      };
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.TokenCoverageService = void 0;
-      var VALUE_MATCH_TOLERANCE = 0.01;
-      var tailwindV4Service_1 = require_tailwindV4Service();
-      var TokenCoverageService = class {
-        /**
-         * Analyzes the current page for token coverage
-         */
-        static analyzeCurrentPage() {
-          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
-            const currentPage = figma.currentPage;
-            const nodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
-            return this.analyzeNodes(nodes, exportFormat);
-          });
-        }
-        /**
-         * Analyzes the entire document or specific pages for token coverage
-         */
-        static analyzeDocument() {
-          return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
-            const allPages = figma.root.children;
-            let allNodes = [];
-            for (const page of allPages) {
-              if (pageIds && pageIds.indexOf(page.id) === -1) {
-                continue;
-              }
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
-              allNodes = [...allNodes, ...pageNodes];
-            }
-            return this.analyzeNodes(allNodes, exportFormat);
-          });
-        }
-        /**
-         * Smart analysis: Checks current page first using analyzeNodes logic directly to avoid redundant calls.
-         * If current page has 0 issues, it searches other pages.
-         * If another page has issues, it switches to that page and returns its results.
-         */
-        static analyzeSmart() {
-          return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
-            console.log("analyzeSmart called", { exportFormat, pageIds });
-            const currentPageId = figma.currentPage.id;
-            const isCurrentPageSelected = !pageIds || pageIds.indexOf(currentPageId) !== -1;
-            let bestResult = null;
-            if (isCurrentPageSelected) {
-              const currentPageResult = yield this.analyzeCurrentPage(exportFormat);
-              if (currentPageResult.totalIssues > 0) {
-                return currentPageResult;
-              }
-              bestResult = currentPageResult;
-            }
-            const allPages = figma.root.children;
-            for (const page of allPages) {
-              if (page.id === currentPageId)
-                continue;
-              if (pageIds && pageIds.indexOf(page.id) === -1)
-                continue;
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
-              const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
-              console.log("analyzeSmart: page result", { pageId: page.id, issues: pageResult.totalIssues, nodes: pageResult.totalNodes });
-              if (pageResult.totalIssues > 0) {
-                yield figma.setCurrentPageAsync(page);
-                return pageResult;
-              }
-              if (!bestResult || pageResult.totalNodes > bestResult.totalNodes) {
-                console.log("analyzeSmart: New best result (clean)", pageResult.totalNodes);
-                bestResult = pageResult;
-              }
-            }
-            console.log("analyzeSmart: No issues found anywhere. Returning best result:", bestResult);
-            return bestResult || this.analyzeCurrentPage(exportFormat);
-          });
-        }
-        /**
-         * Analyze only the currently selected nodes (and their children)
-         */
-        static analyzeSelection() {
-          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
-            const selection = figma.currentPage.selection;
-            let allNodes = [];
-            for (const node of selection) {
-              if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
-                allNodes.push(node);
-              }
-              if ("findAll" in node) {
-                const children = node.findAll((n) => n.type === "FRAME" || n.type === "SECTION" || n.type === "GROUP" || n.type === "COMPONENT" || n.type === "COMPONENT_SET" || n.type === "INSTANCE");
-                allNodes = [...allNodes, ...children];
-              }
-            }
-            return this.analyzeNodes(allNodes, exportFormat);
-          });
-        }
-        /**
-         * Helper to analyze a list of nodes
-         */
-        static analyzeNodes(nodes_1) {
-          return __awaiter(this, arguments, void 0, function* (nodes, exportFormat = "css") {
-            const variableUsage = /* @__PURE__ */ new Map();
-            const localComponentDefs = /* @__PURE__ */ new Map();
-            const componentUsage = /* @__PURE__ */ new Map();
-            const variantToSetId = /* @__PURE__ */ new Map();
-            let totalNodes = 0;
-            let autoLayoutCount = 0;
-            let instanceCount = 0;
-            let frameCount = 0;
-            const issuesMap = /* @__PURE__ */ new Map();
-            const allVariables = yield this.getAllVariables();
-            allVariables.forEach((v) => {
-              if (v.variable) {
-                variableUsage.set(v.variable.id, /* @__PURE__ */ new Set());
-              }
-            });
-            for (let i = 0; i < nodes.length; i++) {
-              const node = nodes[i];
-              if (i % 50 === 0) {
-                yield new Promise((resolve) => setTimeout(resolve, 0));
-              }
-              totalNodes++;
-              if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
-                if ("layoutMode" in node && node.layoutMode !== "NONE") {
-                  autoLayoutCount++;
-                }
-                if (node.type === "INSTANCE") {
-                  instanceCount++;
-                } else {
-                  frameCount++;
-                }
-              }
-              if (node.type === "COMPONENT") {
-                if (node.parent && node.parent.type === "COMPONENT_SET") {
-                  variantToSetId.set(node.id, node.parent.id);
-                } else {
-                  localComponentDefs.set(node.id, node);
-                }
-              } else if (node.type === "COMPONENT_SET") {
-                localComponentDefs.set(node.id, node);
-                node.children.forEach((child) => {
-                  if (child.type === "COMPONENT") {
-                    variantToSetId.set(child.id, node.id);
-                  }
-                });
-              }
-              if (node.type === "INSTANCE") {
-                let mainId = null;
-                try {
-                  const main = yield node.getMainComponentAsync();
-                  if (main)
-                    mainId = main.id;
-                } catch (e) {
-                }
-                if (mainId) {
-                  if (!componentUsage.has(mainId)) {
-                    componentUsage.set(mainId, /* @__PURE__ */ new Set());
-                  }
-                  componentUsage.get(mainId).add(node.id);
-                  const setId = variantToSetId.get(mainId);
-                  if (setId) {
-                    if (!componentUsage.has(setId)) {
-                      componentUsage.set(setId, /* @__PURE__ */ new Set());
-                    }
-                    componentUsage.get(setId).add(node.id);
-                  }
-                }
-              }
-              if ("boundVariables" in node && node.boundVariables) {
-                const boundVars = node.boundVariables;
-                for (const propKey of Object.keys(boundVars)) {
-                  const binding = boundVars[propKey];
-                  if (binding) {
-                    const checkId = (id) => {
-                      if (variableUsage.has(id)) {
-                        variableUsage.get(id).add(node.id);
-                      }
-                    };
-                    if (Array.isArray(binding)) {
-                      binding.forEach((b) => b.id && checkId(b.id));
-                    } else if (typeof binding === "object" && binding.id) {
-                      checkId(binding.id);
-                    }
-                  }
-                }
-              }
-              yield this.analyzeNode(node, issuesMap);
-            }
-            const unusedVariables = [];
-            allVariables.forEach((v) => {
-              if (!v || !v.variable)
-                return;
-              const usage = variableUsage.get(v.variable.id);
-              if (!usage || usage.size === 0) {
-                let resolvedValue = "";
-                const modeId = Object.keys(v.variable.valuesByMode)[0];
-                const val = v.variable.valuesByMode[modeId];
-                if (v.variable.resolvedType === "COLOR" && val && typeof val === "object" && "r" in val) {
-                  const c = val;
-                  resolvedValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
-                } else if (val !== void 0) {
-                  resolvedValue = String(val);
-                }
-                unusedVariables.push({
-                  id: v.variable.id,
-                  name: v.variable.name,
-                  resolvedType: v.variable.resolvedType,
-                  resolvedValue,
-                  collectionName: v.collectionName
-                });
-              }
-            });
-            const totalVarsToCheck = allVariables.length;
-            const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round((totalVarsToCheck - unusedVariables.length) / totalVarsToCheck * 100);
-            const unusedComponents = [];
-            for (const [id, def] of localComponentDefs.entries()) {
-              if (def.type === "COMPONENT_SET") {
-                const set = def;
-                const variants = set.children.filter((c) => c.type === "COMPONENT");
-                const unusedVariants = variants.filter((v) => !componentUsage.has(v.id) || componentUsage.get(v.id).size === 0);
-                if (unusedVariants.length > 0) {
-                  unusedComponents.push({
-                    id: set.id,
-                    name: set.name,
-                    type: "COMPONENT_SET",
-                    totalVariants: variants.length,
-                    unusedVariantCount: unusedVariants.length,
-                    isFullyUnused: unusedVariants.length === variants.length,
-                    unusedVariants: unusedVariants.map((v) => ({ id: v.id, name: v.name }))
-                  });
-                }
-              } else {
-                if (!componentUsage.has(id) || componentUsage.get(id).size === 0) {
-                  unusedComponents.push({
-                    id: def.id,
-                    name: def.name,
-                    type: "COMPONENT",
-                    isFullyUnused: true
-                  });
-                }
-              }
-            }
-            const totalComponents = localComponentDefs.size;
-            const componentHygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedComponents.length) / totalComponents * 100);
-            for (const issue of issuesMap.values()) {
-              issue.matchingVariables = yield this.findMatchingVariables(issue.value, issue.category, allVariables);
-            }
-            const issuesByCategory = {
-              Layout: [],
-              Fill: [],
-              Stroke: [],
-              Appearance: []
-            };
-            for (const issue of issuesMap.values()) {
-              issuesByCategory[issue.category].push(issue);
-            }
-            for (const category of Object.keys(issuesByCategory)) {
-              issuesByCategory[category].sort((a, b) => b.count - a.count);
-            }
-            let tokenCoverageScore = 100;
-            if (totalNodes > 0) {
-              let totalIssueOccurrences = 0;
-              for (const issue of issuesMap.values()) {
-                totalIssueOccurrences += issue.count;
-              }
-              const issueDensity = totalIssueOccurrences / (totalNodes * 3);
-              const penalty = Math.round(issueDensity * 100);
-              tokenCoverageScore = Math.max(0, 100 - penalty);
-            }
-            const isTailwindCompatible = (name) => {
-              return tailwindV4Service_1.TailwindV4Service.isCompatible(name);
-            };
-            let validTailwindNames = 0;
-            const tailwindValidation = {
-              valid: [],
-              invalid: [],
-              totalInvalid: 0,
-              totalVariables: 0,
-              readinessScore: 0
-            };
-            if (totalVarsToCheck > 0) {
-              allVariables.forEach((v) => {
-                if (!v || !v.variable || !v.variable.name)
-                  return;
-                if (isTailwindCompatible(v.variable.name)) {
-                  validTailwindNames++;
-                  tailwindValidation.valid.push({ id: v.variable.id, name: v.variable.name });
-                } else {
-                  tailwindValidation.invalid.push({ id: v.variable.id, name: v.variable.name });
-                }
-              });
-            }
-            const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
-            tailwindValidation.totalVariables = totalVarsToCheck;
-            tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
-            tailwindValidation.readinessScore = tailwindScore;
-            const totalContainerNodes = instanceCount + frameCount;
-            const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
-            const isTailwindV4 = exportFormat === "tailwind-v4";
-            let weightedScore = 0;
-            let weights = {
-              tokenCoverage: "0%",
-              tailwindReadiness: "0%",
-              componentHygiene: "0%",
-              variableHygiene: "0%"
-            };
-            if (isTailwindV4) {
-              weightedScore = Math.round(tokenCoverageScore * 0.25 + tailwindScore * 0.25 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25);
-              weights = {
-                tokenCoverage: "25%",
-                tailwindReadiness: "25%",
-                componentHygiene: "25%",
-                variableHygiene: "25%"
-              };
-            } else {
-              weightedScore = Math.round((tokenCoverageScore + componentHygieneScore + variableHygieneScore) / 3);
-              weights = {
-                tokenCoverage: "33.3%",
-                tailwindReadiness: "0%",
-                // Not shown
-                componentHygiene: "33.4%",
-                // Slight adjustment to sum to 100
-                variableHygiene: "33.3%"
-              };
-            }
-            return {
-              totalNodes,
-              totalIssues: issuesMap.size,
-              issuesByCategory,
-              qualityScore: weightedScore,
-              subScores: {
-                tokenCoverage: tokenCoverageScore,
-                tailwindReadiness: tailwindScore,
-                componentHygiene: componentHygieneScore,
-                variableHygiene: variableHygieneScore,
-                layoutHygiene: layoutHygieneScore
-              },
-              weights,
-              // Detailed Data
-              unusedVariables,
-              unusedComponents,
-              // Metrics
-              totalVariables: totalVarsToCheck,
-              totalComponents,
-              unusedVariableCount: unusedVariables.length,
-              unusedComponentCount: unusedComponents.length,
-              tailwindValidation
-            };
-          });
-        }
-        /**
-         * Helper to check if a node is inside an InstanceNode
-         */
-        static isInsideInstance(node) {
-          let parent = node.parent;
-          while (parent && parent.type !== "PAGE" && parent.type !== "DOCUMENT") {
-            if (parent.type === "INSTANCE") {
-              return true;
-            }
-            parent = parent.parent;
-          }
-          return false;
-        }
-        /**
-         * Analyzes a single node for token coverage issues
-         */
-        static analyzeNode(node, issuesMap) {
-          return __awaiter(this, void 0, void 0, function* () {
-            if (this.isInsideInstance(node)) {
-              return;
-            }
-            this.checkLayoutProperties(node, issuesMap);
-            this.checkFillProperties(node, issuesMap);
-            this.checkStrokeProperties(node, issuesMap);
-            this.checkAppearanceProperties(node, issuesMap);
-          });
-        }
-        /**
-         * Helper to format numeric values to max 2 decimal places
-         */
-        static formatValue(value) {
-          const rounded = Math.round(value * 100) / 100;
-          return `${rounded}px`;
-        }
-        /**
-         * Checks layout properties (spacing, sizing)
-         */
-        static checkLayoutProperties(node, issuesMap) {
-          if (!("minWidth" in node))
-            return;
-          const layoutNode = node;
-          if ("minWidth" in layoutNode && layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
-            this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
-          }
-          if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
-            this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
-          }
-          if ("width" in layoutNode && layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
-            this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
-          }
-          if ("height" in layoutNode && layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
-            this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
-          }
-          if ("minHeight" in layoutNode && layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
-            this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
-          }
-          if ("maxHeight" in layoutNode && layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
-            this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
-          }
-          if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
-            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, "itemSpacing")) {
-              this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout");
-            }
-            const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;
-            const paddingTop = typeof layoutNode.paddingTop === "number" ? layoutNode.paddingTop : 0;
-            const paddingRight = typeof layoutNode.paddingRight === "number" ? layoutNode.paddingRight : 0;
-            const paddingBottom = typeof layoutNode.paddingBottom === "number" ? layoutNode.paddingBottom : 0;
-            const allPaddingSame = paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
-            const anyPaddingBound = this.isVariableBound(layoutNode, "paddingLeft") || this.isVariableBound(layoutNode, "paddingTop") || this.isVariableBound(layoutNode, "paddingRight") || this.isVariableBound(layoutNode, "paddingBottom");
-            if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
-              this.addIssue(issuesMap, "Padding", this.formatValue(paddingLeft), node, "Layout");
-            } else {
-              if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, "paddingLeft")) {
-                this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout");
-              }
-              if (paddingTop !== 0 && !this.isVariableBound(layoutNode, "paddingTop")) {
-                this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout");
-              }
-              if (paddingRight !== 0 && !this.isVariableBound(layoutNode, "paddingRight")) {
-                this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout");
-              }
-              if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, "paddingBottom")) {
-                this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout");
-              }
-            }
-          }
-        }
-        /**
-         * Checks fill/color properties
-         */
-        static checkFillProperties(node, issuesMap) {
-          if (!("fills" in node))
-            return;
-          const fills = node.fills;
-          if (!Array.isArray(fills) || fills.length === 0)
-            return;
-          if (!this.isPaintColorVariableBound(fills)) {
-            const solidFill = fills.find((fill) => fill.type === "SOLID" && fill.visible !== false);
-            if (solidFill && solidFill.type === "SOLID") {
-              const color = solidFill.color;
-              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-              this.addIssue(issuesMap, "Fill Color", colorValue, node, "Fill");
-            }
-          }
-        }
-        /**
-         * Checks stroke properties
-         */
-        static checkStrokeProperties(node, issuesMap) {
-          if (!("strokes" in node))
-            return;
-          const strokes = node.strokes;
-          if (!Array.isArray(strokes) || strokes.length === 0)
-            return;
-          if (!this.isPaintColorVariableBound(strokes)) {
-            const solidStroke = strokes.find((stroke) => stroke.type === "SOLID" && stroke.visible !== false);
-            if (solidStroke && solidStroke.type === "SOLID") {
-              const color = solidStroke.color;
-              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-              this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke");
-            }
-          }
-          const hasNumericStrokeWeight = "strokeWeight" in node && typeof node.strokeWeight === "number";
-          const strokeWeightValue = hasNumericStrokeWeight ? node.strokeWeight : 0;
-          const anyStrokeWeightBound = this.isVariableBound(node, "strokeWeight") || this.isVariableBound(node, "strokeTopWeight") || this.isVariableBound(node, "strokeRightWeight") || this.isVariableBound(node, "strokeBottomWeight") || this.isVariableBound(node, "strokeLeftWeight");
-          if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
-            this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke");
-          }
-        }
-        /**
-         * Checks appearance properties (opacity, radius)
-         */
-        static checkAppearanceProperties(node, issuesMap) {
-          if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0 && !this.isVariableBound(node, "opacity")) {
-            this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
-          }
-          if ("cornerRadius" in node && node.type !== "SECTION") {
-            const rectNode = node;
-            const topLeft = "topLeftRadius" in rectNode && typeof rectNode.topLeftRadius === "number" ? rectNode.topLeftRadius : 0;
-            const topRight = "topRightRadius" in rectNode && typeof rectNode.topRightRadius === "number" ? rectNode.topRightRadius : 0;
-            const bottomLeft = "bottomLeftRadius" in rectNode && typeof rectNode.bottomLeftRadius === "number" ? rectNode.bottomLeftRadius : 0;
-            const bottomRight = "bottomRightRadius" in rectNode && typeof rectNode.bottomRightRadius === "number" ? rectNode.bottomRightRadius : 0;
-            const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
-            if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === "number") {
-              if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, "cornerRadius") && !this.isVariableBound(rectNode, "topLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance");
-                return;
-              }
-            }
-            const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
-            if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
-              this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance");
-            } else {
-              if (topLeft > 0 && !this.isVariableBound(rectNode, "topLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance");
-              }
-              if (topRight > 0 && !this.isVariableBound(rectNode, "topRightRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance");
-              }
-              if (bottomLeft > 0 && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance");
-              }
-              if (bottomRight > 0 && !this.isVariableBound(rectNode, "bottomRightRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance");
-              }
-            }
-          }
-        }
-        /**
-         * Utility to check whether any SOLID paint has a color variable bound at paint-level
-         */
-        static isPaintColorVariableBound(paints) {
-          if (!Array.isArray(paints))
-            return false;
-          for (const p of paints) {
-            if (p && p.type === "SOLID" && p.visible !== false) {
-              const bv = p.boundVariables;
-              if (bv && bv.color)
-                return true;
-            }
-          }
-          return false;
-        }
-        /**
-         * Checks if a property is bound to a variable (design token)
-         */
-        static isVariableBound(node, property) {
-          if (!node.boundVariables)
-            return false;
-          const boundVariable = node.boundVariables[property];
-          return boundVariable !== void 0 && boundVariable !== null;
-        }
-        /**
-         * Adds or updates an issue in the issues map
-         */
-        static addIssue(issuesMap, property, value, node, category) {
-          const key = `${category}:${property}:${value}`;
-          let frameName = "Unknown Frame";
-          let parent = node.parent;
-          while (parent) {
-            if (parent.type === "FRAME" || parent.type === "SECTION" || parent.type === "COMPONENT" || parent.type === "COMPONENT_SET") {
-              frameName = parent.name;
-              break;
-            }
-            if (parent.type === "PAGE" || parent.type === "DOCUMENT") {
-              frameName = "Page: " + parent.name;
-              break;
-            }
-            parent = parent.parent;
-          }
-          if (issuesMap.has(key)) {
-            const issue = issuesMap.get(key);
-            issue.count++;
-            issue.nodeIds.push(node.id);
-            issue.nodeNames.push(node.name);
-            if (issue.nodeFrames) {
-              issue.nodeFrames.push(frameName);
-            } else {
-              issue.nodeFrames = [frameName];
-            }
-          } else {
-            issuesMap.set(key, {
-              property,
-              value,
-              count: 1,
-              nodeIds: [node.id],
-              nodeNames: [node.name],
-              nodeFrames: [frameName],
-              category
-            });
-          }
-        }
-        /**
-         * Checks if width is dynamic (Hug or Fill) or if usage implies dynamic behavior (Auto Layout)
-         */
-        static isWidthDynamic(node) {
-          if ("layoutMode" in node && node.layoutMode !== "NONE") {
-            return true;
-          }
-          if ("layoutSizingHorizontal" in node) {
-            const sizing = node.layoutSizingHorizontal;
-            if (sizing && sizing !== "FIXED")
-              return true;
-          }
-          const parent = node.parent;
-          if (parent && "layoutMode" in parent && parent.layoutMode !== "NONE") {
-            if (parent.layoutMode === "HORIZONTAL") {
-              if ("layoutGrow" in node && node.layoutGrow === 1)
-                return true;
-            } else if (parent.layoutMode === "VERTICAL") {
-              if ("layoutAlign" in node && node.layoutAlign === "STRETCH")
-                return true;
-            }
-          }
-          if (node.type === "TEXT" && node.textAutoResize === "WIDTH_AND_HEIGHT") {
-            return true;
-          }
-          return false;
-        }
-        /**
-         * Checks if height is dynamic (Hug or Fill) or if usage implies dynamic behavior (Auto Layout)
-         */
-        static isHeightDynamic(node) {
-          if ("layoutMode" in node && node.layoutMode !== "NONE") {
-            return true;
-          }
-          if ("layoutSizingVertical" in node) {
-            const sizing = node.layoutSizingVertical;
-            if (sizing && sizing !== "FIXED")
-              return true;
-          }
-          const parent = node.parent;
-          if (parent && "layoutMode" in parent && parent.layoutMode !== "NONE") {
-            if (parent.layoutMode === "HORIZONTAL") {
-              if ("layoutAlign" in node && node.layoutAlign === "STRETCH")
-                return true;
-            } else if (parent.layoutMode === "VERTICAL") {
-              if ("layoutGrow" in node && node.layoutGrow === 1)
-                return true;
-            }
-          }
-          if (node.type === "TEXT") {
-            if (node.textAutoResize === "WIDTH_AND_HEIGHT" || node.textAutoResize === "HEIGHT") {
-              return true;
-            }
-          }
-          return false;
-        }
-        /**
-         * Helper to get all variables with their resolved values
-         */
-        static getAllVariables() {
-          return __awaiter(this, void 0, void 0, function* () {
-            const allVars = [];
-            try {
-              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-              const promises = [];
-              for (const collection of collections) {
-                for (const varId of collection.variableIds) {
-                  promises.push(figma.variables.getVariableByIdAsync(varId).then((variable) => {
-                    if (variable) {
-                      return {
-                        variable,
-                        collection
-                      };
-                    }
-                    return null;
-                  }));
-                }
-              }
-              const results = yield Promise.all(promises);
-              results.forEach((res) => {
-                if (res)
-                  allVars.push(res);
-              });
-            } catch (e) {
-              console.error("Error fetching all variables:", e);
-            }
-            return allVars;
-          });
-        }
-        /**
-         * Finds design variables that match the given value exactly or nearly
-         */
-        static findMatchingVariables(value, category, allVariables) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const matchingVars = [];
-            for (const { variable, collection } of allVariables) {
-              const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
-              if (!isTypeMatch)
-                continue;
-              const modeId = collection.defaultModeId;
-              const varValue = variable.valuesByMode[modeId];
-              const matchType = this.valuesMatch(varValue, value, variable.resolvedType);
-              if (matchType) {
-                matchingVars.push({
-                  id: variable.id,
-                  name: variable.name,
-                  collectionName: collection.name,
-                  resolvedValue: this.formatVariableValue(varValue, variable.resolvedType),
-                  matchType
-                });
-              }
-            }
-            return matchingVars.sort((a, b) => {
-              if (a.matchType !== b.matchType) {
-                return a.matchType === "EXACT" ? -1 : 1;
-              }
-              return a.name.localeCompare(b.name);
-            });
-          });
-        }
-        /**
-         * Check if variable type matches the issue category
-         * Note: Stroke category includes both COLOR (stroke color) and FLOAT (stroke weight)
-         */
-        static isVariableTypeMatch(varType, category) {
-          if (category === "Fill") {
-            return varType === "COLOR";
-          }
-          if (category === "Stroke") {
-            return varType === "COLOR" || varType === "FLOAT";
-          }
-          if (category === "Layout") {
-            return varType === "FLOAT";
-          }
-          if (category === "Appearance") {
-            return varType === "FLOAT";
-          }
-          return false;
-        }
-        /**
-         * Check if variable value matches the hard-coded value
-         */
-        static valuesMatch(varValue, hardValue, varType) {
-          if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
-            const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if (!colorMatch)
-              return null;
-            const r = parseInt(colorMatch[1]) / 255;
-            const g = parseInt(colorMatch[2]) / 255;
-            const b = parseInt(colorMatch[3]) / 255;
-            if (Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE) {
-              return "EXACT";
-            }
-            return null;
-          }
-          if (varType === "FLOAT" && typeof varValue === "number") {
-            const numMatch = hardValue.match(/^([\d.]+)/);
-            if (!numMatch)
-              return null;
-            const hardNum = parseFloat(numMatch[1]);
-            const diff = Math.abs(varValue - hardNum);
-            if (diff < VALUE_MATCH_TOLERANCE) {
-              return "EXACT";
-            }
-            if (diff <= 2) {
-              return "NEAR";
-            }
-          }
-          return null;
-        }
-        /**
-         * Format variable value for display
-         */
-        static formatVariableValue(varValue, varType) {
-          if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
-            return `rgb(${Math.round(varValue.r * 255)}, ${Math.round(varValue.g * 255)}, ${Math.round(varValue.b * 255)})`;
-          }
-          if (varType === "FLOAT" && typeof varValue === "number") {
-            return `${varValue}`;
-          }
-          return String(varValue);
-        }
-      };
-      exports.TokenCoverageService = TokenCoverageService;
     }
   });
 
@@ -8704,6 +8056,1102 @@ ${Object.keys(cssProperties).map((property) => {
     }
   });
 
+  // dist/services/tokenCoverageService.js
+  var require_tokenCoverageService = __commonJS({
+    "dist/services/tokenCoverageService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.TokenCoverageService = void 0;
+      var VALUE_MATCH_TOLERANCE = 0.01;
+      var tailwindV4Service_1 = require_tailwindV4Service();
+      var TokenCoverageService = class {
+        /**
+         * Analyzes the current page for token coverage
+         */
+        /**
+         * Node type filter: Only scan component-related nodes (definitions + instances).
+         * Standalone frames, shapes, and groups are excluded to focus on design system elements.
+         */
+        static isComponentNode(node) {
+          return node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE";
+        }
+        static analyzeCurrentPage() {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
+            const currentPage = figma.currentPage;
+            const nodes = currentPage.findAll((node) => this.isComponentNode(node));
+            return this.analyzeNodes(nodes, exportFormat);
+          });
+        }
+        /**
+         * Analyzes the entire document or specific pages for token coverage
+         */
+        static analyzeDocument() {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
+            const allPages = figma.root.children;
+            let allNodes = [];
+            for (const page of allPages) {
+              if (pageIds && pageIds.indexOf(page.id) === -1) {
+                continue;
+              }
+              const pageNodes = page.findAll((node) => this.isComponentNode(node));
+              allNodes = [...allNodes, ...pageNodes];
+            }
+            return this.analyzeNodes(allNodes, exportFormat);
+          });
+        }
+        /**
+         * Smart analysis: Checks current page first using analyzeNodes logic directly to avoid redundant calls.
+         * If current page has 0 issues, it searches other pages.
+         * If another page has issues, it switches to that page and returns its results.
+         */
+        static analyzeSmart() {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
+            console.log("analyzeSmart called", { exportFormat, pageIds });
+            const currentPageId = figma.currentPage.id;
+            const isCurrentPageSelected = !pageIds || pageIds.indexOf(currentPageId) !== -1;
+            let bestResult = null;
+            if (isCurrentPageSelected) {
+              const currentPageResult = yield this.analyzeCurrentPage(exportFormat);
+              if (currentPageResult.totalIssues > 0) {
+                return currentPageResult;
+              }
+              bestResult = currentPageResult;
+            }
+            const allPages = figma.root.children;
+            for (const page of allPages) {
+              if (page.id === currentPageId)
+                continue;
+              if (pageIds && pageIds.indexOf(page.id) === -1)
+                continue;
+              const pageNodes = page.findAll((node) => this.isComponentNode(node));
+              const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
+              console.log("analyzeSmart: page result", { pageId: page.id, issues: pageResult.totalIssues, nodes: pageResult.totalNodes });
+              if (pageResult.totalIssues > 0) {
+                yield figma.setCurrentPageAsync(page);
+                return pageResult;
+              }
+              if (!bestResult || pageResult.totalNodes > bestResult.totalNodes) {
+                console.log("analyzeSmart: New best result (clean)", pageResult.totalNodes);
+                bestResult = pageResult;
+              }
+            }
+            console.log("analyzeSmart: No issues found anywhere. Returning best result:", bestResult);
+            return bestResult || this.analyzeCurrentPage(exportFormat);
+          });
+        }
+        /**
+         * Analyze only the currently selected nodes (and their children)
+         */
+        static analyzeSelection() {
+          return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
+            const selection = figma.currentPage.selection;
+            let allNodes = [];
+            for (const node of selection) {
+              if (this.isComponentNode(node)) {
+                allNodes.push(node);
+              }
+              if ("findAll" in node) {
+                const children = node.findAll((n) => this.isComponentNode(n));
+                allNodes = [...allNodes, ...children];
+              }
+            }
+            return this.analyzeNodes(allNodes, exportFormat);
+          });
+        }
+        /**
+         * Helper to analyze a list of nodes
+         */
+        static analyzeNodes(nodes_1) {
+          return __awaiter(this, arguments, void 0, function* (nodes, exportFormat = "css") {
+            const variableUsage = /* @__PURE__ */ new Map();
+            const localComponentDefs = /* @__PURE__ */ new Map();
+            const componentUsage = /* @__PURE__ */ new Map();
+            const variantToSetId = /* @__PURE__ */ new Map();
+            let totalNodes = 0;
+            let autoLayoutCount = 0;
+            let instanceCount = 0;
+            let frameCount = 0;
+            const issuesMap = /* @__PURE__ */ new Map();
+            const allVariables = yield this.getAllVariables();
+            allVariables.forEach((v) => {
+              if (v.variable) {
+                variableUsage.set(v.variable.id, /* @__PURE__ */ new Set());
+              }
+            });
+            for (let i = 0; i < nodes.length; i++) {
+              const node = nodes[i];
+              if (i % 50 === 0) {
+                yield new Promise((resolve) => setTimeout(resolve, 0));
+              }
+              totalNodes++;
+              if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
+                if ("layoutMode" in node && node.layoutMode !== "NONE") {
+                  autoLayoutCount++;
+                }
+                if (node.type === "INSTANCE") {
+                  instanceCount++;
+                } else {
+                  frameCount++;
+                }
+              }
+              if (node.type === "COMPONENT") {
+                if (node.parent && node.parent.type === "COMPONENT_SET") {
+                  variantToSetId.set(node.id, node.parent.id);
+                } else {
+                  localComponentDefs.set(node.id, node);
+                }
+              } else if (node.type === "COMPONENT_SET") {
+                localComponentDefs.set(node.id, node);
+                node.children.forEach((child) => {
+                  if (child.type === "COMPONENT") {
+                    variantToSetId.set(child.id, node.id);
+                  }
+                });
+              }
+              if (node.type === "INSTANCE") {
+                let mainId = null;
+                try {
+                  const main = yield node.getMainComponentAsync();
+                  if (main)
+                    mainId = main.id;
+                } catch (e) {
+                }
+                if (mainId) {
+                  if (!componentUsage.has(mainId)) {
+                    componentUsage.set(mainId, /* @__PURE__ */ new Set());
+                  }
+                  componentUsage.get(mainId).add(node.id);
+                  const setId = variantToSetId.get(mainId);
+                  if (setId) {
+                    if (!componentUsage.has(setId)) {
+                      componentUsage.set(setId, /* @__PURE__ */ new Set());
+                    }
+                    componentUsage.get(setId).add(node.id);
+                  }
+                }
+              }
+              if ("boundVariables" in node && node.boundVariables) {
+                const boundVars = node.boundVariables;
+                for (const propKey of Object.keys(boundVars)) {
+                  const binding = boundVars[propKey];
+                  if (binding) {
+                    const checkId = (id) => {
+                      if (variableUsage.has(id)) {
+                        variableUsage.get(id).add(node.id);
+                      }
+                    };
+                    if (Array.isArray(binding)) {
+                      binding.forEach((b) => b.id && checkId(b.id));
+                    } else if (typeof binding === "object" && binding.id) {
+                      checkId(binding.id);
+                    }
+                  }
+                }
+              }
+              yield this.analyzeNode(node, issuesMap);
+            }
+            const unusedVariables = [];
+            allVariables.forEach((v) => {
+              if (!v || !v.variable)
+                return;
+              const usage = variableUsage.get(v.variable.id);
+              if (!usage || usage.size === 0) {
+                let resolvedValue = "";
+                const modeId = Object.keys(v.variable.valuesByMode)[0];
+                const val = v.variable.valuesByMode[modeId];
+                if (v.variable.resolvedType === "COLOR" && val && typeof val === "object" && "r" in val) {
+                  const c = val;
+                  resolvedValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+                } else if (val !== void 0) {
+                  resolvedValue = String(val);
+                }
+                unusedVariables.push({
+                  id: v.variable.id,
+                  name: v.variable.name,
+                  resolvedType: v.variable.resolvedType,
+                  resolvedValue,
+                  collectionName: v.collectionName
+                });
+              }
+            });
+            const totalVarsToCheck = allVariables.length;
+            const variableHygieneScore = totalVarsToCheck === 0 ? 100 : Math.round((totalVarsToCheck - unusedVariables.length) / totalVarsToCheck * 100);
+            const unusedComponents = [];
+            for (const [id, def] of localComponentDefs.entries()) {
+              if (def.type === "COMPONENT_SET") {
+                const set = def;
+                const variants = set.children.filter((c) => c.type === "COMPONENT");
+                const unusedVariants = variants.filter((v) => !componentUsage.has(v.id) || componentUsage.get(v.id).size === 0);
+                if (unusedVariants.length > 0) {
+                  unusedComponents.push({
+                    id: set.id,
+                    name: set.name,
+                    type: "COMPONENT_SET",
+                    totalVariants: variants.length,
+                    unusedVariantCount: unusedVariants.length,
+                    isFullyUnused: unusedVariants.length === variants.length,
+                    unusedVariants: unusedVariants.map((v) => ({ id: v.id, name: v.name }))
+                  });
+                }
+              } else {
+                if (!componentUsage.has(id) || componentUsage.get(id).size === 0) {
+                  unusedComponents.push({
+                    id: def.id,
+                    name: def.name,
+                    type: "COMPONENT",
+                    isFullyUnused: true
+                  });
+                }
+              }
+            }
+            const totalComponents = localComponentDefs.size;
+            const componentHygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedComponents.length) / totalComponents * 100);
+            for (const issue of issuesMap.values()) {
+              issue.matchingVariables = yield this.findMatchingVariables(issue.value, issue.category, allVariables);
+            }
+            const issuesByCategory = {
+              Layout: [],
+              Fill: [],
+              Stroke: [],
+              Appearance: []
+            };
+            for (const issue of issuesMap.values()) {
+              issuesByCategory[issue.category].push(issue);
+            }
+            for (const category of Object.keys(issuesByCategory)) {
+              issuesByCategory[category].sort((a, b) => b.count - a.count);
+            }
+            let tokenCoverageScore = 100;
+            if (totalNodes > 0) {
+              let totalIssueOccurrences = 0;
+              for (const issue of issuesMap.values()) {
+                totalIssueOccurrences += issue.count;
+              }
+              const issueDensity = totalIssueOccurrences / (totalNodes * 3);
+              const penalty = Math.round(issueDensity * 100);
+              tokenCoverageScore = Math.max(0, 100 - penalty);
+            }
+            const isTailwindCompatible = (name) => {
+              return tailwindV4Service_1.TailwindV4Service.isCompatible(name);
+            };
+            let validTailwindNames = 0;
+            const tailwindValidation = {
+              valid: [],
+              invalid: [],
+              totalInvalid: 0,
+              totalVariables: 0,
+              readinessScore: 0
+            };
+            if (totalVarsToCheck > 0) {
+              allVariables.forEach((v) => {
+                if (!v || !v.variable || !v.variable.name)
+                  return;
+                if (isTailwindCompatible(v.variable.name)) {
+                  validTailwindNames++;
+                  tailwindValidation.valid.push({ id: v.variable.id, name: v.variable.name });
+                } else {
+                  tailwindValidation.invalid.push({ id: v.variable.id, name: v.variable.name });
+                }
+              });
+            }
+            const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
+            tailwindValidation.totalVariables = totalVarsToCheck;
+            tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
+            tailwindValidation.readinessScore = tailwindScore;
+            const totalContainerNodes = instanceCount + frameCount;
+            const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
+            const isTailwindV4 = exportFormat === "tailwind-v4";
+            let weightedScore = 0;
+            let weights = {
+              tokenCoverage: "0%",
+              tailwindReadiness: "0%",
+              componentHygiene: "0%",
+              variableHygiene: "0%"
+            };
+            if (isTailwindV4) {
+              weightedScore = Math.round(tokenCoverageScore * 0.25 + tailwindScore * 0.25 + componentHygieneScore * 0.25 + variableHygieneScore * 0.25);
+              weights = {
+                tokenCoverage: "25%",
+                tailwindReadiness: "25%",
+                componentHygiene: "25%",
+                variableHygiene: "25%"
+              };
+            } else {
+              weightedScore = Math.round((tokenCoverageScore + componentHygieneScore + variableHygieneScore) / 3);
+              weights = {
+                tokenCoverage: "33.3%",
+                tailwindReadiness: "0%",
+                // Not shown
+                componentHygiene: "33.4%",
+                // Slight adjustment to sum to 100
+                variableHygiene: "33.3%"
+              };
+            }
+            return {
+              totalNodes,
+              totalIssues: issuesMap.size,
+              issuesByCategory,
+              qualityScore: weightedScore,
+              subScores: {
+                tokenCoverage: tokenCoverageScore,
+                tailwindReadiness: tailwindScore,
+                componentHygiene: componentHygieneScore,
+                variableHygiene: variableHygieneScore,
+                layoutHygiene: layoutHygieneScore
+              },
+              weights,
+              // Detailed Data
+              unusedVariables,
+              unusedComponents,
+              // Metrics
+              totalVariables: totalVarsToCheck,
+              totalComponents,
+              unusedVariableCount: unusedVariables.length,
+              unusedComponentCount: unusedComponents.length,
+              tailwindValidation
+            };
+          });
+        }
+        /**
+         * Helper to check if a node is inside an InstanceNode
+         */
+        static isInsideInstance(node) {
+          let parent = node.parent;
+          while (parent && parent.type !== "PAGE" && parent.type !== "DOCUMENT") {
+            if (parent.type === "INSTANCE") {
+              return true;
+            }
+            parent = parent.parent;
+          }
+          return false;
+        }
+        /**
+         * Analyzes a single node for token coverage issues
+         */
+        static analyzeNode(node, issuesMap) {
+          return __awaiter(this, void 0, void 0, function* () {
+            if (this.isInsideInstance(node)) {
+              return;
+            }
+            this.checkLayoutProperties(node, issuesMap);
+            this.checkFillProperties(node, issuesMap);
+            this.checkStrokeProperties(node, issuesMap);
+            this.checkAppearanceProperties(node, issuesMap);
+          });
+        }
+        /**
+         * Helper to format numeric values to max 2 decimal places
+         */
+        static formatValue(value) {
+          const rounded = Math.round(value * 100) / 100;
+          return `${rounded}px`;
+        }
+        /**
+         * Checks layout properties (spacing, sizing)
+         */
+        static checkLayoutProperties(node, issuesMap) {
+          if (!("minWidth" in node))
+            return;
+          const layoutNode = node;
+          if ("minWidth" in layoutNode && layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
+            this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
+          }
+          if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
+            this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
+          }
+          if ("width" in layoutNode && layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
+            this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
+          }
+          if ("height" in layoutNode && layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
+            this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
+          }
+          if ("minHeight" in layoutNode && layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
+            this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
+          }
+          if ("maxHeight" in layoutNode && layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
+            this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
+          }
+          if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
+            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, "itemSpacing")) {
+              this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout");
+            }
+            const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;
+            const paddingTop = typeof layoutNode.paddingTop === "number" ? layoutNode.paddingTop : 0;
+            const paddingRight = typeof layoutNode.paddingRight === "number" ? layoutNode.paddingRight : 0;
+            const paddingBottom = typeof layoutNode.paddingBottom === "number" ? layoutNode.paddingBottom : 0;
+            const allPaddingSame = paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
+            const anyPaddingBound = this.isVariableBound(layoutNode, "paddingLeft") || this.isVariableBound(layoutNode, "paddingTop") || this.isVariableBound(layoutNode, "paddingRight") || this.isVariableBound(layoutNode, "paddingBottom");
+            if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
+              this.addIssue(issuesMap, "Padding", this.formatValue(paddingLeft), node, "Layout");
+            } else {
+              if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, "paddingLeft")) {
+                this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout");
+              }
+              if (paddingTop !== 0 && !this.isVariableBound(layoutNode, "paddingTop")) {
+                this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout");
+              }
+              if (paddingRight !== 0 && !this.isVariableBound(layoutNode, "paddingRight")) {
+                this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout");
+              }
+              if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, "paddingBottom")) {
+                this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout");
+              }
+            }
+          }
+        }
+        /**
+         * Checks fill/color properties
+         */
+        static checkFillProperties(node, issuesMap) {
+          if (!("fills" in node))
+            return;
+          const fills = node.fills;
+          if (!Array.isArray(fills) || fills.length === 0)
+            return;
+          if (!this.isPaintColorVariableBound(fills)) {
+            const solidFill = fills.find((fill) => fill.type === "SOLID" && fill.visible !== false);
+            if (solidFill && solidFill.type === "SOLID") {
+              const color = solidFill.color;
+              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              this.addIssue(issuesMap, "Fill Color", colorValue, node, "Fill");
+            }
+          }
+        }
+        /**
+         * Checks stroke properties
+         */
+        static checkStrokeProperties(node, issuesMap) {
+          if (!("strokes" in node))
+            return;
+          const strokes = node.strokes;
+          if (!Array.isArray(strokes) || strokes.length === 0)
+            return;
+          if (!this.isPaintColorVariableBound(strokes)) {
+            const solidStroke = strokes.find((stroke) => stroke.type === "SOLID" && stroke.visible !== false);
+            if (solidStroke && solidStroke.type === "SOLID") {
+              const color = solidStroke.color;
+              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke");
+            }
+          }
+          const hasNumericStrokeWeight = "strokeWeight" in node && typeof node.strokeWeight === "number";
+          const strokeWeightValue = hasNumericStrokeWeight ? node.strokeWeight : 0;
+          const anyStrokeWeightBound = this.isVariableBound(node, "strokeWeight") || this.isVariableBound(node, "strokeTopWeight") || this.isVariableBound(node, "strokeRightWeight") || this.isVariableBound(node, "strokeBottomWeight") || this.isVariableBound(node, "strokeLeftWeight");
+          if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
+            this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke");
+          }
+        }
+        /**
+         * Checks appearance properties (opacity, radius)
+         */
+        static checkAppearanceProperties(node, issuesMap) {
+          if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0 && !this.isVariableBound(node, "opacity")) {
+            this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
+          }
+          if ("cornerRadius" in node && node.type !== "SECTION") {
+            const rectNode = node;
+            const topLeft = "topLeftRadius" in rectNode && typeof rectNode.topLeftRadius === "number" ? rectNode.topLeftRadius : 0;
+            const topRight = "topRightRadius" in rectNode && typeof rectNode.topRightRadius === "number" ? rectNode.topRightRadius : 0;
+            const bottomLeft = "bottomLeftRadius" in rectNode && typeof rectNode.bottomLeftRadius === "number" ? rectNode.bottomLeftRadius : 0;
+            const bottomRight = "bottomRightRadius" in rectNode && typeof rectNode.bottomRightRadius === "number" ? rectNode.bottomRightRadius : 0;
+            const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
+            if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === "number") {
+              if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, "cornerRadius") && !this.isVariableBound(rectNode, "topLeftRadius")) {
+                this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance");
+                return;
+              }
+            }
+            const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
+            if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
+              this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance");
+            } else {
+              if (topLeft > 0 && !this.isVariableBound(rectNode, "topLeftRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance");
+              }
+              if (topRight > 0 && !this.isVariableBound(rectNode, "topRightRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance");
+              }
+              if (bottomLeft > 0 && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance");
+              }
+              if (bottomRight > 0 && !this.isVariableBound(rectNode, "bottomRightRadius")) {
+                this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance");
+              }
+            }
+          }
+        }
+        /**
+         * Utility to check whether any SOLID paint has a color variable bound at paint-level
+         */
+        static isPaintColorVariableBound(paints) {
+          if (!Array.isArray(paints))
+            return false;
+          for (const p of paints) {
+            if (p && p.type === "SOLID" && p.visible !== false) {
+              const bv = p.boundVariables;
+              if (bv && bv.color)
+                return true;
+            }
+          }
+          return false;
+        }
+        /**
+         * Checks if a property is bound to a variable (design token)
+         */
+        static isVariableBound(node, property) {
+          if (!node.boundVariables)
+            return false;
+          const boundVariable = node.boundVariables[property];
+          return boundVariable !== void 0 && boundVariable !== null;
+        }
+        /**
+         * Adds or updates an issue in the issues map
+         */
+        static addIssue(issuesMap, property, value, node, category) {
+          const key = `${category}:${property}:${value}`;
+          let frameName = "Unknown Frame";
+          let parent = node.parent;
+          while (parent) {
+            if (parent.type === "FRAME" || parent.type === "SECTION" || parent.type === "COMPONENT" || parent.type === "COMPONENT_SET") {
+              frameName = parent.name;
+              break;
+            }
+            if (parent.type === "PAGE" || parent.type === "DOCUMENT") {
+              frameName = "Page: " + parent.name;
+              break;
+            }
+            parent = parent.parent;
+          }
+          if (issuesMap.has(key)) {
+            const issue = issuesMap.get(key);
+            issue.count++;
+            issue.nodeIds.push(node.id);
+            issue.nodeNames.push(node.name);
+            if (issue.nodeFrames) {
+              issue.nodeFrames.push(frameName);
+            } else {
+              issue.nodeFrames = [frameName];
+            }
+          } else {
+            issuesMap.set(key, {
+              property,
+              value,
+              count: 1,
+              nodeIds: [node.id],
+              nodeNames: [node.name],
+              nodeFrames: [frameName],
+              category
+            });
+          }
+        }
+        /**
+         * Checks if width is dynamic (Hug or Fill) or if usage implies dynamic behavior (Auto Layout)
+         */
+        static isWidthDynamic(node) {
+          if ("layoutMode" in node && node.layoutMode !== "NONE") {
+            return true;
+          }
+          if ("layoutSizingHorizontal" in node) {
+            const sizing = node.layoutSizingHorizontal;
+            if (sizing && sizing !== "FIXED")
+              return true;
+          }
+          const parent = node.parent;
+          if (parent && "layoutMode" in parent && parent.layoutMode !== "NONE") {
+            if (parent.layoutMode === "HORIZONTAL") {
+              if ("layoutGrow" in node && node.layoutGrow === 1)
+                return true;
+            } else if (parent.layoutMode === "VERTICAL") {
+              if ("layoutAlign" in node && node.layoutAlign === "STRETCH")
+                return true;
+            }
+          }
+          if (node.type === "TEXT" && node.textAutoResize === "WIDTH_AND_HEIGHT") {
+            return true;
+          }
+          return false;
+        }
+        /**
+         * Checks if height is dynamic (Hug or Fill) or if usage implies dynamic behavior (Auto Layout)
+         */
+        static isHeightDynamic(node) {
+          if ("layoutMode" in node && node.layoutMode !== "NONE") {
+            return true;
+          }
+          if ("layoutSizingVertical" in node) {
+            const sizing = node.layoutSizingVertical;
+            if (sizing && sizing !== "FIXED")
+              return true;
+          }
+          const parent = node.parent;
+          if (parent && "layoutMode" in parent && parent.layoutMode !== "NONE") {
+            if (parent.layoutMode === "HORIZONTAL") {
+              if ("layoutAlign" in node && node.layoutAlign === "STRETCH")
+                return true;
+            } else if (parent.layoutMode === "VERTICAL") {
+              if ("layoutGrow" in node && node.layoutGrow === 1)
+                return true;
+            }
+          }
+          if (node.type === "TEXT") {
+            if (node.textAutoResize === "WIDTH_AND_HEIGHT" || node.textAutoResize === "HEIGHT") {
+              return true;
+            }
+          }
+          return false;
+        }
+        /**
+         * Helper to get all variables with their resolved values
+         */
+        static getAllVariables() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const allVars = [];
+            try {
+              const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+              const promises = [];
+              for (const collection of collections) {
+                for (const varId of collection.variableIds) {
+                  promises.push(figma.variables.getVariableByIdAsync(varId).then((variable) => {
+                    if (variable) {
+                      return {
+                        variable,
+                        collection
+                      };
+                    }
+                    return null;
+                  }));
+                }
+              }
+              const results = yield Promise.all(promises);
+              results.forEach((res) => {
+                if (res)
+                  allVars.push(res);
+              });
+            } catch (e) {
+              console.error("Error fetching all variables:", e);
+            }
+            return allVars;
+          });
+        }
+        /**
+         * Finds design variables that match the given value exactly or nearly
+         */
+        static findMatchingVariables(value, category, allVariables) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const matchingVars = [];
+            for (const { variable, collection } of allVariables) {
+              const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
+              if (!isTypeMatch)
+                continue;
+              const modeId = collection.defaultModeId;
+              const varValue = variable.valuesByMode[modeId];
+              const matchType = this.valuesMatch(varValue, value, variable.resolvedType);
+              if (matchType) {
+                matchingVars.push({
+                  id: variable.id,
+                  name: variable.name,
+                  collectionName: collection.name,
+                  resolvedValue: this.formatVariableValue(varValue, variable.resolvedType),
+                  matchType
+                });
+              }
+            }
+            return matchingVars.sort((a, b) => {
+              if (a.matchType !== b.matchType) {
+                return a.matchType === "EXACT" ? -1 : 1;
+              }
+              return a.name.localeCompare(b.name);
+            });
+          });
+        }
+        /**
+         * Check if variable type matches the issue category
+         * Note: Stroke category includes both COLOR (stroke color) and FLOAT (stroke weight)
+         */
+        static isVariableTypeMatch(varType, category) {
+          if (category === "Fill") {
+            return varType === "COLOR";
+          }
+          if (category === "Stroke") {
+            return varType === "COLOR" || varType === "FLOAT";
+          }
+          if (category === "Layout") {
+            return varType === "FLOAT";
+          }
+          if (category === "Appearance") {
+            return varType === "FLOAT";
+          }
+          return false;
+        }
+        /**
+         * Check if variable value matches the hard-coded value
+         */
+        static valuesMatch(varValue, hardValue, varType) {
+          if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+            const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!colorMatch)
+              return null;
+            const r = parseInt(colorMatch[1]) / 255;
+            const g = parseInt(colorMatch[2]) / 255;
+            const b = parseInt(colorMatch[3]) / 255;
+            if (Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE) {
+              return "EXACT";
+            }
+            return null;
+          }
+          if (varType === "FLOAT" && typeof varValue === "number") {
+            const numMatch = hardValue.match(/^([\d.]+)/);
+            if (!numMatch)
+              return null;
+            const hardNum = parseFloat(numMatch[1]);
+            const diff = Math.abs(varValue - hardNum);
+            if (diff < VALUE_MATCH_TOLERANCE) {
+              return "EXACT";
+            }
+            if (diff <= 2) {
+              return "NEAR";
+            }
+          }
+          return null;
+        }
+        /**
+         * Format variable value for display
+         */
+        static formatVariableValue(varValue, varType) {
+          if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+            return `rgb(${Math.round(varValue.r * 255)}, ${Math.round(varValue.g * 255)}, ${Math.round(varValue.b * 255)})`;
+          }
+          if (varType === "FLOAT" && typeof varValue === "number") {
+            return `${varValue}`;
+          }
+          return String(varValue);
+        }
+      };
+      exports.TokenCoverageService = TokenCoverageService;
+    }
+  });
+
+  // dist/services/variableService.js
+  var require_variableService = __commonJS({
+    "dist/services/variableService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.VariableService = void 0;
+      var errorHandler_1 = require_errorHandler();
+      var VariableService = class {
+        /**
+         * Analyzes variable hygiene by finding unused local variables.
+         * @param pageIds Optional list of page IDs to scope the usage scan. If empty, scans all pages.
+         */
+        static analyzeHygiene(pageIds) {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              var _a, _b, _c;
+              console.log("Analyzing variable hygiene...");
+              const allVariables = yield figma.variables.getLocalVariablesAsync();
+              console.log(`Found ${allVariables.length} local variables`);
+              if (allVariables.length === 0) {
+                return {
+                  totalVariables: 0,
+                  unusedVariables: [],
+                  unusedCount: 0,
+                  hygieneScore: 100,
+                  subScores: { variableHygiene: 100 }
+                };
+              }
+              const variableUsage = /* @__PURE__ */ new Map();
+              for (const variable of allVariables) {
+                variableUsage.set(variable.id, {
+                  variable,
+                  usedBy: /* @__PURE__ */ new Set()
+                });
+              }
+              for (const variable of allVariables) {
+                for (const modeId of Object.keys(variable.valuesByMode)) {
+                  const value = variable.valuesByMode[modeId];
+                  if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
+                    const aliasedVarId = value.id;
+                    if (variableUsage.has(aliasedVarId)) {
+                      (_a = variableUsage.get(aliasedVarId)) === null || _a === void 0 ? void 0 : _a.usedBy.add(variable.id);
+                    }
+                  }
+                }
+              }
+              yield figma.loadAllPagesAsync();
+              const nodesToCheck = [];
+              const collectNodes = (node) => {
+                if ("boundVariables" in node) {
+                  nodesToCheck.push(node);
+                }
+                if ("children" in node) {
+                  for (const child of node.children) {
+                    collectNodes(child);
+                  }
+                }
+              };
+              for (const page of figma.root.children) {
+                if (pageIds && pageIds.length > 0 && pageIds.indexOf(page.id) === -1) {
+                  continue;
+                }
+                for (const child of page.children) {
+                  collectNodes(child);
+                }
+              }
+              console.log(`[VariableService] Scanning ${nodesToCheck.length} nodes for variable usage...`);
+              const CHUNK_SIZE = 500;
+              for (let i = 0; i < nodesToCheck.length; i += CHUNK_SIZE) {
+                const chunk = nodesToCheck.slice(i, i + CHUNK_SIZE);
+                for (const node of chunk) {
+                  try {
+                    if (node.boundVariables) {
+                      const boundVars = node.boundVariables;
+                      for (const propKey of Object.keys(boundVars)) {
+                        const binding = boundVars[propKey];
+                        if (binding && typeof binding === "object") {
+                          if ("id" in binding) {
+                            const varId = binding.id;
+                            if (variableUsage.has(varId)) {
+                              (_b = variableUsage.get(varId)) === null || _b === void 0 ? void 0 : _b.usedBy.add(node.id);
+                            }
+                          } else if (Array.isArray(binding)) {
+                            for (const item of binding) {
+                              if (item && typeof item === "object" && "id" in item) {
+                                const varId = item.id;
+                                if (variableUsage.has(varId)) {
+                                  (_c = variableUsage.get(varId)) === null || _c === void 0 ? void 0 : _c.usedBy.add(node.id);
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  } catch (nodeError) {
+                  }
+                }
+                if (i + CHUNK_SIZE < nodesToCheck.length) {
+                  yield new Promise((resolve) => setTimeout(resolve, 0));
+                }
+              }
+              const unusedVariables = [];
+              for (const [varId, usage] of variableUsage.entries()) {
+                if (usage.usedBy.size === 0) {
+                  const variable = usage.variable;
+                  const collection = yield figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+                  const modeId = (collection === null || collection === void 0 ? void 0 : collection.defaultModeId) || Object.keys(variable.valuesByMode)[0];
+                  const varValue = variable.valuesByMode[modeId];
+                  let resolvedValue = "";
+                  if (variable.resolvedType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+                    const color = varValue;
+                    resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+                  } else if (variable.resolvedType === "FLOAT") {
+                    resolvedValue = String(varValue);
+                  }
+                  unusedVariables.push({
+                    id: variable.id,
+                    name: variable.name,
+                    collectionId: variable.variableCollectionId,
+                    collectionName: (collection === null || collection === void 0 ? void 0 : collection.name) || "Unknown Collection",
+                    resolvedType: variable.resolvedType,
+                    resolvedValue,
+                    scopes: variable.scopes
+                  });
+                }
+              }
+              const totalVariables = allVariables.length;
+              const unusedCount = unusedVariables.length;
+              const hygieneScore = totalVariables === 0 ? 100 : Math.round((totalVariables - unusedCount) / totalVariables * 100);
+              console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+              return {
+                totalVariables,
+                unusedVariables,
+                unusedCount,
+                hygieneScore,
+                subScores: { variableHygiene: hygieneScore }
+              };
+            }), {
+              operation: "analyze_variable_hygiene",
+              component: "VariableService",
+              severity: "medium"
+            });
+          });
+        }
+      };
+      exports.VariableService = VariableService;
+    }
+  });
+
+  // dist/services/qualityService.js
+  var require_qualityService = __commonJS({
+    "dist/services/qualityService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.QualityService = void 0;
+      var tokenCoverageService_1 = require_tokenCoverageService();
+      var componentService_1 = require_componentService();
+      var variableService_1 = require_variableService();
+      var errorHandler_1 = require_errorHandler();
+      var QualityService = class {
+        /**
+         * Generates a comprehensive quality report by aggregating results from all services.
+         * This eliminates race conditions by ensuring all data is ready before returning.
+         */
+        static generateReport(scope_1, pageIds_1) {
+          return __awaiter(this, arguments, void 0, function* (scope, pageIds, exportFormat = "css") {
+            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
+              var _a, _b, _c, _d;
+              const startTime = Date.now();
+              console.log(`[QualityService] Starting analysis. Scope: ${scope}`);
+              let tokenPromise;
+              if (scope === "ALL") {
+                tokenPromise = tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat, pageIds);
+              } else if (scope === "SELECTION") {
+                tokenPromise = tokenCoverageService_1.TokenCoverageService.analyzeSelection(exportFormat);
+              } else if (scope === "SMART_SCAN") {
+                tokenPromise = tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat, pageIds);
+              } else {
+                tokenPromise = tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
+              }
+              const [tokenResult, componentResult, variableResult] = yield Promise.all([
+                tokenPromise,
+                componentService_1.ComponentService.analyzeHygiene(pageIds),
+                variableService_1.VariableService.analyzeHygiene(pageIds)
+              ]);
+              const duration = Date.now() - startTime;
+              console.log(`[QualityService] Analysis complete in ${duration}ms`);
+              const tokenScore = ((_a = tokenResult.subScores) === null || _a === void 0 ? void 0 : _a.tokenCoverage) || 0;
+              const tailwindScore = ((_b = tokenResult.subScores) === null || _b === void 0 ? void 0 : _b.tailwindReadiness) || 0;
+              const componentScore = ((_c = componentResult.subScores) === null || _c === void 0 ? void 0 : _c.componentHygiene) || 0;
+              const variableScore = ((_d = variableResult.subScores) === null || _d === void 0 ? void 0 : _d.variableHygiene) || 0;
+              const weights = {
+                tokenCoverage: 40,
+                tailwindReadiness: 20,
+                componentHygiene: 20,
+                variableHygiene: 20
+              };
+              const totalScore = Math.round(tokenScore * 0.4 + tailwindScore * 0.2 + componentScore * 0.2 + variableScore * 0.2);
+              return {
+                meta: {
+                  totalNodes: tokenResult.totalNodes || 0,
+                  scanDuration: duration,
+                  scope,
+                  timestamp: Date.now()
+                },
+                metrics: {
+                  tokenCoverage: tokenResult,
+                  // Tailwind data is embedded in tokenResult currently, keep it there or split?
+                  // For now keep structure similar to legacy for easier frontend transition
+                  componentHygiene: componentResult,
+                  variableHygiene: variableResult,
+                  tailwindReadiness: {
+                    score: tailwindScore,
+                    validation: tokenResult.tailwindValidation
+                    // Pass this through
+                  }
+                },
+                score: {
+                  total: totalScore,
+                  breakdown: {
+                    tokenCoverage: tokenScore,
+                    tailwindReadiness: tailwindScore,
+                    componentHygiene: componentScore,
+                    variableHygiene: variableScore
+                  }
+                }
+              };
+            }), {
+              operation: "generate_quality_report",
+              component: "QualityService",
+              severity: "high"
+            });
+          });
+        }
+      };
+      exports.QualityService = QualityService;
+    }
+  });
+
   // dist/services/oauthService.js
   var require_oauthService = __commonJS({
     "dist/services/oauthService.js"(exports) {
@@ -9056,8 +9504,8 @@ ${Object.keys(cssProperties).map((property) => {
       var gitServiceFactory_1 = require_gitServiceFactory();
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
-      var tokenCoverageService_1 = require_tokenCoverageService();
       var variableImportService_1 = require_variableImportService();
+      var qualityService_1 = require_qualityService();
       var config_1 = require_config();
       figma.showUI(__html__, { width: 650, height: 900, themeColors: true });
       function collectDocumentData() {
@@ -9767,274 +10215,16 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
-            case "analyze-component-hygiene":
-              try {
-                console.log("Analyzing component hygiene...");
-                yield figma.loadAllPagesAsync();
-                const localDefinitions = /* @__PURE__ */ new Map();
-                const variantToSetId = /* @__PURE__ */ new Map();
-                const localNodes = [];
-                const allInstances = [];
-                for (const page of figma.root.children) {
-                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-                    continue;
-                  }
-                  const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
-                  localNodes.push(...pageDefs);
-                  const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
-                  allInstances.push(...pageInstances);
-                }
-                const variantUsage = /* @__PURE__ */ new Map();
-                for (const node of localNodes) {
-                  if (node.type === "COMPONENT_SET") {
-                    localDefinitions.set(node.id, {
-                      node,
-                      name: node.name,
-                      isSet: true,
-                      instances: []
-                    });
-                    for (const child of node.children) {
-                      if (child.type === "COMPONENT") {
-                        variantToSetId.set(child.id, node.id);
-                        variantUsage.set(child.id, {
-                          name: child.name,
-                          parentId: node.id,
-                          instances: []
-                        });
-                      }
-                    }
-                  } else if (node.type === "COMPONENT") {
-                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
-                      localDefinitions.set(node.id, {
-                        node,
-                        name: node.name,
-                        isSet: false,
-                        instances: []
-                      });
-                    }
-                  }
-                }
-                for (const instance of allInstances) {
-                  let mainId;
-                  try {
-                    const mainComponent = yield instance.getMainComponentAsync();
-                    if (mainComponent) {
-                      mainId = mainComponent.id;
-                    }
-                  } catch (e) {
-                    console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
-                  }
-                  if (!mainId)
-                    continue;
-                  if (variantUsage.has(mainId)) {
-                    const variantInfo = variantUsage.get(mainId);
-                    variantInfo.instances.push({ id: instance.id });
-                  }
-                  let targetId = mainId;
-                  if (variantToSetId.has(mainId)) {
-                    targetId = variantToSetId.get(mainId);
-                  }
-                  if (localDefinitions.has(targetId)) {
-                    const def = localDefinitions.get(targetId);
-                    def.instances.push({ id: instance.id });
-                  }
-                }
-                const unusedComponents = [];
-                console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
-                console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
-                for (const [id, def] of localDefinitions.entries()) {
-                  if (def.isSet) {
-                    const componentSet = def.node;
-                    const variants = componentSet.children.filter((child) => child.type === "COMPONENT");
-                    const unusedVariants = [];
-                    const totalVariants = variants.length;
-                    let unusedVariantCount = 0;
-                    for (const variant of variants) {
-                      const variantInfo = variantUsage.get(variant.id);
-                      if (variantInfo && variantInfo.instances.length === 0) {
-                        unusedVariantCount++;
-                        unusedVariants.push({
-                          id: variant.id,
-                          name: variant.name
-                        });
-                      }
-                    }
-                    if (unusedVariantCount > 0) {
-                      unusedComponents.push({
-                        id: componentSet.id,
-                        name: componentSet.name,
-                        type: "COMPONENT_SET",
-                        totalVariants,
-                        unusedVariantCount,
-                        isFullyUnused: unusedVariantCount === totalVariants,
-                        unusedVariants
-                      });
-                    }
-                  } else {
-                    if (def.instances.length === 0) {
-                      unusedComponents.push({
-                        id: def.node.id,
-                        name: def.name,
-                        type: "COMPONENT",
-                        isFullyUnused: true
-                      });
-                    }
-                  }
-                }
-                const totalComponents = localDefinitions.size;
-                const unusedCount = unusedComponents.length;
-                const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
-                console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
-                if (unusedCount === 0 && totalComponents > 0) {
-                  console.log("DEBUG: 0 unused found. Dumping sample defs to check consistency:");
-                  let i = 0;
-                  for (const [id, def] of localDefinitions.entries()) {
-                    if (i++ > 5)
-                      break;
-                    console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
-                    if (def.isSet) {
-                      const set = def.node;
-                      console.log(` - Variants: ${set.children.length}`);
-                    }
-                  }
-                }
-                figma.ui.postMessage({
-                  type: "component-hygiene-result",
-                  result: {
-                    totalComponents,
-                    unusedComponents,
-                    unusedCount,
-                    hygieneScore,
-                    subScores: { componentHygiene: hygieneScore }
-                  }
-                });
-              } catch (err) {
-                console.error("Error analyzing component hygiene:", err);
-                figma.ui.postMessage({
-                  type: "component-hygiene-error",
-                  error: err.message
-                });
-              }
-              break;
-            case "analyze-variable-hygiene":
-              try {
-                console.log("Analyzing variable hygiene...");
-                const allVariables = yield figma.variables.getLocalVariablesAsync();
-                console.log(`Found ${allVariables.length} local variables`);
-                if (allVariables.length === 0) {
-                  figma.ui.postMessage({
-                    type: "variable-hygiene-result",
-                    result: {
-                      totalVariables: 0,
-                      unusedVariables: [],
-                      unusedCount: 0,
-                      hygieneScore: 100
-                    },
-                    subScores: { variableHygiene: 100 }
-                  });
-                  break;
-                }
-                const variableUsage = /* @__PURE__ */ new Map();
-                for (const variable of allVariables) {
-                  variableUsage.set(variable.id, {
-                    variable,
-                    usedBy: /* @__PURE__ */ new Set()
-                  });
-                }
-                for (const variable of allVariables) {
-                  for (const modeId of Object.keys(variable.valuesByMode)) {
-                    const value = variable.valuesByMode[modeId];
-                    if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
-                      const aliasedVarId = value.id;
-                      if (variableUsage.has(aliasedVarId)) {
-                        variableUsage.get(aliasedVarId).usedBy.add(variable.id);
-                      }
-                    }
-                  }
-                }
-                yield figma.loadAllPagesAsync();
-                for (const page of figma.root.children) {
-                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-                    continue;
-                  }
-                  const allNodes = page.findAll();
-                  for (const node of allNodes) {
-                    try {
-                      if ("boundVariables" in node && node.boundVariables) {
-                        const boundVars = node.boundVariables;
-                        for (const propKey of Object.keys(boundVars)) {
-                          const binding = boundVars[propKey];
-                          if (binding && typeof binding === "object") {
-                            if ("id" in binding) {
-                              const varId = binding.id;
-                              if (variableUsage.has(varId)) {
-                                variableUsage.get(varId).usedBy.add(node.id);
-                              }
-                            } else if (Array.isArray(binding)) {
-                              for (const item of binding) {
-                                if (item && typeof item === "object" && "id" in item) {
-                                  const varId = item.id;
-                                  if (variableUsage.has(varId)) {
-                                    variableUsage.get(varId).usedBy.add(node.id);
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    } catch (nodeError) {
-                      console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
-                    }
-                  }
-                }
-                const unusedVariables = [];
-                for (const [varId, usage] of variableUsage.entries()) {
-                  if (usage.usedBy.size === 0) {
-                    const variable = usage.variable;
-                    const collection = yield figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
-                    const modeId = (collection === null || collection === void 0 ? void 0 : collection.defaultModeId) || Object.keys(variable.valuesByMode)[0];
-                    const varValue = variable.valuesByMode[modeId];
-                    let resolvedValue = "";
-                    if (variable.resolvedType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
-                      const color = varValue;
-                      resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-                    } else if (variable.resolvedType === "FLOAT") {
-                      resolvedValue = String(varValue);
-                    }
-                    unusedVariables.push({
-                      id: variable.id,
-                      name: variable.name,
-                      collectionId: variable.variableCollectionId,
-                      collectionName: (collection === null || collection === void 0 ? void 0 : collection.name) || "Unknown Collection",
-                      resolvedType: variable.resolvedType,
-                      resolvedValue,
-                      scopes: variable.scopes
-                    });
-                  }
-                }
-                const totalVariables = allVariables.length;
-                const unusedCount = unusedVariables.length;
-                const hygieneScore = totalVariables === 0 ? 100 : Math.round((totalVariables - unusedCount) / totalVariables * 100);
-                console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
-                figma.ui.postMessage({
-                  type: "variable-hygiene-result",
-                  result: {
-                    totalVariables,
-                    unusedVariables,
-                    unusedCount,
-                    hygieneScore,
-                    subScores: { variableHygiene: hygieneScore }
-                  }
-                });
-              } catch (err) {
-                console.error("Error analyzing variable hygiene:", err);
-                figma.ui.postMessage({
-                  type: "variable-hygiene-error",
-                  error: err.message
-                });
-              }
-              break;
+            /* Legacy Hygiene handlers - replaced by analyze-quality-report
+            case 'analyze-component-hygiene':
+               // ... code removed ...
+               break;
+            */
+            /* Legacy Hygiene handlers - replaced by analyze-quality-report
+            case 'analyze-variable-hygiene':
+               // ... code removed ...
+               break;
+            */
             case "delete-component":
               try {
                 if (!msg.componentId) {
@@ -10535,34 +10725,24 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               break;
-            case "analyze-token-coverage":
+            case "analyze-quality-report":
               try {
                 const scope = msg.scope || "PAGE";
-                console.log(`Analyzing token coverage (Scope: ${scope})...`);
+                console.log(`[Plugin] Analyze-quality-report received. Scope: ${scope}, PageIds: ${msg.pageIds ? JSON.stringify(msg.pageIds) : "null"}`);
                 const settings = yield gitlabService_1.GitLabService.loadSettings();
                 const exportFormat = msg.exportFormat || (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
-                let coverageResult;
-                if (scope === "ALL") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat, msg.pageIds);
-                } else if (scope === "SMART_SCAN") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat, msg.pageIds);
-                } else if (scope === "SELECTION") {
-                  console.log("Analyzing selection...");
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSelection(exportFormat);
-                } else {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
-                }
-                console.log("[Plugin Debug] Analysis finished, result obtained. Posting message...");
+                console.log(`[Plugin] Calling QualityService.generateReport with format: ${exportFormat}`);
+                const report = yield qualityService_1.QualityService.generateReport(scope, msg.pageIds, exportFormat);
+                console.log("[Plugin] Quality Analysis complete. Sending report...");
                 figma.ui.postMessage({
-                  type: "token-coverage-result",
-                  result: coverageResult
+                  type: "quality-report",
+                  report
                 });
-                console.log("[Plugin Debug] Message posted successfully.");
-              } catch (coverageError) {
-                console.error("Error analyzing token coverage:", coverageError);
+              } catch (error) {
+                console.error("[Plugin] Quality Analysis failed:", error);
                 figma.ui.postMessage({
-                  type: "token-coverage-error",
-                  error: coverageError.message || "Failed to analyze token coverage"
+                  type: "quality-report-error",
+                  error: error.message || "Failed to generate quality report"
                 });
               }
               break;
