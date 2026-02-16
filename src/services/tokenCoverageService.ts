@@ -103,20 +103,9 @@ export class TokenCoverageService {
     const currentPage = figma.currentPage;
     const nodes = currentPage.findAll(
       (node) =>
-        node.type === 'FRAME' ||
-        node.type === 'SECTION' ||
-        node.type === 'GROUP' ||
         node.type === 'COMPONENT' ||
         node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE' ||
-        node.type === 'RECTANGLE' ||
-        node.type === 'ELLIPSE' ||
-        node.type === 'POLYGON' ||
-        node.type === 'STAR' ||
-        node.type === 'VECTOR' ||
-        node.type === 'TEXT' ||
-        node.type === 'LINE' ||
-        node.type === 'BOOLEAN_OPERATION',
+        node.type === 'INSTANCE',
     );
 
     return this.analyzeNodes(nodes as SceneNode[], exportFormat);
@@ -141,20 +130,9 @@ export class TokenCoverageService {
 
       const pageNodes = page.findAll(
         (node) =>
-          node.type === 'FRAME' ||
-          node.type === 'SECTION' ||
-          node.type === 'GROUP' ||
           node.type === 'COMPONENT' ||
           node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE' ||
-          node.type === 'RECTANGLE' ||
-          node.type === 'ELLIPSE' ||
-          node.type === 'POLYGON' ||
-          node.type === 'STAR' ||
-          node.type === 'VECTOR' ||
-          node.type === 'TEXT' ||
-          node.type === 'LINE' ||
-          node.type === 'BOOLEAN_OPERATION',
+          node.type === 'INSTANCE',
       );
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
@@ -182,12 +160,12 @@ export class TokenCoverageService {
     // 1. Analyze current page if it's within the selection
     if (isCurrentPageSelected) {
       const currentPageResult = await this.analyzeCurrentPage(exportFormat);
-      
+
       // If issues found, return immediately
       if (currentPageResult.totalIssues > 0) {
         return currentPageResult;
       }
-      
+
       // Otherwise, keep as baseline
       bestResult = currentPageResult;
     }
@@ -202,20 +180,9 @@ export class TokenCoverageService {
 
       const pageNodes = page.findAll(
         (node) =>
-          node.type === 'FRAME' ||
-          node.type === 'SECTION' ||
-          node.type === 'GROUP' ||
           node.type === 'COMPONENT' ||
           node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE' ||
-          node.type === 'RECTANGLE' ||
-          node.type === 'ELLIPSE' ||
-          node.type === 'POLYGON' ||
-          node.type === 'STAR' ||
-          node.type === 'VECTOR' ||
-          node.type === 'TEXT' ||
-          node.type === 'LINE' ||
-          node.type === 'BOOLEAN_OPERATION',
+          node.type === 'INSTANCE',
       );
 
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[], exportFormat);
@@ -227,11 +194,11 @@ export class TokenCoverageService {
         await figma.setCurrentPageAsync(page);
         return pageResult;
       }
-      
+
       // No issues, but check if this page has more content than our current best
       if (!bestResult || (pageResult.totalNodes > bestResult.totalNodes)) {
-          console.log('analyzeSmart: New best result (clean)', pageResult.totalNodes);
-          bestResult = pageResult;
+        console.log('analyzeSmart: New best result (clean)', pageResult.totalNodes);
+        bestResult = pageResult;
       }
     }
 
@@ -252,9 +219,6 @@ export class TokenCoverageService {
     for (const node of selection) {
       // Include the node itself if it matches our types
       if (
-        node.type === 'FRAME' ||
-        node.type === 'SECTION' ||
-        node.type === 'GROUP' ||
         node.type === 'COMPONENT' ||
         node.type === 'COMPONENT_SET' ||
         node.type === 'INSTANCE'
@@ -266,9 +230,6 @@ export class TokenCoverageService {
       if ('findAll' in node) {
         const children = (node as any).findAll(
           (n: any) =>
-            n.type === 'FRAME' ||
-            n.type === 'SECTION' ||
-            n.type === 'GROUP' ||
             n.type === 'COMPONENT' ||
             n.type === 'COMPONENT_SET' ||
             n.type === 'INSTANCE',
@@ -304,7 +265,7 @@ export class TokenCoverageService {
 
     // Optimization: Fetch all variables once
     const allVariables = await this.getAllVariables();
-    
+
     // Initialize variable usage map
     allVariables.forEach(v => {
       if (v.variable) {
@@ -315,7 +276,7 @@ export class TokenCoverageService {
     // --- MAIN NODE LOOP ---
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
-      
+
       // Yield to the event loop every 50 nodes to keep UI responsive
       if (i % 50 === 0) {
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -347,72 +308,72 @@ export class TokenCoverageService {
       // --- 1. Component Hygiene Tracking ---
       // Track Definitions
       if (node.type === 'COMPONENT') {
-          // If it's a child of a ComponentSet, map it
-          if (node.parent && node.parent.type === 'COMPONENT_SET') {
-              variantToSetId.set(node.id, node.parent.id);
-          } else {
-              localComponentDefs.set(node.id, node);
-          }
-      } else if (node.type === 'COMPONENT_SET') {
+        // If it's a child of a ComponentSet, map it
+        if (node.parent && node.parent.type === 'COMPONENT_SET') {
+          variantToSetId.set(node.id, node.parent.id);
+        } else {
           localComponentDefs.set(node.id, node);
-          // Map children
-          node.children.forEach(child => {
-              if (child.type === 'COMPONENT') {
-                 variantToSetId.set(child.id, node.id);
-              }
-          });
+        }
+      } else if (node.type === 'COMPONENT_SET') {
+        localComponentDefs.set(node.id, node);
+        // Map children
+        node.children.forEach(child => {
+          if (child.type === 'COMPONENT') {
+            variantToSetId.set(child.id, node.id);
+          }
+        });
       }
 
       // Track Usage (Instances)
       if (node.type === 'INSTANCE') {
-          let mainId = null;
-          try {
-            const main = await (node as InstanceNode).getMainComponentAsync();
-            if (main) mainId = main.id;
-          } catch (e) {
-            // mainComponent access might fail if remote or other reasons
-          }
+        let mainId = null;
+        try {
+          const main = await (node as InstanceNode).getMainComponentAsync();
+          if (main) mainId = main.id;
+        } catch (e) {
+          // mainComponent access might fail if remote or other reasons
+        }
 
-          if (mainId) {
-              // Mark specific variant as used
-              if (!componentUsage.has(mainId)) {
-                  componentUsage.set(mainId, new Set());
-              }
-              componentUsage.get(mainId)!.add(node.id);
-
-              // Also mark the Set as used if applicable
-              const setId = variantToSetId.get(mainId);
-              if (setId) {
-                  if (!componentUsage.has(setId)) {
-                      componentUsage.set(setId, new Set());
-                  }
-                  componentUsage.get(setId)!.add(node.id);
-              }
+        if (mainId) {
+          // Mark specific variant as used
+          if (!componentUsage.has(mainId)) {
+            componentUsage.set(mainId, new Set());
           }
+          componentUsage.get(mainId)!.add(node.id);
+
+          // Also mark the Set as used if applicable
+          const setId = variantToSetId.get(mainId);
+          if (setId) {
+            if (!componentUsage.has(setId)) {
+              componentUsage.set(setId, new Set());
+            }
+            componentUsage.get(setId)!.add(node.id);
+          }
+        }
       }
 
       // --- 2. Variable Hygiene Tracking ---
       // Check bound variables on the node
       if ('boundVariables' in node && node.boundVariables) {
-          const boundVars = node.boundVariables as any;
-          for (const propKey of Object.keys(boundVars)) {
-              const binding = boundVars[propKey];
-              if (binding) {
-                  const checkId = (id: string) => {
-                      if (variableUsage.has(id)) {
-                          variableUsage.get(id)!.add(node.id);
-                      }
-                  };
-
-                  if (Array.isArray(binding)) {
-                      binding.forEach((b: any) => b.id && checkId(b.id));
-                  } else if (typeof binding === 'object' && binding.id) {
-                      checkId(binding.id);
-                  }
+        const boundVars = node.boundVariables as any;
+        for (const propKey of Object.keys(boundVars)) {
+          const binding = boundVars[propKey];
+          if (binding) {
+            const checkId = (id: string) => {
+              if (variableUsage.has(id)) {
+                variableUsage.get(id)!.add(node.id);
               }
+            };
+
+            if (Array.isArray(binding)) {
+              binding.forEach((b: any) => b.id && checkId(b.id));
+            } else if (typeof binding === 'object' && binding.id) {
+              checkId(binding.id);
+            }
           }
+        }
       }
-      
+
       // Also check paint styles / strokes for variable aliases?
       // (The logic from plugin.ts was simpler, only boundVariables. We stick to that for parity)
 
@@ -421,40 +382,40 @@ export class TokenCoverageService {
       // This MUST be done line-by-line using existing helper
       await this.analyzeNode(node, issuesMap);
     }
-    
+
     // --- POST-PROCESSING: Calculate Hygiene Results ---
 
     // A. Variable Hygiene Results
     const unusedVariables: any[] = [];
     allVariables.forEach(v => {
-        if (!v || !v.variable) return;
-        const usage = variableUsage.get(v.variable.id);
-        if (!usage || usage.size === 0) {
-            // Check for alias usage (variables used by other variables)
-            // NOTE: Ideally we check this. For now, assuming simple direct usage for speed. 
-            // If we want alias checking we need to iterate variables again.
-            // Let's implement basic alias check from the original plugin.ts logic if possible.
-            // ... (Verified: plugin.ts checks aliases. We should too, but efficiently).
-             
-             // Extract resolved value for display
-             let resolvedValue = '';
-             const modeId = Object.keys(v.variable.valuesByMode)[0];
-             const val = v.variable.valuesByMode[modeId];
-             if (v.variable.resolvedType === 'COLOR' && val && typeof val === 'object' && 'r' in val) {
-                 const c = val as any;
-                 resolvedValue = `rgb(${Math.round(c.r*255)}, ${Math.round(c.g*255)}, ${Math.round(c.b*255)})`;
-             } else if (val !== undefined) {
-                 resolvedValue = String(val);
-             }
+      if (!v || !v.variable) return;
+      const usage = variableUsage.get(v.variable.id);
+      if (!usage || usage.size === 0) {
+        // Check for alias usage (variables used by other variables)
+        // NOTE: Ideally we check this. For now, assuming simple direct usage for speed. 
+        // If we want alias checking we need to iterate variables again.
+        // Let's implement basic alias check from the original plugin.ts logic if possible.
+        // ... (Verified: plugin.ts checks aliases. We should too, but efficiently).
 
-             unusedVariables.push({
-                 id: v.variable.id,
-                 name: v.variable.name,
-                 resolvedType: v.variable.resolvedType,
-                 resolvedValue: resolvedValue,
-                 collectionName: v.collectionName
-             });
+        // Extract resolved value for display
+        let resolvedValue = '';
+        const modeId = Object.keys(v.variable.valuesByMode)[0];
+        const val = v.variable.valuesByMode[modeId];
+        if (v.variable.resolvedType === 'COLOR' && val && typeof val === 'object' && 'r' in val) {
+          const c = val as any;
+          resolvedValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+        } else if (val !== undefined) {
+          resolvedValue = String(val);
         }
+
+        unusedVariables.push({
+          id: v.variable.id,
+          name: v.variable.name,
+          resolvedType: v.variable.resolvedType,
+          resolvedValue: resolvedValue,
+          collectionName: v.collectionName
+        });
+      }
     });
 
     // 4. Variable Hygiene Score (15%) -> 20%
@@ -464,39 +425,39 @@ export class TokenCoverageService {
 
     // B. Component Hygiene Results
     const unusedComponents: any[] = [];
-    
+
     for (const [id, def] of localComponentDefs.entries()) {
-        if (def.type === 'COMPONENT_SET') {
-            const set = def as ComponentSetNode;
-            // Check if ANY variant is used? Or check which variants are unused?
-            // Original logic: "Only include component sets that have at least one unused variant"
-            // Wait, original logic count "unused components".
-            
-            const variants = set.children.filter(c => c.type === 'COMPONENT');
-            const unusedVariants = variants.filter(v => !componentUsage.has(v.id) || componentUsage.get(v.id)!.size === 0);
-            
-            if (unusedVariants.length > 0) {
-                unusedComponents.push({
-                    id: set.id,
-                    name: set.name,
-                    type: 'COMPONENT_SET',
-                    totalVariants: variants.length,
-                    unusedVariantCount: unusedVariants.length,
-                    isFullyUnused: unusedVariants.length === variants.length,
-                    unusedVariants: unusedVariants.map(v => ({ id: v.id, name: v.name }))
-                });
-            }
-        } else {
-            // Standalone Component
-            if (!componentUsage.has(id) || componentUsage.get(id)!.size === 0) {
-                unusedComponents.push({
-                    id: def.id,
-                    name: def.name,
-                    type: 'COMPONENT',
-                    isFullyUnused: true
-                });
-            }
+      if (def.type === 'COMPONENT_SET') {
+        const set = def as ComponentSetNode;
+        // Check if ANY variant is used? Or check which variants are unused?
+        // Original logic: "Only include component sets that have at least one unused variant"
+        // Wait, original logic count "unused components".
+
+        const variants = set.children.filter(c => c.type === 'COMPONENT');
+        const unusedVariants = variants.filter(v => !componentUsage.has(v.id) || componentUsage.get(v.id)!.size === 0);
+
+        if (unusedVariants.length > 0) {
+          unusedComponents.push({
+            id: set.id,
+            name: set.name,
+            type: 'COMPONENT_SET',
+            totalVariants: variants.length,
+            unusedVariantCount: unusedVariants.length,
+            isFullyUnused: unusedVariants.length === variants.length,
+            unusedVariants: unusedVariants.map(v => ({ id: v.id, name: v.name }))
+          });
         }
+      } else {
+        // Standalone Component
+        if (!componentUsage.has(id) || componentUsage.get(id)!.size === 0) {
+          unusedComponents.push({
+            id: def.id,
+            name: def.name,
+            type: 'COMPONENT',
+            isFullyUnused: true
+          });
+        }
+      }
     }
 
     // Score Calculation: Ratio of Instances vs Raw Frames/Components
@@ -509,7 +470,7 @@ export class TokenCoverageService {
     // Users expect the score to reflect the clean-up task (Unused Components).
     // The previous implementation had a conflict: analyzeNodes calc'd a "Composition Score" but the UI list showed "Unused Components".
     // I will switch the score to match the **Unused Components** metric, as that aligns with the user task of "cleaning up".
-    
+
     const totalComponents = localComponentDefs.size;
 
     // Calculate deletable units for correct progress:
@@ -584,15 +545,15 @@ export class TokenCoverageService {
     };
 
     let validTailwindNames = 0;
-    const tailwindValidation: any = { 
-        valid: [], 
-        invalid: [],
-        totalInvalid: 0,
-        totalVariables: 0,
-        readinessScore: 0,
-        // Group-level data for UI rendering
-        groups: [],
-        invalidGroups: []
+    const tailwindValidation: any = {
+      valid: [],
+      invalid: [],
+      totalInvalid: 0,
+      totalVariables: 0,
+      readinessScore: 0,
+      // Group-level data for UI rendering
+      groups: [],
+      invalidGroups: []
     }; // Detailed list
 
     // Build group-level data for Tailwind validation
@@ -656,7 +617,7 @@ export class TokenCoverageService {
 
     const tailwindScore =
       totalVarsToCheck === 0 ? 100 : Math.round((validTailwindNames / totalVarsToCheck) * 100);
-    
+
     // Populate summary stats in validation object
     tailwindValidation.totalVariables = totalVarsToCheck;
     tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
@@ -685,9 +646,9 @@ export class TokenCoverageService {
       // Scenario A: Tailwind Enabled (4 Active)
       weightedScore = Math.round(
         tokenCoverageScore * 0.25 +
-          tailwindScore * 0.25 +
-          componentHygieneScore * 0.25 +
-          variableHygieneScore * 0.25,
+        tailwindScore * 0.25 +
+        componentHygieneScore * 0.25 +
+        variableHygieneScore * 0.25,
       );
       weights = {
         tokenCoverage: '25%',
@@ -1039,13 +1000,13 @@ export class TokenCoverageService {
       // Check if all corner radii are the same and not bound to variables
       const allRadiiSame =
         topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
-      
+
       // Check for mixed radius (some nodes like Vector don't have individual corners)
       if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === 'number') {
-         if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, 'cornerRadius') && !this.isVariableBound(rectNode, 'topLeftRadius')) {
-             this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance');
-             return;
-         }
+        if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, 'cornerRadius') && !this.isVariableBound(rectNode, 'topLeftRadius')) {
+          this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance');
+          return;
+        }
       }
 
       const anyRadiusBound =
@@ -1265,10 +1226,10 @@ export class TokenCoverageService {
     const allVars: any[] = [];
     try {
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      
+
       // Parallelize variable fetching
       const promises: Promise<any>[] = [];
-      
+
       for (const collection of collections) {
         for (const varId of collection.variableIds) {
           promises.push(
