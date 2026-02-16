@@ -2305,6 +2305,11 @@ window.onmessage = (event) => {
         'Variable Deleted',
         `Variable "${message.variableName}" deleted successfully`,
       );
+    } else if (message.type === 'item-ignored' || message.type === 'item-unignored') {
+      // Re-analyze to update counts in background
+      if (typeof analyzeTokenCoverage === 'function') {
+        analyzeTokenCoverage('SMART_SCAN', null, true);
+      }
     } else if (message.type === 'style-deleted') {
       // Handle successful style deletion
       console.log(`Style deleted successfully: ${message.styleName}`);
@@ -4770,6 +4775,48 @@ function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
   }
 }
 
+function ignoreItem(itemType, itemId, itemName) {
+  parent.postMessage({ pluginMessage: { type: 'ignore-item', itemType: itemType, itemId: itemId } }, '*');
+
+  // Optimistic: hide the card with animation
+  const card = document.querySelector(`[data-ignore-id="${itemId}"]`);
+  if (card) {
+    card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+    card.style.opacity = '0';
+    card.style.maxHeight = '0';
+    card.style.marginBottom = '0';
+    card.style.overflow = 'hidden';
+    setTimeout(() => {
+      card.style.display = 'none';
+    }, 300);
+  }
+
+  // Re-analyze in background to update counts and badges
+  setTimeout(() => {
+    if (typeof analyzeTokenCoverage === 'function') {
+      analyzeTokenCoverage('SMART_SCAN', null, true);
+    }
+  }, 400);
+}
+
+function unignoreItem(itemType, itemId) {
+  parent.postMessage({ pluginMessage: { type: 'unignore-item', itemType: itemType, itemId: itemId } }, '*');
+
+  // Re-analyze in background to update counts
+  setTimeout(() => {
+    if (typeof analyzeTokenCoverage === 'function') {
+      analyzeTokenCoverage('SMART_SCAN', null, true);
+    }
+  }, 200);
+}
+
+function toggleIgnoredPanel(panelId) {
+  const panel = document.getElementById(panelId);
+  if (panel) {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
 function renderComponentVariables(group) {
   const groupIndex = Math.random().toString(36).substr(2, 9);
 
@@ -6293,6 +6340,13 @@ function displayComponentHygieneSection(result) {
             result.totalComponents || 0,
             'Unused Components'
         )}
+        ${result.ignoredCount > 0 ? `
+          <span onclick="event.stopPropagation(); toggleIgnoredPanel('component-ignored-panel')"
+                style="font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;"
+                title="Click to manage ignored items">
+            ${result.ignoredCount} ignored
+          </span>
+        ` : ''}
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
@@ -6320,6 +6374,14 @@ function displayComponentHygieneSection(result) {
           <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${displayName}</span>
           <span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">${component.unusedVariantCount}/${component.totalVariants}</span>
           <button
+            class="icon-button ignore-btn"
+            onclick="event.stopPropagation(); ignoreItem('component-set', '${component.id}', '${displayName}')"
+            title="Ignore entire component set"
+            style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;"
+          >
+            <span class="material-symbols-outlined" style="font-size: 12px;">visibility_off</span>
+          </button>
+          <button
             class="icon-button delete-btn"
             data-component-id="${component.id}"
             onclick="event.stopPropagation(); deleteAllUnusedVariants('${component.id}', '${displayName}', '${variantIds}')"
@@ -6335,7 +6397,7 @@ function displayComponentHygieneSection(result) {
     component.unusedVariants.forEach((variant) => {
       const variantName = SecurityUtils.escapeHTML(variant.name);
       html += `
-        <div class="quality-issue-card" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+        <div class="quality-issue-card" data-ignore-id="${variant.id}" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
             <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               ${variantName}
@@ -6343,6 +6405,9 @@ function displayComponentHygieneSection(result) {
             <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
               <button class="icon-button focus-btn" onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" title="Focus on variant">
                 <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+              </button>
+              <button class="icon-button ignore-btn" onclick="event.stopPropagation(); ignoreItem('component', '${variant.id}', '${variantName}')" title="Ignore variant">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
               </button>
               <button class="icon-button delete-btn" data-component-id="${variant.id}" onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${component.id}')" title="Delete variant">
                 <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
@@ -6372,7 +6437,7 @@ function displayComponentHygieneSection(result) {
     standaloneComponents.forEach((component) => {
       const displayName = SecurityUtils.escapeHTML(component.name);
       html += `
-        <div class="quality-issue-card" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+        <div class="quality-issue-card" data-ignore-id="${component.id}" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
             <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               ${displayName}
@@ -6380,6 +6445,9 @@ function displayComponentHygieneSection(result) {
             <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
               <button class="icon-button focus-btn" onclick="focusOnComponent('${component.id}')" title="Focus on component">
                 <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+              </button>
+              <button class="icon-button ignore-btn" onclick="ignoreItem('component', '${component.id}', '${displayName}')" title="Ignore component">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
               </button>
               <button class="icon-button delete-btn" data-component-id="${component.id}" onclick="deleteComponent('${component.id}', '${displayName}', 'component')" title="Delete component">
                 <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
@@ -6393,6 +6461,55 @@ function displayComponentHygieneSection(result) {
     if (componentSets.length > 0) {
       html += `</div>`;
     }
+  }
+
+  // Ignored items management panel
+  if (result.ignoredComponents && result.ignoredComponents.length > 0) {
+    let ignoredItemsHtml = '';
+    result.ignoredComponents.forEach(comp => {
+      if (comp.type === 'COMPONENT_SET' && comp.unusedVariants) {
+        comp.unusedVariants.forEach(v => {
+          const name = SecurityUtils.escapeHTML(v.name);
+          ignoredItemsHtml += `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+              <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${SecurityUtils.escapeHTML(comp.name)} / ${name}</span>
+              <button class="icon-button" onclick="unignoreItem('component', '${v.id}')" title="Restore">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+              </button>
+            </div>
+          `;
+        });
+        // If entire set is ignored (check if set itself is in ignoredComponents)
+        if (comp.isFullyUnused || !comp.unusedVariants.length) {
+          const setName = SecurityUtils.escapeHTML(comp.name);
+          ignoredItemsHtml += `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+              <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${setName} (set)</span>
+              <button class="icon-button" onclick="unignoreItem('component-set', '${comp.id}')" title="Restore">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+              </button>
+            </div>
+          `;
+        }
+      } else {
+        const name = SecurityUtils.escapeHTML(comp.name);
+        ignoredItemsHtml += `
+          <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+            <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span>
+            <button class="icon-button" onclick="unignoreItem('component', '${comp.id}')" title="Restore">
+              <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+            </button>
+          </div>
+        `;
+      }
+    });
+
+    html += `
+      <div id="component-ignored-panel" style="display: none; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); margin-bottom: 8px;">Ignored Items</div>
+        ${ignoredItemsHtml}
+      </div>
+    `;
   }
 
   // Close the components list and section
@@ -6456,6 +6573,13 @@ function displayVariableHygieneSection(result) {
             result.totalVariables || 0,
             'Unused Variables'
         )}
+        ${result.ignoredCount > 0 ? `
+          <span onclick="event.stopPropagation(); toggleIgnoredPanel('variable-ignored-panel')"
+                style="font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;"
+                title="Click to manage ignored items">
+            ${result.ignoredCount} ignored
+          </span>
+        ` : ''}
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
@@ -6483,6 +6607,14 @@ function displayVariableHygieneSection(result) {
           <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 18px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
           <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${escapedCollectionName}</span>
           <span style="font-size: 10px; color: rgba(255,255,255,0.3); background: none; border: none; padding: 1px 6px;">${variables.length}</span>
+          <button
+            class="icon-button ignore-btn"
+            onclick="event.stopPropagation(); ignoreItem('collection', '${variables[0].collectionId}', '${escapedCollectionName}')"
+            title="Ignore entire collection"
+            style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;"
+          >
+            <span class="material-symbols-outlined" style="font-size: 12px;">visibility_off</span>
+          </button>
         </div>
         <div id="${groupId}-content" style="display: none; padding: 4px 0 4px 0;">
     `;
@@ -6500,7 +6632,7 @@ function displayVariableHygieneSection(result) {
         : '';
 
       html += `
-        <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 2px; display: block; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+        <div id="${itemId}-card" class="quality-issue-card" data-ignore-id="${variable.id}" style="margin-bottom: 2px; display: block; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
             <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
               <div style="width: 160px; flex-shrink: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -6508,14 +6640,23 @@ function displayVariableHygieneSection(result) {
               </div>
               ${colorPreview}
             </div>
-            <button 
-              class="icon-button delete-btn" 
-              data-variable-id="${variable.id}"
-              onclick="deleteUnusedVariable('${variable.id}', '${displayName}')" 
-              title="Delete variable"
-            >
-              <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
-            </button>
+            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+              <button
+                class="icon-button ignore-btn"
+                onclick="ignoreItem('variable', '${variable.id}', '${displayName}')"
+                title="Ignore variable"
+              >
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
+              </button>
+              <button
+                class="icon-button delete-btn"
+                data-variable-id="${variable.id}"
+                onclick="deleteUnusedVariable('${variable.id}', '${displayName}')"
+                title="Delete variable"
+              >
+                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -6523,6 +6664,30 @@ function displayVariableHygieneSection(result) {
 
     html += `</div></div>`;
   });
+
+  // Ignored items management panel
+  if (result.ignoredVariables && result.ignoredVariables.length > 0) {
+    let ignoredVarHtml = '';
+    result.ignoredVariables.forEach(v => {
+      const name = SecurityUtils.escapeHTML(v.name);
+      const collName = SecurityUtils.escapeHTML(v.collectionName);
+      ignoredVarHtml += `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+          <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${collName}">${name}</span>
+          <button class="icon-button" onclick="unignoreItem('variable', '${v.id}')" title="Restore">
+            <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+          </button>
+        </div>
+      `;
+    });
+
+    html += `
+      <div id="variable-ignored-panel" style="display: none; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); margin-bottom: 8px;">Ignored Items</div>
+        ${ignoredVarHtml}
+      </div>
+    `;
+  }
 
   // Close the variables list and section
   html += `
@@ -6734,12 +6899,10 @@ window.QualityAnimationController = {
     const currentGood = goodCountEl ? (parseInt(goodCountEl.textContent.replace(/[^0-9-]/g, '')) || 0) : 0;
     const currentPercent = parseInt(percentEl.textContent.replace(/[^0-9-]/g, '')) || 0;
 
-    // 1. Counts (Smart Transition)
-    // Use the flag captured at registration time, not the global (which may have been reset)
-    const isBackground = this.categoryBackground.get(label) || false;
-    const startBad = isBackground ? currentBad : 0;
-    const startGood = isBackground ? currentGood : 0;
-    const startPercent = isBackground ? currentPercent : 0;
+    // 1. Counts — always animate from the currently displayed value
+    const startBad = currentBad;
+    const startGood = currentGood;
+    const startPercent = currentPercent;
     
     // Animate both counts concurrently
     const promises = [
@@ -6797,14 +6960,9 @@ window.QualityAnimationController = {
          if (text) text.style.fill = getScoreColor(finalScore);
     }
 
-    // Count up score value
-    // SMART UPDATE: Read current score to animate from
-    // If ANY category was background, treat the final score as a transition too
-    const anyBackground = Array.from(this.categoryBackground.values()).some(v => v);
+    // Count up score value — always animate from the currently displayed number
     const currentScore = parseInt(scoreEl.textContent.replace(/[^0-9-]/g, '')) || 0;
-    const startScore = anyBackground ? currentScore : 0;
-    
-    await this.animateValue(scoreEl, startScore, finalScore, 1000);
+    await this.animateValue(scoreEl, currentScore, finalScore, 1000);
   },
   
   animateValue(el, start, end, duration, suffix = '') {
@@ -6905,32 +7063,43 @@ function renderSegmentedGauge(subScores, weights, size = 150, options = {}) {
   
   // Overall score in the center (skip for compact/header gauge)
   if (showCenterText) {
+    // When the animation controller will drive the reveal, show a dash placeholder
+    // so the number counts up together with the circle fill.
+    // For incremental updates (initialScore provided), show that value so
+    // animateValue can transition from it.
+    const controllerWillAnimate = window.QualityAnimationController && window.QualityAnimationController.isRunning;
+    const centerText = controllerWillAnimate ? '\u2013' : (options.initialScore !== undefined ? options.initialScore : score);
+    const centerColor = controllerWillAnimate ? 'rgba(255,255,255,0.25)' : color;
+
     html += `
       <text id="quality-score-text" x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
-            style="fill: ${color}; font-size: 32px; font-weight: 800; font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace; transition: fill 0.6s ease;">
-        ${score}
+            style="fill: ${centerColor}; font-size: 32px; font-weight: 800; font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace; transition: fill 0.6s ease;">
+        ${centerText}
       </text>
     `;
   }
 
   // 1. Total Score Ring (Default State)
   const circumference = 2 * Math.PI * radius;
-  
+  // Start the circle at the previous score position so CSS transition goes from previous → new
+  const initScore = options.initialScore !== undefined ? options.initialScore : 0;
+  const initialOffset = circumference * (1 - (initScore / 100));
+
   html += `
     <g class="total-score-ring">
-      <circle cx="${cx}" cy="${cy}" r="${radius}" 
-              fill="none" 
-              stroke="white" 
-              stroke-width="${strokeWidth}" 
-              stroke-opacity="0.08" 
+      <circle cx="${cx}" cy="${cy}" r="${radius}"
+              fill="none"
+              stroke="white"
+              stroke-width="${strokeWidth}"
+              stroke-opacity="0.08"
               stroke-linecap="round" />
-      <circle id="score-gauge-circle-fill" cx="${cx}" cy="${cy}" r="${radius}" 
-              fill="none" 
-              stroke="${color}" 
-              stroke-width="${strokeWidth}" 
-              stroke-linecap="round" 
+      <circle id="score-gauge-circle-fill" cx="${cx}" cy="${cy}" r="${radius}"
+              fill="none"
+              stroke="${color}"
+              stroke-width="${strokeWidth}"
+              stroke-linecap="round"
               stroke-dasharray="${circumference}"
-              stroke-dashoffset="${circumference}"
+              stroke-dashoffset="${initialOffset}"
               transform="rotate(-90 ${cx} ${cy})"
               style="transition: stroke-dashoffset 1s ease-out;" />
     </g>
@@ -7042,19 +7211,19 @@ function renderCategoryStats(score, badCount, totalCount, label) {
       ${isSuccess ? `<span class="material-symbols-outlined" style="font-size: 20px; color: ${color}; margin-left: -4px;">check_circle</span>` : ''}
     </h2>
 
-    <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; order: 1;">
         <!-- Good Count (Green) -->
         <span id="${goodCountId}" class="quality-animate-count" data-target="${goodCount}" style="color: #4ade80; font-weight: 500; font-family: 'SF Mono', monospace; font-size: 12px; min-width: 20px; text-align: right;">0</span>
-        
+
         <!-- Progress Bar (Red Background = Bad, Green Fill = Good) -->
         <div style="width: 80px; height: 6px; background: #7f1d1d; border-radius: 3px; overflow: hidden; position: relative;">
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #ef4444;"></div>
             <div id="${barId}" class="quality-animate-bar" data-score="${score}" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #4ade80; border-radius: 3px; z-index: 2;"></div>
         </div>
-        
+
         <!-- Bad Count (Red) -->
         <span id="${countId}" class="quality-animate-count" data-target="${validBad}" style="color: #f87171; font-weight: 500; font-family: 'SF Mono', monospace; font-size: 12px; min-width: 20px;">0</span>
-        
+
         <!-- Percent -->
         <span id="${percentId}" class="quality-animate-percent" data-score="${score}" style="font-size: 13px; font-weight: 700; color: ${color}; width: 36px; text-align: right; font-family: 'SF Mono', monospace;">0%</span>
     </div>
@@ -7139,26 +7308,41 @@ function _updateQualityScoreUIImmediate() {
     const controllerRunning = window.QualityAnimationController && window.QualityAnimationController.isRunning;
     const gaugeWrapper = document.querySelector('.quality-gauge-wrapper');
 
-    // Always update gauge segments (static, no animation conflict)
+    // Always update gauge segments — pass previousScore so the circle starts
+    // at the previous position and CSS-transitions to the new one
     if (gaugeWrapper) {
         gaugeWrapper.innerHTML = `
-            ${renderSegmentedGauge(state.subScores, state.weights, 150)}
+            ${renderSegmentedGauge(state.subScores, state.weights, 150, { initialScore: previousScore })}
         `;
     }
 
-    // Animate the score NUMBER only when the controller is NOT running
-    // (the controller handles score animation in animateFinalScore)
+    // When the animation controller is NOT running, drive the circle + number ourselves
     if (!controllerRunning && gaugeWrapper) {
-        if (isImprovement && previousScore > 0) {
-            // Trigger Count Up using RAF-based animation (avoids setInterval/innerHTML conflicts)
+        // Animate the circular gauge from previous → final
+        const circle = document.getElementById('score-gauge-circle-fill');
+        if (circle) {
+            requestAnimationFrame(() => {
+                const r = parseFloat(circle.getAttribute('r'));
+                const circ = 2 * Math.PI * r;
+                circle.style.strokeDashoffset = circ * (1 - (finalScore / 100));
+                circle.style.stroke = getScoreColor(finalScore);
+                const text = document.querySelector('.quality-gauge-svg text');
+                if (text) text.style.fill = getScoreColor(finalScore);
+            });
+        }
+
+        // Animate the score number from previous → final
+        if (previousScore !== finalScore) {
             const scoreTextEl = document.getElementById('quality-score-text');
             if (scoreTextEl) {
                 window.QualityAnimationController.animateValue(scoreTextEl, previousScore, finalScore, 600);
 
-                // Visual Celebration
-                scoreTextEl.classList.remove('score-celebration');
-                void scoreTextEl.offsetWidth;
-                scoreTextEl.classList.add('score-celebration');
+                // Visual Celebration on improvement
+                if (isImprovement && previousScore > 0) {
+                    scoreTextEl.classList.remove('score-celebration');
+                    void scoreTextEl.offsetWidth;
+                    scoreTextEl.classList.add('score-celebration');
+                }
             }
         }
     }
@@ -7286,9 +7470,10 @@ function displayTokenCoverageResults(result) {
   // Target the new specialized container in body.html
   const gaugeTarget = document.getElementById('quality-score-gauge-container');
   if (gaugeTarget) {
+      const prevScore = window.qualityAnalysisState ? (window.qualityAnalysisState.previousScore || 0) : 0;
       gaugeTarget.innerHTML = `
             <div style="position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center;" class="quality-gauge-wrapper">
-                ${renderSegmentedGauge(window.qualityAnalysisState.subScores, window.qualityAnalysisState.weights, 150)}
+                ${renderSegmentedGauge(window.qualityAnalysisState.subScores, window.qualityAnalysisState.weights, 150, { initialScore: prevScore })}
             </div>
       `;
   }
@@ -7349,9 +7534,32 @@ function displayTokenCoverageResults(result) {
           }
        }
 
-  // Reset flag
+      // Update category sub-header counts (Layout, Fill, Stroke, Appearance)
+      // These are not re-rendered in background mode, so sync them with fresh data
+      if (result.issuesByCategory) {
+          const cats = ['Layout', 'Fill', 'Stroke', 'Appearance'];
+          cats.forEach(cat => {
+              const groupEl = document.getElementById(`coverage-${cat}`);
+              if (groupEl) {
+                  const badge = groupEl.querySelector('.collection-header > .subgroup-stats');
+                  if (badge) {
+                      const freshCount = (result.issuesByCategory[cat] || []).length;
+                      const displayed = parseInt(badge.textContent) || 0;
+                      if (displayed !== freshCount) {
+                          badge.textContent = freshCount.toString();
+                          // Subtle pulse to indicate update
+                          badge.style.transition = 'transform 0.2s ease-out';
+                          badge.style.transform = 'scale(1.2)';
+                          setTimeout(() => { badge.style.transform = 'scale(1)'; }, 200);
+                      }
+                  }
+              }
+          });
+      }
+
+      // Reset flag
       window.isBackgroundAnalysis = false;
-      return; 
+      return;
   }
 
   // Update global state for Tailwind Validation from the consolidated result
