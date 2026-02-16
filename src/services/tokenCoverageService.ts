@@ -51,8 +51,10 @@ export interface TokenCoverageResult {
   // Metrics for UI
   totalVariables?: number;
   totalComponents?: number;
+  totalDeletableUnits?: number;
   unusedVariableCount?: number;
   unusedComponentCount?: number;
+  unusedDeletableUnits?: number;
   weights?: {
     tokenCoverage: string;
     tailwindReadiness: string;
