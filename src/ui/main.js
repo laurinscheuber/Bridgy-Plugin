@@ -587,13 +587,8 @@ window.MultiPageSelector = {
     // Reset quality state before re-running analysis to avoid mixed data
     resetQualityState();
     
-    // Trigger unified re-analysis of the entire dashboard
-    // Quality Score (Gauge + Sub-scores)
-    analyzeTokenCoverage();
-    analyzeComponentHygiene();
-    analyzeVariableHygiene();
-    
-    // Supporting metrics (even if not on active tab)
+    // Trigger unified re-analysis (force refresh — user changed pages)
+    analyzeTokenCoverage(null, null, false, true);
     analyzeStats();
   },
 
@@ -1910,8 +1905,6 @@ document.querySelectorAll('.tab').forEach((tab) => {
         setTimeout(() => {
           try {
              analyzeTokenCoverage('SMART_SCAN');
-             analyzeComponentHygiene();
-             analyzeVariableHygiene();
              window.qualityScanPerformed = true; // Mark as scanned
           } catch (e) {
              console.error('Error triggering quality analysis:', e);
@@ -2993,10 +2986,8 @@ window.onmessage = (event) => {
            // But 'SMART_SCAN' usually shows its own notification or uses the one passed.
            // Let's use silent mode or just a standard run. Standard run is better for feedback.
 
-           // Trigger independent analyses for each section to ensure correct scoping
-           analyzeTokenCoverage('SMART_SCAN');
-           analyzeComponentHygiene();
-           analyzeVariableHygiene();
+           // Trigger independent analyses for each section to ensure correct scoping (force refresh)
+           analyzeTokenCoverage('SMART_SCAN', null, false, true);
         }
       }
       
@@ -3421,8 +3412,7 @@ window.onmessage = (event) => {
                   // Trigger re-analysis to update score (and animate!)
                   if (typeof analyzeTokenCoverage === 'function') {
                       // Use stored scope or default to SMART_SCAN to prevent losing data
-                      const currentScope = window.qualityAnalysisScope || 'SMART_SCAN';
-                      analyzeTokenCoverage(currentScope, null, true); // true = background mode
+                      analyzeTokenCoverage('SMART_SCAN', null, true); // true = background mode
                   }
                 }, 300);
               } else {
@@ -3436,8 +3426,7 @@ window.onmessage = (event) => {
                 
                 // Trigger re-analysis here too
                 if (typeof analyzeTokenCoverage === 'function') {
-                    const currentScope = window.qualityAnalysisScope || 'SMART_SCAN';
-                    analyzeTokenCoverage(currentScope, null, true); // true = background mode
+                    analyzeTokenCoverage('SMART_SCAN', null, true); // true = background mode
                 }
               }
             }
@@ -4743,8 +4732,8 @@ function deleteUnusedVariable(variableId, variableName) {
 
         setTimeout(() => {
           card.style.display = 'none';
-          // Re-analyze to update counts
-          analyzeVariableHygiene();
+          // Re-analyze to update counts (background mode)
+          analyzeTokenCoverage('SMART_SCAN', null, true);
         }, 300);
       }
     }
@@ -5739,14 +5728,14 @@ function switchToQualityTab() {
 // Function to analyze token coverage
 
 // Unified Quality Analysis Trigger
-function startQualityAnalysis(scopeOverride, notificationElement, isBackground = false) {
-  console.log('[DEBUG] startQualityAnalysis ENTER', { scopeOverride, hasNotification: !!notificationElement, isBackground });
+function startQualityAnalysis(scopeOverride, notificationElement, isBackground = false, forceRefresh = false) {
+  console.log('[DEBUG] startQualityAnalysis ENTER', { scopeOverride, hasNotification: !!notificationElement, isBackground, forceRefresh });
 
   try {
     // SECURITY GUARD: Prevent "PAGE" scope from overwriting a recent "SMART_SCAN"
     // This fixes the race condition where the initial smart scan (finding issues)
     // is immediately followed by a default page scan (finding 0 issues)
-    const requestedScope = scopeOverride || window.qualityAnalysisScope || 'PAGE';
+    const requestedScope = scopeOverride || 'PAGE';
 
     if (window.lastSmartScanTime && (Date.now() - window.lastSmartScanTime < 5000)) {
         if (requestedScope === 'PAGE' && !scopeOverride) {
@@ -5807,11 +5796,8 @@ function startQualityAnalysis(scopeOverride, notificationElement, isBackground =
     const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
     const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
     
-    // Explicitly handle undefined analysisScope
-    const analysisScope = window.qualityAnalysisScope || 'PAGE';
-    
     // FIX: scopeOverride must take precedence over pageIds to ensure SMART_SCAN works
-    let finalScope = scopeOverride || analysisScope || 'PAGE';
+    let finalScope = scopeOverride || 'PAGE';
     
     // Only upgrade to 'ALL' if we have specific page IDs AND no specific override was requested
     if (pageIds && !scopeOverride) {
@@ -5826,7 +5812,8 @@ function startQualityAnalysis(scopeOverride, notificationElement, isBackground =
             type: 'analyze-quality-report',
             scope: finalScope,
             pageIds: pageIds,
-            exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css'
+            exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css',
+            forceRefresh: forceRefresh
         }
     }, '*');
     console.log('[DEBUG] Message posted successfully');
@@ -5838,8 +5825,6 @@ function startQualityAnalysis(scopeOverride, notificationElement, isBackground =
 
 // Legacy aliases (should be replaced in calls, but kept for safety during refactor)
 const analyzeTokenCoverage = startQualityAnalysis;
-const analyzeComponentHygiene = () => {}; // No-op as startQualityAnalysis handles all
-const analyzeVariableHygiene = () => {}; // No-op
 
 // Function to analyze stats (component usage)
 function analyzeStats() {
@@ -5866,8 +5851,8 @@ function getScoreColor(score) {
 function updateAnalysisScope(scope) {
   if (analysisScope === scope) return;
   analysisScope = scope;
-  // Re-run analysis when scope changes
-  analyzeTokenCoverage();
+  // Re-run analysis when scope changes (force refresh — user changed scope)
+  analyzeTokenCoverage(null, null, false, true);
 }
 
 // Track active filter state
@@ -6316,134 +6301,99 @@ function displayComponentHygieneSection(result) {
         <div style="padding-left: 0;">
   `;
 
-  result.unusedComponents.forEach((component, idx) => {
-    const itemId = `component-hygiene-${idx}`;
+  // Separate component sets (with variants) from standalone components
+  const componentSets = result.unusedComponents.filter(c => c.type === 'COMPONENT_SET' && c.unusedVariants && c.unusedVariants.length > 0);
+  const standaloneComponents = result.unusedComponents.filter(c => !(c.type === 'COMPONENT_SET' && c.unusedVariants && c.unusedVariants.length > 0));
+
+  // Render component sets as collapsible groups (like variable collections)
+  componentSets.forEach((component, gIdx) => {
+    const groupId = `component-set-group-${gIdx}`;
     const displayName = SecurityUtils.escapeHTML(component.name);
+    const variantIds = component.unusedVariants.map(v => v.id).join(',');
 
-    // Determine if this is a component set with variants
-    const isComponentSet = component.type === 'COMPONENT_SET';
-    const hasVariants = isComponentSet && component.unusedVariants && component.unusedVariants.length > 0;
-    const isFullyUnused = component.isFullyUnused;
-
-    // Build variant usage label for component sets
-    let variantLabel = '';
-    if (isComponentSet) {
-      variantLabel = `<span class="list-badge" style="height: 16px; font-size: 10px; margin-right: 4px; background: rgba(139, 92, 246, 0.2); color: var(--purple-light); border: 1px solid rgba(139, 92, 246, 0.3);">${component.unusedVariantCount}/${component.totalVariants}</span>`;
-    }
-
-    // Build the main component card
-    let componentHtml = `
-      <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 4px; display: block; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; display: flex; align-items: center;">
+    html += `
+      <div class="variable-collection" style="margin-bottom: 8px;">
+        <div class="collection-header collapsed"
+             onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
+             style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 16px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${displayName}</span>
+          <span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">${component.unusedVariantCount}/${component.totalVariants}</span>
+          <button
+            class="icon-button delete-btn"
+            data-component-id="${component.id}"
+            onclick="event.stopPropagation(); deleteAllUnusedVariants('${component.id}', '${displayName}', '${variantIds}')"
+            title="Delete all ${component.unusedVariantCount} unused variants"
+            style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;"
+          >
+            <span class="material-symbols-outlined" style="font-size: 12px;">delete</span>
+          </button>
+        </div>
+        <div id="${groupId}-content" style="display: none; padding: 4px 0 4px 0;">
     `;
 
-    // All component sets (whether fully or partially unused) get expandable view
-    if (hasVariants) {
-      const groupId = `${itemId}-variants`;
-
-      // Build variant IDs for batch deletion
-      const variantIds = component.unusedVariants.map(v => v.id).join(',');
-
-      componentHtml += `
-        <div class="node-header" style="display: flex; align-items: center; gap: 6px;">
-          <div onclick="toggleComponentHygieneGroup('${groupId}')" style="display: flex; align-items: center; flex: 1; cursor: pointer; min-width: 0;">
-            <span style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</span>
-            <button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-left: 8px;" id="${groupId}-toggle">
-              <span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span>
-            </button>
-          </div>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            ${variantLabel}
-            <button 
-              class="icon-button delete-btn" 
-              data-component-id="${component.id}"
-              onclick="event.stopPropagation(); deleteAllUnusedVariants('${component.id}', '${displayName}', '${variantIds}')" 
-              title="Delete all ${component.unusedVariantCount} unused variants"
-            >
-              <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-            </button>
-          </div>
-        </div>
-        
-        <div id="${groupId}" class="node-instances" style="display: none; padding-left: 28px; margin-top: 8px; border-left: 2px solid rgba(139, 92, 246, 0.2); margin-left: 9px;">
-      `;
-
-      // Add each unused variant
-      component.unusedVariants.forEach((variant) => {
-        const variantName = SecurityUtils.escapeHTML(variant.name);
-        componentHtml += `
-          <div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; margin-bottom: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
-              <span class="instance-label" title="${variantName}" style="font-size: 12px; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${variantName}</span>
+    component.unusedVariants.forEach((variant) => {
+      const variantName = SecurityUtils.escapeHTML(variant.name);
+      html += `
+        <div class="quality-issue-card" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
+            <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              ${variantName}
             </div>
-            <div style="display: flex; gap: 6px; align-items: center;">
-              <button 
-                class="icon-button focus-btn" 
-                onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" 
-                title="Focus on variant"
-              >
+            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+              <button class="icon-button focus-btn" onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" title="Focus on variant">
                 <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
               </button>
-              <button 
-                class="icon-button delete-btn" 
-                data-component-id="${variant.id}"
-                onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${component.id}')" 
-                title="Delete variant"
-              >
+              <button class="icon-button delete-btn" data-component-id="${variant.id}" onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${component.id}')" title="Delete variant">
                 <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
               </button>
             </div>
           </div>
-        `;
-      });
-
-      componentHtml += `
         </div>
       `;
-    } else {
-      // Regular component (not a component set) - simple non-expandable card
-      const componentType = 'Component';
-      const deleteType = 'component';
+    });
 
-      componentHtml += `
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-          <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${displayName}
-              </div>
-              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 2px;">
-                ${componentType}
-              </div>
-            </div>
+    html += `</div></div>`;
+  });
+
+  // Render standalone components as simple row cards (like variable rows)
+  if (standaloneComponents.length > 0) {
+    // If there were also component sets above, add a small group header
+    if (componentSets.length > 0) {
+      html += `
+        <div style="margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px;">
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">Standalone Components</span>
+            <span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">${standaloneComponents.length}</span>
           </div>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            ${variantLabel}
-            <button 
-              class="icon-button focus-btn" 
-              onclick="focusOnComponent('${component.id}')" 
-              title="Focus on component"
-            >
-              <span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span>
-            </button>
-            <button 
-              class="icon-button delete-btn" 
-              data-component-id="${component.id}"
-              onclick="deleteComponent('${component.id}', '${displayName}', '${deleteType}')" 
-              title="Delete ${componentType.toLowerCase()}"
-            >
-              <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-            </button>
-          </div>
-        </div>
       `;
     }
 
-    componentHtml += `
-      </div>
-    `;
+    standaloneComponents.forEach((component) => {
+      const displayName = SecurityUtils.escapeHTML(component.name);
+      html += `
+        <div class="quality-issue-card" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
+            <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              ${displayName}
+            </div>
+            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+              <button class="icon-button focus-btn" onclick="focusOnComponent('${component.id}')" title="Focus on component">
+                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+              </button>
+              <button class="icon-button delete-btn" data-component-id="${component.id}" onclick="deleteComponent('${component.id}', '${displayName}', 'component')" title="Delete component">
+                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
 
-    html += componentHtml;
-  });
+    if (componentSets.length > 0) {
+      html += `</div>`;
+    }
+  }
 
   // Close the components list and section
   html += `
@@ -7405,7 +7355,9 @@ function displayTokenCoverageResults(result) {
   }
 
   // Update global state for Tailwind Validation from the consolidated result
-  if (result.tailwindValidation) {
+  // Skip overwrite if the unified report already set grouped data (has 'groups' property)
+  // — the flat tokenResult structure lacks groups/invalidGroups that the UI needs
+  if (result.tailwindValidation && !(window.tailwindV4Validation && window.tailwindV4Validation.groups)) {
       window.tailwindV4Validation = result.tailwindValidation;
       // Also update the readiness score in validation object to match subScores if needed
       if (result.subScores && result.subScores.tailwindReadiness !== undefined) {
@@ -7413,14 +7365,11 @@ function displayTokenCoverageResults(result) {
       }
       // Update total variables count in validation object
       if (window.tailwindV4Validation) {
-         window.tailwindV4Validation.totalVariables = result.totalVariables || (result.subScores ? result.subScores.totalVariables : 0) || 0; 
+         window.tailwindV4Validation.totalVariables = result.totalVariables || (result.subScores ? result.subScores.totalVariables : 0) || 0;
       }
   }
 
-  // Render Hygiene Sections Immediately
-  // DECOUPLED: Hygiene sections are now handled by their own independent analysis calls
-  // (analyzeComponentHygiene/analyzeVariableHygiene) to ensure correct global scope
-  // irrespective of the smart/local scope used for token coverage.
+  // Render Token Coverage and Hygiene Sections
 
 
   let html = `
@@ -7983,24 +7932,30 @@ function displayTokenCoverageResults(result) {
             // 6. Auto-select the newly created variable if available
             if (window.pendingFixContext && window.pendingFixContext.fullVariableName) {
                 const targetName = window.pendingFixContext.fullVariableName;
-                // Find the dropdown in this card
-                const selectId = `${pendingId}-var-select`;
-                const select = document.getElementById(selectId);
-                
-                if (select) {
-                     // Iterate options to find matching text or value (often ID is used as value, but we might have mapped it)
-                     // Since we don't know the exact ID of the new variable easily without a full re-scan mapping, 
-                     // we look for the option text which usually contains the name.
-                     for (let i = 0; i < select.options.length; i++) {
-                         if (select.options[i].text.includes(targetName)) {
-                             select.selectedIndex = i;
-                             // Trigger change event if needed
-                             const event = new Event('change');
-                             select.dispatchEvent(event);
-                             console.log(`Auto-selected variable: ${targetName}`);
-                             break;
-                         }
-                     }
+                const customSelect = document.getElementById(`${pendingId}-custom-select`);
+
+                if (customSelect) {
+                    // Find the matching option in the custom select dropdown
+                    const options = customSelect.querySelectorAll('.custom-select-option:not(.create-new)');
+                    for (const opt of options) {
+                        if (opt.textContent.trim().includes(targetName)) {
+                            // Simulate selecting this option
+                            const optValue = opt.getAttribute('onclick')?.match(/selectCustomOption\('[^']*',\s*'([^']*)'/)?.[1];
+                            const optLabel = opt.textContent.trim();
+                            if (optValue) {
+                                selectCustomOption(pendingId, optValue, optLabel, 'exact');
+                                console.log(`Auto-selected variable: ${targetName}`);
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // Also select all occurrences so the user can directly apply
+                const selectAllCheckbox = document.getElementById(`${pendingId}-select-all`);
+                if (selectAllCheckbox && !selectAllCheckbox.checked) {
+                    selectAllCheckbox.checked = true;
+                    toggleAllOccurrences(pendingId);
                 }
             }
         }, 100);
