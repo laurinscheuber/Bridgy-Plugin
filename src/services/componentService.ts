@@ -1398,4 +1398,193 @@ ${Object.keys(cssProperties)
 
     return { cssCleared, perfCleared };
   }
+
+  static async analyzeHygiene(pageIds?: string[]): Promise<any> {
+    return await ErrorHandler.withErrorHandling(
+      async () => {
+        console.log('Analyzing component hygiene...');
+
+        // Find all local component definitions
+        const localDefinitions = new Map<string, { node: ComponentNode | ComponentSetNode; name: string; instances: ComponentNode[]; isSet: boolean }>();
+
+        // Load all pages
+        await figma.loadAllPagesAsync();
+
+        // 1. Gather all local definitions
+        const visitNodeForDefinitions = (node: BaseNode) => {
+          if (node.type === 'COMPONENT') {
+            if (node.parent && node.parent.type === 'COMPONENT_SET') {
+                return;
+            }
+            localDefinitions.set(node.id, {
+                node: node as ComponentNode,
+                name: node.name,
+                instances: [],
+                isSet: false
+            });
+          } else if (node.type === 'COMPONENT_SET') {
+            localDefinitions.set(node.id, {
+                node: node as ComponentSetNode,
+                name: node.name,
+                instances: [],
+                isSet: true
+            });
+          } else if ('children' in node) {
+            for (const child of node.children) {
+              visitNodeForDefinitions(child);
+            }
+          }
+        };
+
+        // Scan for definitions (Globals)
+        for (const page of figma.root.children) {
+             for (const child of page.children) {
+                 visitNodeForDefinitions(child);
+             }
+        }
+
+        console.log(`Found ${localDefinitions.size} local component definitions/sets in scope.`);
+
+        if (localDefinitions.size === 0) {
+            return {
+                totalComponents: 0,
+                unusedComponents: [],
+                unusedCount: 0,
+                hygieneScore: 100,
+                subScores: { componentHygiene: 100 }
+            };
+        }
+
+        // 2. Track Usage (Global Scan)
+        const variantUsage = new Map<string, { instances: any[] }>();
+        // Initialize variant usage
+        for (const [setID, def] of localDefinitions.entries()) {
+             if (def.isSet) {
+                 const set = def.node as ComponentSetNode;
+                 for (const child of set.children) {
+                     variantUsage.set(child.id, { instances: [] });
+                 }
+             }
+        }
+
+        // Efficient instance collection (Synchronous)
+        const instancesToProcess: InstanceNode[] = [];
+        const collectInstances = (node: BaseNode) => {
+             if (node.type === 'INSTANCE') {
+                 instancesToProcess.push(node as InstanceNode);
+             } else if ('children' in node) {
+                 for (const child of node.children) {
+                     collectInstances(child);
+                 }
+             }
+        };
+
+        // Scan ALL pages for instances (Fast sync traversal)
+        for (const page of figma.root.children) {
+             for (const child of page.children) {
+                 collectInstances(child);
+             }
+        }
+
+        // Process instances in batches to avoid blocking main thread while being faster than sequential
+        const BATCH_SIZE = 50;
+        const processInstance = async (node: InstanceNode) => {
+             let mainId: string | undefined;
+             try {
+                // Async check required for strict mode
+                const mainComponent = await node.getMainComponentAsync();
+                mainId = mainComponent?.id;
+             } catch (e) {
+                // Ignore errors
+             }
+
+             if (mainId) {
+                 // 1. Is it a standalone component?
+                 if (localDefinitions.has(mainId)) {
+                     localDefinitions.get(mainId)!.instances.push(node as any);
+                 }
+                 // 2. Is it a variant?
+                 if (variantUsage.has(mainId)) {
+                     variantUsage.get(mainId)!.instances.push(node as any);
+                 }
+             }
+        };
+
+        // Process in chunks
+        for (let i = 0; i < instancesToProcess.length; i += BATCH_SIZE) {
+            const batch = instancesToProcess.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(node => processInstance(node)));
+        }
+
+        // 3. Calculate Results
+        const unusedComponents: any[] = [];
+        
+        for (const [id, def] of localDefinitions.entries()) {
+            if (def.isSet) {
+                // Check variants
+                const set = def.node as ComponentSetNode;
+                const variants = set.children;
+                const unusedVariants: any[] = [];
+                const totalVariants = variants.length;
+                let unusedVariantCount = 0;
+
+                for (const variant of variants) {
+                    const variantInfo = variantUsage.get(variant.id);
+                    if (variantInfo && variantInfo.instances.length === 0) {
+                         unusedVariantCount++;
+                         unusedVariants.push({
+                             id: variant.id,
+                             name: variant.name
+                         });
+                    }
+                }
+
+                // Only count as unused if at least one variant is unused? 
+                // Or if ALL variants are unused?
+                // Logic from plugin.ts:
+                if (unusedVariantCount > 0) {
+                     unusedComponents.push({
+                         id: set.id,
+                         name: set.name,
+                         type: 'COMPONENT_SET',
+                         totalVariants: totalVariants,
+                         unusedVariantCount: unusedVariantCount,
+                         isFullyUnused: unusedVariantCount === totalVariants,
+                         unusedVariants: unusedVariants
+                     });
+                }
+
+            } else {
+                // Standalone
+                if (def.instances.length === 0) {
+                    unusedComponents.push({
+                        id: def.node.id,
+                        name: def.name,
+                        type: 'COMPONENT',
+                        isFullyUnused: true
+                    });
+                }
+            }
+        }
+
+        const totalComponents = localDefinitions.size;
+        const unusedCount = unusedComponents.length;
+        const hygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedCount) / totalComponents) * 100);
+
+        return {
+            totalComponents,
+            unusedComponents,
+            unusedCount,
+            hygieneScore,
+            subScores: { componentHygiene: hygieneScore }
+        };
+
+      },
+      {
+        operation: 'analyze_component_hygiene',
+        component: 'ComponentService',
+        severity: 'medium',
+      }
+    );
+  }
 }
