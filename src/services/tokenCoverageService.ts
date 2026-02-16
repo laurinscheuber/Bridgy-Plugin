@@ -509,7 +509,30 @@ export class TokenCoverageService {
     // I will switch the score to match the **Unused Components** metric, as that aligns with the user task of "cleaning up".
     
     const totalComponents = localComponentDefs.size;
-    const componentHygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedComponents.length) / totalComponents) * 100);
+
+    // Calculate deletable units for correct progress:
+    // Each variant inside a component set counts as 1, each standalone component counts as 1
+    let totalDeletableUnits = 0;
+    let unusedDeletableUnits = 0;
+
+    for (const [, def] of localComponentDefs.entries()) {
+      if (def.type === 'COMPONENT_SET') {
+        const set = def as ComponentSetNode;
+        totalDeletableUnits += set.children.filter(c => c.type === 'COMPONENT').length;
+      } else {
+        totalDeletableUnits += 1;
+      }
+    }
+
+    for (const comp of unusedComponents) {
+      if (comp.type === 'COMPONENT_SET') {
+        unusedDeletableUnits += comp.unusedVariantCount || 0;
+      } else {
+        unusedDeletableUnits += 1;
+      }
+    }
+
+    const componentHygieneScore = totalDeletableUnits === 0 ? 100 : Math.round(((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits) * 100);
 
     // Find matching variables for each issue
     for (const issue of issuesMap.values()) {
@@ -564,8 +587,15 @@ export class TokenCoverageService {
         invalid: [],
         totalInvalid: 0,
         totalVariables: 0,
-        readinessScore: 0
+        readinessScore: 0,
+        // Group-level data for UI rendering
+        groups: [],
+        invalidGroups: []
     }; // Detailed list
+
+    // Build group-level data for Tailwind validation
+    const twGroupMap = new Map<string, { count: number; isValid: boolean; variables: any[] }>();
+    const twStandaloneVars: any[] = [];
 
     if (totalVarsToCheck > 0) {
       allVariables.forEach((v) => {
@@ -577,8 +607,51 @@ export class TokenCoverageService {
         } else {
           tailwindValidation.invalid.push({ id: v.variable.id, name: v.variable.name });
         }
+
+        // Group-level tracking
+        const pathMatch = v.variable.name.match(/^([^\/]+)\//);
+        if (pathMatch) {
+          const groupName = pathMatch[1];
+          if (!twGroupMap.has(groupName)) {
+            const isValid = TailwindV4Service.isValidNamespace(groupName);
+            twGroupMap.set(groupName, { count: 0, isValid, variables: [] });
+          }
+          const group = twGroupMap.get(groupName)!;
+          group.count++;
+          group.variables.push({ id: v.variable.id, name: v.variable.name });
+        } else {
+          // Standalone variable (no group prefix)
+          twStandaloneVars.push({
+            name: v.variable.name,
+            isValid: false,
+            variableCount: 1,
+            isStandalone: true,
+            variableId: v.variable.id
+          });
+        }
       });
     }
+
+    // Build groups array and invalidGroups list
+    for (const [groupName, data] of twGroupMap.entries()) {
+      tailwindValidation.groups.push({
+        name: groupName,
+        isValid: data.isValid,
+        namespace: data.isValid ? groupName.toLowerCase() : undefined,
+        variableCount: data.count,
+        isStandalone: false
+      });
+      if (!data.isValid) {
+        tailwindValidation.invalidGroups.push(groupName);
+      }
+    }
+
+    // Add standalone variables to groups and invalidGroups
+    for (const sv of twStandaloneVars) {
+      tailwindValidation.groups.push(sv);
+      tailwindValidation.invalidGroups.push(sv.name);
+    }
+
     const tailwindScore =
       totalVarsToCheck === 0 ? 100 : Math.round((validTailwindNames / totalVarsToCheck) * 100);
     
@@ -652,8 +725,10 @@ export class TokenCoverageService {
       // Metrics
       totalVariables: totalVarsToCheck,
       totalComponents: totalComponents,
+      totalDeletableUnits,
       unusedVariableCount: unusedVariables.length,
       unusedComponentCount: unusedComponents.length,
+      unusedDeletableUnits,
       tailwindValidation
     };
   }

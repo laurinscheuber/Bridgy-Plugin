@@ -1079,9 +1079,33 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           const totalComponents = localDefinitions.size;
           const unusedCount = unusedComponents.length;
-          const hygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedCount) / totalComponents) * 100);
 
-          console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
+          // Calculate deletable units for progress:
+          // Each variant inside a component set counts as 1, each standalone component counts as 1
+          let totalDeletableUnits = 0;
+          let unusedDeletableUnits = 0;
+
+          for (const [id, def] of localDefinitions.entries()) {
+            if (def.isSet) {
+              const set = def.node as ComponentSetNode;
+              const variantCount = set.children.filter(c => c.type === 'COMPONENT').length;
+              totalDeletableUnits += variantCount;
+            } else {
+              totalDeletableUnits += 1;
+            }
+          }
+
+          for (const comp of unusedComponents) {
+            if (comp.type === 'COMPONENT_SET') {
+              unusedDeletableUnits += comp.unusedVariantCount || 0;
+            } else {
+              unusedDeletableUnits += 1;
+            }
+          }
+
+          const hygieneScore = totalDeletableUnits === 0 ? 100 : Math.round(((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits) * 100);
+
+          console.log(`Component hygiene analysis complete. Found ${unusedDeletableUnits} unused deletable units out of ${totalDeletableUnits} total.`);
 
           if (unusedCount === 0 && totalComponents > 0) {
               console.log('DEBUG: 0 unused found. Dumping sample defs to check consistency:');
@@ -1101,8 +1125,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             type: 'component-hygiene-result',
             result: {
               totalComponents,
+              totalDeletableUnits,
               unusedComponents,
               unusedCount,
+              unusedDeletableUnits,
               hygieneScore,
               subScores: { componentHygiene: hygieneScore },
             },

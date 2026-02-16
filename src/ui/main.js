@@ -5306,6 +5306,26 @@ window.toggleQualityAccordion = function(id) {
   }
 };
 
+window.toggleIssueCard = function(issueId) {
+  const card = document.getElementById(issueId + '-card');
+  const body = document.getElementById(issueId + '-body');
+  const chevron = document.getElementById(issueId + '-chevron');
+  
+  if (!card || !body) return;
+  
+  const isHidden = body.style.display === 'none' || !body.style.display;
+  
+  if (isHidden) {
+    body.style.display = 'block';
+    card.classList.add('expanded');
+    if (chevron) chevron.style.transform = 'rotate(90deg)';
+  } else {
+    body.style.display = 'none';
+    card.classList.remove('expanded');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+};
+
 // ===== QUALITY RESULT HANDLERS =====
 
 function handleTokenCoverageResult(result) {
@@ -5349,8 +5369,9 @@ function handleComponentHygieneResult(result) {
   console.log('Quality: Component hygiene result received', result);
   
   const cat = window.qualityState.categories.unusedComponents;
-  cat.bad = result.unusedComponentCount || result.unusedCount || 0;
-  cat.total = result.totalComponents || 0;
+  // Use deletable units (variants + standalone components) for progress calculation
+  cat.bad = result.unusedDeletableUnits || result.unusedComponentCount || result.unusedCount || 0;
+  cat.total = result.totalDeletableUnits || result.totalComponents || 0;
   cat.good = Math.max(0, cat.total - cat.bad);
   cat.score = (result.subScores && result.subScores.componentHygiene !== undefined) ? result.subScores.componentHygiene : (cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100));
   cat.data = result;
