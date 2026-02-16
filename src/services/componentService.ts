@@ -9,7 +9,7 @@ import {
 import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-helpers';
 import { CSS_PROPERTIES } from '../config/css';
 import { ErrorHandler } from '../utils/errorHandler';
-import { CSSCache, PerformanceCache } from './cacheService';
+import { CSSCache, PerformanceCache, CacheService } from './cacheService';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -27,44 +27,70 @@ type VariantProps = Record<string, string> & {
   state?: string; // Optional, has special logic for pseudo-states
 };
 
-interface ParsedComponentName {
+interface FormattedComponentName {
   kebabName: string;
   pascalName: string;
+}
+
+export interface UnusedComponent {
+  id: string;
+  name: string;
+  type: 'COMPONENT' | 'COMPONENT_SET';
+  isFullyUnused: boolean;
+  totalVariants?: number;
+  unusedVariantCount?: number;
+  unusedVariants?: Array<{ id: string; name: string }>;
+}
+
+export interface ComponentHygieneResult {
+  totalComponents: number;
+  unusedComponents: UnusedComponent[];
+  unusedCount: number;
+  hygieneScore: number;
+  subScores: { componentHygiene: number };
 }
 
 export class ComponentService {
   private static componentMap = new Map<string, Component>();
   private static allVariables = new Map<string, unknown>();
 
-  // Performance optimization caches with size limits
-  private static styleCache = new Map<string, Record<string, unknown>>();
-  private static testCache = new Map<string, string>();
-  private static nameCache = new Map<string, ParsedComponentName>();
+  // Performance optimization caches using unified CacheService
+  private static styleDataCache = new CacheService<Record<string, unknown>>({ maxSize: 1000 });
+  private static testDataCache = new CacheService<string>({ maxSize: 500 });
+  private static nameDataCache = new CacheService<FormattedComponentName>({ maxSize: 1000 });
 
-  // Cache size limits to prevent memory leaks
-  private static readonly MAX_CACHE_SIZE = 1000;
-  private static readonly CACHE_CLEANUP_THRESHOLD = 800;
-
-  // Legacy cache management (replaced by new CacheService)
-
-  private static enforcesCacheLimit<K, V>(cache: Map<K, V>): void {
-    if (cache.size > this.MAX_CACHE_SIZE) {
-      // Remove oldest entries (LRU approximation)
-      const keysToDelete = Array.from(cache.keys()).slice(
-        0,
-        cache.size - this.CACHE_CLEANUP_THRESHOLD,
-      );
-      keysToDelete.forEach((key) => cache.delete(key));
+  private static parseComponentName(name: string): FormattedComponentName {
+    if (!name || typeof name !== 'string') {
+      throw new Error(`Invalid component name: ${name}`);
     }
-  }
 
-  private static addToCache<K, V>(cache: Map<K, V>, key: K, value: V): void {
-    // If key exists, delete it first to move it to end (LRU)
-    if (cache.has(key)) {
-      cache.delete(key);
+    // Check cache first
+    const cached = this.nameDataCache.get(name);
+    if (cached) {
+      return cached;
     }
-    cache.set(key, value);
-    this.enforcesCacheLimit(cache);
+
+    const kebabName = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    if (!kebabName) {
+      throw new Error(`Could not generate valid kebab-case name from: ${name}`);
+    }
+
+    const words = name.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
+    if (words.length === 0) {
+      throw new Error(`Could not extract words from component name: ${name}`);
+    }
+
+    const pascalName = words
+      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
+      .join('');
+    const result = { kebabName, pascalName };
+
+    // Cache the result
+    this.nameDataCache.set(name, result);
+    return result;
   }
 
   private static isSimpleColorProperty(property: string): boolean {
@@ -369,40 +395,6 @@ export class ComponentService {
     );
   }
 
-  private static parseComponentName(name: string): ParsedComponentName {
-    if (!name || typeof name !== 'string') {
-      throw new Error(`Invalid component name: ${name}`);
-    }
-
-    // Check cache first
-    const cached = this.nameCache.get(name);
-    if (cached) {
-      return cached;
-    }
-
-    const kebabName = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    if (!kebabName) {
-      throw new Error(`Could not generate valid kebab-case name from: ${name}`);
-    }
-
-    const words = name.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
-    if (words.length === 0) {
-      throw new Error(`Could not extract words from component name: ${name}`);
-    }
-
-    const pascalName = words
-      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
-      .join('');
-    const result = { kebabName, pascalName };
-
-    // Cache the result
-    this.nameCache.set(name, result);
-    return result;
-  }
-
   private static generateVariantTests(
     componentSet: Component,
     kebabName: string,
@@ -413,7 +405,7 @@ export class ComponentService {
       ? componentSet.children.map((c) => c.id + c.name).join('|')
       : '';
     const cacheKey = `variants-${componentSet.id}-${childrenHash}`;
-    const cached = this.testCache.get(cacheKey);
+    const cached = this.testDataCache.get(cacheKey);
     if (cached) {
       // For cached results, we don't have variant props, so return empty array
       return { tests: cached, variantProps: [] };
@@ -468,7 +460,7 @@ export class ComponentService {
       variantProps: allVariantProps,
     };
     // Cache the result - cache just the tests for backward compatibility
-    this.testCache.set(cacheKey, result.tests);
+    this.testDataCache.set(cacheKey, result.tests);
     return result;
   }
 
@@ -517,7 +509,7 @@ export class ComponentService {
 
     // Create cache key for string styles
     if (typeof styles === 'string') {
-      const cached = this.styleCache.get(styles);
+      const cached = this.styleDataCache.get(styles);
       if (cached) {
         return cached;
       }
@@ -525,12 +517,12 @@ export class ComponentService {
       try {
         const parsed = JSON.parse(styles);
         const result = typeof parsed === 'object' && parsed !== null ? parsed : {};
-        this.styleCache.set(styles, result);
+        this.styleDataCache.set(styles, result);
         return result;
       } catch (error) {
         console.error('Failed to parse styles JSON:', error);
         const emptyResult = {};
-        this.styleCache.set(styles, emptyResult);
+        this.styleDataCache.set(styles, emptyResult);
         return emptyResult;
       }
     }
@@ -1387,6 +1379,9 @@ ${Object.keys(cssProperties)
   static clearCaches(): void {
     cssCache.clear();
     perfCache.clear();
+    this.styleDataCache.clear();
+    this.testDataCache.clear();
+    this.nameDataCache.clear();
   }
 
   /**
@@ -1399,7 +1394,7 @@ ${Object.keys(cssProperties)
     return { cssCleared, perfCleared };
   }
 
-  static async analyzeHygiene(pageIds?: string[]): Promise<any> {
+  static async analyzeHygiene(pageIds?: string[]): Promise<ComponentHygieneResult> {
     return await ErrorHandler.withErrorHandling(
       async () => {
         console.log('Analyzing component hygiene...');
@@ -1521,14 +1516,14 @@ ${Object.keys(cssProperties)
         }
 
         // 3. Calculate Results
-        const unusedComponents: any[] = [];
-        
+        const unusedComponents: UnusedComponent[] = [];
+
         for (const [id, def] of localDefinitions.entries()) {
             if (def.isSet) {
                 // Check variants
                 const set = def.node as ComponentSetNode;
                 const variants = set.children;
-                const unusedVariants: any[] = [];
+                const unusedVariants: Array<{ id: string; name: string }> = [];
                 const totalVariants = variants.length;
                 let unusedVariantCount = 0;
 

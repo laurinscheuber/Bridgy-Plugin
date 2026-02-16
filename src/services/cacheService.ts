@@ -3,6 +3,8 @@
  * Provides in-memory caching with TTL and LRU eviction
  */
 
+import type { QualityReport } from './qualityService';
+
 interface CacheEntry<T> {
   value: T;
   timestamp: number;
@@ -346,7 +348,7 @@ export class PerformanceCache extends CacheService<number> {
 /**
  * Quality report cache for avoiding redundant analysis runs
  */
-export class QualityReportCache extends CacheService<any> {
+export class QualityReportCache extends CacheService<QualityReport> {
   private static instance: QualityReportCache;
 
   constructor() {
