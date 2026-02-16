@@ -4062,6 +4062,13 @@
           return exports.TAILWIND_V4_NAMESPACES.indexOf(normalized) !== -1;
         }
         /**
+         * Check if a variable name is compatible with Tailwind v4 (starts with valid namespace)
+         */
+        static isCompatible(name) {
+          const normalizedName = name.replace(/\//g, "-").toLowerCase();
+          return exports.TAILWIND_V4_NAMESPACES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
+        }
+        /**
          * Validate all variable groups for Tailwind v4 compatibility
          */
         static validateVariableGroups() {
@@ -6970,6 +6977,7 @@ ${Object.keys(cssProperties).map((property) => {
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TokenCoverageService = void 0;
       var VALUE_MATCH_TOLERANCE = 0.01;
+      var tailwindV4Service_1 = require_tailwindV4Service();
       var TokenCoverageService = class {
         /**
          * Analyzes the current page for token coverage
@@ -6977,7 +6985,7 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const currentPage = figma.currentPage;
-            const nodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            const nodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
             return this.analyzeNodes(nodes, exportFormat);
           });
         }
@@ -6992,7 +7000,7 @@ ${Object.keys(cssProperties).map((property) => {
               if (pageIds && pageIds.indexOf(page.id) === -1) {
                 continue;
               }
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
               allNodes = [...allNodes, ...pageNodes];
             }
             return this.analyzeNodes(allNodes, exportFormat);
@@ -7005,13 +7013,16 @@ ${Object.keys(cssProperties).map((property) => {
          */
         static analyzeSmart() {
           return __awaiter(this, arguments, void 0, function* (exportFormat = "css", pageIds) {
+            console.log("analyzeSmart called", { exportFormat, pageIds });
             const currentPageId = figma.currentPage.id;
             const isCurrentPageSelected = !pageIds || pageIds.indexOf(currentPageId) !== -1;
+            let bestResult = null;
             if (isCurrentPageSelected) {
               const currentPageResult = yield this.analyzeCurrentPage(exportFormat);
               if (currentPageResult.totalIssues > 0) {
                 return currentPageResult;
               }
+              bestResult = currentPageResult;
             }
             const allPages = figma.root.children;
             for (const page of allPages) {
@@ -7019,23 +7030,20 @@ ${Object.keys(cssProperties).map((property) => {
                 continue;
               if (pageIds && pageIds.indexOf(page.id) === -1)
                 continue;
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
               const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
+              console.log("analyzeSmart: page result", { pageId: page.id, issues: pageResult.totalIssues, nodes: pageResult.totalNodes });
               if (pageResult.totalIssues > 0) {
                 yield figma.setCurrentPageAsync(page);
                 return pageResult;
               }
-            }
-            if (isCurrentPageSelected) {
-              return this.analyzeCurrentPage(exportFormat);
-            } else if (pageIds && pageIds.length > 0) {
-              const firstPage = allPages.find((p) => p.id === pageIds[0]);
-              if (firstPage) {
-                const firstPageNodes = firstPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
-                return this.analyzeNodes(firstPageNodes, exportFormat);
+              if (!bestResult || pageResult.totalNodes > bestResult.totalNodes) {
+                console.log("analyzeSmart: New best result (clean)", pageResult.totalNodes);
+                bestResult = pageResult;
               }
             }
-            return this.analyzeCurrentPage(exportFormat);
+            console.log("analyzeSmart: No issues found anywhere. Returning best result:", bestResult);
+            return bestResult || this.analyzeCurrentPage(exportFormat);
           });
         }
         /**
@@ -7230,32 +7238,17 @@ ${Object.keys(cssProperties).map((property) => {
               const penalty = Math.round(issueDensity * 100);
               tokenCoverageScore = Math.max(0, 100 - penalty);
             }
-            const TAILWIND_PREFIXES = [
-              "color",
-              "font",
-              "text",
-              "font-weight",
-              "tracking",
-              "leading",
-              "breakpoint",
-              "container",
-              "spacing",
-              "radius",
-              "shadow",
-              "inset-shadow",
-              "drop-shadow",
-              "blur",
-              "perspective",
-              "aspect",
-              "ease",
-              "animate"
-            ];
             const isTailwindCompatible = (name) => {
-              const normalizedName = name.replace(/\//g, "-");
-              return TAILWIND_PREFIXES.some((prefix) => normalizedName.startsWith(`${prefix}-`));
+              return tailwindV4Service_1.TailwindV4Service.isCompatible(name);
             };
             let validTailwindNames = 0;
-            const tailwindValidation = { valid: [], invalid: [] };
+            const tailwindValidation = {
+              valid: [],
+              invalid: [],
+              totalInvalid: 0,
+              totalVariables: 0,
+              readinessScore: 0
+            };
             if (totalVarsToCheck > 0) {
               allVariables.forEach((v) => {
                 if (!v || !v.variable || !v.variable.name)
@@ -7269,6 +7262,9 @@ ${Object.keys(cssProperties).map((property) => {
               });
             }
             const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
+            tailwindValidation.totalVariables = totalVarsToCheck;
+            tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
+            tailwindValidation.readinessScore = tailwindScore;
             const totalContainerNodes = instanceCount + frameCount;
             const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
             const isTailwindV4 = exportFormat === "tailwind-v4";
@@ -7314,6 +7310,11 @@ ${Object.keys(cssProperties).map((property) => {
               // Detailed Data
               unusedVariables,
               unusedComponents,
+              // Metrics
+              totalVariables: totalVarsToCheck,
+              totalComponents,
+              unusedVariableCount: unusedVariables.length,
+              unusedComponentCount: unusedComponents.length,
               tailwindValidation
             };
           });
@@ -9903,7 +9904,8 @@ ${Object.keys(cssProperties).map((property) => {
                     totalComponents,
                     unusedComponents,
                     unusedCount,
-                    hygieneScore
+                    hygieneScore,
+                    subScores: { componentHygiene: hygieneScore }
                   }
                 });
               } catch (err) {
@@ -9927,7 +9929,8 @@ ${Object.keys(cssProperties).map((property) => {
                       unusedVariables: [],
                       unusedCount: 0,
                       hygieneScore: 100
-                    }
+                    },
+                    subScores: { variableHygiene: 100 }
                   });
                   break;
                 }
@@ -10020,7 +10023,8 @@ ${Object.keys(cssProperties).map((property) => {
                     totalVariables,
                     unusedVariables,
                     unusedCount,
-                    hygieneScore
+                    hygieneScore,
+                    subScores: { variableHygiene: hygieneScore }
                   }
                 });
               } catch (err) {
