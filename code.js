@@ -5989,19 +5989,26 @@ ${styleCheckCode}
       var cssCache = cacheService_1.CSSCache.getInstance();
       var perfCache = cacheService_1.PerformanceCache.getInstance();
       var ComponentService = class _ComponentService {
-        // Legacy cache management (replaced by new CacheService)
-        static enforcesCacheLimit(cache) {
-          if (cache.size > this.MAX_CACHE_SIZE) {
-            const keysToDelete = Array.from(cache.keys()).slice(0, cache.size - this.CACHE_CLEANUP_THRESHOLD);
-            keysToDelete.forEach((key) => cache.delete(key));
+        static parseComponentName(name) {
+          if (!name || typeof name !== "string") {
+            throw new Error(`Invalid component name: ${name}`);
           }
-        }
-        static addToCache(cache, key, value) {
-          if (cache.has(key)) {
-            cache.delete(key);
+          const cached = this.nameDataCache.get(name);
+          if (cached) {
+            return cached;
           }
-          cache.set(key, value);
-          this.enforcesCacheLimit(cache);
+          const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          if (!kebabName) {
+            throw new Error(`Could not generate valid kebab-case name from: ${name}`);
+          }
+          const words = name.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
+          if (words.length === 0) {
+            throw new Error(`Could not extract words from component name: ${name}`);
+          }
+          const pascalName = words.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`).join("");
+          const result = { kebabName, pascalName };
+          this.nameDataCache.set(name, result);
+          return result;
         }
         static isSimpleColorProperty(property) {
           return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
@@ -6222,31 +6229,10 @@ ${styleCheckCode}
           const variantResult = this.generateVariantTests(componentSet, kebabName, pascalName);
           return this.buildComponentSetTestTemplate(pascalName, kebabName, variantResult.tests, variantResult.variantProps);
         }
-        static parseComponentName(name) {
-          if (!name || typeof name !== "string") {
-            throw new Error(`Invalid component name: ${name}`);
-          }
-          const cached = this.nameCache.get(name);
-          if (cached) {
-            return cached;
-          }
-          const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-          if (!kebabName) {
-            throw new Error(`Could not generate valid kebab-case name from: ${name}`);
-          }
-          const words = name.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
-          if (words.length === 0) {
-            throw new Error(`Could not extract words from component name: ${name}`);
-          }
-          const pascalName = words.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`).join("");
-          const result = { kebabName, pascalName };
-          this.nameCache.set(name, result);
-          return result;
-        }
         static generateVariantTests(componentSet, kebabName, pascalName) {
           const childrenHash = componentSet.children ? componentSet.children.map((c) => c.id + c.name).join("|") : "";
           const cacheKey = `variants-${componentSet.id}-${childrenHash}`;
-          const cached = this.testCache.get(cacheKey);
+          const cached = this.testDataCache.get(cacheKey);
           if (cached) {
             return { tests: cached, variantProps: [] };
           }
@@ -6280,7 +6266,7 @@ ${styleCheckCode}
             tests: variantTestParts.join(""),
             variantProps: allVariantProps
           };
-          this.testCache.set(cacheKey, result.tests);
+          this.testDataCache.set(cacheKey, result.tests);
           return result;
         }
         static parseVariantName(variantName) {
@@ -6309,19 +6295,19 @@ ${styleCheckCode}
             return {};
           }
           if (typeof styles === "string") {
-            const cached = this.styleCache.get(styles);
+            const cached = this.styleDataCache.get(styles);
             if (cached) {
               return cached;
             }
             try {
               const parsed = JSON.parse(styles);
               const result = typeof parsed === "object" && parsed !== null ? parsed : {};
-              this.styleCache.set(styles, result);
+              this.styleDataCache.set(styles, result);
               return result;
             } catch (error) {
               console.error("Failed to parse styles JSON:", error);
               const emptyResult = {};
-              this.styleCache.set(styles, emptyResult);
+              this.styleDataCache.set(styles, emptyResult);
               return emptyResult;
             }
           }
@@ -6943,6 +6929,9 @@ ${Object.keys(cssProperties).map((property) => {
         static clearCaches() {
           cssCache.clear();
           perfCache.clear();
+          this.styleDataCache.clear();
+          this.testDataCache.clear();
+          this.nameDataCache.clear();
         }
         /**
          * Cleanup expired cache entries
@@ -7106,11 +7095,9 @@ ${Object.keys(cssProperties).map((property) => {
       exports.ComponentService = ComponentService;
       ComponentService.componentMap = /* @__PURE__ */ new Map();
       ComponentService.allVariables = /* @__PURE__ */ new Map();
-      ComponentService.styleCache = /* @__PURE__ */ new Map();
-      ComponentService.testCache = /* @__PURE__ */ new Map();
-      ComponentService.nameCache = /* @__PURE__ */ new Map();
-      ComponentService.MAX_CACHE_SIZE = 1e3;
-      ComponentService.CACHE_CLEANUP_THRESHOLD = 800;
+      ComponentService.styleDataCache = new cacheService_1.CacheService({ maxSize: 1e3 });
+      ComponentService.testDataCache = new cacheService_1.CacheService({ maxSize: 500 });
+      ComponentService.nameDataCache = new cacheService_1.CacheService({ maxSize: 1e3 });
     }
   });
 
