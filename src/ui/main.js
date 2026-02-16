@@ -800,9 +800,9 @@ function updateHeaderGauge() {
 }
 
 function getGradeLabel(score) {
-    if (score >= 90) return 'Optimal';
-    if (score >= 50) return 'Average';
-    return 'Critical';
+    if (score >= 75) return 'Well Maintained';
+    if (score >= 40) return 'Progressing';
+    return 'Needs Attention';
 }
 
 // Celebration Logic
@@ -5889,9 +5889,9 @@ function analyzeStats() {
 // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
 function getScoreColor(score) {
   if (score === undefined || score === null) return '#ffffff';
-  if (score < 40) return '#ef4444'; // Red
-  if (score < 80) return '#fbbf24'; // Yellow/Orange
-  return '#22c55e'; // Green
+  if (score < 40) return '#ef4444'; // Red — Needs Attention
+  if (score < 75) return '#fbbf24'; // Yellow — Progressing
+  return '#22c55e'; // Green — Well Maintained
 }
 
 // Update analysis scope
@@ -6665,20 +6665,61 @@ function displayVariableHygieneSection(result) {
     html += `</div></div>`;
   });
 
-  // Ignored items management panel
+  // Ignored items management panel — grouped by collection
   if (result.ignoredVariables && result.ignoredVariables.length > 0) {
-    let ignoredVarHtml = '';
+    const ignoredCollectionIds = result.ignoredCollectionIds || [];
+
+    // Group ignored variables by collection
+    const ignoredGroups = {};
     result.ignoredVariables.forEach(v => {
-      const name = SecurityUtils.escapeHTML(v.name);
-      const collName = SecurityUtils.escapeHTML(v.collectionName);
+      if (!ignoredGroups[v.collectionName]) ignoredGroups[v.collectionName] = [];
+      ignoredGroups[v.collectionName].push(v);
+    });
+
+    let ignoredVarHtml = '';
+    Object.entries(ignoredGroups).forEach(([collectionName, variables], igIdx) => {
+      const escapedCollName = SecurityUtils.escapeHTML(collectionName);
+      const collectionId = variables[0].collectionId;
+      const isCollectionIgnored = ignoredCollectionIds.indexOf(collectionId) !== -1;
+      const igGroupId = `ignored-var-group-${igIdx}`;
+
       ignoredVarHtml += `
-        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
-          <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${collName}">${name}</span>
-          <button class="icon-button" onclick="unignoreItem('variable', '${v.id}')" title="Restore">
-            <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
-          </button>
-        </div>
+        <div style="margin-bottom: 6px;">
+          <div onclick="const c = document.getElementById('${igGroupId}-content'); c.style.display = c.style.display === 'none' ? 'block' : 'none'; const ic = this.querySelector('.ig-toggle'); ic.style.transform = c.style.display === 'none' ? 'rotate(-90deg)' : 'rotate(0deg)';"
+               style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+            <span class="material-symbols-outlined ig-toggle" style="font-size: 14px; color: rgba(255,255,255,0.3); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); flex: 1;">${escapedCollName}</span>
+            <span style="font-size: 10px; color: rgba(255,255,255,0.25); padding: 0 4px;">${variables.length}</span>
+            ${isCollectionIgnored ? `
+              <button class="icon-button" onclick="event.stopPropagation(); unignoreItem('collection', '${collectionId}')" title="Restore entire collection">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+              </button>
+            ` : ''}
+          </div>
+          <div id="${igGroupId}-content" style="display: none; padding: 2px 0 2px 0;">
       `;
+
+      variables.forEach(v => {
+        const displayName = SecurityUtils.escapeHTML(v.name);
+        const isColor = v.resolvedType === 'COLOR' || /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(v.resolvedValue || '');
+        const colorPreview = isColor && v.resolvedValue
+          ? `<div style="width: 12px; height: 12px; border-radius: 2px; background: ${v.resolvedValue}; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;"></div>`
+          : '';
+
+        ignoredVarHtml += `
+          <div style="display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 30px; min-height: 20px;">
+            <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayName}">${displayName}</span>
+            ${colorPreview}
+            ${!isCollectionIgnored ? `
+              <button class="icon-button" onclick="unignoreItem('variable', '${v.id}')" title="Restore variable">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+              </button>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      ignoredVarHtml += `</div></div>`;
     });
 
     html += `
