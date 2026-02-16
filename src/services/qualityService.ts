@@ -1,7 +1,7 @@
-import { TokenCoverageService } from './tokenCoverageService';
-import { ComponentService } from './componentService';
-import { VariableService } from './variableService';
-import { TailwindV4Service } from './tailwindV4Service';
+import { TokenCoverageService, TokenCoverageResult } from './tokenCoverageService';
+import { ComponentService, ComponentHygieneResult } from './componentService';
+import { VariableService, VariableHygieneResult } from './variableService';
+import { TailwindV4Service, TailwindValidationResult } from './tailwindV4Service';
 import { QualityReportCache } from './cacheService';
 import { ErrorHandler } from '../utils/errorHandler';
 
@@ -13,10 +13,13 @@ export interface QualityReport {
     timestamp: number;
   };
   metrics: {
-    tokenCoverage: any;
-    componentHygiene: any;
-    variableHygiene: any;
-    tailwindReadiness?: any;
+    tokenCoverage: TokenCoverageResult;
+    componentHygiene: ComponentHygieneResult;
+    variableHygiene: VariableHygieneResult;
+    tailwindReadiness?: {
+      score: number;
+      validation: TailwindValidationResult | null;
+    };
   };
   score: {
     total: number;

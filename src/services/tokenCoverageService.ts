@@ -10,7 +10,9 @@
  */
 const VALUE_MATCH_TOLERANCE = 0.01;
 
-import { TailwindV4Service } from './tailwindV4Service';
+import { TailwindV4Service, TailwindValidationResult } from './tailwindV4Service';
+import { UnusedVariable } from './variableService';
+import { UnusedComponent } from './componentService';
 
 export interface MatchingVariable {
   id: string;
@@ -60,9 +62,15 @@ export interface TokenCoverageResult {
     variableHygiene: string;
   };
   // Detailed Data for UI Lists
-  unusedVariables?: any[];
-  unusedComponents?: any[];
-  tailwindValidation?: any;
+  unusedVariables?: UnusedVariable[];
+  unusedComponents?: UnusedComponent[];
+  tailwindValidation?: {
+    valid: Array<{ id: string; name: string }>;
+    invalid: Array<{ id: string; name: string }>;
+    totalInvalid: number;
+    totalVariables: number;
+    readinessScore: number;
+  };
 }
 
 /**
@@ -510,8 +518,8 @@ export class TokenCoverageService {
     };
 
     let validTailwindNames = 0;
-    const tailwindValidation: any = { 
-        valid: [], 
+    const tailwindValidation: NonNullable<TokenCoverageResult['tailwindValidation']> = {
+        valid: [],
         invalid: [],
         totalInvalid: 0,
         totalVariables: 0,

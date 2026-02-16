@@ -30,7 +30,7 @@ export const TAILWIND_V4_NAMESPACES = [
 
 export type TailwindV4Namespace = (typeof TAILWIND_V4_NAMESPACES)[number];
 
-interface VariableGroup {
+export interface VariableGroup {
   name: string;
   isValid: boolean;
   namespace?: string;
@@ -40,7 +40,7 @@ interface VariableGroup {
   collectionId?: string; // Collection ID for standalone variables
 }
 
-interface ValidationResult {
+export interface TailwindValidationResult {
   isValid: boolean;
   groups: VariableGroup[];
   invalidGroups: string[];
@@ -67,7 +67,7 @@ export class TailwindV4Service {
   /**
    * Validate all variable groups for Tailwind v4 compatibility
    */
-  static async validateVariableGroups(): Promise<ValidationResult> {
+  static async validateVariableGroups(): Promise<TailwindValidationResult> {
     return await ErrorHandler.withErrorHandling(
       async () => {
         const collections = await figma.variables.getLocalVariableCollectionsAsync();
