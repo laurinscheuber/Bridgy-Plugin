@@ -5663,7 +5663,7 @@ ${styleCheckCode}
         });
       };
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.PerformanceCache = exports.CSSCache = exports.CacheService = void 0;
+      exports.QualityReportCache = exports.PerformanceCache = exports.CSSCache = exports.CacheService = void 0;
       var CacheService = class {
         constructor(options = {}) {
           this.cache = /* @__PURE__ */ new Map();
@@ -5922,6 +5922,27 @@ ${styleCheckCode}
         }
       };
       exports.PerformanceCache = PerformanceCache;
+      var QualityReportCache = class _QualityReportCache extends CacheService {
+        constructor() {
+          super({
+            maxSize: 10,
+            defaultTtl: 5 * 60 * 1e3,
+            // 5 minutes
+            enableStats: true
+          });
+        }
+        static getInstance() {
+          if (!_QualityReportCache.instance) {
+            _QualityReportCache.instance = new _QualityReportCache();
+          }
+          return _QualityReportCache.instance;
+        }
+        static generateKey(scope, pageIds, exportFormat, docVersion) {
+          const pageKey = pageIds ? pageIds.sort().join(",") : "none";
+          return `qr-${scope}-${pageKey}-${exportFormat}-v${docVersion}`;
+        }
+      };
+      exports.QualityReportCache = QualityReportCache;
       exports.default = CacheService;
     }
   });
@@ -6996,6 +7017,9 @@ ${Object.keys(cssProperties).map((property) => {
                 }
               };
               for (const page of figma.root.children) {
+                if (pageIds && pageIds.length > 0 && pageIds.indexOf(page.id) === -1) {
+                  continue;
+                }
                 for (const child of page.children) {
                   collectInstances(child);
                 }
@@ -9071,16 +9095,38 @@ ${Object.keys(cssProperties).map((property) => {
       var tokenCoverageService_1 = require_tokenCoverageService();
       var componentService_1 = require_componentService();
       var variableService_1 = require_variableService();
+      var tailwindV4Service_1 = require_tailwindV4Service();
+      var cacheService_1 = require_cacheService();
       var errorHandler_1 = require_errorHandler();
-      var QualityService = class {
+      var QualityService = class _QualityService {
+        /**
+         * Bump the document version and clear the quality report cache.
+         * Call this whenever variables or tokens change in Figma.
+         */
+        static invalidateCache() {
+          _QualityService.docVersion++;
+          cacheService_1.QualityReportCache.getInstance().clear();
+          console.log(`[QualityService] Cache invalidated. docVersion=${_QualityService.docVersion}`);
+        }
         /**
          * Generates a comprehensive quality report by aggregating results from all services.
          * This eliminates race conditions by ensuring all data is ready before returning.
          */
         static generateReport(scope_1, pageIds_1) {
-          return __awaiter(this, arguments, void 0, function* (scope, pageIds, exportFormat = "css") {
+          return __awaiter(this, arguments, void 0, function* (scope, pageIds, exportFormat = "css", forceRefresh = false) {
             return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
-              var _a, _b, _c, _d;
+              var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+              const cache = cacheService_1.QualityReportCache.getInstance();
+              const cacheKey = cacheService_1.QualityReportCache.generateKey(scope, pageIds, exportFormat, _QualityService.docVersion);
+              const cacheable = scope !== "SELECTION";
+              if (!forceRefresh && cacheable) {
+                const cached = cache.get(cacheKey);
+                if (cached) {
+                  console.log(`[QualityService] Cache HIT for key=${cacheKey}`);
+                  return cached;
+                }
+              }
+              console.log(`[QualityService] Cache ${forceRefresh ? "BYPASS (forceRefresh)" : !cacheable ? "SKIP (SELECTION scope)" : "MISS"}. Running full analysis.`);
               const startTime = Date.now();
               console.log(`[QualityService] Starting analysis. Scope: ${scope}`);
               let tokenPromise;
@@ -9093,25 +9139,23 @@ ${Object.keys(cssProperties).map((property) => {
               } else {
                 tokenPromise = tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
               }
-              const [tokenResult, componentResult, variableResult] = yield Promise.all([
+              const isTailwind = exportFormat === "tailwind-v4";
+              const promises = [
                 tokenPromise,
                 componentService_1.ComponentService.analyzeHygiene(pageIds),
-                variableService_1.VariableService.analyzeHygiene(pageIds)
-              ]);
+                variableService_1.VariableService.analyzeHygiene(pageIds),
+                isTailwind ? tailwindV4Service_1.TailwindV4Service.validateVariableGroups() : Promise.resolve(null)
+              ];
+              const [tokenResult, componentResult, variableResult, tailwindGroupResult] = yield Promise.all(promises);
               const duration = Date.now() - startTime;
               console.log(`[QualityService] Analysis complete in ${duration}ms`);
               const tokenScore = ((_a = tokenResult.subScores) === null || _a === void 0 ? void 0 : _a.tokenCoverage) || 0;
               const tailwindScore = ((_b = tokenResult.subScores) === null || _b === void 0 ? void 0 : _b.tailwindReadiness) || 0;
               const componentScore = ((_c = componentResult.subScores) === null || _c === void 0 ? void 0 : _c.componentHygiene) || 0;
               const variableScore = ((_d = variableResult.subScores) === null || _d === void 0 ? void 0 : _d.variableHygiene) || 0;
-              const weights = {
-                tokenCoverage: 40,
-                tailwindReadiness: 20,
-                componentHygiene: 20,
-                variableHygiene: 20
-              };
               const totalScore = Math.round(tokenScore * 0.4 + tailwindScore * 0.2 + componentScore * 0.2 + variableScore * 0.2);
-              return {
+              const tailwindValidation = tailwindGroupResult ? Object.assign(Object.assign({}, tailwindGroupResult), { totalInvalid: (_h = (_f = (_e = tokenResult.tailwindValidation) === null || _e === void 0 ? void 0 : _e.totalInvalid) !== null && _f !== void 0 ? _f : (_g = tailwindGroupResult.invalidGroups) === null || _g === void 0 ? void 0 : _g.length) !== null && _h !== void 0 ? _h : 0, totalVariables: (_k = (_j = tokenResult.tailwindValidation) === null || _j === void 0 ? void 0 : _j.totalVariables) !== null && _k !== void 0 ? _k : 0, readinessScore: tailwindScore }) : tokenResult.tailwindValidation;
+              const report = {
                 meta: {
                   totalNodes: tokenResult.totalNodes || 0,
                   scanDuration: duration,
@@ -9120,14 +9164,11 @@ ${Object.keys(cssProperties).map((property) => {
                 },
                 metrics: {
                   tokenCoverage: tokenResult,
-                  // Tailwind data is embedded in tokenResult currently, keep it there or split?
-                  // For now keep structure similar to legacy for easier frontend transition
                   componentHygiene: componentResult,
                   variableHygiene: variableResult,
                   tailwindReadiness: {
                     score: tailwindScore,
-                    validation: tokenResult.tailwindValidation
-                    // Pass this through
+                    validation: tailwindValidation
                   }
                 },
                 score: {
@@ -9140,6 +9181,11 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
               };
+              if (cacheable) {
+                cache.set(cacheKey, report);
+                console.log(`[QualityService] Report cached with key=${cacheKey}`);
+              }
+              return report;
             }), {
               operation: "generate_quality_report",
               component: "QualityService",
@@ -9149,6 +9195,7 @@ ${Object.keys(cssProperties).map((property) => {
         }
       };
       exports.QualityService = QualityService;
+      QualityService.docVersion = 0;
     }
   });
 
@@ -10731,8 +10778,8 @@ ${Object.keys(cssProperties).map((property) => {
                 console.log(`[Plugin] Analyze-quality-report received. Scope: ${scope}, PageIds: ${msg.pageIds ? JSON.stringify(msg.pageIds) : "null"}`);
                 const settings = yield gitlabService_1.GitLabService.loadSettings();
                 const exportFormat = msg.exportFormat || (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
-                console.log(`[Plugin] Calling QualityService.generateReport with format: ${exportFormat}`);
-                const report = yield qualityService_1.QualityService.generateReport(scope, msg.pageIds, exportFormat);
+                console.log(`[Plugin] Calling QualityService.generateReport with format: ${exportFormat}, forceRefresh: ${!!msg.forceRefresh}`);
+                const report = yield qualityService_1.QualityService.generateReport(scope, msg.pageIds, exportFormat, !!msg.forceRefresh);
                 console.log("[Plugin] Quality Analysis complete. Sending report...");
                 figma.ui.postMessage({
                   type: "quality-report",
@@ -11021,6 +11068,7 @@ ${Object.keys(cssProperties).map((property) => {
                 if (figma.variables && typeof figma.variables.on === "function") {
                   figma.variables.on("change", (event) => {
                     console.log("Variable change detected in Figma:", event);
+                    qualityService_1.QualityService.invalidateCache();
                     if (refreshTimeout) {
                       clearTimeout(refreshTimeout);
                     }
