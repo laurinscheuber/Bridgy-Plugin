@@ -5947,6 +5947,165 @@ ${styleCheckCode}
     }
   });
 
+  // dist/services/ignoreService.js
+  var require_ignoreService = __commonJS({
+    "dist/services/ignoreService.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.IgnoreService = void 0;
+      var STORAGE_KEY = "quality_ignore_list";
+      var EMPTY_LIST = {
+        variables: { ids: [], collectionIds: [] },
+        components: { ids: [], setIds: [] }
+      };
+      var IgnoreService = class {
+        /**
+         * Load the ignore list from figma.clientStorage.
+         * Returns a default empty shape if none exists.
+         */
+        static load() {
+          return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c, _d;
+            try {
+              const stored = yield figma.clientStorage.getAsync(STORAGE_KEY);
+              if (stored && typeof stored === "object") {
+                return {
+                  variables: {
+                    ids: Array.isArray((_a = stored.variables) === null || _a === void 0 ? void 0 : _a.ids) ? stored.variables.ids : [],
+                    collectionIds: Array.isArray((_b = stored.variables) === null || _b === void 0 ? void 0 : _b.collectionIds) ? stored.variables.collectionIds : []
+                  },
+                  components: {
+                    ids: Array.isArray((_c = stored.components) === null || _c === void 0 ? void 0 : _c.ids) ? stored.components.ids : [],
+                    setIds: Array.isArray((_d = stored.components) === null || _d === void 0 ? void 0 : _d.setIds) ? stored.components.setIds : []
+                  }
+                };
+              }
+            } catch (e) {
+              console.warn("[IgnoreService] Failed to load ignore list:", e);
+            }
+            return Object.assign(Object.assign({}, EMPTY_LIST), { variables: Object.assign({}, EMPTY_LIST.variables), components: Object.assign({}, EMPTY_LIST.components) });
+          });
+        }
+        /**
+         * Persist the ignore list to figma.clientStorage.
+         */
+        static save(list) {
+          return __awaiter(this, void 0, void 0, function* () {
+            yield figma.clientStorage.setAsync(STORAGE_KEY, list);
+          });
+        }
+        /**
+         * Add an item to the ignore list. Returns a new IgnoreList (immutable).
+         */
+        static addItem(list, type, id) {
+          const next = {
+            variables: {
+              ids: [...list.variables.ids],
+              collectionIds: [...list.variables.collectionIds]
+            },
+            components: {
+              ids: [...list.components.ids],
+              setIds: [...list.components.setIds]
+            }
+          };
+          switch (type) {
+            case "variable":
+              if (next.variables.ids.indexOf(id) === -1)
+                next.variables.ids.push(id);
+              break;
+            case "collection":
+              if (next.variables.collectionIds.indexOf(id) === -1)
+                next.variables.collectionIds.push(id);
+              break;
+            case "component":
+              if (next.components.ids.indexOf(id) === -1)
+                next.components.ids.push(id);
+              break;
+            case "component-set":
+              if (next.components.setIds.indexOf(id) === -1)
+                next.components.setIds.push(id);
+              break;
+          }
+          return next;
+        }
+        /**
+         * Remove an item from the ignore list. Returns a new IgnoreList (immutable).
+         */
+        static removeItem(list, type, id) {
+          const next = {
+            variables: {
+              ids: [...list.variables.ids],
+              collectionIds: [...list.variables.collectionIds]
+            },
+            components: {
+              ids: [...list.components.ids],
+              setIds: [...list.components.setIds]
+            }
+          };
+          switch (type) {
+            case "variable":
+              next.variables.ids = next.variables.ids.filter((i) => i !== id);
+              break;
+            case "collection":
+              next.variables.collectionIds = next.variables.collectionIds.filter((i) => i !== id);
+              break;
+            case "component":
+              next.components.ids = next.components.ids.filter((i) => i !== id);
+              break;
+            case "component-set":
+              next.components.setIds = next.components.setIds.filter((i) => i !== id);
+              break;
+          }
+          return next;
+        }
+        /**
+         * Check if a variable is ignored (by its own ID or its collection ID).
+         */
+        static isVariableIgnored(list, varId, collectionId) {
+          return list.variables.ids.indexOf(varId) !== -1 || list.variables.collectionIds.indexOf(collectionId) !== -1;
+        }
+        /**
+         * Check if a component is ignored (by its own ID or its set ID).
+         */
+        static isComponentIgnored(list, compId, setId) {
+          if (list.components.ids.indexOf(compId) !== -1)
+            return true;
+          if (setId && list.components.setIds.indexOf(setId) !== -1)
+            return true;
+          return false;
+        }
+      };
+      exports.IgnoreService = IgnoreService;
+    }
+  });
+
   // dist/services/componentService.js
   var require_componentService = __commonJS({
     "dist/services/componentService.js"(exports) {
@@ -5985,6 +6144,7 @@ ${styleCheckCode}
       var css_1 = require_css();
       var errorHandler_1 = require_errorHandler();
       var cacheService_1 = require_cacheService();
+      var ignoreService_1 = require_ignoreService();
       var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
       var cssCache = cacheService_1.CSSCache.getInstance();
       var perfCache = cacheService_1.PerformanceCache.getInstance();
@@ -6982,6 +7142,8 @@ ${Object.keys(cssProperties).map((property) => {
                   totalComponents: 0,
                   unusedComponents: [],
                   unusedCount: 0,
+                  ignoredComponents: [],
+                  ignoredCount: 0,
                   hygieneScore: 100,
                   subScores: { componentHygiene: 100 }
                 };
@@ -7074,13 +7236,40 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
               }
+              const ignoreList = yield ignoreService_1.IgnoreService.load();
+              const shownUnused = [];
+              const ignoredUnused = [];
+              for (const uc of unusedComponents) {
+                if (uc.type === "COMPONENT_SET") {
+                  if (ignoreService_1.IgnoreService.isComponentIgnored(ignoreList, uc.id)) {
+                    ignoredUnused.push(uc);
+                  } else {
+                    const shownVariants = (uc.unusedVariants || []).filter((v) => !ignoreService_1.IgnoreService.isComponentIgnored(ignoreList, v.id, uc.id));
+                    const ignoredVariants = (uc.unusedVariants || []).filter((v) => ignoreService_1.IgnoreService.isComponentIgnored(ignoreList, v.id, uc.id));
+                    if (shownVariants.length > 0) {
+                      shownUnused.push(Object.assign(Object.assign({}, uc), { unusedVariants: shownVariants, unusedVariantCount: shownVariants.length, isFullyUnused: shownVariants.length === uc.totalVariants }));
+                    }
+                    if (ignoredVariants.length > 0) {
+                      ignoredUnused.push(Object.assign(Object.assign({}, uc), { unusedVariants: ignoredVariants, unusedVariantCount: ignoredVariants.length, isFullyUnused: false }));
+                    }
+                  }
+                } else {
+                  if (ignoreService_1.IgnoreService.isComponentIgnored(ignoreList, uc.id)) {
+                    ignoredUnused.push(uc);
+                  } else {
+                    shownUnused.push(uc);
+                  }
+                }
+              }
               const totalComponents = localDefinitions.size;
-              const unusedCount = unusedComponents.length;
+              const unusedCount = shownUnused.length;
               const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
               return {
                 totalComponents,
-                unusedComponents,
+                unusedComponents: shownUnused,
                 unusedCount,
+                ignoredComponents: ignoredUnused,
+                ignoredCount: ignoredUnused.length,
                 hygieneScore,
                 subScores: { componentHygiene: hygieneScore }
               };
@@ -8903,6 +9092,7 @@ ${Object.keys(cssProperties).map((property) => {
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.VariableService = void 0;
       var errorHandler_1 = require_errorHandler();
+      var ignoreService_1 = require_ignoreService();
       var VariableService = class {
         /**
          * Analyzes variable hygiene by finding unused local variables.
@@ -8920,6 +9110,8 @@ ${Object.keys(cssProperties).map((property) => {
                   totalVariables: 0,
                   unusedVariables: [],
                   unusedCount: 0,
+                  ignoredVariables: [],
+                  ignoredCount: 0,
                   hygieneScore: 100,
                   subScores: { variableHygiene: 100 }
                 };
@@ -9023,14 +9215,26 @@ ${Object.keys(cssProperties).map((property) => {
                   });
                 }
               }
+              const ignoreList = yield ignoreService_1.IgnoreService.load();
+              const shownUnused = [];
+              const ignoredUnused = [];
+              for (const uv of unusedVariables) {
+                if (ignoreService_1.IgnoreService.isVariableIgnored(ignoreList, uv.id, uv.collectionId)) {
+                  ignoredUnused.push(uv);
+                } else {
+                  shownUnused.push(uv);
+                }
+              }
               const totalVariables = allVariables.length;
-              const unusedCount = unusedVariables.length;
+              const unusedCount = shownUnused.length;
               const hygieneScore = totalVariables === 0 ? 100 : Math.round((totalVariables - unusedCount) / totalVariables * 100);
-              console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+              console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables (${ignoredUnused.length} ignored) out of ${totalVariables} total.`);
               return {
                 totalVariables,
-                unusedVariables,
+                unusedVariables: shownUnused,
                 unusedCount,
+                ignoredVariables: ignoredUnused,
+                ignoredCount: ignoredUnused.length,
                 hygieneScore,
                 subScores: { variableHygiene: hygieneScore }
               };
@@ -9540,6 +9744,7 @@ ${Object.keys(cssProperties).map((property) => {
       var componentService_1 = require_componentService();
       var variableImportService_1 = require_variableImportService();
       var qualityService_1 = require_qualityService();
+      var ignoreService_1 = require_ignoreService();
       var config_1 = require_config();
       figma.showUI(__html__, { width: 650, height: 900, themeColors: true });
       function collectDocumentData() {
@@ -10802,6 +11007,29 @@ ${Object.keys(cssProperties).map((property) => {
                 console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
               }
               break;
+            case "ignore-item": {
+              const ignoreMsg = msg;
+              const ignoreList = yield ignoreService_1.IgnoreService.load();
+              const updatedIgnore = ignoreService_1.IgnoreService.addItem(ignoreList, ignoreMsg.itemType, ignoreMsg.itemId);
+              yield ignoreService_1.IgnoreService.save(updatedIgnore);
+              qualityService_1.QualityService.invalidateCache();
+              figma.ui.postMessage({ type: "item-ignored", itemType: ignoreMsg.itemType, itemId: ignoreMsg.itemId });
+              break;
+            }
+            case "unignore-item": {
+              const unignoreMsg = msg;
+              const currentList = yield ignoreService_1.IgnoreService.load();
+              const updatedUnignore = ignoreService_1.IgnoreService.removeItem(currentList, unignoreMsg.itemType, unignoreMsg.itemId);
+              yield ignoreService_1.IgnoreService.save(updatedUnignore);
+              qualityService_1.QualityService.invalidateCache();
+              figma.ui.postMessage({ type: "item-unignored", itemType: unignoreMsg.itemType, itemId: unignoreMsg.itemId });
+              break;
+            }
+            case "get-ignore-list": {
+              const loadedList = yield ignoreService_1.IgnoreService.load();
+              figma.ui.postMessage({ type: "ignore-list-loaded", list: loadedList });
+              break;
+            }
             case "focus-node":
               try {
                 const focusMsg = msg;
