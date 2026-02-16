@@ -334,11 +334,11 @@ class UIHelper {
     return `<div class="no-items">${message}</div>`;
   }
 
-  static createSkeletonLoader() {
+  static createQualityLoader() {
     return `
-            <div class="quality-skeleton-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0;">
+            <div id="quality-unified-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 0;">
               <div class="plugin-loading-spinner"></div>
-              <div class="plugin-loading-status" style="margin-top: 0; font-size: 13px; opacity: 0.8;">Analyzing token coverage...</div>
+              <div style="margin-top: 12px; font-size: 13px; opacity: 0.7;">Analyzing design system...</div>
             </div>
           `;
   }
@@ -3000,71 +3000,88 @@ window.onmessage = (event) => {
         }
       }
       
-    } else if (message.type === 'token-coverage-result') {
-      console.log('UI received token-coverage-result', message);
+    } else if (message.type === 'quality-report') {
+      console.log('UI received quality-report', message.report);
+      window._qualityAnalysisInFlight = false;
 
-      // Skip re-rendering if a token fix is in progress to prevent layout shift
-      if (window.tokenFixInProgress) {
-
-        // Just store the result, don't re-render
-        window.lastTokenCoverageResult = message.result;
-      } else {
-        // Quality Analysis success - normal flow
-        displayTokenCoverageResults(message.result);
+      const report = message.report;
+      
+      // 1. Update Global State
+      if (window.qualityAnalysisState) {
+          window.qualityAnalysisState.totalNodes = report.meta.totalNodes;
+          
+          // These serve as raw data storage
+          window.lastTokenCoverageResult = report.metrics.tokenCoverage;
+          window.componentHygieneData = report.metrics.componentHygiene;
+          window.variableHygieneData = report.metrics.variableHygiene;
+          
+          // Update issue counts in state
+          window.qualityAnalysisState.tokenIssues = report.metrics.tokenCoverage?.totalIssues || 0;
+          window.qualityAnalysisState.componentIssues = report.metrics.componentHygiene?.unusedCount || 0;
+          window.qualityAnalysisState.variableIssues = report.metrics.variableHygiene?.unusedCount || 0;
+          
+          // Update sub-scores
+          window.qualityAnalysisState.subScores = report.score.breakdown;
+          
+          updateQualityScoreUI();
       }
 
+      // Update Tailwind validation from report so displayVariableHygieneSection can render it
+      if (report.metrics.tailwindReadiness?.validation) {
+          window.tailwindV4Validation = report.metrics.tailwindReadiness.validation;
+          if (report.score?.breakdown?.tailwindReadiness !== undefined) {
+              window.tailwindV4Validation.readinessScore = report.score.breakdown.tailwindReadiness;
+          }
+      }
+
+      // 2. Render Results
+      const unifiedLoader = document.getElementById('quality-unified-loader');
+      if (unifiedLoader) unifiedLoader.remove();
+
+      // Token Coverage
+      if (report.metrics.tokenCoverage) {
+          displayTokenCoverageResults(report.metrics.tokenCoverage);
+      }
+
+      // Component Hygiene
+      if (report.metrics.componentHygiene) {
+          displayComponentHygieneSection(report.metrics.componentHygiene);
+      }
+
+      // Variable Hygiene
+      if (report.metrics.variableHygiene) {
+          displayVariableHygieneSection(report.metrics.variableHygiene);
+      }
+
+      // 3. Finalize Loading
       if (window.currentAnalysisNotification) {
-        updateNotification(window.currentAnalysisNotification, 'success', 'Analysis Complete', 'Token coverage analysis finished', 3000);
+        updateNotification(window.currentAnalysisNotification, 'success', 'Analysis Complete', 'Quality scan finished', 3000);
         window.currentAnalysisNotification = null;
-      } else if (!message.silent) {
-        // Only show toast if not silent (INITIAL_LOAD might be silent or handled differently? Let's show it for clarity or suppress?)
-        // The user said "only show the plugin when it's loaded". 
-        // We'll update loading progress to 100% and hide overlay here.
       }
-
-      // Finalize Loading (for Initial Load flow)
+      
       updatePluginLoadingProgress('Ready!', 100);
       hidePluginLoadingOverlay();
 
-      // If navigated from "Improve design system" button, enter edit mode after results render
       if (window.pendingImproveDesignSystem) {
         window.pendingImproveDesignSystem = false;
         setTimeout(() => handleImproveDesignSystem(), 300);
       }
 
+    } else if (message.type === 'quality-report-error') {
+       window._qualityAnalysisInFlight = false;
+       console.error('Quality Analysis Error:', message.error);
+       showNotification('error', 'Analysis Failed', message.error);
+       updatePluginLoadingProgress('Error', 100);
+       hidePluginLoadingOverlay();
+
+    /* Legacy Handlers Replaced by quality-report */
+    /* 
+    } else if (message.type === 'token-coverage-result') { ... } 
+    } else if (message.type === 'component-hygiene-result') { ... }
+    } else if (message.type === 'variable-hygiene-result') { ... }
+    */
+
     } else if (message.type === 'component-stats-data') {
-      // Stats refresh success
-      window.componentStatsData = message.stats;
-      renderStats(message.stats);
-      
-      if (window.currentStatsNotification) {
-        updateNotification(window.currentStatsNotification, 'success', 'Stats Refreshed', 'Component usage data updated', 3000);
-        window.currentStatsNotification = null;
-      } else {
-         showSuccess('Refreshed', 'Component usage data updated', 3000);
-      }
-
-    } else if (message.type === 'component-hygiene-result') {
-      // Handle component hygiene analysis result
-      console.log('UI: Received component hygiene result', message.result);
-      window.componentHygieneData = message.result;
-      displayComponentHygieneSection(message.result);
-      
-    } else if (message.type === 'component-hygiene-error') {
-      // Handle component hygiene analysis error
-      console.error('UI: Component hygiene error', message.error);
-      
-    } else if (message.type === 'variable-hygiene-result') {
-      // Handle variable hygiene analysis result
-      console.log('UI: Received variable hygiene result', message.result);
-      window.variableHygieneData = message.result;
-      displayVariableHygieneSection(message.result);
-
-    } else if (message.type === 'variable-hygiene-error') {
-      // Handle variable hygiene analysis error
-      console.error('UI: Variable hygiene error', message.error);
-
-    } else if (message.type === 'component-deleted') {
       // Handle successful component deletion
       console.log(`Component deleted successfully: ${message.componentName}`);
       const deletionType = message.componentType || 'component';
@@ -3403,7 +3420,9 @@ window.onmessage = (event) => {
 
                   // Trigger re-analysis to update score (and animate!)
                   if (typeof analyzeTokenCoverage === 'function') {
-                      analyzeTokenCoverage(null, null, true); // true = background mode
+                      // Use stored scope or default to SMART_SCAN to prevent losing data
+                      const currentScope = window.qualityAnalysisScope || 'SMART_SCAN';
+                      analyzeTokenCoverage(currentScope, null, true); // true = background mode
                   }
                 }, 300);
               } else {
@@ -3417,7 +3436,8 @@ window.onmessage = (event) => {
                 
                 // Trigger re-analysis here too
                 if (typeof analyzeTokenCoverage === 'function') {
-                    analyzeTokenCoverage(null, null, true); // true = background mode
+                    const currentScope = window.qualityAnalysisScope || 'SMART_SCAN';
+                    analyzeTokenCoverage(currentScope, null, true); // true = background mode
                 }
               }
             }
@@ -5718,112 +5738,120 @@ function switchToQualityTab() {
 
 // Function to analyze token coverage
 
-function analyzeTokenCoverage(scopeOverride, notificationElement, isBackground = false) {
+// Unified Quality Analysis Trigger
+function startQualityAnalysis(scopeOverride, notificationElement, isBackground = false) {
+  console.log('[DEBUG] startQualityAnalysis ENTER', { scopeOverride, hasNotification: !!notificationElement, isBackground });
 
-  console.log('analyzeTokenCoverage called', { scopeOverride, hasNotification: !!notificationElement, isBackground });
-  
-  // Set global background flag
-  window.isBackgroundAnalysis = isBackground;
+  try {
+    // SECURITY GUARD: Prevent "PAGE" scope from overwriting a recent "SMART_SCAN"
+    // This fixes the race condition where the initial smart scan (finding issues)
+    // is immediately followed by a default page scan (finding 0 issues)
+    const requestedScope = scopeOverride || window.qualityAnalysisScope || 'PAGE';
 
-  // Store notification reference if provided
-  if (notificationElement) {
-    window.currentAnalysisNotification = notificationElement;
+    if (window.lastSmartScanTime && (Date.now() - window.lastSmartScanTime < 5000)) {
+        if (requestedScope === 'PAGE' && !scopeOverride) {
+            console.warn('[DEBUG] Blocked redundant PAGE scan because SMART_SCAN completed recently.');
+            updatePluginLoadingProgress('Ready', 100);
+            hidePluginLoadingOverlay();
+            return;
+        }
+    }
+
+    // DEDUP GUARD: Block overlapping analysis requests.
+    // If an analysis is already in flight, skip this request to prevent
+    // duplicate quality-report responses that cause animation glitches.
+    if (window._qualityAnalysisInFlight && !isBackground) {
+        console.warn('[DEBUG] Blocked overlapping analysis request — one is already in flight.');
+        return;
+    }
+
+    if (requestedScope === 'SMART_SCAN') {
+        window.lastSmartScanTime = Date.now();
+    }
+
+    // Set global background flag
+    window.isBackgroundAnalysis = isBackground;
+
+    // Store notification reference if provided
+    if (notificationElement) {
+      window.currentAnalysisNotification = notificationElement;
+    }
+
+    // Reset Animation Controller
+    if (window.QualityAnimationController && typeof window.QualityAnimationController.reset === 'function') {
+        // Only reset if not background, to avoid visual glitching
+        if (!isBackground) {
+            console.log('[DEBUG] Resetting QualityAnimationController');
+            window.QualityAnimationController.reset();
+        }
+    }
+
+    // Unified loading state - Only show if NOT background and NOT a silent update
+    if (!isBackground) {
+        console.log('[DEBUG] Setting up unified quality loader');
+        const tokenContainer = document.getElementById('token-coverage-results');
+        if (tokenContainer) tokenContainer.innerHTML = '';
+        const componentPlaceholder = document.getElementById('component-hygiene-results-placeholder');
+        if (componentPlaceholder) componentPlaceholder.innerHTML = '';
+        const variablePlaceholder = document.getElementById('variable-hygiene-results-placeholder');
+        if (variablePlaceholder) variablePlaceholder.innerHTML = '';
+        const tailwindPlaceholder = document.getElementById('tailwind-readiness-results-placeholder');
+        if (tailwindPlaceholder) tailwindPlaceholder.innerHTML = '';
+
+        const dashboardContainer = document.getElementById('quality-dashboard-container');
+        if (dashboardContainer && !document.getElementById('quality-unified-loader')) {
+            dashboardContainer.insertAdjacentHTML('afterbegin', UIHelper.createQualityLoader());
+        }
+    }
+
+    const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
+    const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
+    
+    // Explicitly handle undefined analysisScope
+    const analysisScope = window.qualityAnalysisScope || 'PAGE';
+    
+    // FIX: scopeOverride must take precedence over pageIds to ensure SMART_SCAN works
+    let finalScope = scopeOverride || analysisScope || 'PAGE';
+    
+    // Only upgrade to 'ALL' if we have specific page IDs AND no specific override was requested
+    if (pageIds && !scopeOverride) {
+        finalScope = 'ALL';
+    }
+
+    console.log('[DEBUG] Sending analyze-quality-report message', { finalScope, pageIds, format: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css' });
+
+    window._qualityAnalysisInFlight = true;
+    parent.postMessage({
+        pluginMessage: {
+            type: 'analyze-quality-report',
+            scope: finalScope,
+            pageIds: pageIds,
+            exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css'
+        }
+    }, '*');
+    console.log('[DEBUG] Message posted successfully');
+  } catch (error) {
+    console.error('[DEBUG] Error in startQualityAnalysis:', error);
+    window._qualityAnalysisInFlight = false;
   }
-  
-  // Reset Animation Controller to ensure new stats animate
-  if (window.QualityAnimationController && typeof window.QualityAnimationController.reset === 'function') {
-      window.QualityAnimationController.reset();
-  }
-
-  const resultsContainer = document.getElementById('token-coverage-results');
-
-  // ONLY Show skeleton if NOT in background
-  if (resultsContainer && !isBackground) {
-    resultsContainer.innerHTML = UIHelper.createSkeletonLoader();
-  }
-
-  const selectedIds = MultiPageSelector.getSelectedIds();
-  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
-  const pageIds = selectedIds.length > 0 ? selectedIds : null;
-
-  // Send message to plugin backend
-  parent.postMessage(
-    {
-      pluginMessage: {
-        type: 'analyze-token-coverage',
-        // If pageIds are provided, we MUST use ALL scope to ensure backend processes the list
-        scope: pageIds ? 'ALL' : (scopeOverride || analysisScope),
-        pageIds: pageIds,
-        exportFormat: window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css'
-      },
-    },
-    '*',
-  );
 }
+
+// Legacy aliases (should be replaced in calls, but kept for safety during refactor)
+const analyzeTokenCoverage = startQualityAnalysis;
+const analyzeComponentHygiene = () => {}; // No-op as startQualityAnalysis handles all
+const analyzeVariableHygiene = () => {}; // No-op
 
 // Function to analyze stats (component usage)
 function analyzeStats() {
   console.log('analyzeStats called');
-  const selectedIds = MultiPageSelector.getSelectedIds();
-  // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
-  const pageIds = selectedIds.length > 0 ? selectedIds : null;
+  const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
+  const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
   parent.postMessage({
     pluginMessage: {
       type: 'get-component-usage',
-      // If we have specific pages, the backend handles it via usage scanning
       pageIds: pageIds
     } 
   }, '*');
-}
-
-// Analyze component hygiene (unused components)
-function analyzeComponentHygiene() {
-  console.log('analyzeComponentHygiene called');
-
-  try {
-    const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
-    // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
-    const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
-
-    // Send message to plugin backend
-    parent.postMessage(
-      {
-        pluginMessage: {
-          type: 'analyze-component-hygiene',
-          scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
-          pageIds: pageIds
-        },
-      },
-      '*',
-    );
-  } catch (error) {
-    console.error('Error in analyzeComponentHygiene:', error);
-  }
-}
-
-// Analyze variable hygiene (unused variables)
-function analyzeVariableHygiene() {
-  console.log('analyzeVariableHygiene called');
-
-  try {
-    const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
-    // Only send pageIds when pages are actually selected; empty array means pages haven't loaded yet
-    const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
-
-    // Send message to plugin backend
-    parent.postMessage(
-      {
-        pluginMessage: {
-          type: 'analyze-variable-hygiene',
-          scope: pageIds ? 'ALL' : (analysisScope || 'ALL'),
-          pageIds: pageIds
-        },
-      },
-      '*',
-    );
-  } catch (error) {
-    console.error('Error in analyzeVariableHygiene:', error);
-  }
 }
 
 // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
@@ -5836,6 +5864,7 @@ function getScoreColor(score) {
 
 // Update analysis scope
 function updateAnalysisScope(scope) {
+  if (analysisScope === scope) return;
   analysisScope = scope;
   // Re-run analysis when scope changes
   analyzeTokenCoverage();
@@ -6622,30 +6651,39 @@ function getTailwindNamespaceOptions(currentName) {
 window.QualityAnimationController = {
   activeCategories: new Set(),
   completedCategories: new Set(),
+  categoryBackground: new Map(),
   isRunning: false,
-  
-  isRunning: false,
-  
+  _pollTimeout: null,
+
   // Reset state for new analysis
   reset() {
       console.log('AnimationController: resetting state');
       this.activeCategories = new Set();
       this.completedCategories = new Set();
+      this.categoryBackground = new Map();
       this.isRunning = false;
+      if (this._pollTimeout) {
+          clearTimeout(this._pollTimeout);
+          this._pollTimeout = null;
+      }
   },
 
   // Register a category as "data received"
   registerData(categoryLabel) {
     console.log('AnimationController: registered', categoryLabel);
     this.activeCategories.add(categoryLabel);
+    // Capture whether this is a background update NOW, before async animation reads it
+    this.categoryBackground.set(categoryLabel, !!window.isBackgroundAnalysis);
+    // Allow re-animation if category was already completed (e.g. second quality-report re-rendered the DOM)
+    this.completedCategories.delete(categoryLabel);
     this.tryStart();
   },
   
   async tryStart() {
     if (this.isRunning) return;
-    
+
     this.isRunning = true;
-    
+
     // Categories in order
     const sequence = [
       'Missing Variables',
@@ -6653,23 +6691,40 @@ window.QualityAnimationController = {
       'Unused Components',
       'Tailwind Incompatible Variables'
     ];
-    
+
     let animatedSomething = false;
 
-    for (const label of sequence) {
-      if (this.completedCategories.has(label)) continue;
+    // Loop until all registered categories are animated on their CURRENT DOM elements.
+    // A second quality-report can replace DOM elements mid-animation, so we re-check.
+    let needsAnotherPass = true;
+    while (needsAnotherPass) {
+      needsAnotherPass = false;
+      for (const label of sequence) {
+        if (this.completedCategories.has(label)) continue;
 
-      const safe = label.replace(/\s+/g, '-').toLowerCase();
-      // Check if elements exist in DOM
-      const bar = document.getElementById(`bar-${safe}`);
-      const hasData = this.activeCategories.has(label);
+        const safe = label.replace(/\s+/g, '-').toLowerCase();
+        // Check if elements exist in DOM
+        const bar = document.getElementById(`bar-${safe}`);
+        const hasData = this.activeCategories.has(label);
 
-      // Only animate when data has been explicitly registered AND DOM element exists
-      // Using just `bar` would animate stale elements from a previous scan
-      if (hasData && bar) {
-        await this.animateCategory(label);
-        this.completedCategories.add(label);
-        animatedSomething = true;
+        // Only animate when data has been explicitly registered AND DOM element exists
+        // Using just `bar` would animate stale elements from a previous scan
+        if (hasData && bar) {
+          // Store reference to detect if DOM was replaced during animation
+          const barBefore = bar;
+          await this.animateCategory(label);
+          const barAfter = document.getElementById(`bar-${safe}`);
+
+          if (barBefore === barAfter) {
+            // Same element — animation was applied to the visible DOM
+            this.completedCategories.add(label);
+          } else {
+            // Element was replaced (e.g. second quality-report re-rendered the section).
+            // Don't mark as completed — loop again to animate the new element.
+            needsAnotherPass = true;
+          }
+          animatedSomething = true;
+        }
       }
     }
     
@@ -6686,22 +6741,25 @@ window.QualityAnimationController = {
        return document.getElementById(`bar-${safe}`);
     }).length;
 
+    // Count sections that have registered data (i.e. are expected to appear)
+    const registeredCount = this.activeCategories.size;
+
     if (this.completedCategories.size >= visibleSections && visibleSections > 0) {
         // All currently visible sections are animated
-        if (this.completedCategories.size >= sequence.length) {
-            // All possible sections done
+        if (this.completedCategories.size >= registeredCount) {
+            // All registered sections done — fire final score and reset
             await this.animateFinalScore();
             this.reset(); // Reset for next run completely
         } else {
-             // Some sections missing from DOM, might appear later
+             // Some registered sections not yet in DOM, might appear later
              this.isRunning = false;
-             // Poll less frequently
-             setTimeout(() => this.tryStart(), 1000);
+             // Poll less frequently (store timeout for cleanup)
+             this._pollTimeout = setTimeout(() => { this._pollTimeout = null; this.tryStart(); }, 1000);
         }
     } else {
       // Still waiting for some data or animations pending
       this.isRunning = false;
-      setTimeout(() => this.tryStart(), 500);
+      this._pollTimeout = setTimeout(() => { this._pollTimeout = null; this.tryStart(); }, 500);
     }
   },
   
@@ -6725,13 +6783,13 @@ window.QualityAnimationController = {
     const currentBad = parseInt(badCountEl.textContent.replace(/[^0-9-]/g, '')) || 0;
     const currentGood = goodCountEl ? (parseInt(goodCountEl.textContent.replace(/[^0-9-]/g, '')) || 0) : 0;
     const currentPercent = parseInt(percentEl.textContent.replace(/[^0-9-]/g, '')) || 0;
-    
+
     // 1. Counts (Smart Transition)
-    // If target is 0 and we are not in background, start from 0 (initial load)
-    // If background mode, we always want to transition from current
-    const startBad = window.isBackgroundAnalysis ? currentBad : 0;
-    const startGood = window.isBackgroundAnalysis ? currentGood : 0;
-    const startPercent = window.isBackgroundAnalysis ? currentPercent : 0;
+    // Use the flag captured at registration time, not the global (which may have been reset)
+    const isBackground = this.categoryBackground.get(label) || false;
+    const startBad = isBackground ? currentBad : 0;
+    const startGood = isBackground ? currentGood : 0;
+    const startPercent = isBackground ? currentPercent : 0;
     
     // Animate both counts concurrently
     const promises = [
@@ -6791,8 +6849,10 @@ window.QualityAnimationController = {
 
     // Count up score value
     // SMART UPDATE: Read current score to animate from
+    // If ANY category was background, treat the final score as a transition too
+    const anyBackground = Array.from(this.categoryBackground.values()).some(v => v);
     const currentScore = parseInt(scoreEl.textContent.replace(/[^0-9-]/g, '')) || 0;
-    const startScore = window.isBackgroundAnalysis ? currentScore : 0;
+    const startScore = anyBackground ? currentScore : 0;
     
     await this.animateValue(scoreEl, startScore, finalScore, 1000);
   },
@@ -7082,8 +7142,17 @@ function animateValue(id, start, end, duration) {
 /**
  * Centralized function to update the Quality Score UI components
  * Updates the Gauge, Scanned Nodes count, and Total Issues count
+ * Debounced: multiple rapid calls collapse into one frame update.
  */
+let _updateQualityScoreTimer = null;
 function updateQualityScoreUI() {
+    if (_updateQualityScoreTimer) return;
+    _updateQualityScoreTimer = requestAnimationFrame(() => {
+        _updateQualityScoreTimer = null;
+        _updateQualityScoreUIImmediate();
+    });
+}
+function _updateQualityScoreUIImmediate() {
     const state = window.qualityAnalysisState;
     if (!state) return;
 
@@ -7117,41 +7186,29 @@ function updateQualityScoreUI() {
     state.previousScore = finalScore;
 
     // 2. Update Gauge
-    const isAnimating = window.QualityAnimationController && window.QualityAnimationController.isRunning;
+    const controllerRunning = window.QualityAnimationController && window.QualityAnimationController.isRunning;
     const gaugeWrapper = document.querySelector('.quality-gauge-wrapper');
-    
-    if (gaugeWrapper && !isAnimating) {
-        // Re-render gauge specifically to update segments
+
+    // Always update gauge segments (static, no animation conflict)
+    if (gaugeWrapper) {
         gaugeWrapper.innerHTML = `
             ${renderSegmentedGauge(state.subScores, state.weights, 150)}
         `;
-        
-        // Handle Score Animation Post-Render
-        // Animate if improved AND (not first load OR background mode)
-        if (isImprovement && (previousScore > 0 || window.isBackgroundAnalysis)) {
-             // Smart Start: Use previous score, unless it's 0 and we are in background (then scan DOM)
-             let startVal = previousScore;
-             if (window.isBackgroundAnalysis && startVal === 0) {
-                 const currentText = document.getElementById('quality-score-text');
-                 if (currentText) {
-                    startVal = parseInt(currentText.textContent) || 0;
-                 }
-             }
-            
-            // Trigger Count Up
-            animateValue("quality-score-text", startVal, finalScore, 600);
-            
-            // Trigger Visual Celebration
-            const scoreText = document.getElementById('quality-score-text');
-            if (scoreText) {
-                // Remove class to reset if already running
-                scoreText.classList.remove('score-celebration');
-                
-                // Force reflow
-                void scoreText.offsetWidth;
-                
-                // Add class
-                scoreText.classList.add('score-celebration');
+    }
+
+    // Animate the score NUMBER only when the controller is NOT running
+    // (the controller handles score animation in animateFinalScore)
+    if (!controllerRunning && gaugeWrapper) {
+        if (isImprovement && previousScore > 0) {
+            // Trigger Count Up using RAF-based animation (avoids setInterval/innerHTML conflicts)
+            const scoreTextEl = document.getElementById('quality-score-text');
+            if (scoreTextEl) {
+                window.QualityAnimationController.animateValue(scoreTextEl, previousScore, finalScore, 600);
+
+                // Visual Celebration
+                scoreTextEl.classList.remove('score-celebration');
+                void scoreTextEl.offsetWidth;
+                scoreTextEl.classList.add('score-celebration');
             }
         }
     }
@@ -7210,35 +7267,17 @@ function resetQualityState() {
     
     console.log('Quality: State reset for re-analysis');
 
-    // Inject Loading States into placeholders
+    // Unified loading state
     const componentPlaceholder = document.getElementById('component-hygiene-results-placeholder');
-    if (componentPlaceholder) {
-        componentPlaceholder.innerHTML = `
-            <div class="content-loading">
-                <div class="plugin-loading-spinner"></div>
-                <div class="content-loading-text">Analyzing components...</div>
-            </div>
-        `;
-    }
-
+    if (componentPlaceholder) componentPlaceholder.innerHTML = '';
     const tokenPlaceholder = document.getElementById('token-coverage-results');
-    if (tokenPlaceholder) {
-        tokenPlaceholder.innerHTML = `
-            <div class="content-loading">
-                <div class="plugin-loading-spinner"></div>
-                <div class="content-loading-text">Analyzing token coverage...</div>
-            </div>
-        `;
-    }
-
+    if (tokenPlaceholder) tokenPlaceholder.innerHTML = '';
     const variablePlaceholder = document.getElementById('variable-hygiene-results-placeholder');
-    if (variablePlaceholder) {
-        variablePlaceholder.innerHTML = `
-            <div class="content-loading">
-                <div class="content-loading-spinner"></div>
-                <div class="content-loading-text">Analyzing variables...</div>
-            </div>
-        `;
+    if (variablePlaceholder) variablePlaceholder.innerHTML = '';
+
+    const dashboardContainer = document.getElementById('quality-dashboard-container');
+    if (dashboardContainer && !document.getElementById('quality-unified-loader')) {
+        dashboardContainer.insertAdjacentHTML('afterbegin', UIHelper.createQualityLoader());
     }
 
     const tailwindPlaceholder = document.getElementById('tailwind-readiness-results-placeholder');
@@ -13462,23 +13501,40 @@ window.applyTokenToSelection = applyTokenToSelection;
 
 // Initialization: Check active tab on load
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize MultiPageSelector regardless of tab (used in Quality and Stats)
+  if (window.MultiPageSelector && typeof window.MultiPageSelector.init === 'function') {
+      try {
+        window.MultiPageSelector.init();
+      } catch (e) {
+        console.error('Failed to initialize MultiPageSelector:', e);
+      }
+  }
+
   // Allow time for other initializations
   setTimeout(() => {
     const activeTab = document.querySelector('.tab.active');
     if (activeTab && activeTab.dataset.tab === 'quality') {
        if (!window.qualityScanPerformed) {
-           console.log('Plugin loaded with Quality tab active - Triggering initial scan...');
-           resetQualityState();
-           setTimeout(() => {
-              try {
-                if (typeof analyzeTokenCoverage === 'function') analyzeTokenCoverage('SMART_SCAN');
-                if (typeof analyzeComponentHygiene === 'function') analyzeComponentHygiene();
-                if (typeof analyzeVariableHygiene === 'function') analyzeVariableHygiene();
-                window.qualityScanPerformed = true;
-              } catch (e) {
-                console.error('Error in initial quality scan:', e);
-              }
-           }, 100);
+           // Check if valid data arrived while we were waiting
+           // With the faster backend, results might arrive before this 200ms timeout fires
+           const hasValidData = window.qualityAnalysisState && 
+                                window.qualityAnalysisState.totalNodes > 0;
+           
+           if (hasValidData) {
+               console.log('[Initialize] Quality tab active - Data already present, skipping initial reset/scan.');
+               window.qualityScanPerformed = true;
+           } else {
+               console.log('[Initialize] Quality tab active - Triggering initial scan...');
+               resetQualityState();
+               setTimeout(() => {
+                  try {
+                    if (typeof analyzeTokenCoverage === 'function') analyzeTokenCoverage('SMART_SCAN');
+                    window.qualityScanPerformed = true;
+                  } catch (e) {
+                    console.error('Error in initial quality scan:', e);
+                  }
+               }, 100);
+           }
        }
     }
   }, 200);
