@@ -1206,20 +1206,20 @@
         </p>
         <div style="display: grid; gap: 12px;">
           <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">1. Variable Coverage</strong>
-            Measures how many properties (colors, spacing, radius) are bound to tokens. Scores decrease as more hard-coded values are found across your nodes.
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">1. Missing Variables</strong>
+            Identifies components, variants, and instances using hard-coded values where a design variable should be used.
           </div>
           <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">2. Tailwind Readiness</strong>
-            Percentage of variables following Tailwind v4 naming conventions (e.g., --color-primary). Only active when Tailwind v4 export format is selected.
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">2. Unused Variables</strong>
+            Detects variables not used in any component, variant, instance, or styling property.
           </div>
           <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">3. Component Hygiene</strong>
-            Ratio of component instances vs. raw frames, encouraging composition and modularity.
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">3. Unused Components</strong>
+            Finds component sets with unused variants or standalone components that are not used anywhere.
           </div>
           <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">4. Variable Hygiene</strong>
-            Evaluates organization by checking for logical grouping (use of slashes in variable names).
+            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">4. Tailwind Incompatible Variables</strong>
+            Variables with groups that do not start with a valid Tailwind v4 namespace. Only active when Tailwind v4 export format is selected.
           </div>
           <div style="margin-top: 4px; padding: 8px 12px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
             <em style="font-size: 11px; color: rgba(255,255,255,0.6);">Weights adjust dynamically: all categories share equal weight. When Tailwind v4 is disabled, its weight is redistributed among the remaining categories.</em>

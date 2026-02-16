@@ -2778,7 +2778,7 @@ window.onmessage = (event) => {
 
     } else if (message.type === 'token-coverage-error') {
       // Handle token coverage analysis error
-      const resultsContainer = document.getElementById('token-coverage-results');
+      const resultsContainer = document.getElementById('missing-variables-content');
       resultsContainer.innerHTML = `
             <div style="text-align: center; padding: 40px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444; margin-bottom: 16px;">
@@ -5160,7 +5160,7 @@ function runQualityAnalysis() {
   console.log('Running quality analysis...');
   
   // Reset lazy-load state
-  window._remainingMVIssues = {};
+  window.qualityRemainingIssues = {};
   
   // Show loading spinners in all category bodies
   ['missing-variables', 'unused-variables', 'unused-components', 'tailwind'].forEach(id => {
@@ -5234,7 +5234,7 @@ function updateAllCategoryUI() {
   const totalIssues = cats.missingVariables.bad + cats.unusedVariables.bad + cats.unusedComponents.bad + (cats.tailwind.active ? cats.tailwind.bad : 0);
   const summaryEl = document.getElementById('quality-summary-stats');
   if (summaryEl) {
-    summaryEl.textContent = window.qualityState.totalNodes + ' nodes \u2022 ' + totalIssues + ' issues';
+    summaryEl.textContent = window.qualityState.totalNodes + ' nodes • ' + totalIssues + ' issues';
   }
 }
 
@@ -5419,8 +5419,8 @@ function renderMissingVariablesContent(result) {
     html += '</div>';
     
     if (remainingIssues.length > 0) {
-      window._remainingMVIssues = window._remainingMVIssues || {};
-      window._remainingMVIssues[category] = remainingIssues;
+      window.qualityRemainingIssues = window.qualityRemainingIssues || {};
+      window.qualityRemainingIssues[category] = remainingIssues;
       
       html += '<div id="' + groupId + '-load-more" style="text-align: center; padding: 8px 0;">' +
         '<button onclick="loadMoreMVIssues(\'' + category + '\', ' + initialCount + ')" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">' +
@@ -5762,16 +5762,16 @@ window.deleteUnusedVariableNew = function(variableId, variableName, rowId) {
 };
 
 window.loadMoreMVIssues = function(category, currentCount) {
-  if (!window._remainingMVIssues || !window._remainingMVIssues[category]) return;
+  if (!window.qualityRemainingIssues || !window.qualityRemainingIssues[category]) return;
   
   const container = document.getElementById('mv-' + category + '-issues');
   const loadMoreDiv = document.getElementById('mv-' + category + '-load-more');
   const batchSize = 20;
-  const issues = window._remainingMVIssues[category];
+  const issues = window.qualityRemainingIssues[category];
   const batch = issues.slice(0, batchSize);
   const remaining = issues.slice(batchSize);
   
-  window._remainingMVIssues[category] = remaining;
+  window.qualityRemainingIssues[category] = remaining;
   
   const tempDiv = document.createElement('div');
   batch.forEach((issue, batchIdx) => {
@@ -10852,7 +10852,7 @@ document.addEventListener('click', function (e) {
 });
 
 function filterQualityResults(query) {
-  const container = document.getElementById('token-coverage-results');
+  const container = document.getElementById('quality-dashboard-container');
   if (!container) {
     console.warn('⚠️ Token coverage results container not found');
     return;
