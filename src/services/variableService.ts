@@ -7,6 +7,7 @@ export interface VariableHygieneResult {
   unusedCount: number;
   ignoredVariables: UnusedVariable[];
   ignoredCount: number;
+  ignoredCollectionIds: string[];
   hygieneScore: number;
   subScores: {
     variableHygiene: number;
@@ -44,6 +45,7 @@ export class VariableService {
             unusedCount: 0,
             ignoredVariables: [],
             ignoredCount: 0,
+            ignoredCollectionIds: [],
             hygieneScore: 100,
             subScores: { variableHygiene: 100 },
           };
@@ -219,6 +221,7 @@ export class VariableService {
           unusedCount,
           ignoredVariables: ignoredUnused,
           ignoredCount: ignoredUnused.length,
+          ignoredCollectionIds: ignoreList.variables.collectionIds,
           hygieneScore,
           subScores: { variableHygiene: hygieneScore },
         };
