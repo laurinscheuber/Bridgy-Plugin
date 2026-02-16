@@ -10,6 +10,7 @@ import { objectEntries, arrayIncludes, arrayFlatMap } from '../utils/es2015-help
 import { CSS_PROPERTIES } from '../config/css';
 import { ErrorHandler } from '../utils/errorHandler';
 import { CSSCache, PerformanceCache, CacheService } from './cacheService';
+import { IgnoreService } from './ignoreService';
 
 // Constants for better maintainability
 const PSEUDO_STATES = ['hover', 'active', 'focus', 'disabled'];
@@ -46,6 +47,8 @@ export interface ComponentHygieneResult {
   totalComponents: number;
   unusedComponents: UnusedComponent[];
   unusedCount: number;
+  ignoredComponents: UnusedComponent[];
+  ignoredCount: number;
   hygieneScore: number;
   subScores: { componentHygiene: number };
 }
@@ -1445,6 +1448,8 @@ ${Object.keys(cssProperties)
                 totalComponents: 0,
                 unusedComponents: [],
                 unusedCount: 0,
+                ignoredComponents: [],
+                ignoredCount: 0,
                 hygieneScore: 100,
                 subScores: { componentHygiene: 100 }
             };
@@ -1566,14 +1571,63 @@ ${Object.keys(cssProperties)
             }
         }
 
+        // Partition unused components into shown vs ignored
+        const ignoreList = await IgnoreService.load();
+        const shownUnused: UnusedComponent[] = [];
+        const ignoredUnused: UnusedComponent[] = [];
+
+        for (const uc of unusedComponents) {
+          if (uc.type === 'COMPONENT_SET') {
+            // Check if the entire set is ignored
+            if (IgnoreService.isComponentIgnored(ignoreList, uc.id)) {
+              ignoredUnused.push(uc);
+            } else {
+              // Check if individual variants within the set are ignored
+              const shownVariants = (uc.unusedVariants || []).filter(
+                v => !IgnoreService.isComponentIgnored(ignoreList, v.id, uc.id)
+              );
+              const ignoredVariants = (uc.unusedVariants || []).filter(
+                v => IgnoreService.isComponentIgnored(ignoreList, v.id, uc.id)
+              );
+
+              if (shownVariants.length > 0) {
+                shownUnused.push({
+                  ...uc,
+                  unusedVariants: shownVariants,
+                  unusedVariantCount: shownVariants.length,
+                  isFullyUnused: shownVariants.length === uc.totalVariants,
+                });
+              }
+              if (ignoredVariants.length > 0) {
+                ignoredUnused.push({
+                  ...uc,
+                  unusedVariants: ignoredVariants,
+                  unusedVariantCount: ignoredVariants.length,
+                  isFullyUnused: false,
+                });
+              }
+            }
+          } else {
+            // Standalone component
+            if (IgnoreService.isComponentIgnored(ignoreList, uc.id)) {
+              ignoredUnused.push(uc);
+            } else {
+              shownUnused.push(uc);
+            }
+          }
+        }
+
         const totalComponents = localDefinitions.size;
-        const unusedCount = unusedComponents.length;
+        const unusedCount = shownUnused.length;
+        // Ignored items don't count against the hygiene score
         const hygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedCount) / totalComponents) * 100);
 
         return {
             totalComponents,
-            unusedComponents,
+            unusedComponents: shownUnused,
             unusedCount,
+            ignoredComponents: ignoredUnused,
+            ignoredCount: ignoredUnused.length,
             hygieneScore,
             subScores: { componentHygiene: hygieneScore }
         };
