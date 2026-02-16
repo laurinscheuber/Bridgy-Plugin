@@ -6,6 +6,7 @@ import { CSSExportService } from '../services/cssExportService';
 import { ComponentService } from '../services/componentService';
 import { TokenCoverageService } from '../services/tokenCoverageService';
 import { VariableImportService } from '../services/variableImportService';
+import { QualityService } from '../services/qualityService';
 import { SUCCESS_MESSAGES } from '../config';
 import { objectEntries, objectValues } from '../utils/es2015-helpers';
 
@@ -918,364 +919,17 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      /* Legacy Hygiene handlers - replaced by analyze-quality-report
       case 'analyze-component-hygiene':
-        try {
-          console.log('Analyzing component hygiene...');
+         // ... code removed ...
+         break;
+      */
 
-          // Ensure all pages are loaded
-          await figma.loadAllPagesAsync();
-
-          const localDefinitions = new Map<
-            string,
-            {
-              node: ComponentNode | ComponentSetNode;
-              name: string;
-              isSet: boolean;
-              instances: any[];
-            }
-          >();
-
-          const variantToSetId = new Map<string, string>();
-          const localNodes: (ComponentNode | ComponentSetNode)[] = [];
-          const allInstances: InstanceNode[] = [];
-
-          // Scan all pages for components and instances
-          for (const page of figma.root.children) {
-            // Apply scoping if pageIds are provided (empty array means scan all pages)
-            if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-              continue;
-            }
-
-            const pageDefs = page.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
-            localNodes.push(...pageDefs);
-
-            const pageInstances = page.findAllWithCriteria({ types: ['INSTANCE'] });
-            allInstances.push(...pageInstances);
-          }
-
-          // Process component definitions
-          // Track individual variants within component sets
-          const variantUsage = new Map<string, { name: string; parentId: string; instances: any[] }>();
-
-          for (const node of localNodes) {
-            if (node.type === 'COMPONENT_SET') {
-              localDefinitions.set(node.id, {
-                node: node as ComponentSetNode,
-                name: node.name,
-                isSet: true,
-                instances: [],
-              });
-
-              // Track each variant individually
-              for (const child of (node as ComponentSetNode).children) {
-                if (child.type === 'COMPONENT') {
-                  variantToSetId.set(child.id, node.id);
-                  variantUsage.set(child.id, {
-                    name: child.name,
-                    parentId: node.id,
-                    instances: [],
-                  });
-                }
-              }
-            } else if (node.type === 'COMPONENT') {
-              if (!node.parent || node.parent.type !== 'COMPONENT_SET') {
-                localDefinitions.set(node.id, {
-                  node: node as ComponentNode,
-                  name: node.name,
-                  isSet: false,
-                  instances: [],
-                });
-              }
-            }
-          }
-
-          // Match instances to definitions
-          for (const instance of allInstances) {
-            // Use getMainComponentAsync to avoid hygiene errors with dynamic pages
-            let mainId: string | undefined;
-
-            try {
-              const mainComponent = await (instance as InstanceNode).getMainComponentAsync();
-              if (mainComponent) {
-                mainId = mainComponent.id;
-              }
-            } catch (e) {
-              // Component may be from external library or deleted
-              // Log for debugging but continue processing other instances
-              console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
-            }
-
-            if (!mainId) continue;
-
-            // Track variant usage
-            if (variantUsage.has(mainId)) {
-              const variantInfo = variantUsage.get(mainId);
-              variantInfo.instances.push({ id: instance.id });
-            }
-
-            // Track component set usage
-            let targetId = mainId;
-            if (variantToSetId.has(mainId)) {
-              targetId = variantToSetId.get(mainId);
-            }
-
-            if (localDefinitions.has(targetId)) {
-              const def = localDefinitions.get(targetId);
-              def.instances.push({ id: instance.id });
-            }
-          }
-
-          // Find components with no instances (unused components)
-          const unusedComponents: any[] = [];
-          
-          console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
-          console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
-
-
-          for (const [id, def] of localDefinitions.entries()) {
-            if (def.isSet) {
-              // For component sets, check individual variant usage
-              const componentSet = def.node as ComponentSetNode;
-              const variants = componentSet.children.filter(child => child.type === 'COMPONENT');
-              const unusedVariants: any[] = [];
-              const totalVariants = variants.length;
-              let unusedVariantCount = 0;
-
-              for (const variant of variants) {
-                const variantInfo = variantUsage.get(variant.id);
-                if (variantInfo && variantInfo.instances.length === 0) {
-                  unusedVariantCount++;
-                  unusedVariants.push({
-                    id: variant.id,
-                    name: variant.name,
-                  });
-                }
-              }
-
-              // Only include component sets that have at least one unused variant
-              if (unusedVariantCount > 0) {
-                unusedComponents.push({
-                  id: componentSet.id,
-                  name: componentSet.name,
-                  type: 'COMPONENT_SET',
-                  totalVariants: totalVariants,
-                  unusedVariantCount: unusedVariantCount,
-                  isFullyUnused: unusedVariantCount === totalVariants,
-                  unusedVariants: unusedVariants,
-                });
-              }
-            } else {
-              // Regular component (not in a set)
-              if (def.instances.length === 0) {
-                unusedComponents.push({
-                  id: def.node.id,
-                  name: def.name,
-                  type: 'COMPONENT',
-                  isFullyUnused: true,
-                });
-              }
-            }
-          }
-
-          const totalComponents = localDefinitions.size;
-          const unusedCount = unusedComponents.length;
-          const hygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedCount) / totalComponents) * 100);
-
-          console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
-
-          if (unusedCount === 0 && totalComponents > 0) {
-              console.log('DEBUG: 0 unused found. Dumping sample defs to check consistency:');
-              // Check the first few defs to see if they have instances
-              let i = 0;
-              for (const [id, def] of localDefinitions.entries()) {
-                  if (i++ > 5) break; 
-                  console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
-                  if (def.isSet) {
-                      const set = def.node as ComponentSetNode;
-                      console.log(` - Variants: ${set.children.length}`);
-                  }
-              }
-          }
-
-          figma.ui.postMessage({
-            type: 'component-hygiene-result',
-            result: {
-              totalComponents,
-              unusedComponents,
-              unusedCount,
-              hygieneScore,
-              subScores: { componentHygiene: hygieneScore },
-            },
-          });
-        } catch (err) {
-          console.error('Error analyzing component hygiene:', err);
-          figma.ui.postMessage({
-            type: 'component-hygiene-error',
-            error: (err as Error).message,
-          });
-        }
-        break;
-
+      /* Legacy Hygiene handlers - replaced by analyze-quality-report
       case 'analyze-variable-hygiene':
-        try {
-          console.log('Analyzing variable hygiene...');
-
-          // Get all local variables
-          const allVariables = await figma.variables.getLocalVariablesAsync();
-          console.log(`Found ${allVariables.length} local variables`);
-
-          if (allVariables.length === 0) {
-            figma.ui.postMessage({
-              type: 'variable-hygiene-result',
-              result: {
-                totalVariables: 0,
-                unusedVariables: [],
-                unusedCount: 0,
-                hygieneScore: 100,
-              },
-              subScores: { variableHygiene: 100 },
-            });
-            break;
-          }
-
-          // Track which variables are used
-          const variableUsage = new Map<string, { variable: Variable; usedBy: Set<string> }>();
-
-          // Initialize usage tracking
-          for (const variable of allVariables) {
-            variableUsage.set(variable.id, {
-              variable,
-              usedBy: new Set(),
-            });
-          }
-
-          // Check if variables are aliased by other variables
-          for (const variable of allVariables) {
-            for (const modeId of Object.keys(variable.valuesByMode)) {
-              const value = variable.valuesByMode[modeId];
-
-              // Check if this value is an alias to another variable
-              if (value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-                const aliasedVarId = value.id;
-                if (variableUsage.has(aliasedVarId)) {
-                  variableUsage.get(aliasedVarId).usedBy.add(variable.id);
-                }
-              }
-            }
-          }
-
-          // Load all pages to scan for variable usage
-          await figma.loadAllPagesAsync();
-
-          // Scan all nodes for variable bindings
-          for (const page of figma.root.children) {
-            // Apply scoping if pageIds are provided (empty array means scan all pages)
-            if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-              continue;
-            }
-
-            const allNodes = page.findAll();
-
-            for (const node of allNodes) {
-              try {
-                // Check all possible variable bindings on the node
-                if ('boundVariables' in node && node.boundVariables) {
-                  const boundVars = node.boundVariables as any;
-
-                  // Iterate through all bound variable properties
-                  for (const propKey of Object.keys(boundVars)) {
-                    const binding = boundVars[propKey];
-                    if (binding && typeof binding === 'object') {
-                      // Handle single binding
-                      if ('id' in binding) {
-                        const varId = (binding as any).id;
-                        if (variableUsage.has(varId)) {
-                          variableUsage.get(varId).usedBy.add(node.id);
-                        }
-                      }
-                      // Handle array of bindings (for gradients, effects, etc.)
-                      else if (Array.isArray(binding)) {
-                        for (const item of binding) {
-                          if (item && typeof item === 'object' && 'id' in item) {
-                            const varId = item.id;
-                            if (variableUsage.has(varId)) {
-                              variableUsage.get(varId).usedBy.add(node.id);
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              } catch (nodeError) {
-                // Some nodes might not support variable bindings, continue
-                console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
-              }
-            }
-          }
-
-          // Find unused variables
-          const unusedVariables: any[] = [];
-
-          for (const [varId, usage] of variableUsage.entries()) {
-            if (usage.usedBy.size === 0) {
-              const variable = usage.variable;
-              const collection = await figma.variables.getVariableCollectionByIdAsync(
-                variable.variableCollectionId,
-              );
-
-              // Get resolved value for the default mode
-              const modeId = collection?.defaultModeId || Object.keys(variable.valuesByMode)[0];
-              const varValue = variable.valuesByMode[modeId];
-              let resolvedValue = '';
-
-              if (
-                variable.resolvedType === 'COLOR' &&
-                typeof varValue === 'object' &&
-                'r' in (varValue as any)
-              ) {
-                const color = varValue as { r: number; g: number; b: number; a?: number };
-                resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-              } else if (variable.resolvedType === 'FLOAT') {
-                resolvedValue = String(varValue);
-              }
-
-              unusedVariables.push({
-                id: variable.id,
-                name: variable.name,
-                collectionId: variable.variableCollectionId,
-                collectionName: collection?.name || 'Unknown Collection',
-                resolvedType: variable.resolvedType,
-                resolvedValue: resolvedValue,
-                scopes: variable.scopes,
-              });
-            }
-          }
-
-          const totalVariables = allVariables.length;
-          const unusedCount = unusedVariables.length;
-          const hygieneScore = totalVariables === 0 ? 100 : Math.round(((totalVariables - unusedCount) / totalVariables) * 100);
-
-          console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
-
-          figma.ui.postMessage({
-            type: 'variable-hygiene-result',
-            result: {
-              totalVariables,
-              unusedVariables,
-              unusedCount,
-              hygieneScore,
-              subScores: { variableHygiene: hygieneScore },
-            },
-          });
-        } catch (err) {
-          console.error('Error analyzing variable hygiene:', err);
-          figma.ui.postMessage({
-            type: 'variable-hygiene-error',
-            error: (err as Error).message,
-          });
-        }
-        break;
+         // ... code removed ...
+         break;
+      */
 
       case 'delete-component':
         try {
@@ -1910,40 +1564,29 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
-      case 'analyze-token-coverage':
+      case 'analyze-quality-report':
         try {
-          const scope = (msg.scope || 'PAGE') as string;
-          console.log(`Analyzing token coverage (Scope: ${scope})...`);
+          const scope = (msg.scope || 'PAGE') as 'SELECTION' | 'PAGE' | 'ALL' | 'SMART_SCAN';
+          console.log(`[Plugin] Analyze-quality-report received. Scope: ${scope}, PageIds: ${msg.pageIds ? JSON.stringify(msg.pageIds) : 'null'}`);
 
-          // Get settings to determine export format (for dynamic weighting)
+          // Get settings to determine export format
           const settings = await GitLabService.loadSettings();
           const exportFormat = msg.exportFormat || settings?.exportFormat || 'css';
 
-          let coverageResult;
+          console.log(`[Plugin] Calling QualityService.generateReport with format: ${exportFormat}`);
+          const report = await QualityService.generateReport(scope, msg.pageIds, exportFormat);
 
-          if (scope === 'ALL') {
-            coverageResult = await TokenCoverageService.analyzeDocument(exportFormat, msg.pageIds);
-          } else if (scope === 'SMART_SCAN') {
-            coverageResult = await TokenCoverageService.analyzeSmart(exportFormat, msg.pageIds);
-          } else if (scope === 'SELECTION') {
-            console.log('Analyzing selection...');
-            coverageResult = await TokenCoverageService.analyzeSelection(exportFormat);
-          } else {
-            coverageResult = await TokenCoverageService.analyzeCurrentPage(exportFormat);
-          }
-
-          console.log('[Plugin Debug] Analysis finished, result obtained. Posting message...');
-
+          console.log('[Plugin] Quality Analysis complete. Sending report...');
           figma.ui.postMessage({
-            type: 'token-coverage-result',
-            result: coverageResult,
+            type: 'quality-report',
+            report: report,
           });
-          console.log('[Plugin Debug] Message posted successfully.');
-        } catch (coverageError: any) {
-          console.error('Error analyzing token coverage:', coverageError);
+
+        } catch (error: any) {
+          console.error('[Plugin] Quality Analysis failed:', error);
           figma.ui.postMessage({
-            type: 'token-coverage-error',
-            error: coverageError.message || 'Failed to analyze token coverage',
+            type: 'quality-report-error',
+            error: error.message || 'Failed to generate quality report',
           });
         }
         break;

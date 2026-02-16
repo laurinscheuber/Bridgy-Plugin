@@ -97,25 +97,21 @@ export class TokenCoverageService {
   /**
    * Analyzes the current page for token coverage
    */
+  /**
+   * Node type filter: Only scan component-related nodes (definitions + instances).
+   * Standalone frames, shapes, and groups are excluded to focus on design system elements.
+   */
+  private static isComponentNode(node: BaseNode): boolean {
+    return (
+      node.type === 'COMPONENT' ||
+      node.type === 'COMPONENT_SET' ||
+      node.type === 'INSTANCE'
+    );
+  }
+
   static async analyzeCurrentPage(exportFormat: string = 'css'): Promise<TokenCoverageResult> {
     const currentPage = figma.currentPage;
-    const nodes = currentPage.findAll(
-      (node) =>
-        node.type === 'FRAME' ||
-        node.type === 'SECTION' ||
-        node.type === 'GROUP' ||
-        node.type === 'COMPONENT' ||
-        node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE' ||
-        node.type === 'RECTANGLE' ||
-        node.type === 'ELLIPSE' ||
-        node.type === 'POLYGON' ||
-        node.type === 'STAR' ||
-        node.type === 'VECTOR' ||
-        node.type === 'TEXT' ||
-        node.type === 'LINE' ||
-        node.type === 'BOOLEAN_OPERATION',
-    );
+    const nodes = currentPage.findAll((node) => this.isComponentNode(node));
 
     return this.analyzeNodes(nodes as SceneNode[], exportFormat);
   }
@@ -137,23 +133,7 @@ export class TokenCoverageService {
         continue;
       }
 
-      const pageNodes = page.findAll(
-        (node) =>
-          node.type === 'FRAME' ||
-          node.type === 'SECTION' ||
-          node.type === 'GROUP' ||
-          node.type === 'COMPONENT' ||
-          node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE' ||
-          node.type === 'RECTANGLE' ||
-          node.type === 'ELLIPSE' ||
-          node.type === 'POLYGON' ||
-          node.type === 'STAR' ||
-          node.type === 'VECTOR' ||
-          node.type === 'TEXT' ||
-          node.type === 'LINE' ||
-          node.type === 'BOOLEAN_OPERATION',
-      );
+      const pageNodes = page.findAll((node) => this.isComponentNode(node));
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
 
@@ -180,12 +160,12 @@ export class TokenCoverageService {
     // 1. Analyze current page if it's within the selection
     if (isCurrentPageSelected) {
       const currentPageResult = await this.analyzeCurrentPage(exportFormat);
-      
+
       // If issues found, return immediately
       if (currentPageResult.totalIssues > 0) {
         return currentPageResult;
       }
-      
+
       // Otherwise, keep as baseline
       bestResult = currentPageResult;
     }
@@ -198,23 +178,7 @@ export class TokenCoverageService {
       if (page.id === currentPageId) continue;
       if (pageIds && pageIds.indexOf(page.id) === -1) continue;
 
-      const pageNodes = page.findAll(
-        (node) =>
-          node.type === 'FRAME' ||
-          node.type === 'SECTION' ||
-          node.type === 'GROUP' ||
-          node.type === 'COMPONENT' ||
-          node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE' ||
-          node.type === 'RECTANGLE' ||
-          node.type === 'ELLIPSE' ||
-          node.type === 'POLYGON' ||
-          node.type === 'STAR' ||
-          node.type === 'VECTOR' ||
-          node.type === 'TEXT' ||
-          node.type === 'LINE' ||
-          node.type === 'BOOLEAN_OPERATION',
-      );
+      const pageNodes = page.findAll((node) => this.isComponentNode(node));
 
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[], exportFormat);
 
@@ -248,28 +212,15 @@ export class TokenCoverageService {
     let allNodes: SceneNode[] = [];
 
     for (const node of selection) {
-      // Include the node itself if it matches our types
-      if (
-        node.type === 'FRAME' ||
-        node.type === 'SECTION' ||
-        node.type === 'GROUP' ||
-        node.type === 'COMPONENT' ||
-        node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE'
-      ) {
+      // Include the node itself if it's a component
+      if (this.isComponentNode(node)) {
         allNodes.push(node);
       }
 
-      // Find children
+      // Find component children
       if ('findAll' in node) {
         const children = (node as any).findAll(
-          (n: any) =>
-            n.type === 'FRAME' ||
-            n.type === 'SECTION' ||
-            n.type === 'GROUP' ||
-            n.type === 'COMPONENT' ||
-            n.type === 'COMPONENT_SET' ||
-            n.type === 'INSTANCE',
+          (n: any) => this.isComponentNode(n),
         );
         allNodes = [...allNodes, ...children];
       }
