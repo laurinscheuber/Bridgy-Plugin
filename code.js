@@ -9112,6 +9112,7 @@ ${Object.keys(cssProperties).map((property) => {
                   unusedCount: 0,
                   ignoredVariables: [],
                   ignoredCount: 0,
+                  ignoredCollectionIds: [],
                   hygieneScore: 100,
                   subScores: { variableHygiene: 100 }
                 };
@@ -9235,6 +9236,7 @@ ${Object.keys(cssProperties).map((property) => {
                 unusedCount,
                 ignoredVariables: ignoredUnused,
                 ignoredCount: ignoredUnused.length,
+                ignoredCollectionIds: ignoreList.variables.collectionIds,
                 hygieneScore,
                 subScores: { variableHygiene: hygieneScore }
               };
