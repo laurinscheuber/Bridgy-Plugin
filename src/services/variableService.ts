@@ -1,9 +1,12 @@
 import { ErrorHandler } from '../utils/errorHandler';
+import { IgnoreService } from './ignoreService';
 
 export interface VariableHygieneResult {
   totalVariables: number;
   unusedVariables: UnusedVariable[];
   unusedCount: number;
+  ignoredVariables: UnusedVariable[];
+  ignoredCount: number;
   hygieneScore: number;
   subScores: {
     variableHygiene: number;
@@ -39,6 +42,8 @@ export class VariableService {
             totalVariables: 0,
             unusedVariables: [],
             unusedCount: 0,
+            ignoredVariables: [],
+            ignoredCount: 0,
             hygieneScore: 100,
             subScores: { variableHygiene: 100 },
           };
@@ -188,16 +193,32 @@ export class VariableService {
           }
         }
 
+        // Partition unused variables into shown vs ignored
+        const ignoreList = await IgnoreService.load();
+        const shownUnused: UnusedVariable[] = [];
+        const ignoredUnused: UnusedVariable[] = [];
+
+        for (const uv of unusedVariables) {
+          if (IgnoreService.isVariableIgnored(ignoreList, uv.id, uv.collectionId)) {
+            ignoredUnused.push(uv);
+          } else {
+            shownUnused.push(uv);
+          }
+        }
+
         const totalVariables = allVariables.length;
-        const unusedCount = unusedVariables.length;
+        const unusedCount = shownUnused.length;
+        // Ignored items don't count against the hygiene score
         const hygieneScore = totalVariables === 0 ? 100 : Math.round(((totalVariables - unusedCount) / totalVariables) * 100);
 
-        console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+        console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables (${ignoredUnused.length} ignored) out of ${totalVariables} total.`);
 
         return {
           totalVariables,
-          unusedVariables,
+          unusedVariables: shownUnused,
           unusedCount,
+          ignoredVariables: ignoredUnused,
+          ignoredCount: ignoredUnused.length,
           hygieneScore,
           subScores: { variableHygiene: hygieneScore },
         };

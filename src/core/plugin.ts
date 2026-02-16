@@ -7,6 +7,7 @@ import { ComponentService } from '../services/componentService';
 import { TokenCoverageService } from '../services/tokenCoverageService';
 import { VariableImportService } from '../services/variableImportService';
 import { QualityService } from '../services/qualityService';
+import { IgnoreService } from '../services/ignoreService';
 import { SUCCESS_MESSAGES } from '../config';
 import { objectEntries, objectValues } from '../utils/es2015-helpers';
 
@@ -1614,6 +1615,32 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
         }
         break;
+
+      case 'ignore-item': {
+        const ignoreMsg = msg as any;
+        const ignoreList = await IgnoreService.load();
+        const updatedIgnore = IgnoreService.addItem(ignoreList, ignoreMsg.itemType, ignoreMsg.itemId);
+        await IgnoreService.save(updatedIgnore);
+        QualityService.invalidateCache();
+        figma.ui.postMessage({ type: 'item-ignored', itemType: ignoreMsg.itemType, itemId: ignoreMsg.itemId });
+        break;
+      }
+
+      case 'unignore-item': {
+        const unignoreMsg = msg as any;
+        const currentList = await IgnoreService.load();
+        const updatedUnignore = IgnoreService.removeItem(currentList, unignoreMsg.itemType, unignoreMsg.itemId);
+        await IgnoreService.save(updatedUnignore);
+        QualityService.invalidateCache();
+        figma.ui.postMessage({ type: 'item-unignored', itemType: unignoreMsg.itemType, itemId: unignoreMsg.itemId });
+        break;
+      }
+
+      case 'get-ignore-list': {
+        const loadedList = await IgnoreService.load();
+        figma.ui.postMessage({ type: 'ignore-list-loaded', list: loadedList });
+        break;
+      }
 
       case 'focus-node':
         try {
