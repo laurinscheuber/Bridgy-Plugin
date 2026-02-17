@@ -105,7 +105,18 @@ export class TokenCoverageService {
       (node) =>
         node.type === 'COMPONENT' ||
         node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE',
+        node.type === 'INSTANCE' ||
+        node.type === 'FRAME' ||
+        node.type === 'GROUP' ||
+        node.type === 'SECTION' ||
+        node.type === 'TEXT' ||
+        node.type === 'VECTOR' ||
+        node.type === 'RECTANGLE' ||
+        node.type === 'ELLIPSE' ||
+        node.type === 'POLYGON' ||
+        node.type === 'STAR' ||
+        node.type === 'LINE' ||
+        node.type === 'BOOLEAN_OPERATION',
     );
 
     return this.analyzeNodes(nodes as SceneNode[], exportFormat);
@@ -132,7 +143,18 @@ export class TokenCoverageService {
         (node) =>
           node.type === 'COMPONENT' ||
           node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE',
+          node.type === 'INSTANCE' ||
+          node.type === 'FRAME' ||
+          node.type === 'GROUP' ||
+          node.type === 'SECTION' ||
+          node.type === 'TEXT' ||
+          node.type === 'VECTOR' ||
+          node.type === 'RECTANGLE' ||
+          node.type === 'ELLIPSE' ||
+          node.type === 'POLYGON' ||
+          node.type === 'STAR' ||
+          node.type === 'LINE' ||
+          node.type === 'BOOLEAN_OPERATION',
       );
       allNodes = [...allNodes, ...(pageNodes as SceneNode[])];
     }
@@ -182,7 +204,18 @@ export class TokenCoverageService {
         (node) =>
           node.type === 'COMPONENT' ||
           node.type === 'COMPONENT_SET' ||
-          node.type === 'INSTANCE',
+          node.type === 'INSTANCE' ||
+          node.type === 'FRAME' ||
+          node.type === 'GROUP' ||
+          node.type === 'SECTION' ||
+          node.type === 'TEXT' ||
+          node.type === 'VECTOR' ||
+          node.type === 'RECTANGLE' ||
+          node.type === 'ELLIPSE' ||
+          node.type === 'POLYGON' ||
+          node.type === 'STAR' ||
+          node.type === 'LINE' ||
+          node.type === 'BOOLEAN_OPERATION',
       );
 
       const pageResult = await this.analyzeNodes(pageNodes as SceneNode[], exportFormat);
@@ -216,24 +249,31 @@ export class TokenCoverageService {
     const selection = figma.currentPage.selection;
     let allNodes: SceneNode[] = [];
 
+    const isRelevantNode = (node: SceneNode) =>
+      node.type === 'COMPONENT' ||
+      node.type === 'COMPONENT_SET' ||
+      node.type === 'INSTANCE' ||
+      node.type === 'FRAME' ||
+      node.type === 'GROUP' ||
+      node.type === 'SECTION' ||
+      node.type === 'TEXT' ||
+      node.type === 'VECTOR' ||
+      node.type === 'RECTANGLE' ||
+      node.type === 'ELLIPSE' ||
+      node.type === 'POLYGON' ||
+      node.type === 'STAR' ||
+      node.type === 'LINE' ||
+      node.type === 'BOOLEAN_OPERATION';
+
     for (const node of selection) {
       // Include the node itself if it matches our types
-      if (
-        node.type === 'COMPONENT' ||
-        node.type === 'COMPONENT_SET' ||
-        node.type === 'INSTANCE'
-      ) {
+      if (isRelevantNode(node)) {
         allNodes.push(node);
       }
 
       // Find children
       if ('findAll' in node) {
-        const children = (node as any).findAll(
-          (n: any) =>
-            n.type === 'COMPONENT' ||
-            n.type === 'COMPONENT_SET' ||
-            n.type === 'INSTANCE',
-        );
+        const children = (node as any).findAll(isRelevantNode);
         allNodes = [...allNodes, ...children];
       }
     }
@@ -719,10 +759,13 @@ export class TokenCoverageService {
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
   ): Promise<void> {
-    // Skip if node is inside an instance (we only care about the instance itself or non-instance nodes)
-    if (this.isInsideInstance(node)) {
-      return;
-    }
+    // SKIP LIMIT: We removed the check for isInsideInstance to allow full recursive analysis.
+    // The previous logic was:
+    // if (this.isInsideInstance(node)) { return; }
+    // Now we analyze EVERYTHING that was passed in.
+
+    // However, we should still ensure we aren't analyzing things that figma.findAll matches but we don't handle.
+    // The updated findAll filters already handle this.
 
     // Check Layout properties
     this.checkLayoutProperties(node, issuesMap);

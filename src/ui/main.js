@@ -7503,36 +7503,32 @@ function persistSettings(silent = false) {
     const shareTeam = shareTeamElement.checked;
 
     // Enhanced validation
-    if (!projectId) {
-      if (!silent) showError('Validation Error', 'Please provide a Project ID');
-      return;
+    // Enhanced validation
+    // Only validate if values are provided
+    if (projectId) {
+      // Validate project ID format
+      const projectIdPattern = /^(\d+|[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)$/;
+      if (!projectIdPattern.test(projectId)) {
+        if (!silent) showError(
+          'Validation Error',
+          'Invalid project ID format. Use numeric ID or namespace/project format.',
+        );
+        return;
+      }
     }
 
-    if (!token) {
-      if (!silent) showError('Validation Error', 'Please provide a Project Access Token');
-      return;
-    }
+    if (token) {
+      // Validate token format - very lenient, just check length and basic characters
+      if (token.length < 8) {
+        if (!silent) showError('Validation Error', 'GitLab token must be at least 8 characters long.');
+        return;
+      }
 
-    // Validate project ID format
-    const projectIdPattern = /^(\d+|[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)$/;
-    if (!projectIdPattern.test(projectId)) {
-      if (!silent) showError(
-        'Validation Error',
-        'Invalid project ID format. Use numeric ID or namespace/project format.',
-      );
-      return;
-    }
-
-    // Validate token format - very lenient, just check length and basic characters
-    if (token.length < 8) {
-      if (!silent) showError('Validation Error', 'GitLab token must be at least 8 characters long.');
-      return;
-    }
-
-    // Only reject tokens with obviously invalid characters (spaces, quotes, etc.)
-    if (/[\s"'<>]/.test(token)) {
-      if (!silent) showError('Validation Error', 'GitLab token contains invalid characters.');
-      return;
+      // Only reject tokens with obviously invalid characters (spaces, quotes, etc.)
+      if (/[\s"'<>]/.test(token)) {
+        if (!silent) showError('Validation Error', 'GitLab token contains invalid characters.');
+        return;
+      }
     }
 
     // Validate file paths
@@ -10313,6 +10309,22 @@ function showImportError(error) {
         `;
 }
 
+function handleImportComplete(msg) {
+  const btn = document.getElementById('confirm-import-btn');
+  hideButtonLoading(btn);
+
+  if (msg.result.success) {
+    showSuccess('Import Successful', `Imported ${msg.result.success} variables.`);
+    document.getElementById('import-preview-section').classList.add('hidden');
+    document.getElementById('import-input').value = '';
+
+    // Trigger data refresh
+    refreshData();
+  } else {
+    showError('Import Failed', msg.error || 'Unknown error');
+  }
+}
+
 // Listen for messages from the plugin backend
 window.addEventListener('message', function (event) {
   if (event.data.pluginMessage) {
@@ -10675,12 +10687,24 @@ window.addEventListener('message', function (event) {
     } else if (message.type === 'preview-import-error') {
       hideButtonLoading(document.getElementById('preview-import-btn'));
       showError('Preview Failed', message.message);
-    } else if (message.type === 'import-complete' && window.importProgressControl) {
-      window.importProgressControl.complete(message.result);
-      delete window.importProgressControl;
-    } else if (message.type === 'import-error' && window.importProgressControl) {
-      window.importProgressControl.error(message.error);
-      delete window.importProgressControl;
+    } else if (message.type === 'import-complete') {
+      if (window.importProgressControl) {
+        window.importProgressControl.complete(message.result);
+        delete window.importProgressControl;
+      } else {
+        // Fallback for direct import
+        handleImportComplete(message);
+      }
+    } else if (message.type === 'import-error') {
+      if (window.importProgressControl) {
+        window.importProgressControl.error(message.error);
+        delete window.importProgressControl;
+      } else {
+        // Fallback for direct import error handling
+        const btn = document.getElementById('confirm-import-btn');
+        hideButtonLoading(btn);
+        showError('Import Failed', message.error || 'Unknown error');
+      }
     }
   }
 });

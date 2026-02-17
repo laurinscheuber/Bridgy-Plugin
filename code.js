@@ -6985,7 +6985,7 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const currentPage = figma.currentPage;
-            const nodes = currentPage.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+            const nodes = currentPage.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "FRAME" || node.type === "GROUP" || node.type === "SECTION" || node.type === "TEXT" || node.type === "VECTOR" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
             return this.analyzeNodes(nodes, exportFormat);
           });
         }
@@ -7000,7 +7000,7 @@ ${Object.keys(cssProperties).map((property) => {
               if (pageIds && pageIds.indexOf(page.id) === -1) {
                 continue;
               }
-              const pageNodes = page.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageNodes = page.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "FRAME" || node.type === "GROUP" || node.type === "SECTION" || node.type === "TEXT" || node.type === "VECTOR" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
               allNodes = [...allNodes, ...pageNodes];
             }
             return this.analyzeNodes(allNodes, exportFormat);
@@ -7030,7 +7030,7 @@ ${Object.keys(cssProperties).map((property) => {
                 continue;
               if (pageIds && pageIds.indexOf(page.id) === -1)
                 continue;
-              const pageNodes = page.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
+              const pageNodes = page.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "FRAME" || node.type === "GROUP" || node.type === "SECTION" || node.type === "TEXT" || node.type === "VECTOR" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
               const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
               console.log("analyzeSmart: page result", { pageId: page.id, issues: pageResult.totalIssues, nodes: pageResult.totalNodes });
               if (pageResult.totalIssues > 0) {
@@ -7053,12 +7053,13 @@ ${Object.keys(cssProperties).map((property) => {
           return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const selection = figma.currentPage.selection;
             let allNodes = [];
+            const isRelevantNode = (node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "FRAME" || node.type === "GROUP" || node.type === "SECTION" || node.type === "TEXT" || node.type === "VECTOR" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION";
             for (const node of selection) {
-              if (node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
+              if (isRelevantNode(node)) {
                 allNodes.push(node);
               }
               if ("findAll" in node) {
-                const children = node.findAll((n) => n.type === "COMPONENT" || n.type === "COMPONENT_SET" || n.type === "INSTANCE");
+                const children = node.findAll(isRelevantNode);
                 allNodes = [...allNodes, ...children];
               }
             }
@@ -7393,9 +7394,6 @@ ${Object.keys(cssProperties).map((property) => {
          */
         static analyzeNode(node, issuesMap) {
           return __awaiter(this, void 0, void 0, function* () {
-            if (this.isInsideInstance(node)) {
-              return;
-            }
             this.checkLayoutProperties(node, issuesMap);
             this.checkFillProperties(node, issuesMap);
             this.checkStrokeProperties(node, issuesMap);
