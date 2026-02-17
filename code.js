@@ -7287,8 +7287,22 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
               }
-              const totalComponents = localDefinitions.size;
-              const unusedCount = shownUnused.length;
+              let totalComponents = 0;
+              for (const [, def] of localDefinitions.entries()) {
+                if (def.isSet) {
+                  totalComponents += def.node.children.length;
+                } else {
+                  totalComponents += 1;
+                }
+              }
+              let unusedCount = 0;
+              for (const uc of shownUnused) {
+                if (uc.type === "COMPONENT_SET") {
+                  unusedCount += uc.unusedVariantCount || 0;
+                } else {
+                  unusedCount += 1;
+                }
+              }
               const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
               return {
                 totalComponents,
