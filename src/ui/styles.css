@@ -2113,8 +2113,7 @@ tr:last-child td {
 /* Unified styling for existing list items */
 .component-item,
 .component-set-header,
-.child-header,
-.quality-issue-card {
+.child-header {
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -2123,6 +2122,17 @@ tr:last-child td {
   display: flex;
   align-items: center;
   transition: var(--transition-fast);
+}
+
+.quality-issue-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  display: block;
+  padding: 0;
+  transition: var(--transition-fast);
+  overflow: hidden;
 }
 
 .component-item:hover,

@@ -540,13 +540,13 @@ window.MultiPageSelector = {
 
   init() {
     this.render(); // Render immediately to show loading state
-    
+
     // Add small delay to ensure backend is ready
     setTimeout(() => {
       console.log('MultiPageSelector: Requesting pages...');
       parent.postMessage({ pluginMessage: { type: 'get-pages' } }, '*');
     }, 500);
-    
+
     // Close dropdown on click outside
     document.addEventListener('click', (e) => {
       if (this.isOpen && !e.target.closest('.page-selector-wrapper')) {
@@ -583,13 +583,13 @@ window.MultiPageSelector = {
   applySelection() {
     this.selectedPageIds = new Set(this.pendingPageIds);
     this.close();
-    
+
     // Reset quality state before re-running analysis to avoid mixed data
     window.qualityScanPerformed = false;
-    
+
     // Trigger unified re-analysis
     runQualityAnalysis();
-    
+
     // Supporting metrics (even if not on active tab)
     analyzeStats();
   },
@@ -639,10 +639,10 @@ window.MultiPageSelector = {
 
     const isAllSelected = this.pages.length > 0 && this.selectedPageIds.size === this.pages.length;
     const label = this.pages.length === 0 ? 'Checking Pages...' :
-                  isAllSelected ? 'All Pages' : 
-                  this.selectedPageIds.size === 1 ? '1 Page' : 
-                  this.selectedPageIds.size === 0 ? 'No Pages' :
-                  `${this.selectedPageIds.size} Pages`;
+      isAllSelected ? 'All Pages' :
+        this.selectedPageIds.size === 1 ? '1 Page' :
+          this.selectedPageIds.size === 0 ? 'No Pages' :
+            `${this.selectedPageIds.size} Pages`;
 
     const filteredPages = this.getFilteredPages();
     const allFilteredSelected = filteredPages.length > 0 && filteredPages.every(p => this.pendingPageIds.has(p.id));
@@ -702,8 +702,8 @@ window.MultiPageSelector = {
           if (input && document.activeElement !== input) {
             // Only focus if we just opened it and the query is empty
             if (this.filterQuery === '') {
-               // timeout to ensure DOM is ready
-               setTimeout(() => input.focus(), 10);
+              // timeout to ensure DOM is ready
+              setTimeout(() => input.focus(), 10);
             }
           }
         }
@@ -760,14 +760,14 @@ function initSearchFeatures() {
 
     if (input && clearBtn) {
       // Input event listener to toggle button visibility
-      input.addEventListener('input', function() {
+      input.addEventListener('input', function () {
         if (this.value && this.value.length > 0) {
           clearBtn.style.display = 'flex';
         } else {
           clearBtn.style.display = 'none';
         }
       });
-      
+
       // Initialize state
       if (input.value && input.value.length > 0) {
         clearBtn.style.display = 'flex';
@@ -810,12 +810,12 @@ window.selectComponent = function (componentId) {
 // ===== REFRESH FUNCTIONALITY =====
 window.refreshData = function () {
   console.log('Refresh triggered');
-  
+
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.disabled = true;
     refreshBtn.style.opacity = '0.6';
-    
+
     // Animate the icon
     const icon = refreshBtn.querySelector('.material-symbols-outlined');
     if (icon) icon.style.animation = 'spin 1s linear infinite';
@@ -827,6 +827,9 @@ window.refreshData = function () {
 
   console.log('Active tab for refresh:', activeTabId);
 
+  // Set flag to trigger quality refresh after data arrives
+  window.pendingQualityRefresh = true;
+
   // 1. STATS REFRESH
   if (activeTabId === 'stats-content') {
     if (typeof window.refreshStats === 'function') {
@@ -835,7 +838,7 @@ window.refreshData = function () {
     } else {
       console.error('refreshStats function not found');
     }
-    
+
     resetRefreshButton(refreshBtn, 1000);
     return;
   }
@@ -843,15 +846,15 @@ window.refreshData = function () {
   // 2. QUALITY REFRESH
   if (activeTabId === 'quality-content') {
 
-    
+
     // Set flag so refresh-success handler knows to run analysis afterwards
     window.pendingQualityRefresh = true;
-    
+
     // Reset scan performed flags to force re-evaluation
     window.qualityScanPerformed = false;
     // FIX: ensure we are not stuck in "fix in progress" state
     window.tokenFixInProgress = false;
-    
+
     // Reset/Loading state first
     Object.keys(window.qualityState.categories).forEach(key => {
       window.qualityState.categories[key].score = 0;
@@ -873,7 +876,7 @@ window.refreshData = function () {
 
     // Show notification
     window.currentRefreshNotification = showLoading('Analyzing', 'Syncing variables & running analysis...');
-    
+
     // Re-enable button after a delay (safety net)
     resetRefreshButton(refreshBtn, 3000);
     return;
@@ -881,7 +884,7 @@ window.refreshData = function () {
 
   // 3. VARIABLES REFRESH (Default)
   console.log('Refreshing variables and components data...');
-  
+
   // Reset Quality/Stats scan cache so next visit triggers a fresh scan
   window.qualityScanPerformed = false;
   window.statsScanPerformed = false;
@@ -934,36 +937,36 @@ window.refreshStats = function (notificationElement) {
       </div>
     `;
   }
-  
+
   analyzeStats();
 };
 
-window.filterStats = function(query) {
+window.filterStats = function (query) {
   if (!componentStatsData) return;
-  
+
   let sourceData = componentStatsData;
   // Apply active filter first (e.g. Unused)
   if (window.activeStatsFilter === 'unused') {
-      sourceData = sourceData.filter(item => item.count === 0);
+    sourceData = sourceData.filter(item => item.count === 0);
   }
-  
+
   const term = query ? query.toLowerCase().trim() : '';
   if (!term) {
     // If no search term, just render based on active filter
     renderStats(componentStatsData, window.activeStatsFilter === 'unused' ? sourceData : null);
     return;
   }
-  
+
   // Filter parent components or those with matching children
   const filtered = sourceData.filter(item => {
     const parentMatch = item.name.toLowerCase().includes(term);
-    const childrenMatch = item.instances.some(inst => 
-      inst.name.toLowerCase().includes(term) || 
+    const childrenMatch = item.instances.some(inst =>
+      inst.name.toLowerCase().includes(term) ||
       inst.parentName.toLowerCase().includes(term)
     );
     return parentMatch || childrenMatch;
   });
-  
+
   renderStats(componentStatsData, filtered);
 };
 
@@ -1057,9 +1060,9 @@ function updateNotification(notificationElement, type, title, message, duration)
   // Update inner HTML logic (reuse structure)
   notificationElement.querySelector('.notification-icon').innerHTML = SecurityUtils.escapeHTML(icon);
   if (type === 'loading') {
-      notificationElement.querySelector('.notification-icon').innerHTML = icon; // Allow HTML for spinner
+    notificationElement.querySelector('.notification-icon').innerHTML = icon; // Allow HTML for spinner
   }
-  
+
   notificationElement.querySelector('.notification-title').textContent = title;
   notificationElement.querySelector('.notification-message').innerHTML = safeMessage;
 
@@ -1069,7 +1072,7 @@ function updateNotification(notificationElement, type, title, message, duration)
       closeNotification(notificationElement);
     }, duration);
   }
-  
+
   return notificationElement;
 }
 
@@ -1649,7 +1652,7 @@ function findVariableNameById(variableId) {
   if (variableReferences && variableReferences[variableId]) {
     return variableReferences[variableId];
   }
-  
+
   // Fallback: check local variables
   for (const collection of variablesData) {
     for (const variable of collection.variables) {
@@ -1772,17 +1775,17 @@ window.onmessage = (event) => {
               window.SecurityUtils && window.SecurityUtils.escapeHTML
                 ? window.SecurityUtils.escapeHTML
                 : (str) =>
-                    str.replace(
-                      /[&<>'"]/g,
-                      (tag) =>
-                        ({
-                          '&': '&amp;',
-                          '<': '&lt;',
-                          '>': '&gt;',
-                          "'": '&#39;',
-                          '"': '&quot;',
-                        })[tag],
-                    );
+                  str.replace(
+                    /[&<>'"]/g,
+                    (tag) =>
+                      ({
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        "'": '&#39;',
+                        '"': '&quot;',
+                      })[tag],
+                  );
 
             const sanitizeHTML =
               window.SecurityUtils && window.SecurityUtils.sanitizeHTML
@@ -1858,7 +1861,7 @@ window.onmessage = (event) => {
         '*',
       );
       window.globalVariablesData = message.variablesData;
-      
+
       try {
         console.log('[DEBUG] document-data handler calling renderVariables');
         renderVariables(message.variablesData, stylesData);
@@ -1898,7 +1901,7 @@ window.onmessage = (event) => {
       // Complete loading logic modified:
       // Instead of hiding overlay here, we trigger quality analysis and wait for it
       updatePluginLoadingProgress('Analyzing token coverage...', 90);
-      
+
       // Initial Quality Analysis (Auto-Run)
       setTimeout(() => {
         window.qualityScanPerformed = false;
@@ -2137,16 +2140,18 @@ window.onmessage = (event) => {
       }
     } else if (message.type === 'variable-group-renamed') {
       console.log('Variable group renamed successfully:', message);
-      
+
       // Show success notification
-      if (typeof showNotification === 'function') {
+      if (message.success) {
+        showSuccess('Fix Applied', `Renamed to "${message.newGroupName}"`, 3000);
+      } else if (typeof showNotification === 'function') {
         showNotification(
           'success',
           'Variables Renamed',
           `${message.renamedCount} variable${message.renamedCount !== 1 ? 's' : ''} renamed from "${message.oldGroupName}" to "${message.newGroupName}".`,
         );
       }
-      
+
       // Hide the fixed issue with CSS (no DOM removal, no re-rendering needed)
       if (window.tailwindProcessingItemId) {
         const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
@@ -2164,35 +2169,35 @@ window.onmessage = (event) => {
           setTimeout(() => {
             itemCard.style.display = 'none';
 
-                  // Update count badge for the collection
-                  if (window.tailwindActiveCollectionId) {
-                    const collection = document.getElementById(window.tailwindActiveCollectionId);
-                    if (collection) {
-                      // Update the count badge - simply decrement by 1
-                      const countBadge = collection.querySelector('.subgroup-stats');
-                      if (countBadge) {
-                        const currentCount = parseInt(countBadge.textContent) || 0;
-                        const newCount = Math.max(0, currentCount - 1);
-                        countBadge.textContent = newCount.toString();
+            // Update count badge for the collection
+            if (window.tailwindActiveCollectionId) {
+              const collection = document.getElementById(window.tailwindActiveCollectionId);
+              if (collection) {
+                // Update the count badge - simply decrement by 1
+                const countBadge = collection.querySelector('.subgroup-stats');
+                if (countBadge) {
+                  const currentCount = parseInt(countBadge.textContent) || 0;
+                  const newCount = Math.max(0, currentCount - 1);
+                  countBadge.textContent = newCount.toString();
 
-                        // Add a subtle animation to draw attention to the update
-                        countBadge.style.transition = 'transform 0.2s ease-out, background-color 0.2s ease-out';
-                        countBadge.style.transform = 'scale(1.2)';
-                        countBadge.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
+                  // Add a subtle animation to draw attention to the update
+                  countBadge.style.transition = 'transform 0.2s ease-out, background-color 0.2s ease-out';
+                  countBadge.style.transform = 'scale(1.2)';
+                  countBadge.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
 
-                        setTimeout(() => {
-                          countBadge.style.transform = 'scale(1)';
-                          countBadge.style.backgroundColor = '';
-                        }, 200);
+                  setTimeout(() => {
+                    countBadge.style.transform = 'scale(1)';
+                    countBadge.style.backgroundColor = '';
+                  }, 200);
 
-                        // If count reaches 0, show a success message
-                        if (newCount === 0) {
-                          const contentDiv = collection.querySelector('.collection-content > div');
-                          if (contentDiv && !contentDiv.querySelector('.tailwind-success-message')) {
-                            // Add success message
-                            const successMessage = document.createElement('div');
-                            successMessage.className = 'tailwind-success-message';
-                            successMessage.style.cssText = `
+                  // If count reaches 0, show a success message
+                  if (newCount === 0) {
+                    const contentDiv = collection.querySelector('.collection-content > div');
+                    if (contentDiv && !contentDiv.querySelector('.tailwind-success-message')) {
+                      // Add success message
+                      const successMessage = document.createElement('div');
+                      successMessage.className = 'tailwind-success-message';
+                      successMessage.style.cssText = `
                               text-align: center; 
                               padding: 24px; 
                               color: rgba(34, 197, 94, 0.9); 
@@ -2203,15 +2208,15 @@ window.onmessage = (event) => {
                               margin: 8px 0;
                               animation: fadeIn 0.3s ease-in;
                             `;
-                            successMessage.innerHTML = `
+                      successMessage.innerHTML = `
                               <span class="material-symbols-outlined" style="font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.8;">check_circle</span>
                               <strong>All issues resolved!</strong>
                               <div style="font-size: 11px; margin-top: 4px; opacity: 0.7;">Great job! All variables in this section are now Tailwind v4 compatible.</div>
                             `;
-                            contentDiv.appendChild(successMessage);
-                          }
-                        }
-                      }
+                      contentDiv.appendChild(successMessage);
+                    }
+                  }
+                }
 
                 // Ensure the collection stays open
                 const content = collection.querySelector('.collection-content');
@@ -2236,6 +2241,13 @@ window.onmessage = (event) => {
             delete window.tailwindActiveCollectionId;
             delete window.tailwindFixInProgress;
             delete window.tailwindFixedGroupName;
+
+            // Trigger a targeted quality state update flag
+            // The tailwind-v4-validation message arriving shortly will update the UI components
+            window.pendingQualityRefresh = true;
+
+            // Restore expansion state logic
+            window.justFixedTailwind = true;
           }, 300);
         } else {
           // If item card not found, clean up immediately
@@ -2566,6 +2578,31 @@ window.onmessage = (event) => {
         }
       }
 
+      // Update qualityState for Tailwind category
+      if (message.validation && message.validation.groups) {
+        let total = 0;
+        let bad = 0;
+        message.validation.groups.forEach(g => {
+          total += g.variableCount;
+          if (!g.isValid) bad += g.variableCount;
+        });
+
+        const good = total - bad;
+        const score = total === 0 ? 100 : Math.round((good / total) * 100);
+
+        window.qualityState.categories.tailwind = {
+          active: true,
+          score: score,
+          good: good,
+          bad: bad,
+          total: total,
+          data: message.validation
+        };
+
+        // Update the UI
+        updateAllCategoryUI();
+      }
+
       // Update button states based on validation
       updateCommitButtonStates();
     } else if (message.type === 'component-styles-loaded') {
@@ -2598,22 +2635,6 @@ window.onmessage = (event) => {
     } else if (message.type === 'refresh-complete') {
       // Handle successful refresh
       // Deprecated in favor of refresh-success
-    } else if (message.type === 'variable-group-renamed') {
-      // Group rename success (Tailwind Prefix fix)
-      if (message.success) {
-        showSuccess('Fix Applied', `Renamed to "${message.newGroupName}"`, 3000);
-        
-        // Trigger a full refresh to update the UI
-        // We set a flag to trigger quality analysis AFTER variables are refreshed
-
-        window.pendingQualityRefresh = true;
-        window.refreshData();
-        
-        // Restore expansion state logic
-        // We will store the fact that we just did a tailwind fix
-        // The renderTailwindReadinessSection function should check this
-        window.justFixedTailwind = true;
-      }
     } else if (message.type === 'variable-group-rename-error') {
       showNotification('error', 'Rename Failed', message.error || 'Failed to rename variable group');
     } else if (message.type === 'refresh-error') {
@@ -2628,12 +2649,12 @@ window.onmessage = (event) => {
       } else {
         showSuccess('Refreshed', 'Variables and styles synced successfully', 3000);
       }
-      
+
       // Update data references
       if (message.variables) window.variablesData = message.variables;
       if (message.styles) window.stylesData = message.styles;
       if (message.components) window.componentsData = message.components;
-      
+
       // Render variables (and styles are called within)
       try {
 
@@ -2651,7 +2672,7 @@ window.onmessage = (event) => {
         window.qualityScanPerformed = false;
         runQualityAnalysis();
       }
-      
+
     } else if (message.type === 'token-coverage-result') {
       console.log('UI received token-coverage-result', message);
 
@@ -2676,23 +2697,23 @@ window.onmessage = (event) => {
       // Stats refresh success
       window.componentStatsData = message.stats;
       renderStats(message.stats);
-      
+
       if (window.currentStatsNotification) {
         updateNotification(window.currentStatsNotification, 'success', 'Stats Refreshed', 'Component usage data updated', 3000);
         window.currentStatsNotification = null;
       } else {
-         showSuccess('Refreshed', 'Component usage data updated', 3000);
+        showSuccess('Refreshed', 'Component usage data updated', 3000);
       }
 
     } else if (message.type === 'component-hygiene-result') {
       console.log('UI: Received component hygiene result', message.result);
       window.componentHygieneData = message.result;
       handleComponentHygieneResult(message.result);
-      
+
     } else if (message.type === 'component-hygiene-error') {
       // Handle component hygiene analysis error
       console.error('UI: Component hygiene error', message.error);
-      
+
     } else if (message.type === 'variable-hygiene-result') {
       console.log('UI: Received variable hygiene result', message.result);
       window.variableHygieneData = message.result;
@@ -2793,7 +2814,7 @@ window.onmessage = (event) => {
       showNotification(
         message.error || 'Failed to analyze token coverage',
       );
-      
+
       // Ensure overlay is hidden even on error
       hidePluginLoadingOverlay();
     } else if (message.type === 'apply-token-result') {
@@ -2821,17 +2842,17 @@ window.onmessage = (event) => {
                   // AUTO-ADVANCE: Find and open the next issue
                   let nextCard = issueCard.nextElementSibling;
                   while (nextCard && (!nextCard.classList.contains('quality-issue-card') || nextCard.style.display === 'none')) {
-                      nextCard = nextCard.nextElementSibling;
+                    nextCard = nextCard.nextElementSibling;
                   }
-                  
+
                   if (nextCard && nextCard.id) {
-                      const nextIssueId = nextCard.id.replace('-card', '');
-                      if (window.toggleIssueCard) {
-                          window.toggleIssueCard(nextIssueId);
-                          setTimeout(() => {
-                              nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }, 100);
-                      }
+                    const nextIssueId = nextCard.id.replace('-card', '');
+                    if (window.toggleIssueCard) {
+                      window.toggleIssueCard(nextIssueId);
+                      setTimeout(() => {
+                        nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 100);
+                    }
                   }
 
                   // Update count badge for the collection
@@ -2923,9 +2944,9 @@ window.onmessage = (event) => {
         // via callbacks or internal logic. 
         // We principally just need to ensure the "Processing" state is cleared.
         if (window.currentRefreshNotification) {
-             window.currentRefreshNotification.update('success', 'Analysis Complete', 'Quality analysis finished.');
-             // Clear the reference so we don't hold onto it
-             window.currentRefreshNotification = null;
+          window.currentRefreshNotification.update('success', 'Analysis Complete', 'Quality analysis finished.');
+          // Clear the reference so we don't hold onto it
+          window.currentRefreshNotification = null;
         }
       }
     }
@@ -2948,163 +2969,163 @@ window.onmessage = (event) => {
 };
 
 // Render variables
-      function renderVariables(data, stylesData = null) {
-        console.log('[DEBUG] renderVariables ENTER', { 
-            dataLength: data ? data.length : 0, 
-            hasStylesData: !!stylesData,
-            stylesKeys: stylesData ? Object.keys(stylesData) : [] 
-        });
+function renderVariables(data, stylesData = null) {
+  console.log('[DEBUG] renderVariables ENTER', {
+    dataLength: data ? data.length : 0,
+    hasStylesData: !!stylesData,
+    stylesKeys: stylesData ? Object.keys(stylesData) : []
+  });
 
-        if (stylesData) {
-             console.log('DEBUG: stylesData counts:', {
-                 paint: stylesData.paintStyles ? stylesData.paintStyles.length : 0,
-                 text: stylesData.textStyles ? stylesData.textStyles.length : 0,
-                 effect: stylesData.effectStyles ? stylesData.effectStyles.length : 0,
-                 grid: stylesData.gridStyles ? stylesData.gridStyles.length : 0
-             });
-        }
-        
-        // Calculate totals for summary
-        let totalVariables = 0;
-        const collectionsCount = data.length;
-        data.forEach(collection => {
-          totalVariables += collection.variables ? collection.variables.length : 0;
-        });
-        
-        // Update summary
-        if (typeof updateVariablesSummary === 'function') {
-          updateVariablesSummary(totalVariables, collectionsCount);
-        } else if (window.updateVariablesSummary) {
-          window.updateVariablesSummary(totalVariables, collectionsCount);
-        }
+  if (stylesData) {
+    console.log('DEBUG: stylesData counts:', {
+      paint: stylesData.paintStyles ? stylesData.paintStyles.length : 0,
+      text: stylesData.textStyles ? stylesData.textStyles.length : 0,
+      effect: stylesData.effectStyles ? stylesData.effectStyles.length : 0,
+      grid: stylesData.gridStyles ? stylesData.gridStyles.length : 0
+    });
+  }
 
-        const container = document.getElementById("variables-container");
-        
-        // Check if both variables and styles are empty
-        const hasStyles = stylesData && (
-             (stylesData.textStyles && stylesData.textStyles.length > 0) || 
-             (stylesData.paintStyles && stylesData.paintStyles.length > 0) || 
-             (stylesData.effectStyles && stylesData.effectStyles.length > 0) || 
-             (stylesData.gridStyles && stylesData.gridStyles.length > 0)
-        );
+  // Calculate totals for summary
+  let totalVariables = 0;
+  const collectionsCount = data.length;
+  data.forEach(collection => {
+    totalVariables += collection.variables ? collection.variables.length : 0;
+  });
 
-        if (data.length === 0 && !hasStyles) {
-          container.innerHTML = '';
-          const noItemsDiv = document.createElement('div');
-          noItemsDiv.className = 'no-items';
-          noItemsDiv.textContent = 'No variables or styles found.';
-          container.appendChild(noItemsDiv);
-          return;
-        }
+  // Update summary
+  if (typeof updateVariablesSummary === 'function') {
+    updateVariablesSummary(totalVariables, collectionsCount);
+  } else if (window.updateVariablesSummary) {
+    window.updateVariablesSummary(totalVariables, collectionsCount);
+  }
 
-        let html = "";
+  const container = document.getElementById("variables-container");
 
-        // ... existing validation logic ...
-        // Analyze data for validation issues
-        const validationIssues = [];
-        let tailwindIssues = [];
+  // Check if both variables and styles are empty
+  const hasStyles = stylesData && (
+    (stylesData.textStyles && stylesData.textStyles.length > 0) ||
+    (stylesData.paintStyles && stylesData.paintStyles.length > 0) ||
+    (stylesData.effectStyles && stylesData.effectStyles.length > 0) ||
+    (stylesData.gridStyles && stylesData.gridStyles.length > 0)
+  );
 
-        // Render each collection as it comes from Figma
-        data.forEach((collection) => {
-          if (collection.variables.length > 0) {
-            const groupedVars = new Map();
-            const standaloneVars = [];
+  if (data.length === 0 && !hasStyles) {
+    container.innerHTML = '';
+    const noItemsDiv = document.createElement('div');
+    noItemsDiv.className = 'no-items';
+    noItemsDiv.textContent = 'No variables or styles found.';
+    container.appendChild(noItemsDiv);
+    return;
+  }
 
-            collection.variables.forEach((variable) => {
-              const pathMatch = variable.name.match(/^([^\/]+)\//);
-              if (pathMatch) {
-                const prefix = pathMatch[1];
-                if (!groupedVars.has(prefix)) {
-                  groupedVars.set(prefix, []);
-                }
-                groupedVars.get(prefix).push(variable);
-              } else {
-                standaloneVars.push(variable);
-              }
-            });
+  let html = "";
 
-            groupedVars.forEach((variables, prefix) => {
-              let hasDirectValues = false;
-              let hasLinks = false;
+  // ... existing validation logic ...
+  // Analyze data for validation issues
+  const validationIssues = [];
+  let tailwindIssues = [];
 
-              variables.forEach((variable) => {
-                variable.valuesByMode.forEach((mode) => {
-                  if (
-                    typeof mode.value === "object" &&
-                    mode.value.type === "VARIABLE_ALIAS"
-                  ) {
-                    hasLinks = true;
-                  } else {
-                    hasDirectValues = true;
-                  }
-                });
-              });
+  // Render each collection as it comes from Figma
+  data.forEach((collection) => {
+    if (collection.variables.length > 0) {
+      const groupedVars = new Map();
+      const standaloneVars = [];
 
-              if (hasDirectValues && hasLinks) {
-                const sanitizedId = `group-${collection.name.replace(
-                  /[^a-zA-Z0-9]/g,
-                  "-"
-                )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
-                validationIssues.push({
-                  collection: collection.name,
-                  group: prefix,
-                  displayName: prefix
-                    .replace(/-/g, " ")
-                    .replace(/\b\w/g, (l) => l.toUpperCase()),
-                  issue: "mixed-values-and-links",
-                  sanitizedId: sanitizedId,
-                });
-              }
-            });
+      collection.variables.forEach((variable) => {
+        const pathMatch = variable.name.match(/^([^\/]+)\//);
+        if (pathMatch) {
+          const prefix = pathMatch[1];
+          if (!groupedVars.has(prefix)) {
+            groupedVars.set(prefix, []);
           }
+          groupedVars.get(prefix).push(variable);
+        } else {
+          standaloneVars.push(variable);
+        }
+      });
+
+      groupedVars.forEach((variables, prefix) => {
+        let hasDirectValues = false;
+        let hasLinks = false;
+
+        variables.forEach((variable) => {
+          variable.valuesByMode.forEach((mode) => {
+            if (
+              typeof mode.value === "object" &&
+              mode.value.type === "VARIABLE_ALIAS"
+            ) {
+              hasLinks = true;
+            } else {
+              hasDirectValues = true;
+            }
+          });
         });
 
-        // Add Tailwind v4 validation issues if present
-        const tailwindValidation = window.tailwindV4Validation;
-        if (tailwindValidation && !tailwindValidation.isValid && tailwindValidation.invalidGroups.length > 0) {
-             // ... (keep existing tailwind logic)
-             tailwindIssues = [];
-             
-             // Build list of invalid groups with their sanitized IDs
-             data.forEach(collection => {
-                  const groupedVars = new Map();
-                  
-                  collection.variables.forEach(variable => {
-                       const pathMatch = variable.name.match(/^([^\/]+)\//);
-                       if (pathMatch) {
-                            const prefix = pathMatch[1];
-                            if(!groupedVars.has(prefix)) {
-                                 groupedVars.set(prefix, []);
-                            }
-                            groupedVars.get(prefix).push(variable);
-                       }
-                  });
-                  
-                  groupedVars.forEach((variables, prefix) => {
-                       // Check if this group is invalid for Tailwind v4
-                       if (tailwindValidation.invalidGroups.indexOf(prefix) !== -1) {
-                            const sanitizedId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, "-")}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
-                            tailwindIssues.push({
-                                 collection: collection.name,
-                                 group: prefix,
-                                 displayName: prefix.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
-                                 sanitizedId: sanitizedId
-                            });
-                       }
-                  });
-             });
+        if (hasDirectValues && hasLinks) {
+          const sanitizedId = `group-${collection.name.replace(
+            /[^a-zA-Z0-9]/g,
+            "-"
+          )}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+          validationIssues.push({
+            collection: collection.name,
+            group: prefix,
+            displayName: prefix
+              .replace(/-/g, " ")
+              .replace(/\b\w/g, (l) => l.toUpperCase()),
+            issue: "mixed-values-and-links",
+            sanitizedId: sanitizedId,
+          });
         }
-        
-        // Render warnings to separate container
-        const warningContainer = document.getElementById('variables-warning-container');
-        if (warningContainer) {
-             warningContainer.innerHTML = '';
-             let warningHtml = '';
-             
-             // Show a single combined warning if there are any issues
-             const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
-             if (hasAnyIssues) {
-                   warningHtml += `
+      });
+    }
+  });
+
+  // Add Tailwind v4 validation issues if present
+  const tailwindValidation = window.tailwindV4Validation;
+  if (tailwindValidation && !tailwindValidation.isValid && tailwindValidation.invalidGroups.length > 0) {
+    // ... (keep existing tailwind logic)
+    tailwindIssues = [];
+
+    // Build list of invalid groups with their sanitized IDs
+    data.forEach(collection => {
+      const groupedVars = new Map();
+
+      collection.variables.forEach(variable => {
+        const pathMatch = variable.name.match(/^([^\/]+)\//);
+        if (pathMatch) {
+          const prefix = pathMatch[1];
+          if (!groupedVars.has(prefix)) {
+            groupedVars.set(prefix, []);
+          }
+          groupedVars.get(prefix).push(variable);
+        }
+      });
+
+      groupedVars.forEach((variables, prefix) => {
+        // Check if this group is invalid for Tailwind v4
+        if (tailwindValidation.invalidGroups.indexOf(prefix) !== -1) {
+          const sanitizedId = `group-${collection.name.replace(/[^a-zA-Z0-9]/g, "-")}-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
+          tailwindIssues.push({
+            collection: collection.name,
+            group: prefix,
+            displayName: prefix.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+            sanitizedId: sanitizedId
+          });
+        }
+      });
+    });
+  }
+
+  // Render warnings to separate container
+  const warningContainer = document.getElementById('variables-warning-container');
+  if (warningContainer) {
+    warningContainer.innerHTML = '';
+    let warningHtml = '';
+
+    // Show a single combined warning if there are any issues
+    const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
+    if (hasAnyIssues) {
+      warningHtml += `
                     <div class="validation-alert validation-alert-warning" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);">
                       <div style="display: flex; align-items: center; gap: 12px;">
                         <div>
@@ -3117,36 +3138,36 @@ window.onmessage = (event) => {
                       </button>
                     </div>
                   `;
-             }
-             
-             warningContainer.innerHTML = warningHtml;
+    }
+
+    warningContainer.innerHTML = warningHtml;
+  }
+
+  // Render each collection as it comes from Figma
+  data.forEach((collection) => {
+    if (collection.variables.length > 0) {
+      const groupedVars = new Map();
+      const standaloneVars = [];
+
+      collection.variables.forEach((variable) => {
+        const pathMatch = variable.name.match(/^([^\/]+)\//);
+        if (pathMatch) {
+          const prefix = pathMatch[1];
+          if (!groupedVars.has(prefix)) {
+            groupedVars.set(prefix, []);
+          }
+          groupedVars.get(prefix).push(variable);
+        } else {
+          standaloneVars.push(variable);
         }
+      });
 
-        // Render each collection as it comes from Figma
-        data.forEach((collection) => {
-          if (collection.variables.length > 0) {
-            const groupedVars = new Map();
-            const standaloneVars = [];
-
-            collection.variables.forEach((variable) => {
-              const pathMatch = variable.name.match(/^([^\/]+)\//);
-              if (pathMatch) {
-                const prefix = pathMatch[1];
-                if (!groupedVars.has(prefix)) {
-                  groupedVars.set(prefix, []);
-                }
-                groupedVars.get(prefix).push(variable);
-              } else {
-                standaloneVars.push(variable);
-              }
-            });
-
-            // Build collection HTML
-            const collectionId = `collection-${collection.name.replace(
-              /[^a-zA-Z0-9]/g,
-              "-"
-            )}`;
-            html += `
+      // Build collection HTML
+      const collectionId = `collection-${collection.name.replace(
+        /[^a-zA-Z0-9]/g,
+        "-"
+      )}`;
+      html += `
               <div class="variable-collection" id="${collectionId}" data-collection-id="${collectionId}">
                 <div class="collection-header" onclick="toggleCollection('${collectionId}')">
                   <span class="material-symbols-outlined collection-toggle-icon">expand_more</span>
@@ -3158,12 +3179,12 @@ window.onmessage = (event) => {
                 <div class="collection-content" id="${collectionId}-content">
             `;
 
-            // Render standalone variables as "Ungrouped" group
-            if (standaloneVars.length > 0) {
-              const ungroupedName = "Ungrouped";
-              const groupId = `group-${collectionId}-ungrouped`;
-              
-              html += `
+      // Render standalone variables as "Ungrouped" group
+      if (standaloneVars.length > 0) {
+        const ungroupedName = "Ungrouped";
+        const groupId = `group-${collectionId}-ungrouped`;
+
+        html += `
                 <div class="variable-subgroup">
                   <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                     <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
@@ -3174,55 +3195,54 @@ window.onmessage = (event) => {
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
-              
-              const varsWithCollection = standaloneVars.map((v) => ({
-                ...v,
-                collection: collection.name,
-              }));
-              html += renderVariableTable(varsWithCollection);
-              html += `
+
+        const varsWithCollection = standaloneVars.map((v) => ({
+          ...v,
+          collection: collection.name,
+        }));
+        html += renderVariableTable(varsWithCollection);
+        html += `
                   </div>
                 </div>
               `;
+      }
+
+      // Render grouped variables
+      groupedVars.forEach((variables, prefix) => {
+        const displayName = prefix
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+
+        // Check if this group has mixed values and links
+        let hasDirectValues = false;
+        let hasLinks = false;
+
+        variables.forEach((variable) => {
+          variable.valuesByMode.forEach((mode) => {
+            if (
+              typeof mode.value === "object" &&
+              mode.value.type === "VARIABLE_ALIAS"
+            ) {
+              hasLinks = true;
+            } else {
+              hasDirectValues = true;
             }
+          });
+        });
 
-            // Render grouped variables
-            groupedVars.forEach((variables, prefix) => {
-              const displayName = prefix
-                .replace(/-/g, " ")
-                .replace(/\b\w/g, (l) => l.toUpperCase());
+        const hasMixedValues = hasDirectValues && hasLinks;
 
-              // Check if this group has mixed values and links
-              let hasDirectValues = false;
-              let hasLinks = false;
+        const isTailwindEnabled = (window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4');
 
-              variables.forEach((variable) => {
-                variable.valuesByMode.forEach((mode) => {
-                  if (
-                    typeof mode.value === "object" &&
-                    mode.value.type === "VARIABLE_ALIAS"
-                  ) {
-                    hasLinks = true;
-                  } else {
-                    hasDirectValues = true;
-                  }
-                });
-              });
+        const tailwindValidationLocal = window.tailwindV4Validation;
+        const isTailwindInvalid = isTailwindEnabled && tailwindValidationLocal && !tailwindValidationLocal.isValid && tailwindValidationLocal.invalidGroups.indexOf(prefix) !== -1;
+        const isTailwindValid = isTailwindEnabled && tailwindValidationLocal && tailwindValidationLocal.groups.some(g => g.name === prefix && g.isValid);
 
-              const hasMixedValues = hasDirectValues && hasLinks;
-              
-              const isTailwindEnabled = (window.gitSettings?.exportFormat === 'tailwind-v4' || window.gitlabSettings?.exportFormat === 'tailwind-v4');
+        const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
-              const tailwindValidationLocal = window.tailwindV4Validation;
-              const isTailwindInvalid = isTailwindEnabled && tailwindValidationLocal && !tailwindValidationLocal.isValid && tailwindValidationLocal.invalidGroups.indexOf(prefix) !== -1;
-              const isTailwindValid = isTailwindEnabled && tailwindValidationLocal && tailwindValidationLocal.groups.some(g => g.name === prefix && g.isValid);
-              
-              const groupId = `${collectionId}-group-${prefix.replace(/[^a-zA-Z0-9]/g, "-")}`;
-
-              html += `
-                <div class="variable-subgroup ${
-                  hasMixedValues || isTailwindInvalid ? "has-validation-issues" : ""
-                }" id="${groupId}">
+        html += `
+                <div class="variable-subgroup ${hasMixedValues || isTailwindInvalid ? "has-validation-issues" : ""
+          }" id="${groupId}">
                   <div class="subgroup-header" onclick="toggleSubgroup('${groupId}')">
                     <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
                     <div class="subgroup-title" style="flex: 1;">
@@ -3242,46 +3262,46 @@ window.onmessage = (event) => {
                   </div>
                   <div class="subgroup-content collapsed" id="${groupId}-content">
               `;
-              const varsWithCollection = variables.map((v) => ({
-                ...v,
-                collection: collection.name,
-              }));
-              html += renderVariableTable(varsWithCollection);
-              html += `
+        const varsWithCollection = variables.map((v) => ({
+          ...v,
+          collection: collection.name,
+        }));
+        html += renderVariableTable(varsWithCollection);
+        html += `
                   </div>
                 </div>
               `;
-            });
+      });
 
-            html += `
+      html += `
                 </div>
               </div>
             `;
-          }
-        });
-        
-        // Render Styles as a Virtual Collection
-        if (stylesData) {
-            // Check if we have any styles
-             const hasStyles = (stylesData.textStyles?.length > 0) || 
-                              (stylesData.paintStyles?.length > 0) || 
-                              (stylesData.effectStyles?.length > 0) || 
-                              (stylesData.gridStyles?.length > 0);
-            
-            if (hasStyles) {
-                // Calculate detailed stats
-                const totalStyles = (stylesData.textStyles?.length || 0) + 
-                                  (stylesData.paintStyles?.length || 0) + 
-                                  (stylesData.effectStyles?.length || 0) + 
-                                  (stylesData.gridStyles?.length || 0);
-                
-                let categories = 0;
-                if (stylesData.paintStyles?.length) categories++;
-                if (stylesData.textStyles?.length) categories++;
-                if (stylesData.effectStyles?.length) categories++;
-                if (stylesData.gridStyles?.length) categories++;
+    }
+  });
 
-                html += `
+  // Render Styles as a Virtual Collection
+  if (stylesData) {
+    // Check if we have any styles
+    const hasStyles = (stylesData.textStyles?.length > 0) ||
+      (stylesData.paintStyles?.length > 0) ||
+      (stylesData.effectStyles?.length > 0) ||
+      (stylesData.gridStyles?.length > 0);
+
+    if (hasStyles) {
+      // Calculate detailed stats
+      const totalStyles = (stylesData.textStyles?.length || 0) +
+        (stylesData.paintStyles?.length || 0) +
+        (stylesData.effectStyles?.length || 0) +
+        (stylesData.gridStyles?.length || 0);
+
+      let categories = 0;
+      if (stylesData.paintStyles?.length) categories++;
+      if (stylesData.textStyles?.length) categories++;
+      if (stylesData.effectStyles?.length) categories++;
+      if (stylesData.gridStyles?.length) categories++;
+
+      html += `
                     <div class="tab-header" style="margin-top: 32px; margin-bottom: 16px;">
                         <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
                             <h2 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
@@ -3298,21 +3318,21 @@ window.onmessage = (event) => {
                         </div>
                     </div>
                 `;
-                html += renderStylesAsCollection(stylesData);
-            }
-        }
+      html += renderStylesAsCollection(stylesData);
+    }
+  }
 
-        console.log('[DEBUG] renderVariables updating DOM innerHTML (length: ' + html.length + ')');
-        container.innerHTML = SecurityUtils.sanitizeHTML(html);
-        console.log('[DEBUG] renderVariables DOM update complete');
-        
-        // Collapse all by default
-        if (window.collapseAllVariables) {
-          console.log('[DEBUG] calling collapseAllVariables from renderVariables');
-          window.collapseAllVariables();
-          console.log('[DEBUG] collapseAllVariables returned');
-        }
-      }
+  console.log('[DEBUG] renderVariables updating DOM innerHTML (length: ' + html.length + ')');
+  container.innerHTML = SecurityUtils.sanitizeHTML(html);
+  console.log('[DEBUG] renderVariables DOM update complete');
+
+  // Collapse all by default
+  if (window.collapseAllVariables) {
+    console.log('[DEBUG] calling collapseAllVariables from renderVariables');
+    window.collapseAllVariables();
+    console.log('[DEBUG] collapseAllVariables returned');
+  }
+}
 
 function renderStylesAsCollection(data) {
   if (
@@ -3619,17 +3639,16 @@ function renderStyleTable(styles, type, isGrouped = false) {
     html += `
                 <div class="unified-list-item variable-row" id="style-${sanitizedId}">
                     <div class="variable-cell" style="font-weight: 500; color: #fff;">${displayName}</div>
-                    <div class="variable-cell" style="color: rgba(255, 255, 255, 0.4); font-size: 11px; letter-spacing: 0.5px;">${
-                      type === 'paint'
-                        ? 'Color'
-                        : type === 'text'
-                          ? 'Text'
-                          : type === 'effect'
-                            ? 'Effect'
-                            : type === 'grid'
-                              ? 'Layout guide'
-                              : type
-                    }</div>
+                    <div class="variable-cell" style="color: rgba(255, 255, 255, 0.4); font-size: 11px; letter-spacing: 0.5px;">${type === 'paint'
+        ? 'Color'
+        : type === 'text'
+          ? 'Text'
+          : type === 'effect'
+            ? 'Effect'
+            : type === 'grid'
+              ? 'Layout guide'
+              : type
+      }</div>
                     <div class="variable-cell">${valuePreview}</div>
                     <div class="variable-cell" style="display: flex; justify-content: center;">
                         <span class="subgroup-stats" title="Used in ${style.usageCount || 0} layers">${style.usageCount || 0}</span>
@@ -3706,8 +3725,8 @@ function findVariableMatchingValue(valueToMatch, type) {
 }
 
 // Render a group of variables with a title
-      function renderVariableTable(variables) {
-        let html = `
+function renderVariableTable(variables) {
+  let html = `
             <div class="variable-list">
               <div class="unified-list-header variable-header">
                   <div class="variable-cell">Name</div>
@@ -3718,32 +3737,32 @@ function findVariableMatchingValue(valueToMatch, type) {
               </div>
         `;
 
-        variables.forEach((variable) => {
-          const sanitizedId = variable.name
-            .replace(/[^a-zA-Z0-9]/g, "-")
-            .toLowerCase();
-          const safeVariableName = variable.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            
-          html += `
+  variables.forEach((variable) => {
+    const sanitizedId = variable.name
+      .replace(/[^a-zA-Z0-9]/g, "-")
+      .toLowerCase();
+    const safeVariableName = variable.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+    html += `
             <div class="unified-list-item variable-row" id="var-${sanitizedId}">
               <div class="variable-cell" style="font-weight: 500; color: #fff; display: flex; align-items: center;">${variable.name}</div>
               <div class="variable-cell" style="color: rgba(255, 255, 255, 0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">${variable.resolvedType === 'FLOAT' ? 'NUMBER' : variable.resolvedType}</div>
               <div class="variable-cell">
           `;
 
-          variable.valuesByMode.forEach((mode) => {
-            const value = mode.value;
-            const showModeName = variable.valuesByMode.length > 1;
+    variable.valuesByMode.forEach((mode) => {
+      const value = mode.value;
+      const showModeName = variable.valuesByMode.length > 1;
 
-            // Check if this is a variable alias
-            if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
-              const referencedVariableName = findVariableNameById(value.id);
-              const sanitizedName = referencedVariableName
-                ? referencedVariableName
-                    .replace(/[^a-zA-Z0-9]/g, "-")
-                    .toLowerCase()
-                : null;
-              html += `
+      // Check if this is a variable alias
+      if (typeof value === "object" && value.type === "VARIABLE_ALIAS") {
+        const referencedVariableName = findVariableNameById(value.id);
+        const sanitizedName = referencedVariableName
+          ? referencedVariableName
+            .replace(/[^a-zA-Z0-9]/g, "-")
+            .toLowerCase()
+          : null;
+        html += `
                 <div>
                   ${showModeName ? `<span style="opacity:0.5; font-size:11px;">${mode.modeName}:</span> ` : ""}<span 
                     style="color: rgba(255,255,255,0.9); cursor: pointer; border-bottom: 1px dashed rgba(255,255,255,0.4);" 
@@ -3752,36 +3771,34 @@ function findVariableMatchingValue(valueToMatch, type) {
                   >${referencedVariableName || value.id}</span>
                 </div>
               `;
-            }
-            // Display color values with a preview
-            else if (
-              variable.resolvedType === "COLOR" &&
-              typeof value === "object" &&
-              value.r !== undefined
-            ) {
-              const r = Math.round(value.r * 255);
-              const g = Math.round(value.g * 255);
-              const b = Math.round(value.b * 255);
-              const a = value.a ?? 1;
+      }
+      // Display color values with a preview
+      else if (
+        variable.resolvedType === "COLOR" &&
+        typeof value === "object" &&
+        value.r !== undefined
+      ) {
+        const r = Math.round(value.r * 255);
+        const g = Math.round(value.g * 255);
+        const b = Math.round(value.b * 255);
+        const a = value.a ?? 1;
 
-              html += `
+        html += `
                 <div style="display: flex; align-items: center; gap: 6px;">
                   <span class="color-preview" style="background-color: rgba(${r},${g},${b},${a}); width: 14px; height: 14px; border-radius: 4px; display: inline-block;"></span>
-                  <span>${
-                    showModeName ? mode.modeName + ": " : ""
-                  }rgba(${r},${g},${b},${formatDecimal(a)})</span>
+                  <span>${showModeName ? mode.modeName + ": " : ""
+          }rgba(${r},${g},${b},${formatDecimal(a)})</span>
                 </div>
               `;
-            } else {
-               // Fix for string formatting: don't stringify strings
-              const displayValue = typeof value === 'string' ? value : (typeof value === 'number' ? formatDecimal(value) : JSON.stringify(value));
-              html += `<div>${
-                showModeName ? mode.modeName + ": " : ""
-              }${displayValue}</div>`;
-            }
-          });
+      } else {
+        // Fix for string formatting: don't stringify strings
+        const displayValue = typeof value === 'string' ? value : (typeof value === 'number' ? formatDecimal(value) : JSON.stringify(value));
+        html += `<div>${showModeName ? mode.modeName + ": " : ""
+          }${displayValue}</div>`;
+      }
+    });
 
-          html += `</div>
+    html += `</div>
               
               <!-- Usage badge -->
               <div class="variable-cell" style="display: flex; justify-content: center;">
@@ -3795,14 +3812,14 @@ function findVariableMatchingValue(valueToMatch, type) {
               </div>
             </div>
           `;
-        });
+  });
 
-        html += `
+  html += `
             </div>
         `;
 
-        return html;
-      }
+  return html;
+}
 
 // Extract component type and state from name
 function parseComponentName(name) {
@@ -3927,7 +3944,7 @@ function formatStyles(styles, textElements, componentName) {
 
 
 // Copy text to clipboard
-window.copyToClipboard = function(text) {
+window.copyToClipboard = function (text) {
   // Create a temporary textarea element
   const textarea = document.createElement('textarea');
   textarea.value = text;
@@ -3935,7 +3952,7 @@ window.copyToClipboard = function(text) {
   textarea.style.position = 'absolute';
   textarea.style.left = '-9999px';
   document.body.appendChild(textarea);
-  
+
   // Select and copy
   textarea.select();
   try {
@@ -3945,7 +3962,7 @@ window.copyToClipboard = function(text) {
     console.error('Failed to copy text: ', err);
     showNotification('error', 'Error', 'Failed to copy link');
   }
-  
+
   // Clean up
   document.body.removeChild(textarea);
 };
@@ -4364,19 +4381,19 @@ function renderComponents(data) {
                   </div>
                   <div class="component-actions">
                     ${UIHelper.createActionBtn('download', '', {
-                      'data-component-id': component.id,
-                      'data-component-name': component.name,
-                      'data-action': 'generate',
-                      class: 'generate-all-variants-button btn-icon-only',
-                      'data-tooltip': 'Generate variants',
-                    })}
+        'data-component-id': component.id,
+        'data-component-name': component.name,
+        'data-action': 'generate',
+        class: 'generate-all-variants-button btn-icon-only',
+        'data-tooltip': 'Generate variants',
+      })}
                     ${UIHelper.createActionBtn('commit', '', {
-                      'data-component-id': component.id,
-                      'data-component-name': component.name,
-                      'data-action': 'commit',
-                      class: 'commit-all-variants-button btn-icon-only',
-                      'data-tooltip': 'Commit variants',
-                    })}
+        'data-component-id': component.id,
+        'data-component-name': component.name,
+        'data-action': 'commit',
+        class: 'commit-all-variants-button btn-icon-only',
+        'data-tooltip': 'Commit variants',
+      })}
                     ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
                   </div>
               </div>
@@ -4393,18 +4410,17 @@ function renderComponents(data) {
                     ${UIHelper.createNavIcon(child.id, 'Navigate to variant')}
                     <div class="component-meta">
                       <span class="component-name">${childParsed.name}</span>
-                      ${
-                        childParsed.variants.length > 0
-                          ? childParsed.variants
-                              .map((variant) =>
-                                UIHelper.createBadge(
-                                  `${variant.property}=${variant.value}`,
-                                  'variant',
-                                ),
-                              )
-                              .join('')
-                          : UIHelper.createBadge('Variant', 'component')
-                      }
+                      ${childParsed.variants.length > 0
+              ? childParsed.variants
+                .map((variant) =>
+                  UIHelper.createBadge(
+                    `${variant.property}=${variant.value}`,
+                    'variant',
+                  ),
+                )
+                .join('')
+              : UIHelper.createBadge('Variant', 'component')
+            }
                     </div>
                   </div>
                 </div>
@@ -4426,29 +4442,28 @@ function renderComponents(data) {
                 ${UIHelper.createNavIcon(component.id, 'Navigate to component', 'target')}
                 <div class="component-meta">
                   <span class="component-name">${parsedName.name}</span>
-                  ${
-                    parsedName.variants.length > 0
-                      ? parsedName.variants
-                          .map((variant) =>
-                            UIHelper.createBadge(`${variant.property}=${variant.value}`, 'variant'),
-                          )
-                          .join('')
-                      : UIHelper.createBadge('Component', 'component')
-                  }
+                  ${parsedName.variants.length > 0
+          ? parsedName.variants
+            .map((variant) =>
+              UIHelper.createBadge(`${variant.property}=${variant.value}`, 'variant'),
+            )
+            .join('')
+          : UIHelper.createBadge('Component', 'component')
+        }
                 </div>
                 <div class="component-actions">
                   ${UIHelper.createActionBtn('download', 'Generate', {
-                    'data-component-id': component.id,
-                    'data-component-name': component.name,
-                    'data-action': 'generate',
-                    class: 'generate-all-variants-button',
-                  })}
+          'data-component-id': component.id,
+          'data-component-name': component.name,
+          'data-action': 'generate',
+          class: 'generate-all-variants-button',
+        })}
                   ${UIHelper.createActionBtn('commit', 'Commit', {
-                    'data-component-id': component.id,
-                    'data-component-name': component.name,
-                    'data-action': 'commit',
-                    class: 'commit-all-variants-button',
-                  })}
+          'data-component-id': component.id,
+          'data-component-name': component.name,
+          'data-action': 'commit',
+          class: 'commit-all-variants-button',
+        })}
                 </div>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
@@ -5156,12 +5171,12 @@ function switchToQualityTab() {
 
 function runQualityAnalysis() {
   if (window.qualityScanPerformed) return;
-  
+
   console.log('Running quality analysis...');
-  
+
   // Reset lazy-load state
   window.qualityRemainingIssues = {};
-  
+
   // Show loading spinners in all category bodies
   ['missing-variables', 'unused-variables', 'unused-components', 'tailwind'].forEach(id => {
     const content = document.getElementById(id + '-content');
@@ -5169,28 +5184,29 @@ function runQualityAnalysis() {
       content.innerHTML = '<div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>';
     }
   });
-  
+
   // Reset stats displays
   updateAllCategoryUI();
-  
+
   const selectedIds = window.MultiPageSelector ? window.MultiPageSelector.getSelectedIds() : [];
   const pageIds = selectedIds.length > 0 ? selectedIds : null;
   const exportFormat = window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css';
-  
+
   // Trigger backend analyses
-  parent.postMessage({ pluginMessage: { type: 'analyze-token-coverage', scope: pageIds ? 'ALL' : 'SMART_SCAN', pageIds, exportFormat } }, '*');
-  parent.postMessage({ pluginMessage: { type: 'analyze-component-hygiene', scope: pageIds ? 'ALL' : 'ALL', pageIds } }, '*');
-  parent.postMessage({ pluginMessage: { type: 'analyze-variable-hygiene', scope: pageIds ? 'ALL' : 'ALL', pageIds } }, '*');
-  
+  // Changed from SMART_SCAN to ALL for document-wide consistency
+  parent.postMessage({ pluginMessage: { type: 'analyze-token-coverage', scope: pageIds ? 'ALL' : 'ALL', pageIds, exportFormat } }, '*');
+  parent.postMessage({ pluginMessage: { type: 'analyze-component-hygiene', scope: 'ALL', pageIds } }, '*');
+  parent.postMessage({ pluginMessage: { type: 'analyze-variable-hygiene', scope: 'ALL', pageIds } }, '*');
+
   window.qualityScanPerformed = true;
 }
 
-window.refreshQualityAnalysis = function() {
+window.refreshQualityAnalysis = function () {
   const btn = document.getElementById('quality-refresh-btn');
   if (btn) btn.classList.add('spinning');
-  
+
   window.qualityScanPerformed = false;
-  
+
   // Reset state
   Object.keys(window.qualityState.categories).forEach(key => {
     window.qualityState.categories[key].score = 0;
@@ -5199,9 +5215,9 @@ window.refreshQualityAnalysis = function() {
     window.qualityState.categories[key].total = 0;
     window.qualityState.categories[key].data = null;
   });
-  
+
   runQualityAnalysis();
-  
+
   // Remove spinning after 5s safety net
   setTimeout(() => {
     if (btn) btn.classList.remove('spinning');
@@ -5218,19 +5234,19 @@ function getOverallQualityScore() {
 
 function updateAllCategoryUI() {
   const cats = window.qualityState.categories;
-  
+
   updateCategoryProgress('missing-variables', cats.missingVariables);
   updateCategoryProgress('unused-variables', cats.unusedVariables);
   updateCategoryProgress('unused-components', cats.unusedComponents);
   updateCategoryProgress('tailwind', cats.tailwind);
-  
+
   const twSection = document.getElementById('quality-cat-tailwind');
   if (twSection) {
     twSection.style.display = cats.tailwind.active ? '' : 'none';
   }
-  
+
   updateQualityGauge();
-  
+
   const totalIssues = cats.missingVariables.bad + cats.unusedVariables.bad + cats.unusedComponents.bad + (cats.tailwind.active ? cats.tailwind.bad : 0);
   const summaryEl = document.getElementById('quality-summary-stats');
   if (summaryEl) {
@@ -5243,7 +5259,7 @@ function updateCategoryProgress(id, category) {
   const badEl = document.getElementById('bad-' + id);
   const barEl = document.getElementById('bar-' + id);
   const pctEl = document.getElementById('pct-' + id);
-  
+
   if (goodEl) goodEl.textContent = category.good;
   if (badEl) badEl.textContent = category.bad;
   if (barEl) barEl.style.width = category.score + '%';
@@ -5256,7 +5272,7 @@ function updateCategoryProgress(id, category) {
 function updateQualityGauge() {
   const container = document.getElementById('quality-score-ring-container');
   if (!container) return;
-  
+
   const score = getOverallQualityScore();
   const color = getScoreColor(score);
   const size = 150;
@@ -5266,21 +5282,21 @@ function updateQualityGauge() {
   const strokeWidth = 10;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - score / 100);
-  
+
   container.innerHTML = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" style="display: block;">' +
     '<circle cx="' + cx + '" cy="' + cy + '" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + strokeWidth + '" />' +
     '<circle cx="' + cx + '" cy="' + cy + '" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="' + strokeWidth + '" stroke-linecap="round" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + offset + '" transform="rotate(-90 ' + cx + ' ' + cy + ')" style="transition: stroke-dashoffset 1s ease-out, stroke 0.6s ease;" />' +
     '<text x="' + cx + '" y="' + cy + '" text-anchor="middle" dominant-baseline="central" style="fill: ' + color + '; font-size: 32px; font-weight: 800; font-family: \'SF Mono\', \'JetBrains Mono\', monospace; transition: fill 0.6s ease;">' + score + '</text>' +
-  '</svg>';
+    '</svg>';
 }
 
-window.toggleQualitySection = function(sectionId) {
+window.toggleQualitySection = function (sectionId) {
   const section = document.getElementById(sectionId);
   if (!section) return;
-  
+
   const body = section.querySelector('.quality-category-body');
   const isExpanded = section.classList.contains('expanded');
-  
+
   if (isExpanded) {
     section.classList.remove('expanded');
     if (body) body.style.display = 'none';
@@ -5290,13 +5306,13 @@ window.toggleQualitySection = function(sectionId) {
   }
 };
 
-window.toggleQualityAccordion = function(id) {
+window.toggleQualityAccordion = function (id) {
   const el = document.getElementById(id);
   if (!el) return;
-  
+
   const body = document.getElementById(id + '-body');
   const isExpanded = el.classList.contains('expanded');
-  
+
   if (isExpanded) {
     el.classList.remove('expanded');
     if (body) body.style.display = 'none';
@@ -5306,15 +5322,15 @@ window.toggleQualityAccordion = function(id) {
   }
 };
 
-window.toggleIssueCard = function(issueId) {
+window.toggleIssueCard = function (issueId) {
   const card = document.getElementById(issueId + '-card');
   const body = document.getElementById(issueId + '-body');
   const chevron = document.getElementById(issueId + '-chevron');
-  
+
   if (!card || !body) return;
-  
+
   const isHidden = body.style.display === 'none' || !body.style.display;
-  
+
   if (isHidden) {
     body.style.display = 'block';
     card.classList.add('expanded');
@@ -5330,21 +5346,21 @@ window.toggleIssueCard = function(issueId) {
 
 function handleTokenCoverageResult(result) {
   console.log('Quality: Token coverage result received', result);
-  
+
   const cat = window.qualityState.categories.missingVariables;
   cat.total = result.totalNodes || 0;
   cat.bad = result.totalIssues || 0;
   cat.good = Math.max(0, cat.total - cat.bad);
   cat.score = result.subScores ? result.subScores.tokenCoverage : (cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100));
   cat.data = result;
-  
+
   window.qualityState.totalNodes = result.totalNodes || window.qualityState.totalNodes;
-  
+
   // Handle Tailwind
   const isTailwind = (window.gitlabSettings && window.gitlabSettings.exportFormat === 'tailwind-v4') || (window.gitSettings && window.gitSettings.exportFormat === 'tailwind-v4');
   const twCat = window.qualityState.categories.tailwind;
   twCat.active = isTailwind;
-  
+
   if (isTailwind && result.tailwindValidation) {
     window.tailwindV4Validation = result.tailwindValidation;
     twCat.bad = result.tailwindValidation.totalInvalid || 0;
@@ -5353,21 +5369,21 @@ function handleTokenCoverageResult(result) {
     twCat.score = result.subScores ? result.subScores.tailwindReadiness : 100;
     twCat.data = result.tailwindValidation;
   }
-  
+
   updateAllCategoryUI();
   renderMissingVariablesContent(result);
-  
+
   if (isTailwind && result.tailwindValidation) {
     renderTailwindContent(result.tailwindValidation);
   }
-  
+
   const btn = document.getElementById('quality-refresh-btn');
   if (btn) btn.classList.remove('spinning');
 }
 
 function handleComponentHygieneResult(result) {
   console.log('Quality: Component hygiene result received', result);
-  
+
   const cat = window.qualityState.categories.unusedComponents;
   // Use deletable units (variants + standalone components) for progress calculation
   cat.bad = result.unusedDeletableUnits || result.unusedComponentCount || result.unusedCount || 0;
@@ -5375,21 +5391,21 @@ function handleComponentHygieneResult(result) {
   cat.good = Math.max(0, cat.total - cat.bad);
   cat.score = (result.subScores && result.subScores.componentHygiene !== undefined) ? result.subScores.componentHygiene : (cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100));
   cat.data = result;
-  
+
   updateAllCategoryUI();
   renderUnusedComponentsContent(result);
 }
 
 function handleVariableHygieneResult(result) {
   console.log('Quality: Variable hygiene result received', result);
-  
+
   const cat = window.qualityState.categories.unusedVariables;
   cat.bad = result.unusedCount || result.unusedVariableCount || 0;
   cat.total = result.totalVariables || 0;
   cat.good = Math.max(0, cat.total - cat.bad);
   cat.score = result.hygieneScore !== undefined ? result.hygieneScore : ((result.subScores && result.subScores.variableHygiene !== undefined) ? result.subScores.variableHygiene : (cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100)));
   cat.data = result;
-  
+
   updateAllCategoryUI();
   renderUnusedVariablesContent(result);
 }
@@ -5399,58 +5415,58 @@ function handleVariableHygieneResult(result) {
 function renderMissingVariablesContent(result) {
   const container = document.getElementById('missing-variables-content');
   if (!container) return;
-  
+
   const categories = ['Layout', 'Fill', 'Stroke', 'Appearance'];
   const issuesByCategory = result.issuesByCategory || {};
-  
+
   let hasAnyIssues = false;
   categories.forEach(cat => {
     if ((issuesByCategory[cat] || []).length > 0) hasAnyIssues = true;
   });
-  
+
   if (!hasAnyIssues) {
     container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">No missing variable issues found.</div>';
     return;
   }
-  
+
   let html = '';
-  
+
   categories.forEach(category => {
     const issues = issuesByCategory[category] || [];
     if (issues.length === 0) return;
-    
+
     const groupId = 'mv-' + category;
-    
+
     html += '<div class="quality-accordion" id="' + groupId + '">' +
       '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
-        '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
-        '<span class="quality-accordion-title">' + SecurityUtils.escapeHTML(category) + '</span>' +
-        '<span class="quality-accordion-count">' + issues.length + '</span>' +
+      '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+      '<span class="quality-accordion-title">' + SecurityUtils.escapeHTML(category) + '</span>' +
+      '<span class="quality-accordion-count">' + issues.length + '</span>' +
       '</div>' +
       '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;">';
-    
+
     const initialCount = 10;
     const initialIssues = issues.slice(0, initialCount);
     const remainingIssues = issues.slice(initialCount);
-    
+
     html += '<div id="' + groupId + '-issues">';
     initialIssues.forEach((issue, idx) => {
       html += renderMissingVarIssueCard(issue, category, idx);
     });
     html += '</div>';
-    
+
     if (remainingIssues.length > 0) {
       window.qualityRemainingIssues = window.qualityRemainingIssues || {};
       window.qualityRemainingIssues[category] = remainingIssues;
-      
+
       html += '<div id="' + groupId + '-load-more" style="text-align: center; padding: 8px 0;">' +
         '<button onclick="loadMoreMVIssues(\'' + category + '\', ' + initialCount + ')" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">' +
         'Load ' + remainingIssues.length + ' more issues</button></div>';
     }
-    
+
     html += '</div></div>';
   });
-  
+
   container.innerHTML = html;
 }
 
@@ -5458,35 +5474,35 @@ function renderMissingVarIssueCard(issue, category, idx) {
   const issueId = 'issue-' + category + '-' + idx;
   const exactMatches = (issue.matchingVariables || []).filter(v => v.matchType === 'EXACT' || !v.matchType);
   const nearMatches = (issue.matchingVariables || []).filter(v => v.matchType === 'NEAR');
-  
+
   let selectedId = '';
   if (exactMatches.length === 1) selectedId = exactMatches[0].id;
   else if (exactMatches.length === 0 && nearMatches.length === 0) selectedId = 'create-new';
-  
+
   const val = issue.value;
   const isColor = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(val);
   const colorPreview = isColor ? '<div class="quality-color-preview" style="background: ' + val + ';"></div>' : '';
-  
-  let html = '<div id="' + issueId + '-card" class="quality-issue-card" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;">' +
-    '<div class="quality-issue-header" onclick="toggleIssueCard(\'' + issueId + '\')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer;">' +
-      '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
-        '<span id="' + issueId + '-chevron" class="material-symbols-outlined" style="font-size: 18px; opacity: 0.7; transition: transform 0.2s;">chevron_right</span>' +
-        '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap;">' + SecurityUtils.escapeHTML(issue.property) + '</div>' +
-        '<div style="font-family: \'SF Mono\', monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
-          SecurityUtils.escapeHTML(val) + colorPreview +
-        '</div>' +
-      '</div>' +
-      '<div style="display: flex; align-items: center; gap: 4px; opacity: 0.5;">' +
-        '<span class="material-symbols-outlined" style="font-size: 14px;">layers</span>' +
-        '<span style="font-size: 11px; font-weight: 500;">' + (issue.totalNodes || issue.count) + '</span>' +
-      '</div>' +
+
+  let html = '<div id="' + issueId + '-card" class="quality-issue-card" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
+    '<div class="quality-issue-header" onclick="toggleIssueCard(\'' + issueId + '\')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; border-radius: 8px;">' +
+    '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
+    '<span id="' + issueId + '-chevron" class="material-symbols-outlined" style="font-size: 18px; opacity: 0.7; transition: transform 0.2s;">chevron_right</span>' +
+    '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap;">' + SecurityUtils.escapeHTML(issue.property) + '</div>' +
+    '<div style="font-family: \'SF Mono\', monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
+    SecurityUtils.escapeHTML(val) + colorPreview +
+    '</div>' +
+    '</div>' +
+    '<div style="display: flex; align-items: center; gap: 4px; opacity: 0.5;">' +
+    '<span class="material-symbols-outlined" style="font-size: 14px;">layers</span>' +
+    '<span style="font-size: 11px; font-weight: 500;">' + (issue.totalNodes || issue.count) + '</span>' +
+    '</div>' +
     '</div>' +
     '<div id="' + issueId + '-body" style="display: none; padding: 8px 12px;">';
-  
+
   if (exactMatches.length === 0 && nearMatches.length === 0) {
     html += '<div style="margin-bottom: 8px;">' +
       '<button onclick="handleCreateNewVariable(\'' + issueId + '\')" class="btn-create-variable">' +
-        '<span class="material-symbols-outlined" style="font-size: 16px;">add_circle</span> Create New Variable' +
+      '<span class="material-symbols-outlined" style="font-size: 16px;">add_circle</span> Create New Variable' +
       '</button></div>';
   } else {
     let initialLabel = '(select variable)';
@@ -5496,14 +5512,14 @@ function renderMissingVarIssueCard(issue, category, idx) {
     } else if (selectedId === 'create-new') {
       initialLabel = '+ Create new variable...';
     }
-    
+
     html += '<div class="fix-actions-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">';
     html += '<div id="' + issueId + '-custom-select" class="custom-select" data-value="' + selectedId + '">';
     html += '<div class="custom-select-trigger" onclick="toggleCustomSelect(\'' + issueId + '\')" style="border: 2px solid #8b5cf6;">' +
       '<span class="trigger-text">' + initialLabel + '</span>' +
       '<span class="material-symbols-outlined trigger-icon">expand_more</span></div>';
     html += '<div class="custom-select-menu">';
-    
+
     if (exactMatches.length > 0) {
       html += '<div class="custom-select-group-header exact">Exact Matches</div>';
       exactMatches.forEach(v => {
@@ -5513,10 +5529,10 @@ function renderMissingVarIssueCard(issue, category, idx) {
           (sel ? ' <span class="material-symbols-outlined" style="font-size: 14px;">check</span>' : '') + '</div>';
       });
     }
-    
+
     html += '<div class="custom-select-divider"></div>';
     html += '<div class="custom-select-option create-new" onclick="selectCustomOption(\'' + issueId + '\', \'create-new\', \'+ Create new variable...\', \'\')">+ Create new variable...</div>';
-    
+
     if (nearMatches.length > 0) {
       html += '<div class="custom-select-divider"></div>';
       html += '<div class="custom-select-group-header near">Near Matches (\u00B12px)</div>';
@@ -5527,20 +5543,20 @@ function renderMissingVarIssueCard(issue, category, idx) {
           (sel ? ' <span class="material-symbols-outlined" style="font-size: 14px;">check</span>' : '') + '</div>';
       });
     }
-    
+
     html += '</div></div>';
     html += '<button id="' + issueId + '-apply-btn" class="token-fix-apply-btn btn-apply-fix" onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-original-onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" disabled>' +
       '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply</button>';
     html += '</div>';
   }
-  
+
   // Node list
   html += '<div><div class="nodes-list-header">' +
     '<label class="label-checkbox">' +
-      '<input type="checkbox" id="' + issueId + '-select-all" onchange="toggleAllOccurrences(\'' + issueId + '\')" style="cursor: pointer;">' +
-      '<span class="label-text-uppercase">Select All (' + issue.nodeNames.length + ' nodes)</span>' +
+    '<input type="checkbox" id="' + issueId + '-select-all" onchange="toggleAllOccurrences(\'' + issueId + '\')" style="cursor: pointer;">' +
+    '<span class="label-text-uppercase">Select All (' + issue.nodeNames.length + ' nodes)</span>' +
     '</label></div><div class="quality-nodes-list">';
-  
+
   const componentGroups = {};
   issue.nodeNames.forEach((nodeName, i) => {
     const frameName = issue.nodeFrames ? issue.nodeFrames[i] : 'Unknown Frame';
@@ -5549,261 +5565,261 @@ function renderMissingVarIssueCard(issue, category, idx) {
     componentGroups[frameName].ids.push(issue.nodeIds[i]);
     componentGroups[frameName].instances.push({ id: issue.nodeIds[i], name: nodeName });
   });
-  
+
   Object.values(componentGroups).forEach((data, groupIdx) => {
     const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
     html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
       '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">' +
-        '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
-        '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
-          '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
-        '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(data.instances[0] ? (data.instances.length > 1 ? (data.instances[0].name.split('/')[0] || data.instances[0].name) : data.instances[0].name) : 'Unknown') + '</span>' +
-        '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
+      '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
+      '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
+      '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
+      '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(data.instances[0] ? (data.instances.length > 1 ? (data.instances[0].name.split('/')[0] || data.instances[0].name) : data.instances[0].name) : 'Unknown') + '</span>' +
+      '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
       '</div>' +
       '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
-    
+
     data.instances.forEach(inst => {
       html += '<div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0;">' +
         '<div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">' +
-          '<span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>' +
-          '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
+        '<span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>' +
+        '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
         '</div>' +
         '<button class="quality-focus-btn" onclick="window.focusOnNode(\'' + inst.id + '\')"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button></div>';
     });
-    
+
     html += '</div></div>';
   });
-  
+
   html += '</div></div></div></div>';
-  
+
   if (selectedId && selectedId !== 'create-new') {
     setTimeout(() => updateIssueApplyButtonState(issueId), 0);
   }
-  
+
   return html;
 }
 
 function renderUnusedVariablesContent(result) {
   const container = document.getElementById('unused-variables-content');
   if (!container) return;
-  
+
   if (!result.unusedVariables || result.unusedVariables.length === 0) {
     container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">No unused variables found.</div>';
     return;
   }
-  
+
   const groups = {};
   result.unusedVariables.forEach(v => {
     if (!groups[v.collectionName]) groups[v.collectionName] = [];
     groups[v.collectionName].push(v);
   });
-  
+
   let html = '';
-  
+
   Object.entries(groups).forEach(([collectionName, variables], gIdx) => {
     const groupId = 'uv-group-' + gIdx;
     const escapedName = SecurityUtils.escapeHTML(collectionName);
-    
+
     html += '<div class="quality-accordion" id="' + groupId + '">' +
       '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
-        '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
-        '<span class="quality-accordion-title">' + escapedName + '</span>' +
-        '<span class="quality-accordion-count">' + variables.length + '</span>' +
+      '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+      '<span class="quality-accordion-title">' + escapedName + '</span>' +
+      '<span class="quality-accordion-count">' + variables.length + '</span>' +
       '</div>' +
       '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;">';
-    
+
     variables.forEach((variable, vIdx) => {
       const displayName = SecurityUtils.escapeHTML(variable.name);
       const isColor = variable.resolvedType === 'COLOR' || /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(variable.resolvedValue || '');
       const colorPreview = (isColor && variable.resolvedValue) ? '<div class="quality-color-preview" style="background: ' + variable.resolvedValue + ';"></div>' : '';
-      
+
       html += '<div class="quality-row-item" id="uv-' + gIdx + '-' + vIdx + '-row" data-variable-id="' + variable.id + '">' +
         '<div style="display: flex; align-items: center; flex: 1; min-width: 0;">' +
-          '<span class="quality-row-name">' + displayName + '</span>' +
-          colorPreview +
+        '<span class="quality-row-name">' + displayName + '</span>' +
+        colorPreview +
         '</div>' +
         '<div class="quality-row-actions">' +
-          '<button class="quality-delete-btn" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'uv-' + gIdx + '-' + vIdx + '-row\')" title="Delete variable">' +
-            '<span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+        '<button class="quality-delete-btn" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'uv-' + gIdx + '-' + vIdx + '-row\')" title="Delete variable">' +
+        '<span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
         '</div></div>';
     });
-    
+
     html += '</div></div>';
   });
-  
+
   container.innerHTML = html;
 }
 
 function renderUnusedComponentsContent(result) {
   const container = document.getElementById('unused-components-content');
   if (!container) return;
-  
+
   if (!result.unusedComponents || result.unusedComponents.length === 0) {
     container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">No unused components found.</div>';
     return;
   }
-  
+
   let html = '';
-  
+
   result.unusedComponents.forEach((component, idx) => {
     const displayName = SecurityUtils.escapeHTML(component.name);
     const isComponentSet = component.type === 'COMPONENT_SET';
     const hasVariants = isComponentSet && component.unusedVariants && component.unusedVariants.length > 0;
-    
+
     if (hasVariants) {
       const groupId = 'uc-' + idx;
       const variantIds = component.unusedVariants.map(v => v.id).join(',');
-      
+
       html += '<div class="quality-accordion" id="' + groupId + '" data-component-id="' + component.id + '">' +
         '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
-          '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
-          '<span class="quality-accordion-title" style="text-transform: none; letter-spacing: normal; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500;">' + displayName + '</span>' +
-          '<span class="quality-variant-badge">' + component.unusedVariantCount + '/' + component.totalVariants + '</span>' +
-          '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteAllUnusedVariants(\'' + component.id + '\', \'' + displayName + '\', \'' + variantIds + '\')" title="Delete all unused variants">' +
-            '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
+        '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+        '<span class="quality-accordion-title" style="text-transform: none; letter-spacing: normal; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500;">' + displayName + '</span>' +
+        '<span class="quality-variant-badge">' + component.unusedVariantCount + '/' + component.totalVariants + '</span>' +
+        '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteAllUnusedVariants(\'' + component.id + '\', \'' + displayName + '\', \'' + variantIds + '\')" title="Delete all unused variants">' +
+        '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
         '</div>' +
         '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;"><div class="quality-variant-list">';
-      
+
       component.unusedVariants.forEach((variant, vIdx) => {
         const variantName = SecurityUtils.escapeHTML(variant.name);
         html += '<div class="quality-variant-row" id="uc-' + idx + '-v-' + vIdx + '-row" data-component-id="' + variant.id + '">' +
           '<span class="quality-variant-name" title="' + variantName + '">' + variantName + '</span>' +
           '<div class="quality-row-actions">' +
-            '<button class="quality-focus-btn" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus">' +
-              '<span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
-            '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant">' +
-              '<span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+          '<button class="quality-focus-btn" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus">' +
+          '<span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
+          '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant">' +
+          '<span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
           '</div></div>';
       });
-      
+
       html += '</div></div></div>';
     } else {
       html += '<div class="quality-row-item" id="uc-' + idx + '-row" data-component-id="' + component.id + '">' +
         '<span class="quality-row-name">' + displayName + '</span>' +
         '<div class="quality-row-actions">' +
-          '<button class="quality-focus-btn" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus">' +
-            '<span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button>' +
-          '<button class="quality-delete-btn" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component">' +
-            '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
+        '<button class="quality-focus-btn" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus">' +
+        '<span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button>' +
+        '<button class="quality-delete-btn" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component">' +
+        '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
         '</div></div>';
     }
   });
-  
+
   container.innerHTML = html;
 }
 
 function renderTailwindContent(validation) {
   const container = document.getElementById('tailwind-content');
   if (!container) return;
-  
+
   if (!validation || !validation.invalidGroups || validation.invalidGroups.length === 0) {
     container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">All variables are Tailwind compatible.</div>';
     return;
   }
-  
+
   const allInvalidGroups = (validation.groups || []).filter(g => (validation.invalidGroups || []).includes(g.name));
   const standaloneVars = allInvalidGroups.filter(g => g.isStandalone);
   const groupedVars = allInvalidGroups.filter(g => !g.isStandalone);
-  
+
   let html = '';
-  
+
   if (groupedVars.length > 0) {
     html += '<div class="quality-accordion" id="tw-invalid-groups">' +
       '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'tw-invalid-groups\')">' +
-        '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
-        '<span class="quality-accordion-title">Invalid Groups</span>' +
-        '<span class="quality-accordion-count">' + groupedVars.length + '</span>' +
+      '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+      '<span class="quality-accordion-title">Invalid Groups</span>' +
+      '<span class="quality-accordion-count">' + groupedVars.length + '</span>' +
       '</div><div class="quality-accordion-body" id="tw-invalid-groups-body" style="display: none;">';
-    
+
     groupedVars.forEach((group, idx) => {
       const itemId = 'tw-group-' + idx;
       const displayName = SecurityUtils.escapeHTML(group.name);
-      
+
       html += '<div id="' + itemId + '-card" class="quality-row-item" style="padding: 10px; flex-direction: column; align-items: stretch; gap: 8px;">' +
         '<div style="display: flex; justify-content: space-between; align-items: center;"><div>' +
-          '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px;">' + displayName + '</div>' +
-          '<div style="font-size: 11px; color: rgba(255,255,255,0.5);">' + group.variableCount + ' variable' + (group.variableCount !== 1 ? 's' : '') + '</div>' +
+        '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px;">' + displayName + '</div>' +
+        '<div style="font-size: 11px; color: rgba(255,255,255,0.5);">' + group.variableCount + ' variable' + (group.variableCount !== 1 ? 's' : '') + '</div>' +
         '</div></div>' +
         '<div style="display: flex; gap: 8px; align-items: center;">' +
-          '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', false)">' +
-            '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(group.name) + '</select>' +
-          '<button id="' + itemId + '-replace-btn" class="quality-tw-btn secondary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'replace\', null)" disabled title="Replace prefix">' +
-            '<span class="material-symbols-outlined" style="font-size: 14px;">find_replace</span> Replace</button>' +
-          '<button id="' + itemId + '-add-prefix-btn" class="quality-tw-btn primary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'add-prefix\', null)" disabled title="Add prefix">' +
-            '<span class="material-symbols-outlined" style="font-size: 14px;">add</span> Add Prefix</button>' +
+        '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', false)">' +
+        '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(group.name) + '</select>' +
+        '<button id="' + itemId + '-replace-btn" class="quality-tw-btn secondary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'replace\', null)" disabled title="Replace prefix">' +
+        '<span class="material-symbols-outlined" style="font-size: 14px;">find_replace</span> Replace</button>' +
+        '<button id="' + itemId + '-add-prefix-btn" class="quality-tw-btn primary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'add-prefix\', null)" disabled title="Add prefix">' +
+        '<span class="material-symbols-outlined" style="font-size: 14px;">add</span> Add Prefix</button>' +
         '</div></div>';
     });
-    
+
     html += '</div></div>';
   }
-  
+
   if (standaloneVars.length > 0) {
     html += '<div class="quality-accordion" id="tw-standalone">' +
       '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'tw-standalone\')">' +
-        '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
-        '<span class="quality-accordion-title">Standalone Variables</span>' +
-        '<span class="quality-accordion-count">' + standaloneVars.length + '</span>' +
+      '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+      '<span class="quality-accordion-title">Standalone Variables</span>' +
+      '<span class="quality-accordion-count">' + standaloneVars.length + '</span>' +
       '</div><div class="quality-accordion-body" id="tw-standalone-body" style="display: none;">';
-    
+
     standaloneVars.forEach((variable, idx) => {
       const itemId = 'tw-standalone-' + idx;
       const displayName = SecurityUtils.escapeHTML(variable.name);
-      
+
       html += '<div id="' + itemId + '-card" class="quality-row-item" style="padding: 8px 10px; gap: 8px;">' +
         '<span class="quality-row-name">' + displayName + '</span>' +
         '<div style="display: flex; gap: 6px; align-items: center;">' +
-          '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', true)">' +
-            '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(variable.name) + '</select>' +
-          '<button id="' + itemId + '-add-prefix-btn" class="quality-tw-btn primary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(variable.name) + '\', \'' + itemId + '\', 1, \'add-prefix\', \'' + variable.variableId + '\')" disabled>' +
-            '<span class="material-symbols-outlined" style="font-size: 14px;">add</span> Add prefix</button>' +
+        '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', true)">' +
+        '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(variable.name) + '</select>' +
+        '<button id="' + itemId + '-add-prefix-btn" class="quality-tw-btn primary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(variable.name) + '\', \'' + itemId + '\', 1, \'add-prefix\', \'' + variable.variableId + '\')" disabled>' +
+        '<span class="material-symbols-outlined" style="font-size: 14px;">add</span> Add prefix</button>' +
         '</div></div>';
     });
-    
+
     html += '</div></div>';
   }
-  
+
   container.innerHTML = html;
 }
 
-window.deleteUnusedVariableNew = function(variableId, variableName, rowId) {
+window.deleteUnusedVariableNew = function (variableId, variableName, rowId) {
   parent.postMessage({ pluginMessage: { type: 'delete-variable', variableId, variableName } }, '*');
-  
+
   const row = document.getElementById(rowId);
   if (row) {
     row.classList.add('quality-fade-out');
     row.addEventListener('animationend', () => row.remove());
   }
-  
+
   const cat = window.qualityState.categories.unusedVariables;
   cat.bad = Math.max(0, cat.bad - 1);
   cat.good = cat.good + 1;
   cat.score = cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100);
-  
+
   updateAllCategoryUI();
 };
 
-window.loadMoreMVIssues = function(category, currentCount) {
+window.loadMoreMVIssues = function (category, currentCount) {
   if (!window.qualityRemainingIssues || !window.qualityRemainingIssues[category]) return;
-  
+
   const container = document.getElementById('mv-' + category + '-issues');
   const loadMoreDiv = document.getElementById('mv-' + category + '-load-more');
   const batchSize = 20;
   const issues = window.qualityRemainingIssues[category];
   const batch = issues.slice(0, batchSize);
   const remaining = issues.slice(batchSize);
-  
+
   window.qualityRemainingIssues[category] = remaining;
-  
+
   const tempDiv = document.createElement('div');
   batch.forEach((issue, batchIdx) => {
     const realIdx = currentCount + batchIdx;
     tempDiv.innerHTML += renderMissingVarIssueCard(issue, category, realIdx);
   });
-  
+
   while (tempDiv.firstChild) {
     container.appendChild(tempDiv.firstChild);
   }
-  
+
   if (remaining.length > 0) {
     loadMoreDiv.innerHTML = '<button onclick="loadMoreMVIssues(\'' + category + '\', ' + (currentCount + batchSize) + ')" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">Load ' + remaining.length + ' more issues</button>';
   } else {
@@ -5820,7 +5836,7 @@ function analyzeStats() {
     pluginMessage: {
       type: 'get-component-usage',
       pageIds: pageIds
-    } 
+    }
   }, '*');
 }
 
@@ -5836,7 +5852,7 @@ function getScoreColor(score) {
 window.activeStatsFilter = null; // 'unused' or null
 
 // Toggle sort order
-window.toggleStatsSort = function(column) {
+window.toggleStatsSort = function (column) {
   if (statsSortState.column === column) {
     statsSortState.direction = statsSortState.direction === 'asc' ? 'desc' : 'asc';
   } else {
@@ -5845,47 +5861,47 @@ window.toggleStatsSort = function(column) {
     // - Name: Ascending (A-Z)
     // - Count/Variants: Descending (High-Low)
     if (column === 'name') {
-        statsSortState.direction = 'asc';
+      statsSortState.direction = 'asc';
     } else {
-        statsSortState.direction = 'desc';
+      statsSortState.direction = 'desc';
     }
   }
-  
+
   // Re-apply filter which triggers render with new sort
   applyStatsView();
 };
 
 // Toggle unused filter
-window.toggleUnusedFilter = function() {
+window.toggleUnusedFilter = function () {
   if (!componentStatsData) return;
-  
+
   // Toggle filter state
   if (window.activeStatsFilter === 'unused') {
-      window.activeStatsFilter = null; // Unfilter
+    window.activeStatsFilter = null; // Unfilter
   } else {
-      window.activeStatsFilter = 'unused'; // Filter
+    window.activeStatsFilter = 'unused'; // Filter
   }
-  
+
   applyStatsView();
 };
 
 // Helper to apply current sort and filter state
 function applyStatsView() {
-    const searchInput = document.getElementById('stats-search');
-    const query = searchInput ? searchInput.value : '';
-    
-    // Priority: 1. Search, 2. Filter, 3. Default
-    if (query && window.filterStats) {
-        // Search overrides unused filter for now, or works with it?
-        // Current implementation of filterStats might not respect activeStatsFilter.
-        // Let's make filterStats respect it or just use it.
-        window.filterStats(query); 
-    } else if (window.activeStatsFilter === 'unused') {
-        const unused = componentStatsData.filter(item => item.count === 0);
-        renderStats(componentStatsData, unused);
-    } else {
-        renderStats(componentStatsData);
-    }
+  const searchInput = document.getElementById('stats-search');
+  const query = searchInput ? searchInput.value : '';
+
+  // Priority: 1. Search, 2. Filter, 3. Default
+  if (query && window.filterStats) {
+    // Search overrides unused filter for now, or works with it?
+    // Current implementation of filterStats might not respect activeStatsFilter.
+    // Let's make filterStats respect it or just use it.
+    window.filterStats(query);
+  } else if (window.activeStatsFilter === 'unused') {
+    const unused = componentStatsData.filter(item => item.count === 0);
+    renderStats(componentStatsData, unused);
+  } else {
+    renderStats(componentStatsData);
+  }
 }
 
 // Legacy alias for compatibility if needed, but updated to use toggle
@@ -5895,7 +5911,7 @@ window.filterByUnused = window.toggleUnusedFilter;
 function renderStats(statsData, filteredData = null) {
   const container = document.getElementById('stats-container');
   const summaryContainer = document.getElementById('stats-summary-container');
-  
+
   if (!container) return;
 
   // Calculate totals from the FULL dataset (statsData)
@@ -5909,11 +5925,11 @@ function renderStats(statsData, filteredData = null) {
   let filteredComponents = 0;
   let filteredInstances = 0;
   let filteredUnused = 0;
-  
+
   if (filteredData) {
-      filteredComponents = filteredData.length;
-      filteredInstances = filteredData.reduce((sum, item) => sum + item.count, 0);
-      filteredUnused = filteredData.filter((item) => item.count === 0).length;
+    filteredComponents = filteredData.length;
+    filteredInstances = filteredData.reduce((sum, item) => sum + item.count, 0);
+    filteredUnused = filteredData.filter((item) => item.count === 0).length;
   }
 
   // 1. Render Summary Cards to Top Container
@@ -5983,10 +5999,10 @@ function renderStats(statsData, filteredData = null) {
   listData.sort((a, b) => {
     let valA = a[statsSortState.column];
     let valB = b[statsSortState.column];
-    
+
     if (typeof valA === 'string') valA = valA.toLowerCase();
     if (typeof valB === 'string') valB = valB.toLowerCase();
-    
+
     if (valA < valB) return statsSortState.direction === 'asc' ? -1 : 1;
     if (valA > valB) return statsSortState.direction === 'asc' ? 1 : -1;
     return 0;
@@ -6022,7 +6038,8 @@ function renderStats(statsData, filteredData = null) {
             ${item.count.toLocaleString()}
         </div>
       </div>
-    `;  });
+    `;
+  });
 
   html += `</div></div>`;
   container.innerHTML = html;
@@ -6038,7 +6055,7 @@ function getTailwindNamespaceOptions(currentName) {
     'inset-shadow', 'drop-shadow', 'blur', 'perspective', 'aspect',
     'ease', 'animate'
   ];
-  
+
   // Try to suggest the best match
   const normalized = currentName.toLowerCase().trim();
   const suggestions = {
@@ -6069,14 +6086,14 @@ function getTailwindNamespaceOptions(currentName) {
     'breakpoints': 'breakpoint',
     'screen': 'breakpoint'
   };
-  
+
   const suggested = suggestions[normalized];
-  
+
   let html = '';
   namespaces.forEach(ns => {
     html += `<option value="${ns}">${ns}</option>`;
   });
-  
+
   return html;
 }
 
@@ -6190,9 +6207,9 @@ window.handleCreateNewVariable = function (issueId) {
   if (valueDisplay) {
     valueDisplay = valueDisplay.trim();
   } else {
-      // Last resort: extract from the card content itself if structure is predictable,
-      // or rely on a data attribute if we added one (we didn't yet, but good idea for future).
-      // For now, looking for the mono-styled text is the best bet.
+    // Last resort: extract from the card content itself if structure is predictable,
+    // or rely on a data attribute if we added one (we didn't yet, but good idea for future).
+    // For now, looking for the mono-styled text is the best bet.
   }
 
   console.log('Found value to create:', valueDisplay);
@@ -6390,8 +6407,8 @@ window.submitCreateVariable = function () {
     // Optional: Auto-fix focus
     const input = document.getElementById('create-var-name');
     if (input) {
-        input.value = nameInput.replace(/\./g, '-');
-        input.focus();
+      input.value = nameInput.replace(/\./g, '-');
+      input.focus();
     }
     return;
   }
@@ -6407,19 +6424,19 @@ window.submitCreateVariable = function () {
 
   // Set pending state to persist expansion after reload
   window.pendingFixIssueId = issueId;
-  
+
   // Extract category from issueId (format: issue-{Category}-{Index})
   const parts = issueId.split('-');
   let category = '';
   if (parts.length >= 3) {
-      category = parts.slice(1, parts.length - 1).join('-');
+    category = parts.slice(1, parts.length - 1).join('-');
   }
-  
+
   window.pendingFixContext = {
-      category: category,
-      value: value,
-      originalId: issueId,
-      fullVariableName: fullVariableName // Store for auto-selection
+    category: category,
+    value: value,
+    originalId: issueId,
+    fullVariableName: fullVariableName // Store for auto-selection
   };
 
   // Send to backend
@@ -6452,7 +6469,7 @@ window.submitCreateVariable = function () {
 
 // Function to open rename dialog for Tailwind variables
 // Update button states when namespace is selected
-window.updateTailwindActionButtonsState = function(itemId, isStandalone) {
+window.updateTailwindActionButtonsState = function (itemId, isStandalone) {
   const select = document.getElementById(`${itemId}-ns`);
   const addPrefixBtn = document.getElementById(`${itemId}-add-prefix-btn`);
   const replaceBtn = document.getElementById(`${itemId}-replace-btn`);
@@ -6485,13 +6502,13 @@ window.updateTailwindActionButtonsState = function(itemId, isStandalone) {
 };
 
 // Apply Tailwind namespace action
-window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount, action, variableId) {
+window.applyTailwindNamespace = function (currentGroupName, itemId, variableCount, action, variableId) {
   const select = document.getElementById(`${itemId}-ns`);
   if (!select || !select.value) {
     alert('Please select a namespace first.');
     return;
   }
-  
+
   const newNamespace = select.value;
 
   // For individual standalone variables, get the variable ID from the select if not provided
@@ -6521,7 +6538,7 @@ window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount
   if (!confirm(message)) {
     return;
   }
-  
+
   // Save scroll position before processing
   window.tailwindScrollPosition = window.scrollY || document.documentElement.scrollTop;
 
@@ -6596,7 +6613,7 @@ window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount
     },
     '*',
   );
-  
+
   // Save state for restoration
   window.lastActiveTailwindGroup = currentGroupName;
 };
@@ -6773,7 +6790,7 @@ function selectProvider(provider) {
   // Show sections
   const connectionSection = document.getElementById('section-connection');
   const structureSection = document.getElementById('section-structure');
-  
+
   if (connectionSection) connectionSection.classList.remove('hidden-section');
   if (structureSection) structureSection.classList.remove('hidden-section');
 
@@ -6946,15 +6963,14 @@ function displayRepositories(repositories) {
                   <div style="font-weight: 500; color: #c4b5fd; margin-bottom: 4px;">
                     ${repo.fullName || repo.name}
                   </div>
-                  ${
-                    repo.description
-                      ? `
+                  ${repo.description
+        ? `
                     <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin-bottom: 6px; line-height: 1.3;">
                       ${SecurityUtils.escapeHTML(repo.description.substring(0, 100))}${repo.description.length > 100 ? '...' : ''}
                     </div>
                   `
-                      : ''
-                  }
+        : ''
+      }
                   <div style="display: flex; gap: 12px; align-items: center; font-size: 11px; color: rgba(255, 255, 255, 0.5);">
                     <span>${repo.private ? '🔒 Private' : '🌐 Public'}</span>
                     ${language ? `<span>📝 ${language}</span>` : ''}
@@ -7002,11 +7018,11 @@ function showRepositoryDetails(repoName) {
   const topics =
     repo.topics && repo.topics.length > 0
       ? repo.topics
-          .map(
-            (t) =>
-              `<span style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; padding: 2px 6px; border-radius: 3px; font-size: 10px;">${t}</span>`,
-          )
-          .join(' ')
+        .map(
+          (t) =>
+            `<span style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; padding: 2px 6px; border-radius: 3px; font-size: 10px;">${t}</span>`,
+        )
+        .join(' ')
       : 'None';
 
   const createdDate = repo.createdAt ? new Date(repo.createdAt).toLocaleDateString() : 'Unknown';
@@ -7607,33 +7623,33 @@ function persistSettings(silent = false) {
     console.log('[DEBUG] persistSettings: exportFormat set to:', exportFormat); // Debug log
 
     if (!silent) {
-       showSuccess('Settings Saved', 'Configuration saved successfully!', 4000);
-       closeSettingsModal();
+      showSuccess('Settings Saved', 'Configuration saved successfully!', 4000);
+      closeSettingsModal();
 
-       // Trigger full refresh of all tabs for manual save
-       if (typeof window.refreshData === 'function') {
-         window.refreshData();
-       }
-       if (typeof window.refreshStats === 'function') {
-         window.refreshStats();
-       }
+      // Trigger full refresh of all tabs for manual save
+      if (typeof window.refreshData === 'function') {
+        window.refreshData();
+      }
+      if (typeof window.refreshStats === 'function') {
+        window.refreshStats();
+      }
     } else {
-        // Silent update - Reactive UI Refresh
-        console.log('[DEBUG] Silent persist. Re-rendering variables...'); // Debug log
-        // Re-render variables immediately to reflect settings like Tailwind Icons
-        if (window.globalVariablesData) {
-            // Re-render Variables
-            renderVariables(window.globalVariablesData, window.stylesData || null);
-        }
+      // Silent update - Reactive UI Refresh
+      console.log('[DEBUG] Silent persist. Re-rendering variables...'); // Debug log
+      // Re-render variables immediately to reflect settings like Tailwind Icons
+      if (window.globalVariablesData) {
+        // Re-render Variables
+        renderVariables(window.globalVariablesData, window.stylesData || null);
+      }
     }
 
   } catch (error) {
     console.error('Error saving configuration:', error);
     if (!silent) {
-        showError(
-          'Configuration Error',
-          error.message || 'An unexpected error occurred while saving the configuration.',
-        );
+      showError(
+        'Configuration Error',
+        error.message || 'An unexpected error occurred while saving the configuration.',
+      );
     }
   }
 }
@@ -8178,15 +8194,13 @@ function renderUnitsSettings(data) {
                   <span class="default-unit-label" title="This unit will be used when 'Smart defaults' is selected">
                     Smart default: <strong>${collection.defaultUnit}</strong>
                   </span>
-                  <select class="unit-dropdown" data-type="collection" data-name="${
-                    collection.name
-                  }">
+                  <select class="unit-dropdown" data-type="collection" data-name="${collection.name
+        }">
                     ${AVAILABLE_UNITS.map(
-                      (unit) =>
-                        `<option value="${unit}" ${
-                          unit === collection.currentUnit ? 'selected' : ''
-                        }>${unit === '' ? `Smart defaults (${collection.defaultUnit})` : unit}</option>`,
-                    ).join('')}
+          (unit) =>
+            `<option value="${unit}" ${unit === collection.currentUnit ? 'selected' : ''
+            }>${unit === '' ? `Smart defaults (${collection.defaultUnit})` : unit}</option>`,
+        ).join('')}
                   </select>
                 </div>
               </div>
@@ -8227,15 +8241,13 @@ function renderUnitsSettings(data) {
                     <span class="default-unit-label" title="This unit will be used when 'Smart defaults' is selected">
                       Smart default: <strong>${group.defaultUnit}</strong>
                     </span>
-                    <select class="unit-dropdown" data-type="group" data-collection="${
-                      group.collectionName
-                    }" data-group="${group.groupName}">
+                    <select class="unit-dropdown" data-type="group" data-collection="${group.collectionName
+            }" data-group="${group.groupName}">
                       ${AVAILABLE_UNITS.map(
-                        (unit) =>
-                          `<option value="${unit}" ${
-                            unit === group.currentUnit ? 'selected' : ''
-                          }>${unit === '' ? `Smart defaults (${group.defaultUnit})` : unit}</option>`,
-                      ).join('')}
+              (unit) =>
+                `<option value="${unit}" ${unit === group.currentUnit ? 'selected' : ''
+                }>${unit === '' ? `Smart defaults (${group.defaultUnit})` : unit}</option>`,
+            ).join('')}
                     </select>
                   </div>
                 </div>
@@ -8404,7 +8416,7 @@ if (configExportFormatElement) {
   configExportFormatElement.addEventListener('change', function () {
     // Auto-save styles (silent) and refresh UI
     if (typeof persistSettings === 'function') {
-        persistSettings(true);
+      persistSettings(true);
     }
     // Update button states
     updateCommitButtonStates();
@@ -8929,7 +8941,7 @@ function showPopupBlockerHelp() {
       },
       {
         text: 'Close',
-        action: () => {}, // Just close
+        action: () => { }, // Just close
       },
     ],
   );
@@ -8962,8 +8974,8 @@ function showCustomModal(title, content, buttons = []) {
             </div>
             <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
               ${buttons
-                .map(
-                  (btn, idx) => `
+      .map(
+        (btn, idx) => `
                 <button 
                   id="${modalId}-btn-${idx}"
                   class="${btn.primary ? 'btn-primary' : ''}"
@@ -8972,8 +8984,8 @@ function showCustomModal(title, content, buttons = []) {
                   ${btn.text}
                 </button>
               `,
-                )
-                .join('')}
+      )
+      .join('')}
             </div>
           </div>
         `;
@@ -9286,10 +9298,10 @@ window.processFile = function (file) {
   reader.onload = function (e) {
     const content = e.target.result;
     const tokenInput = document.getElementById('token-input');
-    
+
     if (tokenInput) {
       tokenInput.value = content;
-      
+
       // Auto-select the correct format based on extension
       if (fileName.endsWith('.json')) {
         const jsonRadio = document.querySelector('input[name="format"][value="json"]');
@@ -9299,7 +9311,7 @@ window.processFile = function (file) {
         const cssRadio = document.querySelector('input[name="format"][value="css"]');
         if (cssRadio) cssRadio.checked = true;
       }
-      
+
       // Switch to manual input tab to show the content
       const manualTab = document.querySelector('.input-tab[data-input="manual"]');
       if (manualTab) manualTab.click();
@@ -9773,26 +9785,26 @@ function showPreview(tokens) {
                 
                 <div class="collection-content">
                 ${groupNames
-                  .map((groupName) => {
-                    const groupTokens = tokensByGroup[groupName].filter(
-                      (t) => categorizeToken(t) === 'color' || categorizeToken(t) === 'numeric',
-                    );
-                    if (groupTokens.length === 0) return '';
-                    const groupId = `import-group-${groupName.replace(/[^a-zA-Z0-9]/g, '-')}`;
-                    const colorCount = groupTokens.filter(
-                      (t) => categorizeToken(t) === 'color',
-                    ).length;
-                    const numericCount = groupTokens.filter(
-                      (t) => categorizeToken(t) === 'numeric',
-                    ).length;
-                    const aliasCount = groupTokens.filter((t) => t.isAlias).length;
+      .map((groupName) => {
+        const groupTokens = tokensByGroup[groupName].filter(
+          (t) => categorizeToken(t) === 'color' || categorizeToken(t) === 'numeric',
+        );
+        if (groupTokens.length === 0) return '';
+        const groupId = `import-group-${groupName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        const colorCount = groupTokens.filter(
+          (t) => categorizeToken(t) === 'color',
+        ).length;
+        const numericCount = groupTokens.filter(
+          (t) => categorizeToken(t) === 'numeric',
+        ).length;
+        const aliasCount = groupTokens.filter((t) => t.isAlias).length;
 
-                    // Clean group name (remove trailing slash if present for display)
-                    const displayName = groupName.endsWith('/')
-                      ? groupName.slice(0, -1)
-                      : groupName;
+        // Clean group name (remove trailing slash if present for display)
+        const displayName = groupName.endsWith('/')
+          ? groupName.slice(0, -1)
+          : groupName;
 
-                    return `
+        return `
                     <div class="variable-subgroup" id="${groupId}">
                       <div class="subgroup-header collapsed" onclick="toggleSubgroup('${groupId}')">
                         <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
@@ -9809,20 +9821,20 @@ function showPreview(tokens) {
                       <div class="subgroup-content collapsed" id="${groupId}-content">
                         <div class="variables-table">
                           ${groupTokens
-                            .map((token) => {
-                              const tokenId = `token-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
-                              const category = categorizeToken(token);
-                              const valueDisplay =
-                                category === 'color'
-                                  ? `<span class="color-preview" style="background-color: ${token.value}"></span>${token.value}`
-                                  : token.value;
+            .map((token) => {
+              const tokenId = `token-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              const category = categorizeToken(token);
+              const valueDisplay =
+                category === 'color'
+                  ? `<span class="color-preview" style="background-color: ${token.value}"></span>${token.value}`
+                  : token.value;
 
-                              const isDuplicate = checkDuplicate(token.name);
-                              const duplicateBadge = isDuplicate
-                                ? '<span class="status-badge alias" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;">Exists</span>'
-                                : '';
+              const isDuplicate = checkDuplicate(token.name);
+              const duplicateBadge = isDuplicate
+                ? '<span class="status-badge alias" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;">Exists</span>'
+                : '';
 
-                              return `
+              return `
                               <div class="variable-row ${isDuplicate ? 'duplicate-row' : ''}">
                                 <label class="checkbox-label">
                                   <input type="checkbox" id="${tokenId}" checked class="variable-checkbox" data-token-name="${token.name}">
@@ -9834,15 +9846,15 @@ function showPreview(tokens) {
                                 ${token.isAlias ? '<span class="alias-badge">ref</span>' : ''}
                               </div>
                             `;
-                            })
-                            .join('')}
+            })
+            .join('')}
                         </div>
                       </div>
                     </div>
                   `;
-                  })
-                  .filter(Boolean)
-                  .join('')}
+      })
+      .filter(Boolean)
+      .join('')}
                 </div>
               </div>
             </div>
@@ -9853,9 +9865,8 @@ function showPreview(tokens) {
             </div>
           </div>
           
-          ${
-            styleTokens.length > 0
-              ? `
+          ${styleTokens.length > 0
+      ? `
           <div class="import-structure-preview">
             <div class="tab-header" style="margin-bottom: var(--space-2);">
                 <h3 style="color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; font-size: 1.2rem; margin: 0;">
@@ -9887,24 +9898,24 @@ function showPreview(tokens) {
 
             <div class="styles-preview">
               ${['gradient', 'shadow', 'effect', 'transition']
-                .map((category) => {
-                  const categoryTokens = styleTokens.filter((t) => categorizeToken(t) === category);
-                  if (categoryTokens.length === 0) return '';
-                  // Ensure icons are Material Symbols
-                  const categoryIcons = {
-                    gradient: 'palette',
-                    shadow: 'blur_on',
-                    effect: 'auto_fix_high',
-                    transition: 'animation',
-                  };
-                  const categoryNames = {
-                    gradient: 'Paint Styles',
-                    shadow: 'Effect Styles',
-                    effect: 'Effect Styles',
-                    transition: 'Transitions',
-                  };
-                  const categoryId = `style-group-${category}`;
-                  return `
+        .map((category) => {
+          const categoryTokens = styleTokens.filter((t) => categorizeToken(t) === category);
+          if (categoryTokens.length === 0) return '';
+          // Ensure icons are Material Symbols
+          const categoryIcons = {
+            gradient: 'palette',
+            shadow: 'blur_on',
+            effect: 'auto_fix_high',
+            transition: 'animation',
+          };
+          const categoryNames = {
+            gradient: 'Paint Styles',
+            shadow: 'Effect Styles',
+            effect: 'Effect Styles',
+            transition: 'Transitions',
+          };
+          const categoryId = `style-group-${category}`;
+          return `
                   <div class="variable-subgroup" id="${categoryId}">
                     <div class="subgroup-header collapsed" onclick="toggleSubgroup('${categoryId}')">
                       <span class="material-symbols-outlined subgroup-toggle-icon">expand_more</span>
@@ -9921,9 +9932,9 @@ function showPreview(tokens) {
                     <div class="subgroup-content collapsed" id="${categoryId}-content">
                       <div class="styles-table">
                         ${categoryTokens
-                          .map((token) => {
-                            const tokenId = `style-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
-                            return `
+              .map((token) => {
+                const tokenId = `style-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                return `
                             <div class="variable-row">
                               <label class="checkbox-label">
                                 <input type="checkbox" id="${tokenId}" checked class="style-checkbox" data-token-name="${token.name}">
@@ -9933,22 +9944,22 @@ function showPreview(tokens) {
                               <span class="variable-value" style="font-size: 11px;">${token.value}</span>
                             </div>
                           `;
-                          })
-                          .join('')}
+              })
+              .join('')}
                       </div>
                     </div>
                   </div>
                 `;
-                })
-                .join('')}
+        })
+        .join('')}
             </div>
             <div class="summary-stats" style="margin-top: 16px; color: var(--text-secondary); font-size: 11px;">
                <span class="summary-item">🎨 ${styleTokens.length} styles ready to import</span>
             </div>
           </div>
           `
-              : ''
-          }
+      : ''
+    }
           
           <div class="options-grid">
             <div class="option-group">
@@ -10627,7 +10638,7 @@ function handleImportPreview(msg) {
   // Show preview section
   const previewSection = document.getElementById('import-preview-section');
   previewSection.classList.remove('hidden');
-  
+
   // Auto-scroll to preview section
   setTimeout(() => {
     previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -10884,40 +10895,40 @@ function filterQualityResults(query) {
 
   let totalIssueCards = 0;
   let visibleIssueCards = 0;
-  
+
   // 1. Filter Breakdown Rows
   const breakdownRows = container.querySelectorAll('.quality-breakdown-row');
   let visibleBreakdownRows = 0;
-  
+
   breakdownRows.forEach(row => {
     // If empty query, show all
     if (!normalizedQuery) {
-        row.style.setProperty('display', 'flex', 'important');
-        visibleBreakdownRows++;
-        return;
+      row.style.setProperty('display', 'flex', 'important');
+      visibleBreakdownRows++;
+      return;
     }
-    
+
     // Search text in the row
     const textContent = row.textContent.toLowerCase();
     const isMatch = textContent.includes(normalizedQuery);
-    
+
     if (isMatch) {
-       row.style.setProperty('display', 'flex', 'important');
-       visibleBreakdownRows++;
+      row.style.setProperty('display', 'flex', 'important');
+      visibleBreakdownRows++;
     } else {
-       row.style.setProperty('display', 'none', 'important');
+      row.style.setProperty('display', 'none', 'important');
     }
   });
 
   // Auto-expand breakdown if has matching rows
   const breakdownContent = document.getElementById('quality-breakdown-content');
   if (breakdownContent) {
-     if (normalizedQuery && visibleBreakdownRows > 0) {
-        breakdownContent.style.display = 'block';
-         // Ensure toggle icon is rotated if needed (optional)
-        const toggleIcon = document.getElementById('breakdown-toggle-icon');
-        if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
-     }
+    if (normalizedQuery && visibleBreakdownRows > 0) {
+      breakdownContent.style.display = 'block';
+      // Ensure toggle icon is rotated if needed (optional)
+      const toggleIcon = document.getElementById('breakdown-toggle-icon');
+      if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
+    }
   }
 
   // 2. Filter Issue Cards (Collections)
@@ -10934,17 +10945,17 @@ function filterQualityResults(query) {
     // Check if Group Name matches (e.g. "Layout", "Stroke", "Tailwind Readiness")
     let groupNameMatch = false;
     if (header && normalizedQuery) {
-        const titleEl = header.querySelector('.collection-name-title');
-        // Search in title, but maybe exclude the stats number if possible? 
-        // titleEl.textContent includes the number. That's probably fine.
-        if (titleEl && titleEl.textContent.toLowerCase().includes(normalizedQuery)) {
-            groupNameMatch = true;
-        }
+      const titleEl = header.querySelector('.collection-name-title');
+      // Search in title, but maybe exclude the stats number if possible? 
+      // titleEl.textContent includes the number. That's probably fine.
+      if (titleEl && titleEl.textContent.toLowerCase().includes(normalizedQuery)) {
+        groupNameMatch = true;
+      }
     }
 
     issues.forEach((issue) => {
       totalIssueCards++;
-      
+
       // If query is empty OR Group Matches, show everything in this group
       if (!normalizedQuery || groupNameMatch) {
         issue.style.setProperty('display', 'block', 'important');
@@ -10957,22 +10968,22 @@ function filterQualityResults(query) {
       // Refined Logic: Exclude "Near Match" suggestions from index
       let textContent = '';
       const issueHeader = issue.querySelector('.quality-issue-header');
-      
+
       if (issueHeader) {
         // Standard Quality Issue: Construct index selectively
         // 1. Header (Title, Value, Badges)
         textContent += issueHeader.textContent.toLowerCase();
-        
+
         // 2. Node List (Node names)
         const nodeList = issue.querySelector('.quality-nodes-list');
         if (nodeList) {
-             textContent += ' ' + nodeList.textContent.toLowerCase();
+          textContent += ' ' + nodeList.textContent.toLowerCase();
         }
-        
+
         // EXPLICITLY OMIT: .issue-fix-section (Dropowns/Suggestions)
       } else {
-         // Fallback: search entire card content (Tailwind Readiness, etc.)
-         textContent = issue.textContent.toLowerCase();
+        // Fallback: search entire card content (Tailwind Readiness, etc.)
+        textContent = issue.textContent.toLowerCase();
       }
 
       // Check text content
@@ -11005,7 +11016,7 @@ function filterQualityResults(query) {
 
   // Show "no results" message if query exists but nothing found
   let noResultsMsg = container.querySelector('.no-results-message');
-  
+
   // Check if ANYTHING is visible (cards OR breakdown rows)
   const anyResultsVisible = visibleIssueCards > 0 || visibleBreakdownRows > 0;
 
@@ -11057,10 +11068,10 @@ window.qualitySectionStates = window.qualitySectionStates || {
 function toggleQualitySection(sectionId) {
   const section = document.getElementById(sectionId);
   if (!section) return;
-  
+
   const body = section.querySelector('.quality-category-body');
   const isExpanded = section.classList.contains('expanded');
-  
+
   if (isExpanded) {
     section.classList.remove('expanded');
     if (body) body.style.display = 'none';
@@ -11243,10 +11254,10 @@ function toggleAllOccurrences(issueId) {
 function toggleCustomSelect(issueId) {
   const select = document.getElementById(`${issueId}-custom-select`);
   if (!select) return;
-  
+
   const trigger = select.querySelector('.custom-select-trigger');
   const menu = select.querySelector('.custom-select-menu');
-  
+
   // Close all other open selects first
   document.querySelectorAll('.custom-select-menu.show').forEach(m => {
     if (m !== menu) {
@@ -11254,10 +11265,10 @@ function toggleCustomSelect(issueId) {
       m.previousElementSibling.classList.remove('active');
     }
   });
-  
+
   menu.classList.toggle('show');
   trigger.classList.toggle('active');
-  
+
   // Prevent event from bubbling up to document listener
   event.stopPropagation();
 }
@@ -11268,36 +11279,36 @@ function toggleCustomSelect(issueId) {
 function selectCustomOption(issueId, value, label, type) {
   const select = document.getElementById(`${issueId}-custom-select`);
   if (!select) return;
-  
+
   const trigger = select.querySelector('.custom-select-trigger');
   const triggerText = trigger.querySelector('.trigger-text');
   const menu = select.querySelector('.custom-select-menu');
-  
+
   // Update state
   select.dataset.value = value;
   triggerText.textContent = label;
-  
+
   // Close menu
   menu.classList.remove('show');
   trigger.classList.remove('active');
-  
+
   // Handle "Create New" directly if selected
   if (value === 'create-new') {
     handleCreateNewVariable(issueId);
     // Reset trigger if needed after create new? Or just let it stay
   }
-  
+
   // Update apply button
   updateIssueApplyButtonState(issueId);
 
   // Auto-select all nodes if a specific variable was chosen (not "create new")
   if (value && value !== 'create-new') {
-      const selectAllCheckbox = document.getElementById(`${issueId}-select-all`);
-      if (selectAllCheckbox && !selectAllCheckbox.checked) {
-          selectAllCheckbox.checked = true;
-          // Trigger the toggle function to update all individual checkboxes and the button state
-          toggleAllOccurrences(issueId); 
-      }
+    const selectAllCheckbox = document.getElementById(`${issueId}-select-all`);
+    if (selectAllCheckbox && !selectAllCheckbox.checked) {
+      selectAllCheckbox.checked = true;
+      // Trigger the toggle function to update all individual checkboxes and the button state
+      toggleAllOccurrences(issueId);
+    }
   }
 }
 
@@ -11318,18 +11329,18 @@ function updateIssueApplyButtonState(issueId) {
   const applyBtn = document.getElementById(`${issueId}-apply-btn`);
 
   if (!applyBtn) return;
-  
+
   // Check both native select and custom select
   const varSelect = document.getElementById(`${issueId}-var-select`);
   const customSelect = document.getElementById(`${issueId}-custom-select`);
-  
+
   let selectedValue = '';
   if (varSelect) {
     selectedValue = varSelect.value;
   } else if (customSelect) {
     selectedValue = customSelect.dataset.value || '';
   }
-  
+
   const occurrenceCheckboxes = document.querySelectorAll(
     `.occurrence-checkbox[data-issue-id="${issueId}"]`,
   );
@@ -11420,7 +11431,7 @@ function updateIssueApplyButtonState(issueId) {
 function applyTokenToSelection(issueId, property, category) {
   const varSelect = document.getElementById(`${issueId}-var-select`);
   const customSelect = document.getElementById(`${issueId}-custom-select`);
-  
+
   let variableId = '';
   if (varSelect) {
     variableId = varSelect.value;

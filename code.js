@@ -6985,7 +6985,7 @@ ${Object.keys(cssProperties).map((property) => {
         static analyzeCurrentPage() {
           return __awaiter(this, arguments, void 0, function* (exportFormat = "css") {
             const currentPage = figma.currentPage;
-            const nodes = currentPage.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
+            const nodes = currentPage.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
             return this.analyzeNodes(nodes, exportFormat);
           });
         }
@@ -7000,7 +7000,7 @@ ${Object.keys(cssProperties).map((property) => {
               if (pageIds && pageIds.indexOf(page.id) === -1) {
                 continue;
               }
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
+              const pageNodes = page.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
               allNodes = [...allNodes, ...pageNodes];
             }
             return this.analyzeNodes(allNodes, exportFormat);
@@ -7030,7 +7030,7 @@ ${Object.keys(cssProperties).map((property) => {
                 continue;
               if (pageIds && pageIds.indexOf(page.id) === -1)
                 continue;
-              const pageNodes = page.findAll((node) => node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "VECTOR" || node.type === "TEXT" || node.type === "LINE" || node.type === "BOOLEAN_OPERATION");
+              const pageNodes = page.findAll((node) => node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE");
               const pageResult = yield this.analyzeNodes(pageNodes, exportFormat);
               console.log("analyzeSmart: page result", { pageId: page.id, issues: pageResult.totalIssues, nodes: pageResult.totalNodes });
               if (pageResult.totalIssues > 0) {
@@ -7054,11 +7054,11 @@ ${Object.keys(cssProperties).map((property) => {
             const selection = figma.currentPage.selection;
             let allNodes = [];
             for (const node of selection) {
-              if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
+              if (node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
                 allNodes.push(node);
               }
               if ("findAll" in node) {
-                const children = node.findAll((n) => n.type === "FRAME" || n.type === "SECTION" || n.type === "GROUP" || n.type === "COMPONENT" || n.type === "COMPONENT_SET" || n.type === "INSTANCE");
+                const children = node.findAll((n) => n.type === "COMPONENT" || n.type === "COMPONENT_SET" || n.type === "INSTANCE");
                 allNodes = [...allNodes, ...children];
               }
             }
@@ -7212,7 +7212,24 @@ ${Object.keys(cssProperties).map((property) => {
               }
             }
             const totalComponents = localComponentDefs.size;
-            const componentHygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedComponents.length) / totalComponents * 100);
+            let totalDeletableUnits = 0;
+            let unusedDeletableUnits = 0;
+            for (const [, def] of localComponentDefs.entries()) {
+              if (def.type === "COMPONENT_SET") {
+                const set = def;
+                totalDeletableUnits += set.children.filter((c) => c.type === "COMPONENT").length;
+              } else {
+                totalDeletableUnits += 1;
+              }
+            }
+            for (const comp of unusedComponents) {
+              if (comp.type === "COMPONENT_SET") {
+                unusedDeletableUnits += comp.unusedVariantCount || 0;
+              } else {
+                unusedDeletableUnits += 1;
+              }
+            }
+            const componentHygieneScore = totalDeletableUnits === 0 ? 100 : Math.round((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits * 100);
             for (const issue of issuesMap.values()) {
               issue.matchingVariables = yield this.findMatchingVariables(issue.value, issue.category, allVariables);
             }
@@ -7228,16 +7245,6 @@ ${Object.keys(cssProperties).map((property) => {
             for (const category of Object.keys(issuesByCategory)) {
               issuesByCategory[category].sort((a, b) => b.count - a.count);
             }
-            let tokenCoverageScore = 100;
-            if (totalNodes > 0) {
-              let totalIssueOccurrences = 0;
-              for (const issue of issuesMap.values()) {
-                totalIssueOccurrences += issue.count;
-              }
-              const issueDensity = totalIssueOccurrences / (totalNodes * 3);
-              const penalty = Math.round(issueDensity * 100);
-              tokenCoverageScore = Math.max(0, 100 - penalty);
-            }
             const isTailwindCompatible = (name) => {
               return tailwindV4Service_1.TailwindV4Service.isCompatible(name);
             };
@@ -7247,8 +7254,13 @@ ${Object.keys(cssProperties).map((property) => {
               invalid: [],
               totalInvalid: 0,
               totalVariables: 0,
-              readinessScore: 0
+              readinessScore: 0,
+              // Group-level data for UI rendering
+              groups: [],
+              invalidGroups: []
             };
+            const twGroupMap = /* @__PURE__ */ new Map();
+            const twStandaloneVars = [];
             if (totalVarsToCheck > 0) {
               allVariables.forEach((v) => {
                 if (!v || !v.variable || !v.variable.name)
@@ -7259,7 +7271,42 @@ ${Object.keys(cssProperties).map((property) => {
                 } else {
                   tailwindValidation.invalid.push({ id: v.variable.id, name: v.variable.name });
                 }
+                const pathMatch = v.variable.name.match(/^([^\/]+)\//);
+                if (pathMatch) {
+                  const groupName = pathMatch[1];
+                  if (!twGroupMap.has(groupName)) {
+                    const isValid = tailwindV4Service_1.TailwindV4Service.isValidNamespace(groupName);
+                    twGroupMap.set(groupName, { count: 0, isValid, variables: [] });
+                  }
+                  const group = twGroupMap.get(groupName);
+                  group.count++;
+                  group.variables.push({ id: v.variable.id, name: v.variable.name });
+                } else {
+                  twStandaloneVars.push({
+                    name: v.variable.name,
+                    isValid: false,
+                    variableCount: 1,
+                    isStandalone: true,
+                    variableId: v.variable.id
+                  });
+                }
               });
+            }
+            for (const [groupName, data] of twGroupMap.entries()) {
+              tailwindValidation.groups.push({
+                name: groupName,
+                isValid: data.isValid,
+                namespace: data.isValid ? groupName.toLowerCase() : void 0,
+                variableCount: data.count,
+                isStandalone: false
+              });
+              if (!data.isValid) {
+                tailwindValidation.invalidGroups.push(groupName);
+              }
+            }
+            for (const sv of twStandaloneVars) {
+              tailwindValidation.groups.push(sv);
+              tailwindValidation.invalidGroups.push(sv.name);
             }
             const tailwindScore = totalVarsToCheck === 0 ? 100 : Math.round(validTailwindNames / totalVarsToCheck * 100);
             tailwindValidation.totalVariables = totalVarsToCheck;
@@ -7268,6 +7315,12 @@ ${Object.keys(cssProperties).map((property) => {
             const totalContainerNodes = instanceCount + frameCount;
             const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
             const isTailwindV4 = exportFormat === "tailwind-v4";
+            const affectedNodesSet = /* @__PURE__ */ new Set();
+            for (const issue of issuesMap.values()) {
+              issue.nodeIds.forEach((id) => affectedNodesSet.add(id));
+            }
+            const totalAffectedNodes = affectedNodesSet.size;
+            const tokenCoverageScore = totalNodes === 0 ? 100 : Math.round((totalNodes - totalAffectedNodes) / totalNodes * 100);
             let weightedScore = 0;
             let weights = {
               tokenCoverage: "0%",
@@ -7296,7 +7349,8 @@ ${Object.keys(cssProperties).map((property) => {
             }
             return {
               totalNodes,
-              totalIssues: issuesMap.size,
+              totalIssues: totalAffectedNodes,
+              // Return affected layers count instead of unique issue types
               issuesByCategory,
               qualityScore: weightedScore,
               subScores: {
@@ -7313,8 +7367,10 @@ ${Object.keys(cssProperties).map((property) => {
               // Metrics
               totalVariables: totalVarsToCheck,
               totalComponents,
+              totalDeletableUnits,
               unusedVariableCount: unusedVariables.length,
               unusedComponentCount: unusedComponents.length,
+              unusedDeletableUnits,
               tailwindValidation
             };
           });
@@ -9883,8 +9939,26 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 const totalComponents = localDefinitions.size;
                 const unusedCount = unusedComponents.length;
-                const hygieneScore = totalComponents === 0 ? 100 : Math.round((totalComponents - unusedCount) / totalComponents * 100);
-                console.log(`Component hygiene analysis complete. Found ${unusedCount} unused components out of ${totalComponents} total.`);
+                let totalDeletableUnits = 0;
+                let unusedDeletableUnits = 0;
+                for (const [id, def] of localDefinitions.entries()) {
+                  if (def.isSet) {
+                    const set = def.node;
+                    const variantCount = set.children.filter((c) => c.type === "COMPONENT").length;
+                    totalDeletableUnits += variantCount;
+                  } else {
+                    totalDeletableUnits += 1;
+                  }
+                }
+                for (const comp of unusedComponents) {
+                  if (comp.type === "COMPONENT_SET") {
+                    unusedDeletableUnits += comp.unusedVariantCount || 0;
+                  } else {
+                    unusedDeletableUnits += 1;
+                  }
+                }
+                const hygieneScore = totalDeletableUnits === 0 ? 100 : Math.round((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits * 100);
+                console.log(`Component hygiene analysis complete. Found ${unusedDeletableUnits} unused deletable units out of ${totalDeletableUnits} total.`);
                 if (unusedCount === 0 && totalComponents > 0) {
                   console.log("DEBUG: 0 unused found. Dumping sample defs to check consistency:");
                   let i = 0;
@@ -9902,8 +9976,10 @@ ${Object.keys(cssProperties).map((property) => {
                   type: "component-hygiene-result",
                   result: {
                     totalComponents,
+                    totalDeletableUnits,
                     unusedComponents,
                     unusedCount,
+                    unusedDeletableUnits,
                     hygieneScore,
                     subScores: { componentHygiene: hygieneScore }
                   }

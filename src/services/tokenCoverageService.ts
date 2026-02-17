@@ -526,17 +526,7 @@ export class TokenCoverageService {
     // --- DSQ-Score Calculation ---
 
     // 1. Token Coverage Score (35%)
-    // Base logic: 100 - penalty based on density
-    let tokenCoverageScore = 100;
-    if (totalNodes > 0) {
-      let totalIssueOccurrences = 0;
-      for (const issue of issuesMap.values()) {
-        totalIssueOccurrences += issue.count;
-      }
-      const issueDensity = totalIssueOccurrences / (totalNodes * 3); // Assume ~3 checkable props per node
-      const penalty = Math.round(issueDensity * 100);
-      tokenCoverageScore = Math.max(0, 100 - penalty);
-    }
+    // (Calculated below using node-based percentage)
 
     // 2. Tailwind Readiness Score (20%)
     // Logic: % of variables that match Tailwind v4 CSS variable naming conventions
@@ -629,11 +619,23 @@ export class TokenCoverageService {
     // const totalContainerNodes = instanceCount + frameCount; (Calculated in loop)
     // const autoLayoutCount (Calculated in loop)
     const totalContainerNodes = instanceCount + frameCount;
+    // 5. Layout Hygiene Score (15%)
+    // Logic: % of frames/components using Auto Layout
     const layoutHygieneScore =
       totalContainerNodes === 0 ? 100 : Math.round((autoLayoutCount / totalContainerNodes) * 100);
 
     // Weighted Total Score
     const isTailwindV4 = exportFormat === 'tailwind-v4';
+
+    // Calculate simple percentage score based on affected layers (as expected by user)
+    // Collect all unique node IDs that have issues
+    const affectedNodesSet = new Set<string>();
+    for (const issue of issuesMap.values()) {
+      issue.nodeIds.forEach(id => affectedNodesSet.add(id));
+    }
+    const totalAffectedNodes = affectedNodesSet.size;
+    const tokenCoverageScore = totalNodes === 0 ? 100 : Math.round(((totalNodes - totalAffectedNodes) / totalNodes) * 100);
+
     let weightedScore = 0;
     let weights = {
       tokenCoverage: '0%',
@@ -671,7 +673,7 @@ export class TokenCoverageService {
 
     return {
       totalNodes,
-      totalIssues: issuesMap.size,
+      totalIssues: totalAffectedNodes, // Return affected layers count instead of unique issue types
       issuesByCategory,
       qualityScore: weightedScore,
       subScores: {
