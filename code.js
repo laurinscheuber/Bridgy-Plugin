@@ -5982,7 +5982,7 @@ ${styleCheckCode}
       exports.IgnoreService = void 0;
       var STORAGE_KEY = "quality_ignore_list";
       var EMPTY_LIST = {
-        variables: { ids: [], collectionIds: [] },
+        variables: { ids: [], collectionIds: [], groupPrefixes: [] },
         components: { ids: [], setIds: [] }
       };
       var IgnoreService = class {
@@ -5992,18 +5992,19 @@ ${styleCheckCode}
          */
         static load() {
           return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d;
+            var _a, _b, _c, _d, _e;
             try {
               const stored = yield figma.clientStorage.getAsync(STORAGE_KEY);
               if (stored && typeof stored === "object") {
                 return {
                   variables: {
                     ids: Array.isArray((_a = stored.variables) === null || _a === void 0 ? void 0 : _a.ids) ? stored.variables.ids : [],
-                    collectionIds: Array.isArray((_b = stored.variables) === null || _b === void 0 ? void 0 : _b.collectionIds) ? stored.variables.collectionIds : []
+                    collectionIds: Array.isArray((_b = stored.variables) === null || _b === void 0 ? void 0 : _b.collectionIds) ? stored.variables.collectionIds : [],
+                    groupPrefixes: Array.isArray((_c = stored.variables) === null || _c === void 0 ? void 0 : _c.groupPrefixes) ? stored.variables.groupPrefixes : []
                   },
                   components: {
-                    ids: Array.isArray((_c = stored.components) === null || _c === void 0 ? void 0 : _c.ids) ? stored.components.ids : [],
-                    setIds: Array.isArray((_d = stored.components) === null || _d === void 0 ? void 0 : _d.setIds) ? stored.components.setIds : []
+                    ids: Array.isArray((_d = stored.components) === null || _d === void 0 ? void 0 : _d.ids) ? stored.components.ids : [],
+                    setIds: Array.isArray((_e = stored.components) === null || _e === void 0 ? void 0 : _e.setIds) ? stored.components.setIds : []
                   }
                 };
               }
@@ -6028,7 +6029,8 @@ ${styleCheckCode}
           const next = {
             variables: {
               ids: [...list.variables.ids],
-              collectionIds: [...list.variables.collectionIds]
+              collectionIds: [...list.variables.collectionIds],
+              groupPrefixes: [...list.variables.groupPrefixes]
             },
             components: {
               ids: [...list.components.ids],
@@ -6043,6 +6045,10 @@ ${styleCheckCode}
             case "collection":
               if (next.variables.collectionIds.indexOf(id) === -1)
                 next.variables.collectionIds.push(id);
+              break;
+            case "variable-group":
+              if (next.variables.groupPrefixes.indexOf(id) === -1)
+                next.variables.groupPrefixes.push(id);
               break;
             case "component":
               if (next.components.ids.indexOf(id) === -1)
@@ -6062,7 +6068,8 @@ ${styleCheckCode}
           const next = {
             variables: {
               ids: [...list.variables.ids],
-              collectionIds: [...list.variables.collectionIds]
+              collectionIds: [...list.variables.collectionIds],
+              groupPrefixes: [...list.variables.groupPrefixes]
             },
             components: {
               ids: [...list.components.ids],
@@ -6076,6 +6083,9 @@ ${styleCheckCode}
             case "collection":
               next.variables.collectionIds = next.variables.collectionIds.filter((i) => i !== id);
               break;
+            case "variable-group":
+              next.variables.groupPrefixes = next.variables.groupPrefixes.filter((i) => i !== id);
+              break;
             case "component":
               next.components.ids = next.components.ids.filter((i) => i !== id);
               break;
@@ -6086,10 +6096,26 @@ ${styleCheckCode}
           return next;
         }
         /**
-         * Check if a variable is ignored (by its own ID or its collection ID).
+         * Check if a variable is ignored (by its own ID, its collection ID, or a group prefix).
+         * Group prefixes are stored as "collectionId::path/prefix" and match any variable
+         * whose name starts with that prefix within the same collection.
          */
-        static isVariableIgnored(list, varId, collectionId) {
-          return list.variables.ids.indexOf(varId) !== -1 || list.variables.collectionIds.indexOf(collectionId) !== -1;
+        static isVariableIgnored(list, varId, collectionId, varName) {
+          if (list.variables.ids.indexOf(varId) !== -1)
+            return true;
+          if (list.variables.collectionIds.indexOf(collectionId) !== -1)
+            return true;
+          if (varName && list.variables.groupPrefixes.length > 0) {
+            const prefix = collectionId + "::";
+            for (const gp of list.variables.groupPrefixes) {
+              if (gp.startsWith(prefix)) {
+                const groupPath = gp.substring(prefix.length);
+                if (varName === groupPath || varName.startsWith(groupPath + "/"))
+                  return true;
+              }
+            }
+          }
+          return false;
         }
         /**
          * Check if a component is ignored (by its own ID or its set ID).
@@ -9113,6 +9139,7 @@ ${Object.keys(cssProperties).map((property) => {
                   ignoredVariables: [],
                   ignoredCount: 0,
                   ignoredCollectionIds: [],
+                  ignoredGroupPrefixes: [],
                   hygieneScore: 100,
                   subScores: { variableHygiene: 100 }
                 };
@@ -9220,7 +9247,7 @@ ${Object.keys(cssProperties).map((property) => {
               const shownUnused = [];
               const ignoredUnused = [];
               for (const uv of unusedVariables) {
-                if (ignoreService_1.IgnoreService.isVariableIgnored(ignoreList, uv.id, uv.collectionId)) {
+                if (ignoreService_1.IgnoreService.isVariableIgnored(ignoreList, uv.id, uv.collectionId, uv.name)) {
                   ignoredUnused.push(uv);
                 } else {
                   shownUnused.push(uv);
@@ -9237,6 +9264,7 @@ ${Object.keys(cssProperties).map((property) => {
                 ignoredVariables: ignoredUnused,
                 ignoredCount: ignoredUnused.length,
                 ignoredCollectionIds: ignoreList.variables.collectionIds,
+                ignoredGroupPrefixes: ignoreList.variables.groupPrefixes,
                 hygieneScore,
                 subScores: { variableHygiene: hygieneScore }
               };
