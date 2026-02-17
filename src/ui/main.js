@@ -2369,10 +2369,8 @@ window.onmessage = (event) => {
         `Variable "${message.variableName}" deleted successfully`,
       );
     } else if (message.type === 'item-ignored' || message.type === 'item-unignored') {
-      // Re-analyze to update counts in background
-      if (typeof analyzeTokenCoverage === 'function') {
-        analyzeTokenCoverage('SMART_SCAN', null, true);
-      }
+      // Score updates are handled instantly in ignoreItem/unignoreItem functions
+      // No re-analysis needed here
     } else if (message.type === 'style-deleted') {
       // Handle successful style deletion
       console.log(`Style deleted successfully: ${message.styleName}`);
@@ -3258,6 +3256,9 @@ window.onmessage = (event) => {
                   }, 300);
                 }
               }
+
+              // Instant score/gauge update from cached data (delta=0 since cache is already updated)
+              updateScoreInstant('componentHygiene', 0, 0);
             }
           }, 300);
         } else {
@@ -3344,6 +3345,9 @@ window.onmessage = (event) => {
                     }, 300);
                   }
                 }
+
+                // Instant score/gauge update from cached data
+                updateScoreInstant('componentHygiene', 0, 0);
               }
             }
           }, 300);
@@ -3506,11 +3510,8 @@ window.onmessage = (event) => {
                   delete window.tokenFixActiveCollectionId;
                   delete window.tokenFixInProgress;
 
-                  // Trigger re-analysis to update score (and animate!)
-                  if (typeof analyzeTokenCoverage === 'function') {
-                      // Use stored scope or default to SMART_SCAN to prevent losing data
-                      analyzeTokenCoverage('SMART_SCAN', null, true); // true = background mode
-                  }
+                  // Instant score update from cached data
+                  updateScoreInstant('tokenCoverage', -1, 0);
                 }, 300);
               } else {
                 // If card not found, clean up immediately
@@ -3521,10 +3522,8 @@ window.onmessage = (event) => {
                   delete window.tokenFixScrollPosition;
                 }
                 
-                // Trigger re-analysis here too
-                if (typeof analyzeTokenCoverage === 'function') {
-                    analyzeTokenCoverage('SMART_SCAN', null, true); // true = background mode
-                }
+                // Instant score update from cached data
+                updateScoreInstant('tokenCoverage', -1, 0);
               }
             }
 
@@ -4832,8 +4831,11 @@ function deleteUnusedVariable(variableId, variableName) {
 
         setTimeout(() => {
           card.style.display = 'none';
-          // Re-analyze to update counts (background mode)
-          analyzeTokenCoverage('SMART_SCAN', null, true);
+          // Update cached data and score instantly
+          if (window.variableHygieneData && window.variableHygieneData.unusedVariables) {
+            window.variableHygieneData.unusedVariables = window.variableHygieneData.unusedVariables.filter(function(v) { return v.id !== variableId; });
+          }
+          updateScoreInstant('variableHygiene', -1, -1);
         }, 300);
       }
     }
@@ -4886,23 +4888,73 @@ function ignoreItem(itemType, itemId, itemName) {
     }, 300);
   }
 
-  // Re-analyze in background to update counts and badges
+  // Instant score update from cached data
   setTimeout(() => {
-    if (typeof analyzeTokenCoverage === 'function') {
-      analyzeTokenCoverage('SMART_SCAN', null, true);
+    var isVariable = itemType === 'variable' || itemType === 'collection' || itemType === 'variable-group';
+    var isComponent = itemType === 'component' || itemType === 'component-set';
+    var delta = -1;
+
+    // Calculate actual delta for bulk ignore operations
+    if (itemType === 'collection' && window.variableHygieneData && window.variableHygieneData.unusedVariables) {
+      delta = -(window.variableHygieneData.unusedVariables.filter(function(v) { return v.collectionId === itemId; }).length || 1);
+    } else if (itemType === 'variable-group' && window.variableHygieneData && window.variableHygieneData.unusedVariables) {
+      var sepIdx = itemId.indexOf('::');
+      if (sepIdx !== -1) {
+        var collId = itemId.substring(0, sepIdx);
+        var groupPath = itemId.substring(sepIdx + 2);
+        delta = -(window.variableHygieneData.unusedVariables.filter(function(v) {
+          return v.collectionId === collId && (v.name === groupPath || v.name.startsWith(groupPath + '/'));
+        }).length || 1);
+      }
+    } else if (itemType === 'component-set' && window.componentHygieneData && window.componentHygieneData.unusedComponents) {
+      var setEntry = window.componentHygieneData.unusedComponents.find(function(c) { return c.id === itemId; });
+      delta = setEntry ? -(setEntry.unusedVariantCount || 1) : -1;
     }
+
+    if (isVariable) updateScoreInstant('variableHygiene', delta, 0);
+    else if (isComponent) updateScoreInstant('componentHygiene', delta, 0);
   }, 400);
 }
 
 function unignoreItem(itemType, itemId) {
   parent.postMessage({ pluginMessage: { type: 'unignore-item', itemType: itemType, itemId: itemId } }, '*');
 
-  // Re-analyze in background to update counts
+  // Hide the restored item from the ignored panel
+  var ignoredCard = document.querySelector('[data-ignore-id="' + itemId + '"]');
+  if (ignoredCard) {
+    ignoredCard.style.transition = 'opacity 0.2s ease-out, max-height 0.2s ease-out';
+    ignoredCard.style.opacity = '0';
+    ignoredCard.style.maxHeight = '0';
+    ignoredCard.style.overflow = 'hidden';
+    setTimeout(function() { ignoredCard.style.display = 'none'; }, 200);
+  }
+
+  // Instant score update (+delta = restored items become issues again)
   setTimeout(() => {
-    if (typeof analyzeTokenCoverage === 'function') {
-      analyzeTokenCoverage('SMART_SCAN', null, true);
+    var isVariable = itemType === 'variable' || itemType === 'collection' || itemType === 'variable-group';
+    var isComponent = itemType === 'component' || itemType === 'component-set';
+    var delta = 1;
+
+    // Calculate actual delta for bulk unignore operations
+    if (itemType === 'collection' && window.variableHygieneData && window.variableHygieneData.ignoredVariables) {
+      delta = window.variableHygieneData.ignoredVariables.filter(function(v) { return v.collectionId === itemId; }).length || 1;
+    } else if (itemType === 'variable-group' && window.variableHygieneData && window.variableHygieneData.ignoredVariables) {
+      var sepIdx = itemId.indexOf('::');
+      if (sepIdx !== -1) {
+        var collId = itemId.substring(0, sepIdx);
+        var groupPath = itemId.substring(sepIdx + 2);
+        delta = window.variableHygieneData.ignoredVariables.filter(function(v) {
+          return v.collectionId === collId && (v.name === groupPath || v.name.startsWith(groupPath + '/'));
+        }).length || 1;
+      }
+    } else if (itemType === 'component-set' && window.componentHygieneData && window.componentHygieneData.ignoredComponents) {
+      var setEntry = window.componentHygieneData.ignoredComponents.find(function(c) { return c.id === itemId; });
+      delta = setEntry ? (setEntry.unusedVariantCount || 1) : 1;
     }
-  }, 200);
+
+    if (isVariable) updateScoreInstant('variableHygiene', delta, 0);
+    else if (isComponent) updateScoreInstant('componentHygiene', delta, 0);
+  }, 250);
 }
 
 function toggleIgnoredPanel(panelId) {
@@ -7493,6 +7545,147 @@ function renderCategoryStats(score, badCount, totalCount, label) {
         <span id="${percentId}" class="quality-animate-percent" data-score="${score}" style="font-size: 13px; font-weight: 700; color: ${color}; width: 36px; text-align: right; font-family: 'SF Mono', monospace;">0%</span>
     </div>
   `;
+}
+
+/**
+ * Instantly update quality score/stats from cached data after an action.
+ * Avoids a slow full backend re-analysis round-trip.
+ * Full re-analysis only happens on explicit sync.
+ *
+ * @param {string} category - 'variableHygiene' | 'componentHygiene' | 'tokenCoverage'
+ * @param {number} issueDelta - Change in issue count (e.g. -1 = one issue resolved)
+ * @param {number} [totalDelta=0] - Change in total count (e.g. -1 = item deleted from system)
+ */
+function updateScoreInstant(category, issueDelta, totalDelta) {
+    totalDelta = totalDelta || 0;
+    var state = window.qualityAnalysisState;
+    if (!state) return;
+
+    var configs = {
+        variableHygiene: {
+            issueKey: 'variableIssues',
+            scoreKey: 'variableHygiene',
+            safeLabel: 'unused-variables',
+            getData: function() { return window.variableHygieneData; },
+            totalKey: 'totalVariables',
+            unusedKey: 'unusedCount'
+        },
+        componentHygiene: {
+            issueKey: 'componentIssues',
+            scoreKey: 'componentHygiene',
+            safeLabel: 'unused-components',
+            getData: function() { return window.componentHygieneData; },
+            totalKey: 'totalComponents',
+            unusedKey: 'unusedCount'
+        },
+        tokenCoverage: {
+            issueKey: 'tokenIssues',
+            scoreKey: 'tokenCoverage',
+            safeLabel: 'missing-variables',
+            getData: function() { return null; },
+            totalKey: null,
+            unusedKey: null
+        }
+    };
+
+    var cfg = configs[category];
+    if (!cfg) return;
+
+    // 1. Update cached data + global state
+    var newTotal, newUnused, newScore;
+
+    if (category === 'tokenCoverage') {
+        newTotal = state.totalNodes || 0;
+        newUnused = Math.max(0, (state.tokenIssues || 0) + issueDelta);
+        state.tokenIssues = newUnused;
+    } else {
+        var data = cfg.getData();
+        if (data) {
+            data[cfg.totalKey] = Math.max(0, (data[cfg.totalKey] || 0) + totalDelta);
+            data[cfg.unusedKey] = Math.max(0, (data[cfg.unusedKey] || 0) + issueDelta);
+            newTotal = data[cfg.totalKey];
+            newUnused = data[cfg.unusedKey];
+            newScore = newTotal === 0 ? 100 : Math.round(((newTotal - newUnused) / newTotal) * 100);
+            if ('hygieneScore' in data) data.hygieneScore = newScore;
+        } else {
+            return; // No cached data available
+        }
+        state[cfg.issueKey] = newUnused;
+    }
+
+    newScore = newTotal === 0 ? 100 : Math.round(((newTotal - newUnused) / newTotal) * 100);
+    state.subScores[cfg.scoreKey] = newScore;
+
+    // 2. Animate stat DOM elements
+    var safeLabel = cfg.safeLabel;
+    var badCountEl = document.getElementById('count-' + safeLabel);
+    var goodCountEl = document.getElementById('count-good-' + safeLabel);
+    var barEl = document.getElementById('bar-' + safeLabel);
+    var percentEl = document.getElementById('percent-' + safeLabel);
+    var goodCount = Math.max(0, newTotal - newUnused);
+
+    if (badCountEl) {
+        var fromBad = parseInt(badCountEl.textContent.replace(/[^0-9-]/g, '')) || 0;
+        badCountEl.dataset.target = newUnused;
+        _animateValueSmooth(badCountEl, fromBad, newUnused, 400);
+    }
+    if (goodCountEl) {
+        var fromGood = parseInt(goodCountEl.textContent.replace(/[^0-9-]/g, '')) || 0;
+        goodCountEl.dataset.target = goodCount;
+        _animateValueSmooth(goodCountEl, fromGood, goodCount, 400);
+    }
+    if (barEl) {
+        barEl.dataset.score = newScore;
+        barEl.style.transition = 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        barEl.style.width = newScore + '%';
+    }
+    if (percentEl) {
+        var fromPct = parseInt(percentEl.textContent.replace(/[^0-9-]/g, '')) || 0;
+        percentEl.dataset.score = newScore;
+        _animateValueSmooth(percentEl, fromPct, newScore, 400, '%');
+    }
+
+    // 3. Update section description text
+    _updateSectionDescription(category, newUnused, newTotal);
+
+    // 4. Update gauge and overall score
+    updateQualityScoreUI();
+
+    // 5. Update header gauge if in edit mode
+    if (window.isEditMode) {
+        updateHeaderGauge();
+    }
+}
+
+function _animateValueSmooth(el, start, end, duration, suffix) {
+    suffix = suffix || '';
+    if (start === end) { el.textContent = end.toLocaleString() + suffix; return; }
+    var startTime = null;
+    var step = function(timestamp) {
+        if (!startTime) startTime = timestamp;
+        var progress = Math.min((timestamp - startTime) / duration, 1);
+        var eased = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+        var current = Math.round(start + (end - start) * eased);
+        el.textContent = current.toLocaleString() + suffix;
+        if (progress < 1) requestAnimationFrame(step);
+        else el.textContent = end.toLocaleString() + suffix;
+    };
+    requestAnimationFrame(step);
+}
+
+function _updateSectionDescription(category, unused, total) {
+    var selector, text;
+    if (category === 'variableHygiene') {
+        selector = '#unused-variables-section .section-content-collapsible p[style*="font-size: 12px"]';
+        text = unused + ' unused variable' + (unused !== 1 ? 's' : '') + ' found out of ' + total + ' total. Remove unused variables to improve your design system hygiene.';
+    } else if (category === 'componentHygiene') {
+        selector = '#unused-components-section .section-content-collapsible p[style*="font-size: 12px"]';
+        text = unused + ' unused variant' + (unused !== 1 ? 's' : '') + ' found out of ' + total + ' total. Remove unused variants to improve your design system hygiene.';
+    } else {
+        return;
+    }
+    var el = document.querySelector(selector);
+    if (el) el.textContent = text;
 }
 
 /**
