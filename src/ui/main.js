@@ -614,11 +614,24 @@ window.MultiPageSelector = {
 
   handlePagesList(pages, currentPageId) {
     console.log('MultiPageSelector: Received pages', pages);
+    var isFirstLoad = this.pages.length === 0;
     this.pages = pages;
     // By default, select all pages
     this.selectedPageIds = new Set(pages.map(p => p.id));
     this.pendingPageIds = new Set(this.selectedPageIds); // Initialize pending as well
     this.render();
+
+    // On first load, re-trigger analysis now that page selection is available.
+    // The initial analysis may have started before pages were known, running
+    // with only the current page. Re-run with the correct scope.
+    if (isFirstLoad && pages.length > 1 && typeof analyzeTokenCoverage === 'function') {
+      if (window._qualityAnalysisInFlight) {
+        // Analysis is in progress — schedule re-run when it completes
+        window._pendingPageScopeRerun = true;
+      } else {
+        analyzeTokenCoverage('SMART_SCAN');
+      }
+    }
   },
 
   toggle() {
@@ -2293,7 +2306,7 @@ window.onmessage = (event) => {
 
       if (typeof analyzeTokenCoverage === 'function') {
         setTimeout(() => {
-             analyzeTokenCoverage('INITIAL_LOAD');
+             analyzeTokenCoverage('SMART_SCAN');
         }, 100);
       } else {
         // Fallback if function missing
@@ -2524,7 +2537,7 @@ window.onmessage = (event) => {
 
       // Re-analyze coverage to reflect changes and update UI using the new variable
       // This will eventually trigger displayTokenCoverageResults which consumes pendingFixIssueId
-      analyzeTokenCoverage();
+      analyzeTokenCoverage('SMART_SCAN');
 
       // Notify user
       if (typeof showNotification === 'function') {
@@ -3121,6 +3134,12 @@ window.onmessage = (event) => {
       
       updatePluginLoadingProgress('Ready!', 100);
       hidePluginLoadingOverlay();
+
+      // If page list arrived while analysis was in flight, re-run with correct scope
+      if (window._pendingPageScopeRerun) {
+        window._pendingPageScopeRerun = false;
+        setTimeout(function() { analyzeTokenCoverage('SMART_SCAN'); }, 100);
+      }
 
       if (window.pendingImproveDesignSystem) {
         window.pendingImproveDesignSystem = false;
@@ -4875,29 +4894,37 @@ function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
 function ignoreItem(itemType, itemId, itemName) {
   parent.postMessage({ pluginMessage: { type: 'ignore-item', itemType: itemType, itemId: itemId } }, '*');
 
-  // Optimistic: hide the card with animation
-  const card = document.querySelector(`[data-ignore-id="${itemId}"]`);
-  if (card) {
-    card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
-    card.style.opacity = '0';
-    card.style.maxHeight = '0';
-    card.style.marginBottom = '0';
-    card.style.overflow = 'hidden';
-    setTimeout(() => {
-      card.style.display = 'none';
-    }, 300);
-  }
+  var isVariable = itemType === 'variable' || itemType === 'collection' || itemType === 'variable-group';
+  var isComponent = itemType === 'component' || itemType === 'component-set';
+  var delta = -1;
 
-  // Instant score update from cached data
-  setTimeout(() => {
-    var isVariable = itemType === 'variable' || itemType === 'collection' || itemType === 'variable-group';
-    var isComponent = itemType === 'component' || itemType === 'component-set';
-    var delta = -1;
-
-    // Calculate actual delta for bulk ignore operations
-    if (itemType === 'collection' && window.variableHygieneData && window.variableHygieneData.unusedVariables) {
+  // Calculate actual delta and hide appropriate elements
+  if (itemType === 'collection') {
+    // Hide entire collection container
+    var collContainer = document.querySelector('[data-collection-id="' + itemId + '"]');
+    if (collContainer) {
+      collContainer.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out';
+      collContainer.style.opacity = '0';
+      collContainer.style.maxHeight = '0';
+      collContainer.style.marginBottom = '0';
+      collContainer.style.overflow = 'hidden';
+      setTimeout(function() { collContainer.style.display = 'none'; }, 300);
+    }
+    if (window.variableHygieneData && window.variableHygieneData.unusedVariables) {
       delta = -(window.variableHygieneData.unusedVariables.filter(function(v) { return v.collectionId === itemId; }).length || 1);
-    } else if (itemType === 'variable-group' && window.variableHygieneData && window.variableHygieneData.unusedVariables) {
+    }
+  } else if (itemType === 'variable-group') {
+    // Hide the group container
+    var groupContainer = document.querySelector('[data-group-key="' + itemId + '"]');
+    if (groupContainer) {
+      groupContainer.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out';
+      groupContainer.style.opacity = '0';
+      groupContainer.style.maxHeight = '0';
+      groupContainer.style.marginBottom = '0';
+      groupContainer.style.overflow = 'hidden';
+      setTimeout(function() { groupContainer.style.display = 'none'; }, 300);
+    }
+    if (window.variableHygieneData && window.variableHygieneData.unusedVariables) {
       var sepIdx = itemId.indexOf('::');
       if (sepIdx !== -1) {
         var collId = itemId.substring(0, sepIdx);
@@ -4906,52 +4933,100 @@ function ignoreItem(itemType, itemId, itemName) {
           return v.collectionId === collId && (v.name === groupPath || v.name.startsWith(groupPath + '/'));
         }).length || 1);
       }
-    } else if (itemType === 'component-set' && window.componentHygieneData && window.componentHygieneData.unusedComponents) {
+    }
+  } else if (itemType === 'component-set') {
+    // Hide the entire component set container
+    var setContainer = document.querySelector('[data-set-id="' + itemId + '"]');
+    if (setContainer) {
+      setContainer.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out';
+      setContainer.style.opacity = '0';
+      setContainer.style.maxHeight = '0';
+      setContainer.style.marginBottom = '0';
+      setContainer.style.overflow = 'hidden';
+      setTimeout(function() { setContainer.style.display = 'none'; }, 300);
+    }
+    if (window.componentHygieneData && window.componentHygieneData.unusedComponents) {
       var setEntry = window.componentHygieneData.unusedComponents.find(function(c) { return c.id === itemId; });
       delta = setEntry ? -(setEntry.unusedVariantCount || 1) : -1;
     }
+  } else {
+    // Single variable or component — hide the individual card
+    var card = document.querySelector('[data-ignore-id="' + itemId + '"]');
+    if (card) {
+      card.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out';
+      card.style.opacity = '0';
+      card.style.maxHeight = '0';
+      card.style.marginBottom = '0';
+      card.style.overflow = 'hidden';
+      setTimeout(function() { card.style.display = 'none'; }, 300);
+    }
+  }
 
+  // Update ignored badge count
+  var badgeId = isVariable ? 'variable-ignored-badge' : 'component-ignored-badge';
+  var absDelta = Math.abs(delta);
+  _updateIgnoredBadge(badgeId, absDelta);
+
+  // Instant score update from cached data
+  setTimeout(function() {
     if (isVariable) updateScoreInstant('variableHygiene', delta, 0);
     else if (isComponent) updateScoreInstant('componentHygiene', delta, 0);
-  }, 400);
+  }, 350);
 }
 
 function unignoreItem(itemType, itemId) {
   parent.postMessage({ pluginMessage: { type: 'unignore-item', itemType: itemType, itemId: itemId } }, '*');
 
-  // Hide the restored item from the ignored panel
-  var ignoredCard = document.querySelector('[data-ignore-id="' + itemId + '"]');
-  if (ignoredCard) {
-    ignoredCard.style.transition = 'opacity 0.2s ease-out, max-height 0.2s ease-out';
-    ignoredCard.style.opacity = '0';
-    ignoredCard.style.maxHeight = '0';
-    ignoredCard.style.overflow = 'hidden';
-    setTimeout(function() { ignoredCard.style.display = 'none'; }, 200);
+  var isVariable = itemType === 'variable' || itemType === 'collection' || itemType === 'variable-group';
+  var isComponent = itemType === 'component' || itemType === 'component-set';
+  var delta = 1;
+
+  // Find and remove the ignored panel row(s)
+  if (itemType === 'collection' || itemType === 'component-set') {
+    // For collection/set: remove the entire group container from the ignored panel
+    var container = document.querySelector('#' + (isVariable ? 'variable' : 'component') + '-ignored-panel [data-ignore-id="' + itemId + '"]');
+    if (container) {
+      container.style.transition = 'opacity 0.2s ease-out, max-height 0.2s ease-out';
+      container.style.opacity = '0';
+      container.style.maxHeight = '0';
+      container.style.overflow = 'hidden';
+      setTimeout(function() { container.style.display = 'none'; }, 200);
+    }
+  } else {
+    // For single items and group prefixes: remove the specific row
+    var ignoredCard = document.querySelector('#' + (isVariable ? 'variable' : 'component') + '-ignored-panel [data-ignore-id="' + itemId + '"]');
+    if (ignoredCard) {
+      ignoredCard.style.transition = 'opacity 0.2s ease-out, max-height 0.2s ease-out';
+      ignoredCard.style.opacity = '0';
+      ignoredCard.style.maxHeight = '0';
+      ignoredCard.style.overflow = 'hidden';
+      setTimeout(function() { ignoredCard.style.display = 'none'; }, 200);
+    }
   }
 
-  // Instant score update (+delta = restored items become issues again)
-  setTimeout(() => {
-    var isVariable = itemType === 'variable' || itemType === 'collection' || itemType === 'variable-group';
-    var isComponent = itemType === 'component' || itemType === 'component-set';
-    var delta = 1;
-
-    // Calculate actual delta for bulk unignore operations
-    if (itemType === 'collection' && window.variableHygieneData && window.variableHygieneData.ignoredVariables) {
-      delta = window.variableHygieneData.ignoredVariables.filter(function(v) { return v.collectionId === itemId; }).length || 1;
-    } else if (itemType === 'variable-group' && window.variableHygieneData && window.variableHygieneData.ignoredVariables) {
-      var sepIdx = itemId.indexOf('::');
-      if (sepIdx !== -1) {
-        var collId = itemId.substring(0, sepIdx);
-        var groupPath = itemId.substring(sepIdx + 2);
-        delta = window.variableHygieneData.ignoredVariables.filter(function(v) {
-          return v.collectionId === collId && (v.name === groupPath || v.name.startsWith(groupPath + '/'));
-        }).length || 1;
-      }
-    } else if (itemType === 'component-set' && window.componentHygieneData && window.componentHygieneData.ignoredComponents) {
-      var setEntry = window.componentHygieneData.ignoredComponents.find(function(c) { return c.id === itemId; });
-      delta = setEntry ? (setEntry.unusedVariantCount || 1) : 1;
+  // Calculate actual delta for bulk unignore operations
+  if (itemType === 'collection' && window.variableHygieneData && window.variableHygieneData.ignoredVariables) {
+    delta = window.variableHygieneData.ignoredVariables.filter(function(v) { return v.collectionId === itemId; }).length || 1;
+  } else if (itemType === 'variable-group' && window.variableHygieneData && window.variableHygieneData.ignoredVariables) {
+    var sepIdx = itemId.indexOf('::');
+    if (sepIdx !== -1) {
+      var collId = itemId.substring(0, sepIdx);
+      var groupPath = itemId.substring(sepIdx + 2);
+      delta = window.variableHygieneData.ignoredVariables.filter(function(v) {
+        return v.collectionId === collId && (v.name === groupPath || v.name.startsWith(groupPath + '/'));
+      }).length || 1;
     }
+  } else if (itemType === 'component-set' && window.componentHygieneData && window.componentHygieneData.ignoredComponents) {
+    var setEntry = window.componentHygieneData.ignoredComponents.find(function(c) { return c.id === itemId; });
+    delta = setEntry ? (setEntry.unusedVariantCount || 1) : 1;
+  }
 
+  // Update ignored badge count (decrease)
+  var badgeId = isVariable ? 'variable-ignored-badge' : 'component-ignored-badge';
+  _updateIgnoredBadge(badgeId, -delta);
+
+  // Instant score update (+delta = restored items become issues again)
+  setTimeout(function() {
     if (isVariable) updateScoreInstant('variableHygiene', delta, 0);
     else if (isComponent) updateScoreInstant('componentHygiene', delta, 0);
   }, 250);
@@ -4961,6 +5036,24 @@ function toggleIgnoredPanel(panelId) {
   const panel = document.getElementById(panelId);
   if (panel) {
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+/**
+ * Update the "N ignored" badge count. delta is positive to increase, negative to decrease.
+ */
+function _updateIgnoredBadge(badgeId, delta) {
+  var badge = document.getElementById(badgeId);
+  if (!badge) return;
+  var current = parseInt(badge.getAttribute('data-ignored-count') || '0', 10);
+  var next = Math.max(0, current + delta);
+  badge.setAttribute('data-ignored-count', next);
+  if (next > 0) {
+    badge.textContent = next + ' ignored';
+    badge.style.display = '';
+  } else {
+    badge.textContent = '0 ignored';
+    badge.style.display = 'none';
   }
 }
 
@@ -5990,11 +6083,10 @@ function startQualityAnalysis(scopeOverride, notificationElement, isBackground =
     const selectedIds = MultiPageSelector ? MultiPageSelector.getSelectedIds() : [];
     const pageIds = selectedIds && selectedIds.length > 0 ? selectedIds : null;
     
-    // FIX: scopeOverride must take precedence over pageIds to ensure SMART_SCAN works
-    let finalScope = scopeOverride || 'PAGE';
-    
-    // Only upgrade to 'ALL' if we have specific page IDs AND no specific override was requested
-    if (pageIds && !scopeOverride) {
+    let finalScope = scopeOverride || 'SMART_SCAN';
+
+    // If pages are explicitly selected, always use 'ALL' to aggregate all selected pages
+    if (pageIds) {
         finalScope = 'ALL';
     }
 
@@ -6472,12 +6564,13 @@ function displayComponentHygieneSection(result) {
             'Unused Components'
         )}
         ${result.ignoredCount > 0 ? `
-          <span onclick="event.stopPropagation(); toggleIgnoredPanel('component-ignored-panel')"
+          <span id="component-ignored-badge" onclick="event.stopPropagation(); toggleIgnoredPanel('component-ignored-panel')"
                 style="font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;"
-                title="Click to manage ignored items">
+                title="Click to manage ignored items"
+                data-ignored-count="${result.ignoredCount}">
             ${result.ignoredCount} ignored
           </span>
-        ` : ''}
+        ` : '<span id="component-ignored-badge" style="display:none; font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;" onclick="event.stopPropagation(); toggleIgnoredPanel(\'component-ignored-panel\')" title="Click to manage ignored items" data-ignored-count="0"></span>'}
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
@@ -6497,7 +6590,7 @@ function displayComponentHygieneSection(result) {
     const variantIds = component.unusedVariants.map(v => v.id).join(',');
 
     html += `
-      <div class="variable-collection" style="margin-bottom: 8px;">
+      <div class="variable-collection" data-set-id="${component.id}" style="margin-bottom: 8px;">
         <div class="collection-header collapsed"
              onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
              style="display: flex; align-items: center; gap: 10px; cursor: pointer; height: 32px; padding: 0 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
@@ -6594,15 +6687,15 @@ function displayComponentHygieneSection(result) {
     }
   }
 
-  // Ignored items management panel
-  if (result.ignoredComponents && result.ignoredComponents.length > 0) {
+  // Ignored items management panel (always render, hidden when empty)
+  {
     let ignoredItemsHtml = '';
-    result.ignoredComponents.forEach(comp => {
+    (result.ignoredComponents || []).forEach(comp => {
       if (comp.type === 'COMPONENT_SET' && comp.unusedVariants) {
         comp.unusedVariants.forEach(v => {
           const name = SecurityUtils.escapeHTML(v.name);
           ignoredItemsHtml += `
-            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+            <div data-ignore-id="${v.id}" style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
               <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${SecurityUtils.escapeHTML(comp.name)} / ${name}</span>
               <button class="icon-button" onclick="unignoreItem('component', '${v.id}')" title="Restore">
                 <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
@@ -6614,7 +6707,7 @@ function displayComponentHygieneSection(result) {
         if (comp.isFullyUnused || !comp.unusedVariants.length) {
           const setName = SecurityUtils.escapeHTML(comp.name);
           ignoredItemsHtml += `
-            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+            <div data-ignore-id="${comp.id}" style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
               <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${setName} (set)</span>
               <button class="icon-button" onclick="unignoreItem('component-set', '${comp.id}')" title="Restore">
                 <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
@@ -6625,7 +6718,7 @@ function displayComponentHygieneSection(result) {
       } else {
         const name = SecurityUtils.escapeHTML(comp.name);
         ignoredItemsHtml += `
-          <div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
+          <div data-ignore-id="${comp.id}" style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;">
             <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span>
             <button class="icon-button" onclick="unignoreItem('component', '${comp.id}')" title="Restore">
               <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
@@ -6705,12 +6798,13 @@ function displayVariableHygieneSection(result) {
             'Unused Variables'
         )}
         ${(result.ignoredCount > 0 || (result.ignoredGroupPrefixes && result.ignoredGroupPrefixes.length > 0)) ? `
-          <span onclick="event.stopPropagation(); toggleIgnoredPanel('variable-ignored-panel')"
+          <span id="variable-ignored-badge" onclick="event.stopPropagation(); toggleIgnoredPanel('variable-ignored-panel')"
                 style="font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;"
-                title="Click to manage ignored items">
+                title="Click to manage ignored items"
+                data-ignored-count="${result.ignoredCount}">
             ${result.ignoredCount} ignored
           </span>
-        ` : ''}
+        ` : '<span id="variable-ignored-badge" style="display:none; font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;" onclick="event.stopPropagation(); toggleIgnoredPanel(\'variable-ignored-panel\')" title="Click to manage ignored items" data-ignored-count="0"></span>'}
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
@@ -6768,7 +6862,7 @@ function displayVariableHygieneSection(result) {
       const escapedSeg = SecurityUtils.escapeHTML(seg);
 
       out += `
-        <div style="margin-bottom: 8px;">
+        <div data-group-key="${groupKey}" style="margin-bottom: 8px;">
           <div class="collection-header collapsed"
                onclick="this.classList.toggle('collapsed'); const c = document.getElementById('${nodeId}-content'); c.style.display = c.style.display === 'none' ? 'block' : 'none'; const ic = this.querySelector('.collection-toggle-icon'); ic.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
                style="display: flex; align-items: center; gap: 8px; cursor: pointer; height: 32px; padding: 0 10px; padding-left: ${indent}px; background: rgba(255,255,255,${0.02 + depth * 0.01}); border-radius: 4px; border: 1px solid rgba(255,255,255,0.03);">
@@ -6837,7 +6931,7 @@ function displayVariableHygieneSection(result) {
     const tree = buildVariableTree(variables);
 
     html += `
-      <div class="variable-collection" style="margin-bottom: 8px;">
+      <div class="variable-collection" data-collection-id="${collectionId}" style="margin-bottom: 8px;">
         <div class="collection-header collapsed"
              onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
              style="display: flex; align-items: center; gap: 10px; cursor: pointer; height: 32px; padding: 0 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
@@ -6860,11 +6954,11 @@ function displayVariableHygieneSection(result) {
     `;
   });
 
-  // Ignored items management panel — grouped by collection, then by group prefixes
+  // Ignored items management panel — grouped by collection, then by group prefixes (always render, hidden when empty)
   const hasIgnoredVars = result.ignoredVariables && result.ignoredVariables.length > 0;
   const hasIgnoredGroups = result.ignoredGroupPrefixes && result.ignoredGroupPrefixes.length > 0;
 
-  if (hasIgnoredVars || hasIgnoredGroups) {
+  {
     const ignoredCollectionIds = result.ignoredCollectionIds || [];
     const ignoredGroupPrefixes = result.ignoredGroupPrefixes || [];
 
@@ -6885,7 +6979,7 @@ function displayVariableHygieneSection(result) {
         const escapedGp = gp.replace(/'/g, "\\'");
 
         ignoredVarHtml += `
-          <div style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; min-height: 24px;">
+          <div data-ignore-id="${escapedGp}" style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; min-height: 24px;">
             <span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.25);">folder</span>
             <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="Group: ${escapedPath}">${escapedPath}</span>
             <button class="icon-button" onclick="unignoreItem('variable-group', '${escapedGp}')" title="Restore group">
@@ -6911,7 +7005,7 @@ function displayVariableHygieneSection(result) {
         const igGroupId = `ignored-var-group-${igIdx}`;
 
         ignoredVarHtml += `
-          <div style="margin-bottom: 6px;">
+          <div data-ignore-id="${collectionId}" style="margin-bottom: 6px;">
             <div onclick="const c = document.getElementById('${igGroupId}-content'); c.style.display = c.style.display === 'none' ? 'block' : 'none'; const ic = this.querySelector('.ig-toggle'); ic.style.transform = c.style.display === 'none' ? 'rotate(-90deg)' : 'rotate(0deg)';"
                  style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
               <span class="material-symbols-outlined ig-toggle" style="font-size: 14px; color: rgba(255,255,255,0.3); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
@@ -6935,7 +7029,7 @@ function displayVariableHygieneSection(result) {
           const valueText = v.resolvedValue ? SecurityUtils.escapeHTML(v.resolvedValue) : '';
 
           ignoredVarHtml += `
-            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 30px; min-height: 20px;">
+            <div data-ignore-id="${v.id}" style="display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 30px; min-height: 20px;">
               <span style="min-width: 0; font-size: 12px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayName}">${displayName}</span>
               ${valueText ? `<div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-family: 'SF Mono', Monaco, monospace; color: rgba(167, 139, 250, 0.5); font-size: 11px; white-space: nowrap;">${valueText}${colorPreview ? ' ' + colorPreview : ''}</div>` : ''}
               ${!isCollectionIgnored ? `
