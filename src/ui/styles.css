@@ -5688,6 +5688,30 @@ input[type='password']:focus {
   border-color: rgba(139, 92, 246, 0.5);
 }
 
+/* Tailwind namespace custom select (compact variant) */
+.tw-ns-select {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.tw-ns-select .custom-select-trigger {
+  border-color: rgba(139, 92, 246, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  min-height: auto;
+}
+
+.tw-ns-select .custom-select-trigger:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tw-ns-select .custom-select-menu {
+  right: 0;
+  left: auto;
+  width: auto;
+}
+
 .occurrence-checkbox {
   accent-color: #8b5cf6;
   width: 14px;

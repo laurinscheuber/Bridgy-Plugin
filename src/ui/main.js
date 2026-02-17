@@ -97,6 +97,7 @@ class SecurityUtils {
           match.includes('deleteStyle(') ||
           match.includes('updateTailwindActionButtonsState(') ||
           match.includes('applyTailwindNamespace(') ||
+          match.includes('selectTailwindNamespace(') ||
           match.includes('expandAllImportGroups(') ||
           match.includes('collapseAllImportGroups(') ||
           match.includes('selectAllVariables(') ||
@@ -3147,7 +3148,7 @@ window.onmessage = (event) => {
     } else if (message.type === 'variable-hygiene-result') { ... }
     */
 
-    } else if (message.type === 'component-stats-data') {
+    } else if (message.type === 'component-deleted') {
       // Handle successful component deletion
       console.log(`Component deleted successfully: ${message.componentName}`);
       const deletionType = message.componentType || 'component';
@@ -3195,45 +3196,66 @@ window.onmessage = (event) => {
 
             // Update the hygiene data counts in the background
             if (window.componentHygieneData) {
-              // Find and remove the deleted component from our cached data
-              const componentIndex = window.componentHygieneData.unusedComponents.findIndex(
-                comp => comp.id === message.componentId
-              );
+              const deletedType = message.componentType || 'component';
 
-              if (componentIndex !== -1) {
-                window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
-                window.componentHygieneData.unusedCount = window.componentHygieneData.unusedComponents.length;
-
-                // Recalculate hygiene score
-                const total = window.componentHygieneData.totalComponents;
-                const unused = window.componentHygieneData.unusedCount;
-                window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
-
-                // Update the score display in the header
-                const section = document.getElementById('unused-components-section');
-                if (section) {
-                  const scoreDisplay = section.querySelector('h2 span[style*="font-size: 14px"]');
-                  if (scoreDisplay) {
-                    scoreDisplay.textContent = `${window.componentHygieneData.hygieneScore}%`;
-                  }
-
-                  // Update the description text
-                  const description = section.querySelector('p[style*="font-size: 12px"]');
-                  if (description) {
-                    description.textContent = `${unused} unused component${unused !== 1 ? 's' : ''} found out of ${total} total. Remove unused components to improve your design system hygiene.`;
+              if (deletedType === 'variant' && message.parentId) {
+                // Variant deletion: find parent set and remove the variant
+                const parentEntry = window.componentHygieneData.unusedComponents.find(
+                  comp => comp.id === message.parentId
+                );
+                if (parentEntry && parentEntry.unusedVariants) {
+                  parentEntry.unusedVariants = parentEntry.unusedVariants.filter(v => v.id !== message.componentId);
+                  parentEntry.unusedVariantCount = parentEntry.unusedVariants.length;
+                  // If no variants left, remove the set entry entirely
+                  if (parentEntry.unusedVariants.length === 0) {
+                    const idx = window.componentHygieneData.unusedComponents.indexOf(parentEntry);
+                    if (idx !== -1) window.componentHygieneData.unusedComponents.splice(idx, 1);
                   }
                 }
+              } else {
+                // Standalone or set deletion: remove entry
+                const componentIndex = window.componentHygieneData.unusedComponents.findIndex(
+                  comp => comp.id === message.componentId
+                );
+                if (componentIndex !== -1) {
+                  window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
+                }
+              }
 
-                // If no more unused components, hide the entire section
-                if (unused === 0) {
-                  const section = document.getElementById('unused-components-section')?.closest('#component-hygiene-section');
-                  if (section) {
-                    section.style.transition = 'opacity 0.3s ease-out';
-                    section.style.opacity = '0';
-                    setTimeout(() => {
-                      section.style.display = 'none';
-                    }, 300);
-                  }
+              // Recalculate variant-level unused count
+              let newUnusedCount = 0;
+              for (const uc of window.componentHygieneData.unusedComponents) {
+                if (uc.type === 'COMPONENT_SET') {
+                  newUnusedCount += uc.unusedVariantCount || 0;
+                } else {
+                  newUnusedCount += 1;
+                }
+              }
+              window.componentHygieneData.unusedCount = newUnusedCount;
+
+              // Recalculate hygiene score
+              const total = window.componentHygieneData.totalComponents;
+              const unused = newUnusedCount;
+              window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
+
+              // Update the description text
+              const section = document.getElementById('unused-components-section');
+              if (section) {
+                const description = section.querySelector('p[style*="font-size: 12px"]');
+                if (description) {
+                  description.textContent = `${unused} unused variant${unused !== 1 ? 's' : ''} found out of ${total} total. Remove unused variants to improve your design system hygiene.`;
+                }
+              }
+
+              // If no more unused, hide the entire section
+              if (unused === 0) {
+                const hideSection = document.getElementById('unused-components-section')?.closest('#component-hygiene-section');
+                if (hideSection) {
+                  hideSection.style.transition = 'opacity 0.3s ease-out';
+                  hideSection.style.opacity = '0';
+                  setTimeout(() => {
+                    hideSection.style.display = 'none';
+                  }, 300);
                 }
               }
             }
@@ -6243,14 +6265,15 @@ function renderTailwindReadinessSection(validation) {
                 <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                   ${displayName}
                 </div>
-                <select
-                  id="${itemId}-namespace-select"
-                  class="tw-fix-select"
-                  onchange="updateTailwindActionButtonsState('${itemId}', true)"
-                >
-                  <option value="">Namespace…</option>
-                  ${getTailwindNamespaceOptions(variable.name)}
-                </select>
+                <div id="${itemId}-custom-select" class="custom-select tw-ns-select" data-value="">
+                  <div class="custom-select-trigger" onclick="toggleCustomSelect('${itemId}')" style="height: 28px; padding: 0 10px; font-size: 11px;">
+                    <span class="trigger-text" style="color: rgba(255,255,255,0.4);">Namespace…</span>
+                    <span class="material-symbols-outlined trigger-icon" style="font-size: 14px;">expand_more</span>
+                  </div>
+                  <div class="custom-select-menu" style="min-width: 180px;">
+                    ${getTailwindNamespaceDropdownOptions(variable.name, itemId, true)}
+                  </div>
+                </div>
                 <button
                   id="${itemId}-add-prefix-btn"
                   class="tw-fix-btn tw-fix-btn-primary"
@@ -6306,14 +6329,15 @@ function renderTailwindReadinessSection(validation) {
               ${displayName}
             </div>
             <span style="font-size: 10px; color: rgba(255,255,255,0.35); white-space: nowrap; flex-shrink: 0;">${description}</span>
-            <select
-              id="${itemId}-namespace-select"
-              class="tw-fix-select"
-              onchange="updateTailwindActionButtonsState('${itemId}', false)"
-            >
-              <option value="">Namespace…</option>
-              ${getTailwindNamespaceOptions(group.name)}
-            </select>
+            <div id="${itemId}-custom-select" class="custom-select tw-ns-select" data-value="">
+              <div class="custom-select-trigger" onclick="toggleCustomSelect('${itemId}')" style="height: 28px; padding: 0 10px; font-size: 11px;">
+                <span class="trigger-text" style="color: rgba(255,255,255,0.4);">Namespace…</span>
+                <span class="material-symbols-outlined trigger-icon" style="font-size: 14px;">expand_more</span>
+              </div>
+              <div class="custom-select-menu" style="min-width: 180px;">
+                ${getTailwindNamespaceDropdownOptions(group.name, itemId, false)}
+              </div>
+            </div>
             <button
               id="${itemId}-replace-btn"
               class="tw-fix-btn tw-fix-btn-secondary"
@@ -6405,7 +6429,7 @@ function displayComponentHygieneSection(result) {
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
-          ${result.unusedComponentCount || result.unusedCount || 0} unused component${(result.unusedComponentCount || result.unusedCount) !== 1 ? 's' : ''} found out of ${result.totalComponents || 0} total. Remove unused components to improve your design system hygiene.
+          ${result.unusedComponentCount || result.unusedCount || 0} unused variant${(result.unusedComponentCount || result.unusedCount) !== 1 ? 's' : ''} found out of ${result.totalComponents || 0} total. Remove unused variants to improve your design system hygiene.
         </p>
         <div style="padding-left: 0;">
   `;
@@ -6906,53 +6930,95 @@ function displayVariableHygieneSection(result) {
   }
 }
 
-// Helper function to get Tailwind namespace options
-function getTailwindNamespaceOptions(currentName) {
-  const namespaces = [
-    'color', 'font', 'text', 'font-weight', 'tracking', 'leading',
-    'breakpoint', 'container', 'spacing', 'radius', 'shadow',
-    'inset-shadow', 'drop-shadow', 'blur', 'perspective', 'aspect',
-    'ease', 'animate'
-  ];
-  
-  // Try to suggest the best match
+// Tailwind namespace list and suggestion map (shared)
+const TAILWIND_NAMESPACES = [
+  'color', 'font', 'text', 'font-weight', 'tracking', 'leading',
+  'breakpoint', 'container', 'spacing', 'radius', 'shadow',
+  'inset-shadow', 'drop-shadow', 'blur', 'perspective', 'aspect',
+  'ease', 'animate'
+];
+
+const TAILWIND_SUGGESTIONS = {
+  'colors': 'color', 'colour': 'color',
+  'fonts': 'font', 'font-family': 'font',
+  'font-size': 'text', 'text-size': 'text', 'size': 'text',
+  'weight': 'font-weight',
+  'letter-spacing': 'tracking',
+  'line-height': 'leading', 'line': 'leading',
+  'space': 'spacing', 'padding': 'spacing', 'margin': 'spacing', 'gap': 'spacing',
+  'border-radius': 'radius', 'rounded': 'radius',
+  'shadows': 'shadow', 'box-shadow': 'shadow',
+  'timing': 'ease', 'timing-function': 'ease', 'transition': 'ease',
+  'animation': 'animate',
+  'aspect-ratio': 'aspect',
+  'breakpoints': 'breakpoint', 'screen': 'breakpoint'
+};
+
+// Helper: generate custom dropdown options for Tailwind namespace picker
+function getTailwindNamespaceDropdownOptions(currentName, itemId, isStandalone) {
   const normalized = currentName.toLowerCase().trim();
-  const suggestions = {
-    'colors': 'color',
-    'colour': 'color',
-    'fonts': 'font',
-    'font-family': 'font',
-    'font-size': 'text',
-    'text-size': 'text',
-    'size': 'text',
-    'weight': 'font-weight',
-    'letter-spacing': 'tracking',
-    'line-height': 'leading',
-    'line': 'leading',
-    'space': 'spacing',
-    'padding': 'spacing',
-    'margin': 'spacing',
-    'gap': 'spacing',
-    'border-radius': 'radius',
-    'rounded': 'radius',
-    'shadows': 'shadow',
-    'box-shadow': 'shadow',
-    'timing': 'ease',
-    'timing-function': 'ease',
-    'transition': 'ease',
-    'animation': 'animate',
-    'aspect-ratio': 'aspect',
-    'breakpoints': 'breakpoint',
-    'screen': 'breakpoint'
-  };
-  
-  const suggested = suggestions[normalized];
-  
+  const suggested = TAILWIND_SUGGESTIONS[normalized];
+
   let html = '';
-  namespaces.forEach(ns => {
+
+  // Show suggested namespace first if there's a match
+  if (suggested) {
+    html += `<div class="custom-select-group-header exact">Suggested</div>`;
+    html += `
+      <div class="custom-select-option"
+           onclick="selectTailwindNamespace('${itemId}', '${suggested}', ${isStandalone})">
+        <span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:#a78bfa;">auto_awesome</span> --${suggested}-*</span>
+      </div>`;
+    html += `<div class="custom-select-divider"></div>`;
+  }
+
+  html += `<div class="custom-select-group-header">All Namespaces</div>`;
+  TAILWIND_NAMESPACES.forEach(ns => {
+    const isSuggested = ns === suggested ? ' style="color:#a78bfa;"' : '';
+    html += `
+      <div class="custom-select-option"${isSuggested}
+           onclick="selectTailwindNamespace('${itemId}', '${ns}', ${isStandalone})">
+        --${ns}-*
+      </div>`;
+  });
+
+  return html;
+}
+
+// Handle selection in the Tailwind namespace custom dropdown
+window.selectTailwindNamespace = function(itemId, value, isStandalone) {
+  const selectEl = document.getElementById(`${itemId}-custom-select`);
+  if (!selectEl) return;
+
+  const trigger = selectEl.querySelector('.custom-select-trigger');
+  const triggerText = trigger.querySelector('.trigger-text');
+  const menu = selectEl.querySelector('.custom-select-menu');
+
+  // Update state
+  selectEl.dataset.value = value;
+  triggerText.textContent = '--' + value + '-*';
+  triggerText.style.color = 'rgba(255,255,255,0.9)';
+
+  // Mark selected option
+  menu.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+  menu.querySelectorAll('.custom-select-option').forEach(opt => {
+    if (opt.textContent.trim() === '--' + value + '-*') opt.classList.add('selected');
+  });
+
+  // Close menu
+  menu.classList.remove('show');
+  trigger.classList.remove('active');
+
+  // Enable/disable action buttons
+  updateTailwindActionButtonsState(itemId, isStandalone);
+};
+
+// Legacy helper (kept for any remaining native selects)
+function getTailwindNamespaceOptions(currentName) {
+  let html = '';
+  TAILWIND_NAMESPACES.forEach(ns => {
     html += `<option value="${ns}">${ns}</option>`;
   });
-  
   return html;
 }
 
@@ -8755,11 +8821,13 @@ window.submitCreateVariable = function () {
 // Function to open rename dialog for Tailwind variables
 // Update button states when namespace is selected
 window.updateTailwindActionButtonsState = function(itemId, isStandalone) {
-  const select = document.getElementById(`${itemId}-namespace-select`);
+  // Support both custom dropdown (data-value) and native select (.value)
+  const customSelect = document.getElementById(`${itemId}-custom-select`);
+  const nativeSelect = document.getElementById(`${itemId}-namespace-select`);
+  const hasSelection = (customSelect && customSelect.dataset.value) || (nativeSelect && nativeSelect.value);
+
   const addPrefixBtn = document.getElementById(`${itemId}-add-prefix-btn`);
   const replaceBtn = document.getElementById(`${itemId}-replace-btn`);
-
-  const hasSelection = select && select.value;
 
   if (addPrefixBtn) addPrefixBtn.disabled = !hasSelection;
   if (replaceBtn) replaceBtn.disabled = !hasSelection;
@@ -8767,16 +8835,18 @@ window.updateTailwindActionButtonsState = function(itemId, isStandalone) {
 
 // Apply Tailwind namespace action
 window.applyTailwindNamespace = function(currentGroupName, itemId, variableCount, action, variableId) {
-  const select = document.getElementById(`${itemId}-namespace-select`);
-  if (!select || !select.value) {
+  // Support both custom dropdown and native select
+  const customSelect = document.getElementById(`${itemId}-custom-select`);
+  const nativeSelect = document.getElementById(`${itemId}-namespace-select`);
+  const newNamespace = (customSelect && customSelect.dataset.value) || (nativeSelect && nativeSelect.value);
+
+  if (!newNamespace) {
     alert('Please select a namespace first.');
     return;
   }
-  
-  const newNamespace = select.value;
 
   // For individual standalone variables, get the variable ID from the select if not provided
-  const actualVariableId = variableId || select.dataset.variableId || null;
+  const actualVariableId = variableId || (nativeSelect && nativeSelect.dataset.variableId) || null;
   const isIndividualVariable = actualVariableId !== null;
 
   // Build appropriate confirmation message
