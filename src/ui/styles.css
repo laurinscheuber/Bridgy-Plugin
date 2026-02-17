@@ -4509,6 +4509,58 @@ input[type='password']:focus {
   cursor: not-allowed;
 }
 
+/* Quality header action buttons */
+.quality-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  font-size: 11px;
+  height: 32px;
+  border-radius: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.quality-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.quality-action-primary {
+  background: #8b5cf6;
+  color: white;
+  border: 1px solid rgba(139, 92, 246, 0.6);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.quality-action-primary:hover:not(:disabled) {
+  background: #7c3aed;
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.quality-action-secondary {
+  background: rgba(139, 92, 246, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  box-shadow: none;
+}
+
+.quality-action-secondary:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: white;
+  transform: translateY(-1px);
+}
+
 .btn-secondary {
   background: transparent;
   color: var(--neutral-300);

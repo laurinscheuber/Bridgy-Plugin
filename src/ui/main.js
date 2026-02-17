@@ -414,23 +414,6 @@ function updateCommitButtonStates() {
   const hasTailwindIssues =
     isTailwindV4Selected && tailwindV4Validation && !tailwindV4Validation.isValid;
 
-  // Variables tab commit button
-  const commitButton = document.getElementById('commit-repo-button');
-  if (commitButton) {
-    const shouldEnable = hasVariables && isConfigured;
-    commitButton.disabled = !shouldEnable;
-
-    if (!isConfigured) {
-      commitButton.title = 'Configure GitLab settings in the Settings tab to enable commits';
-    } else if (!hasVariables) {
-      commitButton.title = 'No variables available to commit';
-    } else if (hasTailwindIssues) {
-      commitButton.title = 'Commit variables (Warning: Tailwind v4 namespace issues detected)';
-    } else {
-      commitButton.title = 'Commit variables to GitLab repository';
-    }
-  }
-
   // Export button
   const exportButton = document.getElementById('export-css-button');
   if (exportButton && hasVariables) {
@@ -453,6 +436,67 @@ function updateCommitButtonStates() {
       button.title = 'Generate and commit component test to repository';
     }
   });
+
+  // Also update the quality header commit button
+  updateQualityHeaderActions();
+}
+
+/**
+ * Updates the variables tab header action buttons based on current quality score.
+ * - Score < 75 (red/yellow): Improve = primary, Commit = secondary
+ * - Score >= 75 (green):     Commit = primary, Improve = secondary
+ */
+function updateQualityHeaderActions() {
+  const improveBtn = document.getElementById('improve-design-btn-var');
+  const commitBtn = document.getElementById('var-commit-btn');
+  if (!improveBtn || !commitBtn) return;
+
+  const score = (window.qualityAnalysisState && window.qualityAnalysisState.score) || 0;
+  const isGreen = score >= 75;
+
+  // Update commit button enabled/disabled state
+  const hasVariables = variablesData && variablesData.some(function(c) { return c.variables.length > 0; });
+  const isConfigured = isRepositoryConfigured();
+  commitBtn.disabled = !(hasVariables && isConfigured);
+
+  if (!isConfigured) {
+    commitBtn.title = 'Configure repository in Settings tab to enable commits';
+  } else if (!hasVariables) {
+    commitBtn.title = 'No variables available to commit';
+  } else {
+    commitBtn.title = 'Commit your design tokens to the repository';
+  }
+
+  // Update improve button tooltip based on score
+  if (score >= 75) {
+    improveBtn.title = 'Your design system is in good shape — review details in the Quality tab';
+  } else if (score >= 40) {
+    improveBtn.title = 'Some issues found — open Quality tab to review and fix them';
+  } else {
+    improveBtn.title = 'Design system needs attention — open Quality tab to fix issues';
+  }
+
+  // Swap visual priority based on score zone
+  const actionsContainer = document.getElementById('variables-header-actions');
+  if (!actionsContainer) return;
+
+  if (isGreen) {
+    // Commit = primary, Improve = secondary
+    commitBtn.className = 'quality-action-btn quality-action-primary';
+    improveBtn.className = 'quality-action-btn quality-action-secondary';
+    // Put commit first
+    if (actionsContainer.firstElementChild !== commitBtn) {
+      actionsContainer.insertBefore(commitBtn, improveBtn);
+    }
+  } else {
+    // Improve = primary, Commit = secondary
+    improveBtn.className = 'quality-action-btn quality-action-primary';
+    commitBtn.className = 'quality-action-btn quality-action-secondary';
+    // Put improve first
+    if (actionsContainer.firstElementChild !== improveBtn) {
+      actionsContainer.insertBefore(improveBtn, commitBtn);
+    }
+  }
 }
 
 // ===== LOADING SYSTEM =====
@@ -2074,14 +2118,10 @@ window.onmessage = (event) => {
     }
 
     const exportButton = document.getElementById('export-css-button');
-    const commitButton = document.getElementById('commit-repo-button');
 
     // Add safety checks for DOM elements
     if (!exportButton) {
       console.warn('Export button not found in DOM during message handling');
-    }
-    if (!commitButton) {
-      console.warn('Commit button not found in DOM during message handling');
     }
 
     if (message.type === 'gitlab-settings-loaded') {
@@ -3690,31 +3730,34 @@ window.onmessage = (event) => {
              });
         }
         
-        // Render warnings to separate container
+        // Render action bar to warning container (Improve + Commit buttons)
         const warningContainer = document.getElementById('variables-warning-container');
         if (warningContainer) {
-             warningContainer.innerHTML = '';
-             let warningHtml = '';
-             
-             // Show a single combined warning if there are any issues
-             const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
-             if (hasAnyIssues) {
-                   warningHtml += `
-                    <div class="validation-alert validation-alert-warning" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);">
-                      <div style="display: flex; align-items: center; gap: 12px;">
-                        <div>
-                          <strong style="color: white; display: block; margin-bottom: 4px;">Issues in Design System found</strong>
-                          <small style="color: rgba(255, 255, 255, 0.7);">Some issues were found with your variables</small>
-                        </div>
-                      </div>
-                      <button type="button" onclick="switchToQualityTab()" class="btn-primary" style="background: var(--purple-medium) !important; box-shadow: none !important; border: none !important;">
-                        Improve design system
-                      </button>
-                    </div>
-                  `;
-             }
-             
-             warningContainer.innerHTML = warningHtml;
+             warningContainer.innerHTML = `
+               <div id="variables-header-actions" class="validation-alert" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3); display: flex; align-items: center; gap: 8px; padding: 8px 12px;">
+                 <button
+                   id="improve-design-btn-var"
+                   class="quality-action-btn quality-action-primary"
+                   style="flex: 1;"
+                   onclick="switchToQualityTab()"
+                   title="Open Quality tab to review and fix design system issues"
+                 >
+                   Improve design system
+                 </button>
+                 <button
+                   id="var-commit-btn"
+                   class="quality-action-btn quality-action-secondary"
+                   style="flex: 1;"
+                   onclick="openGitLabModal()"
+                   disabled
+                   title="Commit variables to your repository"
+                 >
+                   <span class="material-symbols-outlined" style="font-size: 15px;">commit</span>
+                   Commit
+                 </button>
+               </div>
+             `;
+             updateQualityHeaderActions();
         }
 
         // Render each collection as it comes from Figma
@@ -7433,6 +7476,9 @@ function _updateQualityScoreUIImmediate() {
     if (summaryTarget) {
         summaryTarget.textContent = `${state.totalNodes} nodes • ${state.totalIssues} issues`;
     }
+
+    // 4. Update header action button priority (Improve vs Commit)
+    updateQualityHeaderActions();
 }
 
 // 0. Reset Quality state for a fresh analysis
@@ -10547,10 +10593,7 @@ function renderUnitsSettings(data) {
   });
 }
 
-const commitRepoButton = document.getElementById('commit-repo-button');
-if (commitRepoButton) {
-  commitRepoButton.addEventListener('click', openGitLabModal);
-}
+// Commit button click handler is now inline on #var-commit-btn (dynamically rendered)
 
 const createMRElement = document.getElementById('create-merge-request');
 if (createMRElement) {
