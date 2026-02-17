@@ -6238,40 +6238,33 @@ function renderTailwindReadinessSection(validation) {
           const displayName = SecurityUtils.escapeHTML(variable.name);
 
           html += `
-            <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                <div style="flex: 1; min-width: 0;">
-                  <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    ${displayName}
-                  </div>
-       
+            <div id="${itemId}-card" class="quality-issue-card tw-fix-card" style="margin-bottom: 8px; padding: 0 12px; height: 40px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; display: flex; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${displayName}
                 </div>
-                <div style="display: flex; gap: 6px; align-items: center;">
-                   <select 
-                    id="${itemId}-namespace-select" 
-                    class="token-fix-select" 
-                    style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
-                    onchange="updateTailwindActionButtonsState('${itemId}', true)"
-                  >
-                    <option value="">Select namespace...</option>
-                    ${getTailwindNamespaceOptions(variable.name)}
-                  </select>
-                  <button 
-                    id="${itemId}-add-prefix-btn" 
-                    class="token-fix-apply-btn" 
-                    onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}');refreshData()"
-                      style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
-                    disabled
-                    title="Add namespace prefix"
-                  >
-                    <span class="material-symbols-outlined">add</span>
-                    Add prefix
-              </button>
+                <select
+                  id="${itemId}-namespace-select"
+                  class="tw-fix-select"
+                  onchange="updateTailwindActionButtonsState('${itemId}', true)"
+                >
+                  <option value="">Namespace…</option>
+                  ${getTailwindNamespaceOptions(variable.name)}
+                </select>
+                <button
+                  id="${itemId}-add-prefix-btn"
+                  class="tw-fix-btn tw-fix-btn-primary"
+                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(variable.name)}', '${itemId}', 1, 'add-prefix', '${variable.variableId}');refreshData()"
+                  disabled
+                  title="Add namespace prefix"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 14px;">add</span>
+                  Add prefix
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      `;
-    });
+          `;
+        });
 
     html += `
           </div>
@@ -6307,51 +6300,40 @@ function renderTailwindReadinessSection(validation) {
       const description = `${group.variableCount} variable${group.variableCount !== 1 ? 's' : ''}`;
 
       html += `
-        <div id="${itemId}-card" class="quality-issue-card" style="margin-bottom: 8px; display: block; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; margin-bottom: 4px;">
-                ${displayName}
-              </div>
-              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">
-                ${description}
-              </div>
+        <div id="${itemId}-card" class="quality-issue-card tw-fix-card" style="margin-bottom: 8px; padding: 0 12px; height: 40px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; display: flex; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+            <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayName}">
+              ${displayName}
             </div>
-            <div style="display: flex; flex-direction: row; gap: 8px; align-items: center; min-width: 300px;">
-              <select 
-                id="${itemId}-namespace-select" 
-                class="token-fix-select" 
-                style="padding: 6px 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;"
-                onchange="updateTailwindActionButtonsState('${itemId}', false)"
-              >
-                <option value="">Select namespace...</option>
-                ${getTailwindNamespaceOptions(group.name)}
-              </select>
-              <div style="display: flex; gap: 8px;">
-                <button 
-                  id="${itemId}-replace-btn" 
-                  class="secondary-action-btn" 
-                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'replace', null)"
-                  disabled
-                  title="Replace existing group with namespace (e.g., group/var → namespace/var)"
-                >
-                  <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span>
-                  Replace
-                </button>
-                <button 
-                  id="${itemId}-add-prefix-btn" 
-                  class="token-fix-apply-btn" 
-                  onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'add-prefix', null)"
-                  style="flex: 1; padding: 6px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; opacity: 0.5; pointer-events: none;"
-                  disabled
-                  title="Add namespace as additional prefix (e.g., group/var → namespace/group/var)"
-                >
-                  <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span>
-                  Add Prefix
-                </button>
-                
-              </div>
-            </div>
+            <span style="font-size: 10px; color: rgba(255,255,255,0.35); white-space: nowrap; flex-shrink: 0;">${description}</span>
+            <select
+              id="${itemId}-namespace-select"
+              class="tw-fix-select"
+              onchange="updateTailwindActionButtonsState('${itemId}', false)"
+            >
+              <option value="">Namespace…</option>
+              ${getTailwindNamespaceOptions(group.name)}
+            </select>
+            <button
+              id="${itemId}-replace-btn"
+              class="tw-fix-btn tw-fix-btn-secondary"
+              onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'replace', null)"
+              disabled
+              title="Replace existing group with namespace (e.g., group/var → namespace/var)"
+            >
+              <span class="material-symbols-outlined" style="font-size: 14px;">find_replace</span>
+              Replace
+            </button>
+            <button
+              id="${itemId}-add-prefix-btn"
+              class="tw-fix-btn tw-fix-btn-primary"
+              onclick="applyTailwindNamespace('${SecurityUtils.escapeHTML(group.name)}', '${itemId}', ${group.variableCount}, 'add-prefix', null)"
+              disabled
+              title="Add namespace as additional prefix (e.g., group/var → namespace/group/var)"
+            >
+              <span class="material-symbols-outlined" style="font-size: 14px;">add</span>
+              Add Prefix
+            </button>
           </div>
         </div>
       `;
@@ -6442,7 +6424,7 @@ function displayComponentHygieneSection(result) {
       <div class="variable-collection" style="margin-bottom: 8px;">
         <div class="collection-header collapsed"
              onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
-             style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+             style="display: flex; align-items: center; gap: 10px; cursor: pointer; height: 32px; padding: 0 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
           <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 16px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
           <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${displayName}</span>
           <span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">${component.unusedVariantCount}/${component.totalVariants}</span>
@@ -6470,7 +6452,7 @@ function displayComponentHygieneSection(result) {
     component.unusedVariants.forEach((variant) => {
       const variantName = SecurityUtils.escapeHTML(variant.name);
       html += `
-        <div class="quality-issue-card" data-ignore-id="${variant.id}" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+        <div class="quality-issue-card" data-ignore-id="${variant.id}" style="margin-bottom: 8px; padding: 0 10px; height: 32px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
             <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               ${variantName}
@@ -6500,7 +6482,7 @@ function displayComponentHygieneSection(result) {
     if (componentSets.length > 0) {
       html += `
         <div style="margin-bottom: 8px;">
-          <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px;">
+          <div style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px;">
             <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">Standalone Components</span>
             <span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">${standaloneComponents.length}</span>
           </div>
@@ -6510,7 +6492,7 @@ function displayComponentHygieneSection(result) {
     standaloneComponents.forEach((component) => {
       const displayName = SecurityUtils.escapeHTML(component.name);
       html += `
-        <div class="quality-issue-card" data-ignore-id="${component.id}" style="margin-bottom: 2px; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+        <div class="quality-issue-card" data-ignore-id="${component.id}" style="margin-bottom: 8px; padding: 0 10px; height: 32px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
             <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               ${displayName}
@@ -6646,7 +6628,7 @@ function displayVariableHygieneSection(result) {
             result.totalVariables || 0,
             'Unused Variables'
         )}
-        ${result.ignoredCount > 0 ? `
+        ${(result.ignoredCount > 0 || (result.ignoredGroupPrefixes && result.ignoredGroupPrefixes.length > 0)) ? `
           <span onclick="event.stopPropagation(); toggleIgnoredPanel('variable-ignored-panel')"
                 style="font-size: 10px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; cursor: pointer; margin-left: 4px;"
                 title="Click to manage ignored items">
@@ -6661,72 +6643,106 @@ function displayVariableHygieneSection(result) {
         <div style="padding-left: 0;">
   `;
 
-  // Group variables by collection
-  const groups = {};
+  // Build a nested tree: Collection > group segments (from path) > leaf variable
+  // e.g. variable name "color/error/500" → groups ["color", "color/error"], leaf "500"
+
+  // Group variables by collection first
+  const collectionGroups = {};
   result.unusedVariables.forEach(v => {
-    if (!groups[v.collectionName]) groups[v.collectionName] = [];
-    groups[v.collectionName].push(v);
+    if (!collectionGroups[v.collectionName]) collectionGroups[v.collectionName] = [];
+    collectionGroups[v.collectionName].push(v);
   });
 
-  Object.entries(groups).forEach(([collectionName, variables], gIdx) => {
-    const groupId = `unused-var-group-${gIdx}`;
-    const escapedCollectionName = SecurityUtils.escapeHTML(collectionName);
-    
-    html += `
-      <div class="variable-collection" style="margin-bottom: 8px;">
-        <div class="collection-header collapsed" 
-             onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
-             style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
-          <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 18px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
-          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${escapedCollectionName}</span>
-          <span style="font-size: 10px; color: rgba(255,255,255,0.3); background: none; border: none; padding: 1px 6px;">${variables.length}</span>
-          <button
-            class="icon-button ignore-btn"
-            onclick="event.stopPropagation(); ignoreItem('collection', '${variables[0].collectionId}', '${escapedCollectionName}')"
-            title="Ignore entire collection"
-            style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;"
-          >
-            <span class="material-symbols-outlined" style="font-size: 12px;">visibility_off</span>
-          </button>
+  // Helper: build a nested tree node from flat variable list
+  function buildVariableTree(variables) {
+    const root = { children: {}, vars: [] };
+    variables.forEach(v => {
+      const parts = v.name.split('/');
+      let node = root;
+      // Traverse all path segments except the last (leaf)
+      for (let i = 0; i < parts.length - 1; i++) {
+        const seg = parts[i];
+        if (!node.children[seg]) node.children[seg] = { children: {}, vars: [] };
+        node = node.children[seg];
+      }
+      node.vars.push(v);
+    });
+    return root;
+  }
+
+  // Helper: count all variables under a tree node
+  function countTreeVars(node) {
+    let c = node.vars.length;
+    Object.values(node.children).forEach(child => { c += countTreeVars(child); });
+    return c;
+  }
+
+  // Helper: render a tree node recursively
+  function renderTreeNode(node, prefix, collectionId, depth, parentIdPrefix) {
+    let out = '';
+    const indent = 10 + depth * 16;
+
+    // Render sub-groups
+    Object.entries(node.children).forEach(([seg, child], sIdx) => {
+      const groupPath = prefix ? prefix + '/' + seg : seg;
+      const groupKey = collectionId + '::' + groupPath;
+      const safeGroupKey = groupKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const nodeId = parentIdPrefix + '-g' + sIdx;
+      const count = countTreeVars(child);
+      const escapedSeg = SecurityUtils.escapeHTML(seg);
+
+      out += `
+        <div style="margin-bottom: 8px;">
+          <div class="collection-header collapsed"
+               onclick="this.classList.toggle('collapsed'); const c = document.getElementById('${nodeId}-content'); c.style.display = c.style.display === 'none' ? 'block' : 'none'; const ic = this.querySelector('.collection-toggle-icon'); ic.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
+               style="display: flex; align-items: center; gap: 8px; cursor: pointer; height: 32px; padding: 0 10px; padding-left: ${indent}px; background: rgba(255,255,255,${0.02 + depth * 0.01}); border-radius: 4px; border: 1px solid rgba(255,255,255,0.03);">
+            <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 16px; color: rgba(255,255,255,0.35); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
+            <span style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45); flex: 1;">${escapedSeg}</span>
+            <span style="font-size: 10px; color: rgba(255,255,255,0.25); padding: 1px 6px;">${count}</span>
+            <button
+              class="icon-button ignore-btn"
+              onclick="event.stopPropagation(); ignoreItem('variable-group', '${groupKey}', '${escapedSeg}')"
+              title="Ignore group ${SecurityUtils.escapeHTML(groupPath)}"
+              style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;"
+            >
+              <span class="material-symbols-outlined" style="font-size: 12px;">visibility_off</span>
+            </button>
+          </div>
+          <div id="${nodeId}-content" style="display: none;">
+            ${renderTreeNode(child, groupPath, collectionId, depth + 1, nodeId)}
+          </div>
         </div>
-        <div id="${groupId}-content" style="display: none; padding: 4px 0 4px 0;">
-    `;
+      `;
+    });
 
-    variables.forEach((variable, vIdx) => {
-      const itemId = `variable-hygiene-${gIdx}-${vIdx}`;
-      const displayName = SecurityUtils.escapeHTML(variable.name);
+    // Render leaf variables at this level
+    node.vars.forEach((variable, vIdx) => {
+      const leafName = variable.name.split('/').pop();
+      const displayName = SecurityUtils.escapeHTML(leafName);
+      const fullName = SecurityUtils.escapeHTML(variable.name);
+      const leafIndent = indent + 16;
 
-      // Color Preview Logic
       const isColorValue = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(variable.resolvedValue || '');
       const isColor = variable.resolvedType === 'COLOR' || isColorValue;
-      
       const colorPreview = isColor && variable.resolvedValue
-        ? `<div style="width: 14px; height: 14px; border-radius: 3px; background: ${variable.resolvedValue}; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-left: 8px;"></div>` 
+        ? '<div style="width: 14px; height: 14px; border-radius: 3px; background: ' + variable.resolvedValue + '; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0;"></div>'
+        : '';
+      const valueText = variable.resolvedValue
+        ? SecurityUtils.escapeHTML(variable.resolvedValue)
         : '';
 
-      html += `
-        <div id="${itemId}-card" class="quality-issue-card" data-ignore-id="${variable.id}" style="margin-bottom: 2px; display: block; padding: 0 10px; min-height: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
-            <div style="flex: 1; min-width: 0; display: flex; align-items: center;">
-              <div style="width: 160px; flex-shrink: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${displayName}
-              </div>
-              ${colorPreview}
+      out += `
+        <div class="quality-issue-card" data-ignore-id="${variable.id}" style="margin-bottom: 8px; padding: 0 10px; padding-left: ${leafIndent}px; height: 32px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); border-radius: 4px; display: flex; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+            <div style="min-width: 0; font-weight: 500; color: rgba(255,255,255,0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${fullName}">
+              ${displayName}
             </div>
-            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
-              <button
-                class="icon-button ignore-btn"
-                onclick="ignoreItem('variable', '${variable.id}', '${displayName}')"
-                title="Ignore variable"
-              >
+            ${valueText ? `<div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 11px; white-space: nowrap;">${valueText}${colorPreview ? ' ' + colorPreview : ''}</div>` : ''}
+            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0; margin-left: auto;">
+              <button class="icon-button ignore-btn" onclick="ignoreItem('variable', '${variable.id}', '${displayName}')" title="Ignore variable">
                 <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
               </button>
-              <button
-                class="icon-button delete-btn"
-                data-variable-id="${variable.id}"
-                onclick="deleteUnusedVariable('${variable.id}', '${displayName}')"
-                title="Delete variable"
-              >
+              <button class="icon-button delete-btn" data-variable-id="${variable.id}" onclick="deleteUnusedVariable('${variable.id}', '${fullName}')" title="Delete variable">
                 <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
               </button>
             </div>
@@ -6735,65 +6751,129 @@ function displayVariableHygieneSection(result) {
       `;
     });
 
-    html += `</div></div>`;
+    return out;
+  }
+
+  Object.entries(collectionGroups).forEach(([collectionName, variables], gIdx) => {
+    const groupId = `unused-var-group-${gIdx}`;
+    const escapedCollectionName = SecurityUtils.escapeHTML(collectionName);
+    const collectionId = variables[0].collectionId;
+    const tree = buildVariableTree(variables);
+
+    html += `
+      <div class="variable-collection" style="margin-bottom: 8px;">
+        <div class="collection-header collapsed"
+             onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
+             style="display: flex; align-items: center; gap: 10px; cursor: pointer; height: 32px; padding: 0 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+          <span class="material-symbols-outlined collection-toggle-icon" style="font-size: 18px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">${escapedCollectionName}</span>
+          <span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">${variables.length}</span>
+          <button
+            class="icon-button ignore-btn"
+            onclick="event.stopPropagation(); ignoreItem('collection', '${collectionId}', '${escapedCollectionName}')"
+            title="Ignore entire collection"
+            style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;"
+          >
+            <span class="material-symbols-outlined" style="font-size: 12px;">visibility_off</span>
+          </button>
+        </div>
+        <div id="${groupId}-content" style="display: none; padding: 4px 0;">
+          ${renderTreeNode(tree, '', collectionId, 0, groupId)}
+        </div>
+      </div>
+    `;
   });
 
-  // Ignored items management panel — grouped by collection
-  if (result.ignoredVariables && result.ignoredVariables.length > 0) {
-    const ignoredCollectionIds = result.ignoredCollectionIds || [];
+  // Ignored items management panel — grouped by collection, then by group prefixes
+  const hasIgnoredVars = result.ignoredVariables && result.ignoredVariables.length > 0;
+  const hasIgnoredGroups = result.ignoredGroupPrefixes && result.ignoredGroupPrefixes.length > 0;
 
-    // Group ignored variables by collection
-    const ignoredGroups = {};
-    result.ignoredVariables.forEach(v => {
-      if (!ignoredGroups[v.collectionName]) ignoredGroups[v.collectionName] = [];
-      ignoredGroups[v.collectionName].push(v);
-    });
+  if (hasIgnoredVars || hasIgnoredGroups) {
+    const ignoredCollectionIds = result.ignoredCollectionIds || [];
+    const ignoredGroupPrefixes = result.ignoredGroupPrefixes || [];
 
     let ignoredVarHtml = '';
-    Object.entries(ignoredGroups).forEach(([collectionName, variables], igIdx) => {
-      const escapedCollName = SecurityUtils.escapeHTML(collectionName);
-      const collectionId = variables[0].collectionId;
-      const isCollectionIgnored = ignoredCollectionIds.indexOf(collectionId) !== -1;
-      const igGroupId = `ignored-var-group-${igIdx}`;
 
-      ignoredVarHtml += `
-        <div style="margin-bottom: 6px;">
-          <div onclick="const c = document.getElementById('${igGroupId}-content'); c.style.display = c.style.display === 'none' ? 'block' : 'none'; const ic = this.querySelector('.ig-toggle'); ic.style.transform = c.style.display === 'none' ? 'rotate(-90deg)' : 'rotate(0deg)';"
-               style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
-            <span class="material-symbols-outlined ig-toggle" style="font-size: 14px; color: rgba(255,255,255,0.3); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
-            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); flex: 1;">${escapedCollName}</span>
-            <span style="font-size: 10px; color: rgba(255,255,255,0.25); padding: 0 4px;">${variables.length}</span>
-            ${isCollectionIgnored ? `
-              <button class="icon-button" onclick="event.stopPropagation(); unignoreItem('collection', '${collectionId}')" title="Restore entire collection">
-                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
-              </button>
-            ` : ''}
-          </div>
-          <div id="${igGroupId}-content" style="display: none; padding: 2px 0 2px 0;">
-      `;
+    // Show ignored group prefixes that don't have corresponding variables (standalone group ignores)
+    // Collect which group prefixes are "standalone" (not covered by a collection-level ignore)
+    const standaloneGroupPrefixes = ignoredGroupPrefixes.filter(gp => {
+      const collId = gp.split('::')[0];
+      return ignoredCollectionIds.indexOf(collId) === -1;
+    });
 
-      variables.forEach(v => {
-        const displayName = SecurityUtils.escapeHTML(v.name);
-        const isColor = v.resolvedType === 'COLOR' || /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(v.resolvedValue || '');
-        const colorPreview = isColor && v.resolvedValue
-          ? `<div style="width: 12px; height: 12px; border-radius: 2px; background: ${v.resolvedValue}; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;"></div>`
-          : '';
+    if (standaloneGroupPrefixes.length > 0) {
+      standaloneGroupPrefixes.forEach((gp, gpIdx) => {
+        const parts = gp.split('::');
+        const groupPath = parts.length > 1 ? parts[1] : gp;
+        const escapedPath = SecurityUtils.escapeHTML(groupPath);
+        const escapedGp = gp.replace(/'/g, "\\'");
 
         ignoredVarHtml += `
-          <div style="display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 30px; min-height: 20px;">
-            <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayName}">${displayName}</span>
-            ${colorPreview}
-            ${!isCollectionIgnored ? `
-              <button class="icon-button" onclick="unignoreItem('variable', '${v.id}')" title="Restore variable">
-                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
-              </button>
-            ` : ''}
+          <div style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; min-height: 24px;">
+            <span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.25);">folder</span>
+            <span style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="Group: ${escapedPath}">${escapedPath}</span>
+            <button class="icon-button" onclick="unignoreItem('variable-group', '${escapedGp}')" title="Restore group">
+              <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+            </button>
           </div>
         `;
       });
+    }
 
-      ignoredVarHtml += `</div></div>`;
-    });
+    // Group ignored variables by collection
+    if (hasIgnoredVars) {
+      const ignoredGroups = {};
+      result.ignoredVariables.forEach(v => {
+        if (!ignoredGroups[v.collectionName]) ignoredGroups[v.collectionName] = [];
+        ignoredGroups[v.collectionName].push(v);
+      });
+
+      Object.entries(ignoredGroups).forEach(([collectionName, variables], igIdx) => {
+        const escapedCollName = SecurityUtils.escapeHTML(collectionName);
+        const collectionId = variables[0].collectionId;
+        const isCollectionIgnored = ignoredCollectionIds.indexOf(collectionId) !== -1;
+        const igGroupId = `ignored-var-group-${igIdx}`;
+
+        ignoredVarHtml += `
+          <div style="margin-bottom: 6px;">
+            <div onclick="const c = document.getElementById('${igGroupId}-content'); c.style.display = c.style.display === 'none' ? 'block' : 'none'; const ic = this.querySelector('.ig-toggle'); ic.style.transform = c.style.display === 'none' ? 'rotate(-90deg)' : 'rotate(0deg)';"
+                 style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+              <span class="material-symbols-outlined ig-toggle" style="font-size: 14px; color: rgba(255,255,255,0.3); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); flex: 1;">${escapedCollName}</span>
+              <span style="font-size: 10px; color: rgba(255,255,255,0.25); padding: 0 4px;">${variables.length}</span>
+              ${isCollectionIgnored ? `
+                <button class="icon-button" onclick="event.stopPropagation(); unignoreItem('collection', '${collectionId}')" title="Restore entire collection">
+                  <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+                </button>
+              ` : ''}
+            </div>
+            <div id="${igGroupId}-content" style="display: none; padding: 2px 0 2px 0;">
+        `;
+
+        variables.forEach(v => {
+          const displayName = SecurityUtils.escapeHTML(v.name);
+          const isColor = v.resolvedType === 'COLOR' || /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(v.resolvedValue || '');
+          const colorPreview = isColor && v.resolvedValue
+            ? '<div style="width: 12px; height: 12px; border-radius: 2px; background: ' + v.resolvedValue + '; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;"></div>'
+            : '';
+          const valueText = v.resolvedValue ? SecurityUtils.escapeHTML(v.resolvedValue) : '';
+
+          ignoredVarHtml += `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 30px; min-height: 20px;">
+              <span style="min-width: 0; font-size: 12px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${displayName}">${displayName}</span>
+              ${valueText ? `<div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-family: 'SF Mono', Monaco, monospace; color: rgba(167, 139, 250, 0.5); font-size: 11px; white-space: nowrap;">${valueText}${colorPreview ? ' ' + colorPreview : ''}</div>` : ''}
+              ${!isCollectionIgnored ? `
+                <button class="icon-button" style="margin-left: auto; flex-shrink: 0;" onclick="unignoreItem('variable', '${v.id}')" title="Restore variable">
+                  <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span>
+                </button>
+              ` : ''}
+            </div>
+          `;
+        });
+
+        ignoredVarHtml += `</div></div>`;
+      });
+    }
 
     html += `
       <div id="variable-ignored-panel" style="display: none; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
@@ -7825,13 +7905,13 @@ function displayTokenCoverageResults(result) {
                 <div class="quality-issue-header" onclick="toggleIssueCard('${issueId}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;">
                   <div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">
                     <span id="${issueId}-chevron" class="material-symbols-outlined quality-issue-chevron" style="font-size: 18px; opacity: 0.7;">chevron_right</span>
-                    
+
                     <!-- Property Name -->
-                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; white-space: nowrap;">
+                    <div style="min-width: 0; font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                       ${issue.property}
                     </div>
                     <!-- Value (Inline) -->
-                    <div style="font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; font-family: 'SF Mono', Monaco, monospace; color: #a78bfa; font-size: 12px; white-space: nowrap;">
                         ${SecurityUtils.escapeHTML(issue.value)}
                         ${(function () {
                           const val = issue.value;
@@ -7840,7 +7920,7 @@ function displayTokenCoverageResults(result) {
                             val,
                           );
                           if (isColor) {
-                            return `<div style="width: 16px; height: 16px; border-radius: 4px; background: ${val}; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-left: 6px;"></div>`;
+                            return `<div style="width: 14px; height: 14px; border-radius: 3px; background: ${val}; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0;"></div>`;
                           }
                           return '';
                         })()}
@@ -8681,29 +8761,8 @@ window.updateTailwindActionButtonsState = function(itemId, isStandalone) {
 
   const hasSelection = select && select.value;
 
-  if (addPrefixBtn) {
-    if (hasSelection) {
-      addPrefixBtn.disabled = false;
-      addPrefixBtn.style.opacity = '1';
-      addPrefixBtn.style.pointerEvents = 'auto';
-    } else {
-      addPrefixBtn.disabled = true;
-      addPrefixBtn.style.opacity = '0.5';
-      addPrefixBtn.style.pointerEvents = 'none';
-    }
-  }
-
-  if (replaceBtn) {
-    if (hasSelection) {
-      replaceBtn.disabled = false;
-      replaceBtn.style.opacity = '1';
-      replaceBtn.style.pointerEvents = 'auto';
-    } else {
-      replaceBtn.disabled = true;
-      replaceBtn.style.opacity = '0.5';
-      replaceBtn.style.pointerEvents = 'none';
-    }
-  }
+  if (addPrefixBtn) addPrefixBtn.disabled = !hasSelection;
+  if (replaceBtn) replaceBtn.disabled = !hasSelection;
 };
 
 // Apply Tailwind namespace action

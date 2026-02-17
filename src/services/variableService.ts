@@ -8,6 +8,7 @@ export interface VariableHygieneResult {
   ignoredVariables: UnusedVariable[];
   ignoredCount: number;
   ignoredCollectionIds: string[];
+  ignoredGroupPrefixes: string[];
   hygieneScore: number;
   subScores: {
     variableHygiene: number;
@@ -46,6 +47,7 @@ export class VariableService {
             ignoredVariables: [],
             ignoredCount: 0,
             ignoredCollectionIds: [],
+            ignoredGroupPrefixes: [],
             hygieneScore: 100,
             subScores: { variableHygiene: 100 },
           };
@@ -201,7 +203,7 @@ export class VariableService {
         const ignoredUnused: UnusedVariable[] = [];
 
         for (const uv of unusedVariables) {
-          if (IgnoreService.isVariableIgnored(ignoreList, uv.id, uv.collectionId)) {
+          if (IgnoreService.isVariableIgnored(ignoreList, uv.id, uv.collectionId, uv.name)) {
             ignoredUnused.push(uv);
           } else {
             shownUnused.push(uv);
@@ -222,6 +224,7 @@ export class VariableService {
           ignoredVariables: ignoredUnused,
           ignoredCount: ignoredUnused.length,
           ignoredCollectionIds: ignoreList.variables.collectionIds,
+          ignoredGroupPrefixes: ignoreList.variables.groupPrefixes,
           hygieneScore,
           subScores: { variableHygiene: hygieneScore },
         };

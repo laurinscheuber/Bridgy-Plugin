@@ -2,6 +2,7 @@ export interface IgnoreList {
   variables: {
     ids: string[];           // individual variable IDs
     collectionIds: string[]; // entire collection IDs
+    groupPrefixes: string[]; // group prefixes as "collectionId::path/prefix"
   };
   components: {
     ids: string[];           // individual component/variant IDs
@@ -9,12 +10,12 @@ export interface IgnoreList {
   };
 }
 
-export type IgnoreItemType = 'variable' | 'collection' | 'component' | 'component-set';
+export type IgnoreItemType = 'variable' | 'collection' | 'variable-group' | 'component' | 'component-set';
 
 const STORAGE_KEY = 'quality_ignore_list';
 
 const EMPTY_LIST: IgnoreList = {
-  variables: { ids: [], collectionIds: [] },
+  variables: { ids: [], collectionIds: [], groupPrefixes: [] },
   components: { ids: [], setIds: [] },
 };
 
@@ -32,6 +33,7 @@ export class IgnoreService {
           variables: {
             ids: Array.isArray(stored.variables?.ids) ? stored.variables.ids : [],
             collectionIds: Array.isArray(stored.variables?.collectionIds) ? stored.variables.collectionIds : [],
+            groupPrefixes: Array.isArray(stored.variables?.groupPrefixes) ? stored.variables.groupPrefixes : [],
           },
           components: {
             ids: Array.isArray(stored.components?.ids) ? stored.components.ids : [],
@@ -60,6 +62,7 @@ export class IgnoreService {
       variables: {
         ids: [...list.variables.ids],
         collectionIds: [...list.variables.collectionIds],
+        groupPrefixes: [...list.variables.groupPrefixes],
       },
       components: {
         ids: [...list.components.ids],
@@ -73,6 +76,9 @@ export class IgnoreService {
         break;
       case 'collection':
         if (next.variables.collectionIds.indexOf(id) === -1) next.variables.collectionIds.push(id);
+        break;
+      case 'variable-group':
+        if (next.variables.groupPrefixes.indexOf(id) === -1) next.variables.groupPrefixes.push(id);
         break;
       case 'component':
         if (next.components.ids.indexOf(id) === -1) next.components.ids.push(id);
@@ -93,6 +99,7 @@ export class IgnoreService {
       variables: {
         ids: [...list.variables.ids],
         collectionIds: [...list.variables.collectionIds],
+        groupPrefixes: [...list.variables.groupPrefixes],
       },
       components: {
         ids: [...list.components.ids],
@@ -107,6 +114,9 @@ export class IgnoreService {
       case 'collection':
         next.variables.collectionIds = next.variables.collectionIds.filter(i => i !== id);
         break;
+      case 'variable-group':
+        next.variables.groupPrefixes = next.variables.groupPrefixes.filter(i => i !== id);
+        break;
       case 'component':
         next.components.ids = next.components.ids.filter(i => i !== id);
         break;
@@ -119,10 +129,23 @@ export class IgnoreService {
   }
 
   /**
-   * Check if a variable is ignored (by its own ID or its collection ID).
+   * Check if a variable is ignored (by its own ID, its collection ID, or a group prefix).
+   * Group prefixes are stored as "collectionId::path/prefix" and match any variable
+   * whose name starts with that prefix within the same collection.
    */
-  static isVariableIgnored(list: IgnoreList, varId: string, collectionId: string): boolean {
-    return list.variables.ids.indexOf(varId) !== -1 || list.variables.collectionIds.indexOf(collectionId) !== -1;
+  static isVariableIgnored(list: IgnoreList, varId: string, collectionId: string, varName?: string): boolean {
+    if (list.variables.ids.indexOf(varId) !== -1) return true;
+    if (list.variables.collectionIds.indexOf(collectionId) !== -1) return true;
+    if (varName && list.variables.groupPrefixes.length > 0) {
+      const prefix = collectionId + '::';
+      for (const gp of list.variables.groupPrefixes) {
+        if (gp.startsWith(prefix)) {
+          const groupPath = gp.substring(prefix.length);
+          if (varName === groupPath || varName.startsWith(groupPath + '/')) return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
