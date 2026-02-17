@@ -1435,19 +1435,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
 
       case 'import-tokens':
-        console.log('DEBUG: Received import-tokens message');
-        console.log('DEBUG: Message content:', JSON.stringify(msg, null, 2));
         try {
           const importOptions = (msg as any).options || {};
           const tokens = (msg as any).tokens || [];
-
-          console.log(`DEBUG: Received ${tokens.length} tokens to import`);
-          console.log('DEBUG: Import options:', JSON.stringify(importOptions, null, 2));
-
-          // Log first token as sample
-          if (tokens.length > 0) {
-            console.log('DEBUG: Sample token:', JSON.stringify(tokens[0], null, 2));
-          }
 
           // Ensure tokens have required fields for ImportToken interface
           const validTokens = tokens.map((t: any) => ({
@@ -1456,7 +1446,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             lineNumber: t.lineNumber || 0,
           }));
 
-          console.log('DEBUG: Calling VariableImportService.importVariables now...');
           const result = await VariableImportService.importVariables(validTokens, {
             collectionId: importOptions.collectionId,
             collectionName: importOptions.collectionName,

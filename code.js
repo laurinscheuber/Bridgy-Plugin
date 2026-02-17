@@ -10866,18 +10866,10 @@ ${Object.keys(cssProperties).map((property) => {
               }
               break;
             case "import-tokens":
-              console.log("DEBUG: Received import-tokens message");
-              console.log("DEBUG: Message content:", JSON.stringify(msg, null, 2));
               try {
                 const importOptions = msg.options || {};
                 const tokens = msg.tokens || [];
-                console.log(`DEBUG: Received ${tokens.length} tokens to import`);
-                console.log("DEBUG: Import options:", JSON.stringify(importOptions, null, 2));
-                if (tokens.length > 0) {
-                  console.log("DEBUG: Sample token:", JSON.stringify(tokens[0], null, 2));
-                }
                 const validTokens = tokens.map((t) => Object.assign(Object.assign({}, t), { originalLine: t.originalLine || "", lineNumber: t.lineNumber || 0 }));
-                console.log("DEBUG: Calling VariableImportService.importVariables now...");
                 const result = yield variableImportService_1.VariableImportService.importVariables(validTokens, {
                   collectionId: importOptions.collectionId,
                   collectionName: importOptions.collectionName,

@@ -1,3 +1,14 @@
+// ===== GLOBAL ERROR HANDLERS =====
+// Prevent unhandled errors/rejections from crashing the plugin iframe
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error('[GlobalErrorHandler]', message, source, lineno, colno, error);
+  return true; // Prevent default browser error handling
+};
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('[GlobalErrorHandler] Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+});
+
 // ===== SECURITY UTILITIES IMPORT =====
 // Import SecurityUtils and ErrorHandler for secure HTML handling
 class SecurityUtils {
@@ -97,9 +108,10 @@ class SecurityUtils {
         }
         return '';
       })
-      .replace(/javascript:/gi, '')
-      .replace(/vbscript:/gi, '')
-      .replace(/data:/gi, '');
+      .replace(/javascript\s*:/gi, '')
+      .replace(/vbscript\s*:/gi, '')
+      .replace(/\bsrc\s*=\s*["']?\s*data:/gi, 'src="')
+      .replace(/\bhref\s*=\s*["']?\s*data:/gi, 'href="');
 
     // Allow only safe HTML tags
     const allowedTags = [
@@ -793,6 +805,7 @@ function updateHeaderGauge() {
                  const circumference = 2 * Math.PI * radius;
                  const score = window.qualityAnalysisState.score || 0;
                  const offset = circumference - ((score / 100) * circumference);
+                 circle.style.transition = 'stroke-dashoffset 1s ease-out';
                  circle.style.strokeDashoffset = offset;
              }
         }, 50);
@@ -925,6 +938,7 @@ window.finishImproving = function() {
                      const radius = parseFloat(circle.getAttribute('r'));
                      const circumference = 2 * Math.PI * radius;
                      const offset = circumference - ((currentScore / 100) * circumference);
+                     circle.style.transition = 'stroke-dashoffset 1s ease-out';
                      circle.style.strokeDashoffset = offset;
                  }
             }
@@ -1898,8 +1912,12 @@ document.querySelectorAll('.tab').forEach((tab) => {
       if (!window.qualityScanPerformed) {
         console.log('First visit to Quality tab - Triggering initial scan...');
 
-        // Use centralized reset to show all spinners
-        resetQualityState();
+        try {
+          // Use centralized reset to show all spinners
+          resetQualityState();
+        } catch (e) {
+          console.error('Error resetting quality state:', e);
+        }
 
         // Defer actual scan slightly to allow UI paint
         setTimeout(() => {
@@ -1928,8 +1946,12 @@ document.querySelectorAll('.tab').forEach((tab) => {
         }
 
         setTimeout(() => {
-          analyzeStats();
-          window.statsScanPerformed = true;
+          try {
+            analyzeStats();
+            window.statsScanPerformed = true;
+          } catch (e) {
+            console.error('Error triggering stats analysis:', e);
+          }
         }, 50);
       }
     }
@@ -3000,30 +3022,33 @@ window.onmessage = (event) => {
       console.log('UI received quality-report', message.report);
       window._qualityAnalysisInFlight = false;
 
+      try {
       const report = message.report;
-      
+
       // 1. Update Global State
       if (window.qualityAnalysisState) {
-          window.qualityAnalysisState.totalNodes = report.meta.totalNodes;
-          
+          window.qualityAnalysisState.totalNodes = report.meta?.totalNodes || 0;
+
           // These serve as raw data storage
-          window.lastTokenCoverageResult = report.metrics.tokenCoverage;
-          window.componentHygieneData = report.metrics.componentHygiene;
-          window.variableHygieneData = report.metrics.variableHygiene;
-          
+          window.lastTokenCoverageResult = report.metrics?.tokenCoverage;
+          window.componentHygieneData = report.metrics?.componentHygiene;
+          window.variableHygieneData = report.metrics?.variableHygiene;
+
           // Update issue counts in state
-          window.qualityAnalysisState.tokenIssues = report.metrics.tokenCoverage?.totalIssues || 0;
-          window.qualityAnalysisState.componentIssues = report.metrics.componentHygiene?.unusedCount || 0;
-          window.qualityAnalysisState.variableIssues = report.metrics.variableHygiene?.unusedCount || 0;
-          
+          window.qualityAnalysisState.tokenIssues = report.metrics?.tokenCoverage?.totalIssues || 0;
+          window.qualityAnalysisState.componentIssues = report.metrics?.componentHygiene?.unusedCount || 0;
+          window.qualityAnalysisState.variableIssues = report.metrics?.variableHygiene?.unusedCount || 0;
+
           // Update sub-scores
-          window.qualityAnalysisState.subScores = report.score.breakdown;
-          
+          if (report.score?.breakdown) {
+              window.qualityAnalysisState.subScores = report.score.breakdown;
+          }
+
           updateQualityScoreUI();
       }
 
       // Update Tailwind validation from report so displayVariableHygieneSection can render it
-      if (report.metrics.tailwindReadiness?.validation) {
+      if (report.metrics?.tailwindReadiness?.validation) {
           window.tailwindV4Validation = report.metrics.tailwindReadiness.validation;
           if (report.score?.breakdown?.tailwindReadiness !== undefined) {
               window.tailwindV4Validation.readinessScore = report.score.breakdown.tailwindReadiness;
@@ -3035,17 +3060,17 @@ window.onmessage = (event) => {
       if (unifiedLoader) unifiedLoader.remove();
 
       // Token Coverage
-      if (report.metrics.tokenCoverage) {
+      if (report.metrics?.tokenCoverage) {
           displayTokenCoverageResults(report.metrics.tokenCoverage);
       }
 
       // Component Hygiene
-      if (report.metrics.componentHygiene) {
+      if (report.metrics?.componentHygiene) {
           displayComponentHygieneSection(report.metrics.componentHygiene);
       }
 
       // Variable Hygiene
-      if (report.metrics.variableHygiene) {
+      if (report.metrics?.variableHygiene) {
           displayVariableHygieneSection(report.metrics.variableHygiene);
       }
 
@@ -3061,6 +3086,11 @@ window.onmessage = (event) => {
       if (window.pendingImproveDesignSystem) {
         window.pendingImproveDesignSystem = false;
         setTimeout(() => handleImproveDesignSystem(), 300);
+      }
+      } catch (e) {
+        console.error('Error processing quality-report:', e);
+        updatePluginLoadingProgress('Ready', 100);
+        hidePluginLoadingOverlay();
       }
 
     } else if (message.type === 'quality-report-error') {
@@ -6967,14 +6997,13 @@ window.QualityAnimationController = {
   async animateFinalScore() {
     console.log('AnimationController: animating final score');
     const scoreEl = document.getElementById('score-value') || document.querySelector('.quality-gauge-svg text');
-    const circle = document.getElementById('score-gauge-circle-fill');
-    
+
     if (!scoreEl) return;
-    
+
     // Get final score from state
     const state = window.qualityAnalysisState;
     if (!state) return;
-    
+
     let totalScore = 0;
     let weightSum = 0;
     Object.keys(state.subScores).forEach(key => {
@@ -6987,19 +7016,26 @@ window.QualityAnimationController = {
     const finalScore = weightSum > 0 ? Math.round(totalScore * (100 / weightSum)) : 0;
     state.score = finalScore;
 
-    // Animate circular gauge fill
-    if (circle) {
-         const radius = parseFloat(circle.getAttribute('r'));
-         const circumference = 2 * Math.PI * radius;
-         const offset = circumference * (1 - (finalScore / 100));
-         circle.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
-         circle.style.strokeDashoffset = offset;
-         
-         // Color transition if needed
-         circle.style.stroke = getScoreColor(finalScore);
-         const text = document.querySelector('.quality-gauge-svg text');
-         if (text) text.style.fill = getScoreColor(finalScore);
-    }
+    // Animate circular gauge fill — fresh lookup in case DOM was replaced
+    const animateCircle = () => new Promise(resolve => {
+        const circle = document.getElementById('score-gauge-circle-fill');
+        if (circle) {
+            const radius = parseFloat(circle.getAttribute('r'));
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference * (1 - (finalScore / 100));
+            // Force the browser to acknowledge current state before transitioning
+            // eslint-disable-next-line no-unused-expressions
+            circle.getBoundingClientRect();
+            circle.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.6s ease';
+            circle.style.strokeDashoffset = offset;
+            circle.style.stroke = getScoreColor(finalScore);
+            const text = document.querySelector('.quality-gauge-svg text');
+            if (text) text.style.fill = getScoreColor(finalScore);
+        }
+        resolve();
+    });
+
+    await animateCircle();
 
     // Count up score value — always animate from the currently displayed number
     const currentScore = parseInt(scoreEl.textContent.replace(/[^0-9-]/g, '')) || 0;
@@ -7141,8 +7177,7 @@ function renderSegmentedGauge(subScores, weights, size = 150, options = {}) {
               stroke-linecap="round"
               stroke-dasharray="${circumference}"
               stroke-dashoffset="${initialOffset}"
-              transform="rotate(-90 ${cx} ${cy})"
-              style="transition: stroke-dashoffset 1s ease-out;" />
+              transform="rotate(-90 ${cx} ${cy})" />
     </g>
   `;
 
@@ -7360,15 +7395,20 @@ function _updateQualityScoreUIImmediate() {
     // When the animation controller is NOT running, drive the circle + number ourselves
     if (!controllerRunning && gaugeWrapper) {
         // Animate the circular gauge from previous → final
+        // Use double-rAF so the browser paints the initial state first, then the
+        // CSS transition animates to the target offset.
         const circle = document.getElementById('score-gauge-circle-fill');
         if (circle) {
             requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
                 const r = parseFloat(circle.getAttribute('r'));
                 const circ = 2 * Math.PI * r;
+                circle.style.transition = 'stroke-dashoffset 1s ease-out, stroke 0.6s ease';
                 circle.style.strokeDashoffset = circ * (1 - (finalScore / 100));
                 circle.style.stroke = getScoreColor(finalScore);
                 const text = document.querySelector('.quality-gauge-svg text');
                 if (text) text.style.fill = getScoreColor(finalScore);
+              });
             });
         }
 
@@ -7398,10 +7438,8 @@ function _updateQualityScoreUIImmediate() {
 // 0. Reset Quality state for a fresh analysis
 function resetQualityState() {
     if (!window.qualityAnalysisState) return;
-    
-    console.trace('resetQualityState called'); // Trace who called it
 
-    
+
     // window.qualityAnalysisState.totalNodes = 0; // Preserved for fallback logic
     window.qualityAnalysisState.totalIssues = 0;
     window.tokenFixInProgress = false;
@@ -11264,7 +11302,7 @@ function initializeVariableImportTab() {
                   placeholder=":root {\\n  --primary-500: #8b5cf6;\\n  --space-4: 1rem;\\n  --text-lg: 1.125rem;\\n}"
                 ></textarea>
                 <div class="input-actions">
-                  <button class="btn btn-primary" onclick="console.log('Button clicked!'); parseTokenInput();">Parse Tokens</button>
+                  <button class="btn btn-primary" onclick="parseTokenInput()">Parse Tokens</button>
                   <button class="btn btn-secondary" onclick="loadSampleData()">Load Sample</button>
                   <button class="btn btn-secondary" onclick="clearInput()">Clear</button>
                 </div>
@@ -11320,75 +11358,64 @@ function initializeVariableImportTab() {
   loadExistingCollections();
 }
 
-// Test function to verify JavaScript is working
-window.testFunction = function () {
-  console.log('Test function called successfully!');
-  alert('Test function works!');
-};
-
 // Variable Import helper functions
 window.parseTokenInput = function () {
-  console.log('[DEBUG] parseTokenInput function called');
-
   const textarea = document.getElementById('token-input');
   const format = document.querySelector('input[name="format"]:checked');
-  const statusDiv = document.getElementById('parse-status');
-
-  console.log('[DEBUG] Elements:', {
-    textarea: textarea,
-    hasTextarea: !!textarea,
-    textareaValue: textarea ? textarea.value : 'null',
-    textareaLength: textarea ? textarea.value.length : 'null',
-    format: format,
-    formatValue: format ? format.value : 'null',
-    statusDiv: statusDiv,
-  });
 
   if (!textarea || !textarea.value.trim()) {
-    console.log('[DEBUG] No textarea or empty value');
     showStatus('Please enter some tokens to parse', 'warning');
     return;
   }
 
-  console.log('[DEBUG] Starting parse process...');
   showStatus('Parsing tokens...', 'info');
 
-  // Simple token parsing simulation
   setTimeout(() => {
     try {
-      console.log('[DEBUG] In setTimeout, format value:', format ? format.value : 'null');
-      console.log('[DEBUG] CSS content to parse:', textarea.value.substring(0, 200) + '...');
-
       let tokens = [];
       if (format && format.value === 'css') {
-        console.log('[DEBUG] Calling parseCSSTokens...');
         tokens = parseCSSTokens(textarea.value);
-        console.log('[DEBUG] parseCSSTokens returned:', tokens.length, 'tokens');
       } else {
-        console.log('[DEBUG] Calling parseJSONTokens...');
         tokens = parseJSONTokens(textarea.value);
-        console.log('[DEBUG] parseJSONTokens returned:', tokens.length, 'tokens');
       }
-      console.log('[DEBUG] Final tokens array:', tokens);
 
       // Resolve dependencies for variable references
       const sortedTokens = resolveTokenDependencies(tokens);
-      console.log('[DEBUG] Dependency-resolved tokens:', sortedTokens.length);
 
       // Store tokens globally for import
       window.parsedTokens = sortedTokens;
-      console.log('[DEBUG] Stored parsedTokens:', window.parsedTokens);
 
-      showStatus(
-        `Successfully parsed ${tokens.length} tokens (${sortedTokens.filter((t) => t.isAlias).length} with references)`,
-        'success',
-      );
+      // Categorize for summary
+      const variableCount = sortedTokens.filter(t => {
+        const cat = categorizeToken(t);
+        return cat === 'color' || cat === 'numeric';
+      }).length;
+      const styleCount = sortedTokens.filter(t => {
+        const cat = categorizeToken(t);
+        return ['gradient', 'shadow', 'effect', 'transition'].includes(cat);
+      }).length;
+      const aliasCount = sortedTokens.filter(t => t.isAlias).length;
+
+      let statusParts = [`${tokens.length} tokens parsed`];
+      if (variableCount > 0) statusParts.push(`${variableCount} variables`);
+      if (styleCount > 0) statusParts.push(`${styleCount} styles`);
+      if (aliasCount > 0) statusParts.push(`${aliasCount} references`);
+
+      showStatus(statusParts.join(' \u2022 '), 'success');
       showPreview(sortedTokens);
+
+      // Scroll to the preview section so the user sees the results
+      setTimeout(() => {
+        const previewSection = document.getElementById('preview-section');
+        if (previewSection) {
+          previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     } catch (error) {
-      console.error('[DEBUG] Parse error:', error);
+      console.error('Parse error:', error);
       showStatus(`Parse error: ${error.message}`, 'error');
     }
-  }, 500);
+  }, 200);
 };
 
 window.loadSampleData = function () {
@@ -11438,7 +11465,7 @@ window.processFile = function (file) {
 
   const fileName = file.name.toLowerCase();
   if (!fileName.endsWith('.css') && !fileName.endsWith('.json') && !fileName.endsWith('.scss')) {
-    alert('Please upload a .css, .scss, or .json file');
+    showStatus('Please upload a .css, .scss, or .json file', 'warning');
     return;
   }
 
@@ -11446,10 +11473,10 @@ window.processFile = function (file) {
   reader.onload = function (e) {
     const content = e.target.result;
     const tokenInput = document.getElementById('token-input');
-    
+
     if (tokenInput) {
       tokenInput.value = content;
-      
+
       // Auto-select the correct format based on extension
       if (fileName.endsWith('.json')) {
         const jsonRadio = document.querySelector('input[name="format"][value="json"]');
@@ -11459,10 +11486,13 @@ window.processFile = function (file) {
         const cssRadio = document.querySelector('input[name="format"][value="css"]');
         if (cssRadio) cssRadio.checked = true;
       }
-      
+
       // Switch to manual input tab to show the content
       const manualTab = document.querySelector('.input-tab[data-input="manual"]');
       if (manualTab) manualTab.click();
+
+      // Auto-parse after loading the file
+      parseTokenInput();
     }
   };
   reader.readAsText(file);
@@ -11528,9 +11558,6 @@ function resolveTokenDependencies(tokens) {
 }
 
 function parseCSSTokens(css) {
-  console.log('[DEBUG] parseCSSTokens called with CSS length:', css.length);
-  console.log('[DEBUG] First 200 chars of input:', css.substring(0, 200));
-
   const tokens = [];
 
   // Clean up CSS first - remove comments but preserve structure
@@ -11538,19 +11565,22 @@ function parseCSSTokens(css) {
     .replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
     .replace(/^\s*\/\/.*$/gm, ''); // Remove // comments
 
-  console.log('[DEBUG] After cleaning, CSS length:', cleanedCSS.length);
-  console.log('[DEBUG] First 200 chars of cleaned CSS:', cleanedCSS.substring(0, 200));
-
   // Manual parsing approach for better handling of edge cases
   let i = 0;
   while (i < cleanedCSS.length) {
     // Find the start of a CSS variable
     const varStart = cleanedCSS.indexOf('--', i);
-    if (varStart === -1) {
-      console.log('[DEBUG] No more CSS variables found from position', i);
-      break;
+    if (varStart === -1) break;
+
+    // Make sure this is a declaration (preceded by whitespace, newline or {), not a var() usage
+    if (varStart > 0) {
+      const charBefore = cleanedCSS[varStart - 1];
+      if (charBefore === '(' ) {
+        // This is var(--...), skip past the closing paren or just continue
+        i = varStart + 2;
+        continue;
+      }
     }
-    // Found CSS variable
 
     // Find the colon
     const colonIndex = cleanedCSS.indexOf(':', varStart);
@@ -11563,9 +11593,6 @@ function parseCSSTokens(css) {
     const varName = cleanedCSS.substring(varStart + 2, colonIndex).trim();
 
     // Validation: Reject invalid variable names
-    // 1. Empty names
-    // 2. Names containing invalid characters (newlines, parentheses, braces, semicolons)
-    // 3. Names that are too long (likely captured code blocks)
     if (
       !varName ||
       varName.includes('\n') ||
@@ -11576,12 +11603,6 @@ function parseCSSTokens(css) {
       varName.includes(';') ||
       varName.length > 100
     ) {
-      // This is likely a false positive (e.g. usage of var(--name) followed by a colon later)
-      // Skip this match and continue search from the colon
-      console.log(
-        '[DEBUG] Skipping invalid variable name candidate:',
-        varName.substring(0, 50) + (varName.length > 50 ? '...' : ''),
-      );
       i = colonIndex + 1;
       continue;
     }
@@ -11648,17 +11669,13 @@ function parseCSSTokens(css) {
         isAlias: value.trim().startsWith('var(') && value.trim().match(/^var\([^)]+\)$/),
       };
       tokens.push(token);
-      // Token added
     }
 
     i = valueEnd + 1;
   }
 
-  console.log('[DEBUG] Final parsed CSS tokens:', tokens.length, tokens);
-
   if (tokens.length === 0) {
-    console.log('[DEBUG] No tokens found, throwing error');
-    throw new Error('No valid CSS custom properties found');
+    throw new Error('No valid CSS custom properties found. Make sure your input contains --variable-name: value; declarations.');
   }
 
   return tokens;
@@ -11873,21 +11890,29 @@ function showPreview(tokens) {
   const directVariableCount = variableTokens.length - aliasCount;
 
   const previewHTML = `
-          <div class="diff-summary">
-            <h4>Token Preview (${totalSupportedTokens} supported tokens found)</h4>
-            <div class="diff-stats">
-              <div class="stat-item new">
-                <span class="stat-number">${variableTokens.length}</span>
-                <span class="stat-label">Variables</span>
+          <div class="diff-summary" style="padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+              <span class="material-symbols-outlined" style="font-size: 18px; color: #4ade80;">check_circle</span>
+              <h4 style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.9);">${totalSupportedTokens} tokens ready to import</h4>
+            </div>
+            <div class="diff-stats" style="display: flex; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.12); border-radius: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #4ade80;">data_object</span>
+                <span style="font-size: 16px; font-weight: 700; color: #4ade80;">${variableTokens.length}</span>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.5);">Variables</span>
               </div>
-              <div class="stat-item">
-                <span class="stat-number">${styleTokens.length}</span>
-                <span class="stat-label">Styles</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-number">${aliasCount}</span>
-                <span class="stat-label">References</span>
-              </div>
+              ${styleTokens.length > 0 ? `
+              <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.12); border-radius: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #c084fc;">palette</span>
+                <span style="font-size: 16px; font-weight: 700; color: #c084fc;">${styleTokens.length}</span>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.5);">Styles</span>
+              </div>` : ''}
+              ${aliasCount > 0 ? `
+              <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.12); border-radius: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #60a5fa;">link</span>
+                <span style="font-size: 16px; font-weight: 700; color: #60a5fa;">${aliasCount}</span>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.5);">References</span>
+              </div>` : ''}
             </div>
           </div>
 
@@ -11946,11 +11971,13 @@ function showPreview(tokens) {
                       (t) => categorizeToken(t) === 'numeric',
                     ).length;
                     const aliasCount = groupTokens.filter((t) => t.isAlias).length;
+                    const existsCount = groupTokens.filter((t) => checkDuplicate(t.name)).length;
+                    const newCount = groupTokens.length - existsCount;
 
                     // Clean group name (remove trailing slash if present for display)
-                    const displayName = groupName.endsWith('/')
-                      ? groupName.slice(0, -1)
-                      : groupName;
+                    const displayName = SecurityUtils.escapeHTML(
+                      groupName.endsWith('/') ? groupName.slice(0, -1) : groupName
+                    );
 
                     return `
                     <div class="variable-subgroup" id="${groupId}">
@@ -11961,7 +11988,8 @@ function showPreview(tokens) {
                           ${displayName}
                           <span class="subgroup-stats">${groupTokens.length} vars • ${colorCount} colors • ${numericCount} numeric</span>
                           <div class="group-status" style="display: inline-flex; margin-left: 8px; gap: 4px;">
-                             <span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${groupTokens.length - aliasCount} new</span>
+                             ${newCount > 0 ? `<span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${newCount} new</span>` : ''}
+                             ${existsCount > 0 ? `<span class="status-badge" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(251, 191, 36, 0.2); color: #fbbf24;">${existsCount} exist</span>` : ''}
                              ${aliasCount > 0 ? `<span class="status-badge alias" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(168, 85, 247, 0.2); color: #c084fc;">${aliasCount} refs</span>` : ''}
                           </div>
                         </div>
@@ -11971,22 +11999,24 @@ function showPreview(tokens) {
                           ${groupTokens
                             .map((token) => {
                               const tokenId = `token-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                              const safeName = SecurityUtils.escapeHTML(token.name);
+                              const safeValue = SecurityUtils.escapeHTML(token.value);
                               const category = categorizeToken(token);
-                              const valueDisplay =
-                                category === 'color'
-                                  ? `<span class="color-preview" style="background-color: ${token.value}"></span>${token.value}`
-                                  : token.value;
+                              const isColor = category === 'color';
+                              const valueDisplay = isColor
+                                ? `<span class="color-preview" style="background-color: ${safeValue}"></span>${safeValue}`
+                                : safeValue;
 
                               const isDuplicate = checkDuplicate(token.name);
                               const duplicateBadge = isDuplicate
-                                ? '<span class="status-badge alias" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;">Exists</span>'
+                                ? '<span class="status-badge alias duplicate-badge" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;">Exists</span>'
                                 : '';
 
                               return `
                               <div class="variable-row ${isDuplicate ? 'duplicate-row' : ''}">
                                 <label class="checkbox-label">
-                                  <input type="checkbox" id="${tokenId}" checked class="variable-checkbox" data-token-name="${token.name}">
-                                  <span class="variable-name" style="font-size: 11px;">${token.name}</span>
+                                  <input type="checkbox" id="${tokenId}" checked class="variable-checkbox" data-token-name="${safeName}">
+                                  <span class="variable-name" style="font-size: 11px;">${safeName}</span>
                                 </label>
                                 <span class="variable-type" style="font-size: 11px;">${category}</span>
                                 <span class="variable-value" style="font-size: 11px;">${valueDisplay}</span>
@@ -12083,14 +12113,16 @@ function showPreview(tokens) {
                         ${categoryTokens
                           .map((token) => {
                             const tokenId = `style-${token.name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                            const safeName = SecurityUtils.escapeHTML(token.name);
+                            const safeValue = SecurityUtils.escapeHTML(token.value);
                             return `
                             <div class="variable-row">
                               <label class="checkbox-label">
-                                <input type="checkbox" id="${tokenId}" checked class="style-checkbox" data-token-name="${token.name}">
-                                <span class="variable-name" style="font-size: 11px;">${token.name}</span>
+                                <input type="checkbox" id="${tokenId}" checked class="style-checkbox" data-token-name="${safeName}">
+                                <span class="variable-name" style="font-size: 11px;">${safeName}</span>
                               </label>
                               <span class="variable-type" style="font-size: 11px;">${category}</span>
-                              <span class="variable-value" style="font-size: 11px;">${token.value}</span>
+                              <span class="variable-value" style="font-size: 11px;">${safeValue}</span>
                             </div>
                           `;
                           })
@@ -12115,11 +12147,11 @@ function showPreview(tokens) {
               <h4>Import Destination</h4>
               <div class="destination-selector" style="display: flex; gap: 16px; margin-bottom: 12px;">
                 <label class="radio-option" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                   <input type="radio" name="import-destination" value="new" checked onchange="toggleImportDestination('new')">
+                   <input type="radio" name="import-destination" value="new" id="dest-radio-new" checked>
                    <span>New Collection</span>
                 </label>
                 <label class="radio-option" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                   <input type="radio" name="import-destination" value="existing" onchange="toggleImportDestination('existing')">
+                   <input type="radio" name="import-destination" value="existing" id="dest-radio-existing">
                    <span>Existing Collection</span>
                 </label>
               </div>
@@ -12144,14 +12176,14 @@ function showPreview(tokens) {
                   <input type="checkbox" class="toggle-input" id="organize-by-categories" checked>
                   <div class="toggle-slider"></div>
                   <span class="settings-label" style="margin-bottom: 0;">Organize by categories</span>
-                  <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Auto-group variables using slashes (e.g. 'color/blue')">help</span>
+                  <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Auto-group variables using slashes (e.g. color/blue)">help</span>
                 </label>
 
                 <label class="toggle-switch">
                   <input type="checkbox" class="toggle-input" id="overwrite-existing">
                   <div class="toggle-slider"></div>
                   <span class="settings-label" style="margin-bottom: 0;">Overwrite existing variables</span>
-                  <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="Overwrite variables with same name">help</span>
+                  <span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.4; cursor: help;" data-tooltip="If a variable with the same name already exists, replace its value. Otherwise, skip duplicates.">help</span>
                 </label>
               </div>
             </div>
@@ -12170,10 +12202,28 @@ function showPreview(tokens) {
           </div>
         `;
 
-  previewContent.innerHTML = SecurityUtils.sanitizeHTML(previewHTML);
+  // Preview HTML is entirely generated by our own code — no user-supplied content.
+  // Skip sanitizeHTML to preserve all interactive attributes (onclick, onchange, checked, etc.)
+  previewContent.innerHTML = previewHTML;
   previewSection.style.display = 'block';
 
-  // Add event listener to update collection name preview
+  // Attach event listeners programmatically for elements that need them
+
+  // Destination radio buttons
+  const destRadioNew = document.getElementById('dest-radio-new');
+  const destRadioExisting = document.getElementById('dest-radio-existing');
+  if (destRadioNew) {
+    destRadioNew.addEventListener('change', function () {
+      if (this.checked) toggleImportDestination('new');
+    });
+  }
+  if (destRadioExisting) {
+    destRadioExisting.addEventListener('change', function () {
+      if (this.checked) toggleImportDestination('existing');
+    });
+  }
+
+  // Collection name input
   const collectionNameInput = document.getElementById('collection-name');
   if (collectionNameInput) {
     collectionNameInput.addEventListener('input', updateCollectionNamePreview);
@@ -12206,26 +12256,15 @@ function updateCollectionNamePreview() {
 }
 
 window.toggleImportDestination = function (mode) {
-  console.log('[DEBUG] toggleImportDestination called with mode:', mode);
   const collectionNameGroup = document.getElementById('new-collection-group');
   const existingCollectionGroup = document.getElementById('existing-collection-group');
 
-  console.log('[DEBUG] Found elements:', {
-    collectionNameGroup: !!collectionNameGroup,
-    existingCollectionGroup: !!existingCollectionGroup
-  });
-
   if (mode === 'new') {
-    // Show collection name input, hide existing collections dropdown
     if (collectionNameGroup) collectionNameGroup.style.display = 'block';
     if (existingCollectionGroup) existingCollectionGroup.style.display = 'none';
-    console.log('[DEBUG] Switched to NEW collection mode');
   } else {
-    // Hide collection name input, show existing collections dropdown
     if (collectionNameGroup) collectionNameGroup.style.display = 'none';
     if (existingCollectionGroup) existingCollectionGroup.style.display = 'block';
-    console.log('[DEBUG] Switched to EXISTING collection mode, display should be:', existingCollectionGroup?.style.display);
-    // Refresh existing collections list
     loadExistingCollections();
   }
 };
@@ -12351,23 +12390,19 @@ window.simulateImport = function () {
     },
   };
 
-  console.log('DEBUG: Sending import-tokens message', messageData);
   parent.postMessage(messageData, '*');
 
   // Start progress animation while waiting for response
   const progressFill = document.getElementById('progress-fill');
   const progressText = document.getElementById('progress-text');
   let progress = 0;
-  let progressInterval;
 
-  const startProgress = () => {
-    progressInterval = setInterval(() => {
-      progress += Math.random() * 10;
-      if (progress > 90) progress = 90; // Stop at 90% until we get response
-      progressFill.style.width = progress + '%';
-      progressText.textContent = `Importing tokens... ${Math.round(progress)}%`;
-    }, 300);
-  };
+  const progressInterval = setInterval(() => {
+    progress += Math.random() * 10;
+    if (progress > 90) progress = 90;
+    if (progressFill) progressFill.style.width = progress + '%';
+    if (progressText) progressText.textContent = `Importing tokens... ${Math.round(progress)}%`;
+  }, 300);
 
   // Store progress control for response handler
   window.importProgressControl = {
@@ -12376,48 +12411,100 @@ window.simulateImport = function () {
     interval: progressInterval,
     complete: function (result) {
       clearInterval(this.interval);
-      this.fill.style.width = '100%';
-      this.text.textContent = 'Import completed!';
-      setTimeout(() => showImportComplete(result), 500);
+      if (this.fill) this.fill.style.width = '100%';
+      if (this.text) this.text.textContent = 'Import completed!';
+      setTimeout(() => showImportComplete(result), 400);
     },
-    error: function (error) {
+    error: function (errorMsg) {
       clearInterval(this.interval);
-      this.fill.style.width = '100%';
-      this.fill.style.backgroundColor = '#f87171';
-      this.text.textContent = 'Import failed';
-      setTimeout(() => showImportError(error), 500);
+      if (this.fill) {
+        this.fill.style.width = '100%';
+        this.fill.style.backgroundColor = '#f87171';
+      }
+      if (this.text) this.text.textContent = 'Import failed';
+      setTimeout(() => showImportError(errorMsg), 400);
     },
   };
-
-  startProgress();
 };
 
 function showImportComplete(result = {}) {
   const importContent = document.getElementById('variable-import-container');
+  if (!importContent) return;
 
-  // Use the correct property names from the backend result
   const variablesCreated = result.importedCount || 0;
   const stylesCreated = result.importedStyleCount || 0;
-  const collectionsCreated = result.collectionName ? 1 : 0; // 1 if collection was created/used
-  const groupsCreated = result.groupsCreated || 0; // Now using actual group count from backend
+  const collectionName = result.collectionName || 'Design Tokens';
+  const groupsCreated = result.groupsCreated || 0;
+  const errors = result.errors || [];
+  const totalImported = variablesCreated + stylesCreated;
+
+  // Build stat cards
+  let statsHtml = '';
+  if (variablesCreated > 0) {
+    statsHtml += `
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.15); border-radius: 8px;">
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #4ade80;">data_object</span>
+        <div>
+          <div style="font-size: 18px; font-weight: 700; color: #4ade80;">${variablesCreated}</div>
+          <div style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.05em;">Variables</div>
+        </div>
+      </div>`;
+  }
+  if (stylesCreated > 0) {
+    statsHtml += `
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.15); border-radius: 8px;">
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">palette</span>
+        <div>
+          <div style="font-size: 18px; font-weight: 700; color: #c084fc;">${stylesCreated}</div>
+          <div style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.05em;">Styles</div>
+        </div>
+      </div>`;
+  }
+  if (groupsCreated > 0) {
+    statsHtml += `
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 8px;">
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #60a5fa;">folder_open</span>
+        <div>
+          <div style="font-size: 18px; font-weight: 700; color: #60a5fa;">${groupsCreated}</div>
+          <div style="font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.05em;">Groups</div>
+        </div>
+      </div>`;
+  }
+
+  let errorsHtml = '';
+  if (errors.length > 0) {
+    errorsHtml = `
+      <div style="margin-top: 12px; padding: 10px 14px; background: rgba(248, 113, 113, 0.06); border: 1px solid rgba(248, 113, 113, 0.12); border-radius: 8px;">
+        <div style="font-size: 11px; font-weight: 600; color: #f87171; margin-bottom: 6px;">${errors.length} token${errors.length !== 1 ? 's' : ''} skipped</div>
+        <div style="max-height: 80px; overflow-y: auto; font-size: 11px; color: rgba(255,255,255,0.4); line-height: 1.6;">
+          ${errors.slice(0, 5).map(e => `<div>${SecurityUtils.escapeHTML(typeof e === 'string' ? e : e.message || String(e))}</div>`).join('')}
+          ${errors.length > 5 ? `<div style="color: rgba(255,255,255,0.3);">...and ${errors.length - 5} more</div>` : ''}
+        </div>
+      </div>`;
+  }
 
   importContent.innerHTML = `
-          <div class="import-result">
-            <div class="result-summary success">
-              <h4>✅ Import Completed Successfully!</h4>
-              <div class="result-stats">
-                <span class="stat">${variablesCreated} variables created</span>
-                ${stylesCreated > 0 ? `<span class="stat">${stylesCreated} styles created</span>` : ''}
-                <span class="stat">${collectionsCreated} collection${collectionsCreated !== 1 ? 's' : ''} ${collectionsCreated > 0 ? 'used' : 'created'}</span>
-                <span class="stat">${groupsCreated} groups organized</span>
-              </div>
-              <p>Your design tokens have been successfully imported to Figma ${variablesCreated > 0 ? 'Variables' : ''}${variablesCreated > 0 && stylesCreated > 0 ? ' and ' : ''}${stylesCreated > 0 ? 'Styles' : ''}. You can now use them in your designs!</p>
-            </div>
-            <div class="apply-actions">
-              <button class="btn btn-secondary" onclick="resetImportView()">Import More Tokens</button>
-            </div>
-          </div>
-        `;
+    <div class="variable-import-tab" style="display: flex; flex-direction: column; align-items: center; padding: 32px 16px;">
+      <span class="material-symbols-outlined" style="font-size: 48px; color: #4ade80; margin-bottom: 12px;">check_circle</span>
+      <h3 style="margin: 0 0 4px 0; color: rgba(255,255,255,0.95); font-size: 16px;">Import Complete</h3>
+      <p style="margin: 0 0 20px 0; color: rgba(255,255,255,0.5); font-size: 12px;">
+        ${totalImported} token${totalImported !== 1 ? 's' : ''} imported into <strong style="color: rgba(255,255,255,0.7);">${SecurityUtils.escapeHTML(collectionName)}</strong>
+      </p>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; width: 100%;">
+        ${statsHtml}
+      </div>
+
+      ${errorsHtml}
+
+      <div style="margin-top: 20px; display: flex; gap: 8px;">
+        <button class="btn btn-primary" onclick="resetImportView()">Import More Tokens</button>
+      </div>
+    </div>
+  `;
+
+  // Scroll to top of results
+  importContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function resetImportView() {
   console.log('[UI] Resetting import view');
@@ -12446,16 +12533,21 @@ window.resetImportView = resetImportView;
 
 function showImportError(error) {
   const importContent = document.getElementById('variable-import-container');
+  if (!importContent) return;
+
+  const errorMessage = typeof error === 'string' ? error : (error && error.message ? error.message : 'An unknown error occurred during import.');
+
   importContent.innerHTML = `
           <div class="import-result">
             <div class="result-summary error">
-              <h4>❌ Import Failed</h4>
-              <p class="error-message">${error.message || 'An unknown error occurred during import.'}</p>
-              <div class="error-details">
-                <p>Please check your tokens and try again.</p>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span class="material-symbols-outlined" style="font-size: 24px; color: #f87171;">error</span>
+                <h4 style="margin: 0;">Import Failed</h4>
               </div>
+              <p class="error-message" style="color: rgba(255,255,255,0.7); font-size: 12px; margin: 8px 0;">${SecurityUtils.escapeHTML(errorMessage)}</p>
+              <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin: 4px 0;">Check that your token syntax is correct and try again.</p>
             </div>
-            <div class="apply-actions">
+            <div class="apply-actions" style="margin-top: 16px;">
               <button class="btn btn-secondary" onclick="resetImportView()">Try Again</button>
             </div>
           </div>
@@ -12482,7 +12574,6 @@ window.addEventListener('message', function (event) {
 function updateExistingCollectionsDropdown(collections) {
   // Store globally for duplicate checking
   window.existingCollections = collections || [];
-  console.log('[DEBUG] Stored existing collections:', window.existingCollections);
 
   // Update both dropdowns
   const dropdowns = [
@@ -12522,11 +12613,29 @@ function updateExistingCollectionsDropdown(collections) {
     });
   });
 
-  // If we have parsed tokens and the preview is visible, re-render to show duplicate badges
-  const previewSection = document.getElementById('preview-section');
-  if (previewSection && previewSection.style.display !== 'none' && window.parsedTokens) {
-    console.log('[DEBUG] Re-rendering preview with duplicate info');
-    showPreview(window.parsedTokens);
+  // Update duplicate badges in-place without re-rendering the entire preview
+  // (Re-rendering would trigger loadExistingCollections again, causing an infinite loop)
+  if (window.parsedTokens && window.existingCollections) {
+    document.querySelectorAll('.variable-checkbox').forEach((checkbox) => {
+      const tokenName = checkbox.dataset.tokenName;
+      const row = checkbox.closest('.variable-row');
+      if (!row) return;
+
+      const isDuplicate = checkDuplicate(tokenName);
+      // Add or remove duplicate badge
+      const existingBadge = row.querySelector('.duplicate-badge');
+      if (isDuplicate && !existingBadge) {
+        row.classList.add('duplicate-row');
+        const badge = document.createElement('span');
+        badge.className = 'status-badge alias duplicate-badge';
+        badge.style.cssText = 'background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;';
+        badge.textContent = 'Exists';
+        row.appendChild(badge);
+      } else if (!isDuplicate && existingBadge) {
+        row.classList.remove('duplicate-row');
+        existingBadge.remove();
+      }
+    });
   }
 }
 
@@ -13302,18 +13411,12 @@ window.collapseAllQuality = collapseAllQuality;
 // ===== IMPORT PREVIEW HELPERS =====
 
 function toggleSubgroup(groupId) {
-  console.log('toggleSubgroup called for:', groupId);
   const group = document.getElementById(groupId);
-  if (!group) {
-    console.warn('Group not found:', groupId);
-    return;
-  }
+  if (!group) return;
 
   const header = group.querySelector('.subgroup-header');
   const content = document.getElementById(groupId + '-content');
   const icon = header ? header.querySelector('.subgroup-toggle-icon') : null;
-
-  console.log('Found elements:', { header: !!header, content: !!content, icon: !!icon });
 
   if (header && content) {
     header.classList.toggle('collapsed');
