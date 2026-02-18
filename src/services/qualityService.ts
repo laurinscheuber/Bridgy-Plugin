@@ -103,13 +103,17 @@ export class QualityService {
         const componentScore = componentResult.subScores?.componentHygiene || 0;
         const variableScore = variableResult.subScores?.variableHygiene || 0;
 
-        // 5. Calculate Weighted Total (Backend truth)
-        const totalScore = Math.round(
-            (tokenScore * 0.4) +
-            (tailwindScore * 0.2) +
-            (componentScore * 0.2) +
-            (variableScore * 0.2)
-        );
+        // 5. Calculate Weighted Total (Backend truth) — equal weighting
+        let totalScore: number;
+        if (isTailwind) {
+          totalScore = Math.round(
+            (tokenScore + tailwindScore + componentScore + variableScore) / 4
+          );
+        } else {
+          totalScore = Math.round(
+            (tokenScore + componentScore + variableScore) / 3
+          );
+        }
 
         // 6. Build tailwind validation from grouped result when available,
         //    falling back to flat tokenResult.tailwindValidation otherwise
