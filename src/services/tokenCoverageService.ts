@@ -53,6 +53,8 @@ export interface TokenCoverageResult {
   // Metrics for UI
   totalVariables?: number;
   totalComponents?: number;
+  totalDeletableUnits?: number;
+  unusedDeletableUnits?: number;
   unusedVariableCount?: number;
   unusedComponentCount?: number;
   weights?: {
@@ -375,7 +377,6 @@ export class TokenCoverageService {
 
 
       // --- 3. Token Coverage Analysis ---
-      // This MUST be done line-by-line using existing helper
       await this.analyzeNode(node, issuesMap);
     }
     
@@ -468,7 +469,28 @@ export class TokenCoverageService {
     // I will switch the score to match the **Unused Components** metric, as that aligns with the user task of "cleaning up".
     
     const totalComponents = localComponentDefs.size;
-    const componentHygieneScore = totalComponents === 0 ? 100 : Math.round(((totalComponents - unusedComponents.length) / totalComponents) * 100);
+
+    // Deletable units: count at the variant level for component sets, 1 per standalone
+    // This gives a more accurate score — a set with 50 unused variants out of 50
+    // weighs more than a set with 1 unused variant out of 2
+    let totalDeletableUnits = 0;
+    let unusedDeletableUnits = 0;
+
+    for (const [, def] of localComponentDefs.entries()) {
+      if (def.type === 'COMPONENT_SET') {
+        const variants = (def as ComponentSetNode).children.filter(c => c.type === 'COMPONENT');
+        totalDeletableUnits += variants.length;
+        const unusedCount = variants.filter(v => !componentUsage.has(v.id) || componentUsage.get(v.id)!.size === 0).length;
+        unusedDeletableUnits += unusedCount;
+      } else {
+        totalDeletableUnits += 1;
+        if (!componentUsage.has(def.id) || componentUsage.get(def.id)!.size === 0) {
+          unusedDeletableUnits += 1;
+        }
+      }
+    }
+
+    const componentHygieneScore = totalDeletableUnits === 0 ? 100 : Math.round(((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits) * 100);
 
     // Find matching variables for each issue
     for (const issue of issuesMap.values()) {
@@ -611,6 +633,8 @@ export class TokenCoverageService {
       // Metrics
       totalVariables: totalVarsToCheck,
       totalComponents: totalComponents,
+      totalDeletableUnits,
+      unusedDeletableUnits,
       unusedVariableCount: unusedVariables.length,
       unusedComponentCount: unusedComponents.length,
       tailwindValidation
@@ -654,6 +678,40 @@ export class TokenCoverageService {
 
     // Check Appearance properties
     this.checkAppearanceProperties(node, issuesMap);
+  }
+
+  /**
+   * Recursively analyzes a node and all its descendants for token coverage issues.
+   * Checks layout, fill, stroke, and appearance properties at every nesting level.
+   */
+  private static async analyzeNodeDeep(
+    node: SceneNode,
+    issuesMap: Map<string, TokenCoverageIssue>,
+    analyzedNodes: Set<string>,
+    depth: number = 0
+  ): Promise<void> {
+    // Skip if already analyzed (prevents double-counting)
+    if (analyzedNodes.has(node.id)) return;
+    analyzedNodes.add(node.id);
+
+    // Yield every 100 nodes to keep Figma responsive
+    if (analyzedNodes.size % 100 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    // Check properties on this node
+    this.checkLayoutProperties(node, issuesMap);
+    this.checkFillProperties(node, issuesMap);
+    this.checkStrokeProperties(node, issuesMap);
+    this.checkAppearanceProperties(node, issuesMap);
+
+    // Recurse into children (if the node has them)
+    if ('children' in node) {
+      const children = (node as any).children as SceneNode[];
+      for (const child of children) {
+        await this.analyzeNodeDeep(child, issuesMap, analyzedNodes, depth + 1);
+      }
+    }
   }
 
   /**
