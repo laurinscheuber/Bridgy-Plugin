@@ -2263,6 +2263,34 @@ window.onmessage = (event) => {
 
       // The validation will be automatically refreshed via the tailwind-v4-validation message
       // which is sent by the plugin after renaming
+
+      // Update top-level counts for "Standalone variables" and "Invalid groups"
+      const isStandalone = !message.oldGroupName || message.oldGroupName === 'Ungrouped' || message.oldGroupName.indexOf('/') === -1;
+      let containerId = '';
+
+      if (isStandalone) {
+        containerId = 'tw-standalone';
+      } else {
+        containerId = 'tw-invalid-groups';
+      }
+
+      const containerEl = document.getElementById(containerId);
+      if (containerEl) {
+        const countEl = containerEl.querySelector('.quality-accordion-count');
+        if (countEl) {
+          let currentCount = parseInt(countEl.textContent.replace(/[^0-9]/g, '')) || 0;
+          // Decrease by the number of renamed items (variableCount)
+          const renamedCount = message.renamedCount || 1;
+          currentCount = Math.max(0, currentCount - renamedCount);
+
+          countEl.textContent = currentCount;
+
+          // Hide section if empty
+          if (currentCount === 0) {
+            containerEl.style.display = 'none';
+          }
+        }
+      }
     } else if (message.type === 'variable-group-rename-error') {
       console.error('Error renaming variable group:', message.error);
 
@@ -2831,77 +2859,87 @@ window.onmessage = (event) => {
             btn.innerHTML =
               '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Applied';
 
-            // Hide the fixed issue with CSS and update counts
             if (window.tokenFixIssueId) {
-              const issueCard = document.getElementById(`${window.tokenFixIssueId}-card`);
-              if (issueCard) {
-                issueCard.classList.add('quality-fade-out');
-                issueCard.addEventListener('animationend', () => {
-                  issueCard.remove();
+              const issueId = window.tokenFixIssueId;
+              const card = document.getElementById(issueId + '-card');
 
-                  // AUTO-ADVANCE: Find and open the next issue
-                  let nextCard = issueCard.nextElementSibling;
-                  while (nextCard && (!nextCard.classList.contains('quality-issue-card') || nextCard.style.display === 'none')) {
-                    nextCard = nextCard.nextElementSibling;
+              if (card) {
+                // PARTIAL UPDATE LOGIC
+                // 1. Identify "fixed" nodes (the ones that were checked)
+                // We can re-query the checked inputs in this card to find which ones were sent.
+                // (Assuming the user didn't change selection while waiting for backend response, which is blocked by UI)
+                const checkedInputs = card.querySelectorAll('.occurrence-checkbox:checked');
+
+                // 2. Fade out and remove the rows/items for fixed nodes
+                checkedInputs.forEach(input => {
+                  // The input is inside .node-header
+                  // The Item is .quality-node-item (parent of header)
+                  const nodeHeader = input.closest('.node-header');
+                  const nodeItem = nodeHeader ? nodeHeader.closest('.quality-node-item') : null;
+
+                  if (nodeItem) {
+                    nodeItem.classList.add('quality-fade-out');
+                    // Remove after animation (or immediately if needed, but animation is nicer)
+                    // We use a timeout to match CSS transition, or event listener
+                    setTimeout(() => {
+                      if (nodeItem.parentNode) nodeItem.remove();
+
+                      // After removal, check if the Group/Card is empty
+                      checkIfGroupOrCardEmpty(card, issueId);
+                    }, 500);
                   }
-
-                  if (nextCard && nextCard.id) {
-                    const nextIssueId = nextCard.id.replace('-card', '');
-                    if (window.toggleIssueCard) {
-                      window.toggleIssueCard(nextIssueId);
-                      setTimeout(() => {
-                        nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }, 100);
-                    }
-                  }
-
-                  // Update count badge for the collection
-                  if (window.tokenFixActiveCollectionId) {
-                    const collection = document.getElementById(window.tokenFixActiveCollectionId);
-                    if (collection) {
-                      const countBadge = collection.querySelector('.quality-accordion-count');
-                      if (countBadge) {
-                        const currentCount = parseInt(countBadge.textContent) || 0;
-                        const newCount = Math.max(0, currentCount - 1);
-                        countBadge.textContent = newCount.toString();
-                      }
-                    }
-                  }
-
-                  // Clean up saved state
-                  delete window.tokenFixIssueId;
-                  delete window.tokenFixActiveCollectionId;
-                  delete window.tokenFixInProgress;
                 });
 
-                // CORRECTION LOGIC: If some nodes failed, we need to revert the optimistic update for them
-                if (message.failCount > 0 && window.qualityState && window.qualityState.categories.missingVariables) {
-                  const mvCat = window.qualityState.categories.missingVariables;
-                  console.warn(`Reverting optimistic update for ${message.failCount} failed nodes`);
-
-                  // Revert operations for failed nodes
-                  mvCat.bad = mvCat.bad + message.failCount;
-                  mvCat.good = Math.max(0, mvCat.good - message.failCount);
-
-                  // Recalculate score
-                  mvCat.score = mvCat.total === 0 ? 100 : Math.round((mvCat.good / mvCat.total) * 100);
-
-                  // Update UI to reflect correction
-                  updateAllCategoryUI();
+                // 3. Update the Badge Count on the Card Header immediately (optimistic/feedback)
+                // The 'layers' count in header
+                const headerCount = card.querySelector('.quality-issue-header .material-symbols-outlined + span');
+                if (headerCount) {
+                  const currentVal = parseInt(headerCount.textContent) || 0;
+                  const fixedCount = checkedInputs.length; // Approximate, or use message.successCount
+                  const newVal = Math.max(0, currentVal - fixedCount);
+                  headerCount.textContent = newVal;
                 }
-              } else {
-                // If card not found, clean up immediately
-                delete window.tokenFixIssueId;
-                delete window.tokenFixActiveCollectionId;
-                delete window.tokenFixInProgress;
-              }
 
-              if (window.tokenFixScrollPosition !== undefined) {
-                delete window.tokenFixScrollPosition;
+                // 4. Update the "Select All" checkbox state
+                const selectAll = document.getElementById(issueId + '-select-all');
+                if (selectAll) selectAll.checked = false;
+
               }
             }
 
-          } else {
+            // Helper to clean up empty containers
+            function checkIfGroupOrCardEmpty(card, issueId) {
+              if (!card) return;
+
+              // Check if any node items remain
+              const remainingItems = card.querySelectorAll('.quality-node-item:not(.quality-fade-out)');
+              if (remainingItems.length === 0) {
+                // Card is empty, remove it
+                card.classList.add('quality-fade-out');
+                setTimeout(() => {
+                  if (card.parentNode) card.remove();
+
+                  // Update Quality Accordion Count (e.g. "Layout (2)")
+                  // Trigger updateAllCategoryUI? It's done below via state update.
+                }, 500);
+              }
+            }
+
+            // Clean up state
+            if (window.tokenFixScrollPosition !== undefined) {
+              delete window.tokenFixScrollPosition;
+            }
+
+            delete window.tokenFixIssueId;
+            delete window.tokenFixActiveCollectionId;
+            delete window.tokenFixInProgress;
+
+          } else { // fallback for error case or missing id
+            if (window.tokenFixIssueId) {
+              delete window.tokenFixIssueId;
+              delete window.tokenFixActiveCollectionId;
+              delete window.tokenFixInProgress;
+            }
             // Revert on error so user can see it failed, but let the global notification show the error details
             btn.disabled = false;
             btn.innerHTML =
@@ -5576,14 +5614,15 @@ function renderMissingVarIssueCard(issue, category, idx) {
     componentGroups[frameName].instances.push({ id: issue.nodeIds[i], name: nodeName });
   });
 
-  Object.values(componentGroups).forEach((data, groupIdx) => {
+  Object.entries(componentGroups).forEach(([groupName, data], groupIdx) => {
     const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
     html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
       '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">' +
       '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
       '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
       '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
-      '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(data.instances[0] ? (data.instances.length > 1 ? (data.instances[0].name.split('/')[0] || data.instances[0].name) : data.instances[0].name) : 'Unknown') + '</span>' +
+      // USE groupName as the Header Title (it contains the Context/Component Name)
+      '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
       '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
       '</div>' +
       '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';

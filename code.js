@@ -7632,32 +7632,43 @@ ${Object.keys(cssProperties).map((property) => {
           return boundVariable !== void 0 && boundVariable !== null;
         }
         /**
+         * Helper to find the "Context" (Outermost Component/Instance) for an issue
+         * Returns null if the node is not part of any Component/Instance (e.g. loose frame)
+         */
+        static getIssueContext(node) {
+          let current = node;
+          let context = null;
+          while (current) {
+            if (current.type === "PAGE" || current.type === "DOCUMENT") {
+              break;
+            }
+            if (current.type === "COMPONENT" || current.type === "COMPONENT_SET" || current.type === "INSTANCE") {
+              context = { id: current.id, name: current.name };
+            }
+            current = current.parent;
+          }
+          if (!context)
+            return null;
+          return context;
+        }
+        /**
          * Adds or updates an issue in the issues map
          */
         static addIssue(issuesMap, property, value, node, category) {
-          const key = `${category}:${property}:${value}`;
-          let frameName = "Unknown Frame";
-          let parent = node.parent;
-          while (parent) {
-            if (parent.type === "FRAME" || parent.type === "SECTION" || parent.type === "COMPONENT" || parent.type === "COMPONENT_SET") {
-              frameName = parent.name;
-              break;
-            }
-            if (parent.type === "PAGE" || parent.type === "DOCUMENT") {
-              frameName = "Page: " + parent.name;
-              break;
-            }
-            parent = parent.parent;
+          const context = this.getIssueContext(node);
+          if (!context) {
+            return;
           }
+          const key = `${category}:${property}:${value}`;
           if (issuesMap.has(key)) {
             const issue = issuesMap.get(key);
             issue.count++;
             issue.nodeIds.push(node.id);
             issue.nodeNames.push(node.name);
             if (issue.nodeFrames) {
-              issue.nodeFrames.push(frameName);
+              issue.nodeFrames.push(context.name);
             } else {
-              issue.nodeFrames = [frameName];
+              issue.nodeFrames = [context.name];
             }
           } else {
             issuesMap.set(key, {
@@ -7666,7 +7677,8 @@ ${Object.keys(cssProperties).map((property) => {
               count: 1,
               nodeIds: [node.id],
               nodeNames: [node.name],
-              nodeFrames: [frameName],
+              nodeFrames: [context.name],
+              // This will be the "Group Header" in UI
               category
             });
           }

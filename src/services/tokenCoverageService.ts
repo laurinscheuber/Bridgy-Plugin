@@ -1204,6 +1204,39 @@ export class TokenCoverageService {
   }
 
   /**
+   * Helper to find the "Context" (Outermost Component/Instance) for an issue
+   * Returns null if the node is not part of any Component/Instance (e.g. loose frame)
+   */
+  private static getIssueContext(node: SceneNode): { id: string; name: string } | null {
+    let current: SceneNode | BaseNode | null = node;
+    let context: { id: string; name: string } | null = null;
+
+    // Traverse up to find the OUTERMOST Component, ComponentSet, or Instance
+    while (current) {
+      if (current.type === 'PAGE' || current.type === 'DOCUMENT') {
+        break;
+      }
+
+      if (
+        current.type === 'COMPONENT' ||
+        current.type === 'COMPONENT_SET' ||
+        current.type === 'INSTANCE'
+      ) {
+        // Use the current node as the potential context
+        // If we find another one higher up, we'll overwrite this.
+        context = { id: current.id, name: current.name };
+      }
+
+      current = current.parent;
+    }
+
+    // If we didn't find any component/instance in the ancestry, return null (loose frame)
+    if (!context) return null;
+
+    return context;
+  }
+
+  /**
    * Adds or updates an issue in the issues map
    */
   private static addIssue(
@@ -1213,37 +1246,30 @@ export class TokenCoverageService {
     node: SceneNode,
     category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
   ): void {
-    const key = `${category}:${property}:${value}`;
+    // 1. Get Context (Outermost Component/Instance)
+    const context = this.getIssueContext(node);
 
-    // Find parent frame name
-    let frameName = 'Unknown Frame';
-    let parent = node.parent;
-    while (parent) {
-      if (
-        parent.type === 'FRAME' ||
-        parent.type === 'SECTION' ||
-        parent.type === 'COMPONENT' ||
-        parent.type === 'COMPONENT_SET'
-      ) {
-        frameName = parent.name;
-        break;
-      }
-      if (parent.type === 'PAGE' || parent.type === 'DOCUMENT') {
-        frameName = 'Page: ' + parent.name; // Fallback to page name
-        break;
-      }
-      parent = parent.parent;
+    // 2. Filter Scope: If no context (loose frame), skip reporting
+    if (!context) {
+      return;
     }
+
+    // 3. Create Grouping Key
+    // User Requirement: "One issue card" per property/value.
+    // So we DO NOT include the context.id in the key.
+    // The splitting happens INSIDE the card via nodeFrames (which stores context name).
+    const key = `${category}:${property}:${value}`;
 
     if (issuesMap.has(key)) {
       const issue = issuesMap.get(key)!;
       issue.count++;
       issue.nodeIds.push(node.id);
       issue.nodeNames.push(node.name);
+      // We store the context name in nodeFrames for the UI to display as "Group Header"
       if (issue.nodeFrames) {
-        issue.nodeFrames.push(frameName);
+        issue.nodeFrames.push(context.name);
       } else {
-        issue.nodeFrames = [frameName];
+        issue.nodeFrames = [context.name];
       }
     } else {
       issuesMap.set(key, {
@@ -1252,7 +1278,7 @@ export class TokenCoverageService {
         count: 1,
         nodeIds: [node.id],
         nodeNames: [node.name],
-        nodeFrames: [frameName],
+        nodeFrames: [context.name], // This will be the "Group Header" in UI
         category,
       });
     }
