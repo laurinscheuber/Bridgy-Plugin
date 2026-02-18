@@ -328,6 +328,12 @@ export class TokenCoverageService {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
+      // 0. Scope Filter: Only Include Valid Root Contexts (Component, Variant, Instance)
+      // Exclude generic frames/groups unless they are inside a component/instance
+      if (!this.isValidRootOrDescendant(node)) {
+        continue;
+      }
+
       totalNodes++;
 
       // DSQ Metrics Collection & Type Checks
@@ -1234,6 +1240,31 @@ export class TokenCoverageService {
     if (!context) return null;
 
     return context;
+  }
+
+  /**
+   * Checks if a node is a Component, ComponentSet, Instance, or is inside one.
+   * Used to filter out top-level frames that shouldn't be counted in analysis.
+   */
+  private static isValidRootOrDescendant(node: SceneNode): boolean {
+    let current: SceneNode | BaseNode | null = node;
+    while (current) {
+      if (
+        current.type === 'COMPONENT' ||
+        current.type === 'COMPONENT_SET' ||
+        current.type === 'INSTANCE'
+      ) {
+        return true;
+      }
+      if (current.type === 'PAGE' || current.type === 'DOCUMENT') {
+        return false;
+      }
+      current = current.parent;
+
+      // Safety break for detached/orphan nodes
+      if (!current) return false;
+    }
+    return false;
   }
 
   /**

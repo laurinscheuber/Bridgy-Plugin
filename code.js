@@ -7092,6 +7092,9 @@ ${Object.keys(cssProperties).map((property) => {
               if (i % 50 === 0) {
                 yield new Promise((resolve) => setTimeout(resolve, 0));
               }
+              if (!this.isValidRootOrDescendant(node)) {
+                continue;
+              }
               totalNodes++;
               if (node.type === "FRAME" || node.type === "SECTION" || node.type === "GROUP" || node.type === "COMPONENT" || node.type === "COMPONENT_SET" || node.type === "INSTANCE") {
                 if ("layoutMode" in node && node.layoutMode !== "NONE") {
@@ -7650,6 +7653,25 @@ ${Object.keys(cssProperties).map((property) => {
           if (!context)
             return null;
           return context;
+        }
+        /**
+         * Checks if a node is a Component, ComponentSet, Instance, or is inside one.
+         * Used to filter out top-level frames that shouldn't be counted in analysis.
+         */
+        static isValidRootOrDescendant(node) {
+          let current = node;
+          while (current) {
+            if (current.type === "COMPONENT" || current.type === "COMPONENT_SET" || current.type === "INSTANCE") {
+              return true;
+            }
+            if (current.type === "PAGE" || current.type === "DOCUMENT") {
+              return false;
+            }
+            current = current.parent;
+            if (!current)
+              return false;
+          }
+          return false;
         }
         /**
          * Adds or updates an issue in the issues map
