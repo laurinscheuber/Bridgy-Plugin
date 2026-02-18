@@ -2263,6 +2263,34 @@ window.onmessage = (event) => {
 
       // The validation will be automatically refreshed via the tailwind-v4-validation message
       // which is sent by the plugin after renaming
+
+      // Update top-level counts for "Standalone variables" and "Invalid groups"
+      const isStandalone = !message.oldGroupName || message.oldGroupName === 'Ungrouped' || message.oldGroupName.indexOf('/') === -1;
+      let containerId = '';
+
+      if (isStandalone) {
+        containerId = 'tw-standalone';
+      } else {
+        containerId = 'tw-invalid-groups';
+      }
+
+      const containerEl = document.getElementById(containerId);
+      if (containerEl) {
+        const countEl = containerEl.querySelector('.quality-accordion-count');
+        if (countEl) {
+          let currentCount = parseInt(countEl.textContent.replace(/[^0-9]/g, '')) || 0;
+          // Decrease by the number of renamed items (variableCount)
+          const renamedCount = message.renamedCount || 1;
+          currentCount = Math.max(0, currentCount - renamedCount);
+
+          countEl.textContent = currentCount;
+
+          // Hide section if empty
+          if (currentCount === 0) {
+            containerEl.style.display = 'none';
+          }
+        }
+      }
     } else if (message.type === 'variable-group-rename-error') {
       console.error('Error renaming variable group:', message.error);
 
