@@ -45,8 +45,10 @@ export interface UnusedComponent {
 
 export interface ComponentHygieneResult {
   totalComponents: number;
+  totalDeletableUnits: number;
   unusedComponents: UnusedComponent[];
   unusedCount: number;
+  unusedDeletableUnits: number;
   ignoredComponents: UnusedComponent[];
   ignoredCount: number;
   hygieneScore: number;
@@ -1446,8 +1448,10 @@ ${Object.keys(cssProperties)
         if (localDefinitions.size === 0) {
             return {
                 totalComponents: 0,
+                totalDeletableUnits: 0,
                 unusedComponents: [],
                 unusedCount: 0,
+                unusedDeletableUnits: 0,
                 ignoredComponents: [],
                 ignoredCount: 0,
                 hygieneScore: 100,
@@ -1641,8 +1645,10 @@ ${Object.keys(cssProperties)
 
         return {
             totalComponents,
+            totalDeletableUnits: totalComponents,
             unusedComponents: shownUnused,
             unusedCount,
+            unusedDeletableUnits: unusedCount,
             ignoredComponents: ignoredUnused,
             ignoredCount: ignoredUnused.length,
             hygieneScore,

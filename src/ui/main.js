@@ -1946,10 +1946,10 @@ window.qualityAnalysisState = {
         variableHygiene: 100
     },
     weights: {
-        tokenCoverage: '40%',
-        tailwindReadiness: '20%',
-        componentHygiene: '20%',
-        variableHygiene: '20%'
+        tokenCoverage: '25%',
+        tailwindReadiness: '25%',
+        componentHygiene: '25%',
+        variableHygiene: '25%'
     }
 };
 
@@ -3088,7 +3088,7 @@ window.onmessage = (event) => {
 
           // Update issue counts in state
           window.qualityAnalysisState.tokenIssues = report.metrics?.tokenCoverage?.totalIssues || 0;
-          window.qualityAnalysisState.componentIssues = report.metrics?.componentHygiene?.unusedCount || 0;
+          window.qualityAnalysisState.componentIssues = report.metrics?.componentHygiene?.unusedDeletableUnits || report.metrics?.componentHygiene?.unusedCount || 0;
           window.qualityAnalysisState.variableIssues = report.metrics?.variableHygiene?.unusedCount || 0;
 
           // Update sub-scores
@@ -3250,8 +3250,8 @@ window.onmessage = (event) => {
               }
               window.componentHygieneData.unusedCount = newUnusedCount;
 
-              // Recalculate hygiene score
-              const total = window.componentHygieneData.totalComponents;
+              // Recalculate hygiene score using deletable units
+              const total = window.componentHygieneData.totalDeletableUnits || window.componentHygieneData.totalComponents;
               const unused = newUnusedCount;
               window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
 
@@ -3334,8 +3334,8 @@ window.onmessage = (event) => {
                 window.componentHygieneData.unusedComponents.splice(componentIndex, 1);
                 window.componentHygieneData.unusedCount = window.componentHygieneData.unusedComponents.length;
 
-                // Recalculate hygiene score
-                const total = window.componentHygieneData.totalComponents;
+                // Recalculate hygiene score using deletable units
+                const total = window.componentHygieneData.totalDeletableUnits || window.componentHygieneData.totalComponents;
                 const unused = window.componentHygieneData.unusedCount;
                 window.componentHygieneData.hygieneScore = total === 0 ? 100 : Math.round(((total - unused) / total) * 100);
 
@@ -6544,14 +6544,17 @@ function displayComponentHygieneSection(result) {
   // Update global state
   if (window.qualityAnalysisState) {
       window.qualityAnalysisState.subScores.componentHygiene = (result.subScores ? result.subScores.componentHygiene : 0) || 0;
-      window.qualityAnalysisState.componentIssues = result.unusedComponentCount || result.unusedCount || 0;
+      window.qualityAnalysisState.componentIssues = result.unusedDeletableUnits || result.unusedComponentCount || result.unusedCount || 0;
       updateQualityScoreUI();
   }
+
+  const unusedUnits = result.unusedDeletableUnits || result.unusedComponentCount || result.unusedCount || 0;
+  const totalUnits = result.totalDeletableUnits || result.totalComponents || 0;
 
   let html = `
     <!-- Section Divider -->
     <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 16px 0;"></div>
-    
+
     <!-- Unused Components Collapsible Section -->
     <div id="${sectionId}" class="quality-section-collapsible" style="margin-bottom: 16px;">
       <div class="section-header-collapsible" onclick="toggleQualitySection('${sectionId}')" style="cursor: pointer; padding: 8px 0; display: flex; align-items: center; gap: 12px; user-select: none;">
@@ -6559,8 +6562,8 @@ function displayComponentHygieneSection(result) {
         <!-- Stats -->
         ${renderCategoryStats(
             (result.subScores ? result.subScores.componentHygiene : 0) || 0,
-            result.unusedComponentCount || result.unusedCount || 0,
-            result.totalComponents || 0,
+            unusedUnits,
+            totalUnits,
             'Unused Components'
         )}
         ${result.ignoredCount > 0 ? `
@@ -6574,7 +6577,7 @@ function displayComponentHygieneSection(result) {
       </div>
       <div class="section-content-collapsible" style="display: ${isSectionExpanded ? 'block' : 'none'};">
         <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0 0 16px 32px;">
-          ${result.unusedComponentCount || result.unusedCount || 0} unused variant${(result.unusedComponentCount || result.unusedCount) !== 1 ? 's' : ''} found out of ${result.totalComponents || 0} total. Remove unused variants to improve your design system hygiene.
+          ${unusedUnits} unused variant${unusedUnits !== 1 ? 's' : ''} found out of ${totalUnits} total. Remove unused variants to improve your design system hygiene.
         </p>
         <div style="padding-left: 0;">
   `;
@@ -6618,29 +6621,24 @@ function displayComponentHygieneSection(result) {
         <div id="${groupId}-content" style="display: none; padding: 4px 0 4px 0;">
     `;
 
-    component.unusedVariants.forEach((variant) => {
-      const variantName = SecurityUtils.escapeHTML(variant.name);
-      html += `
-        <div class="quality-issue-card" data-ignore-id="${variant.id}" style="margin-bottom: 8px; padding: 0 10px; height: 32px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
-            <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-              ${variantName}
-            </div>
-            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
-              <button class="icon-button focus-btn" onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" title="Focus on variant">
-                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
-              </button>
-              <button class="icon-button ignore-btn" onclick="event.stopPropagation(); ignoreItem('component', '${variant.id}', '${variantName}')" title="Ignore variant">
-                <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
-              </button>
-              <button class="icon-button delete-btn" data-component-id="${variant.id}" onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${component.id}')" title="Delete variant">
-                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
+    const variantInitialCount = 10;
+    const initialVariants = component.unusedVariants.slice(0, variantInitialCount);
+    const remainingVariants = component.unusedVariants.slice(variantInitialCount);
+
+    html += `<div id="${groupId}-variants">`;
+    initialVariants.forEach((variant) => {
+      html += renderVariantCard(variant, component.id);
     });
+    html += `</div>`;
+
+    if (remainingVariants.length > 0) {
+      window._remainingVariants = window._remainingVariants || {};
+      window._remainingVariants[groupId] = { variants: remainingVariants, parentId: component.id };
+
+      html += `<div id="${groupId}-load-more" style="text-align: center; padding: 6px 0;">
+        <button onclick="loadMoreVariantCards('${groupId}', ${variantInitialCount})" class="btn-secondary" style="width: 100%; font-size: 11px; padding: 6px;">
+        Load ${remainingVariants.length} more variants</button></div>`;
+    }
 
     html += `</div></div>`;
   });
@@ -6658,29 +6656,23 @@ function displayComponentHygieneSection(result) {
       `;
     }
 
-    standaloneComponents.forEach((component) => {
-      const displayName = SecurityUtils.escapeHTML(component.name);
-      html += `
-        <div class="quality-issue-card" data-ignore-id="${component.id}" style="margin-bottom: 8px; padding: 0 10px; height: 32px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
-            <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-              ${displayName}
-            </div>
-            <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
-              <button class="icon-button focus-btn" onclick="focusOnComponent('${component.id}')" title="Focus on component">
-                <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
-              </button>
-              <button class="icon-button ignore-btn" onclick="ignoreItem('component', '${component.id}', '${displayName}')" title="Ignore component">
-                <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
-              </button>
-              <button class="icon-button delete-btn" data-component-id="${component.id}" onclick="deleteComponent('${component.id}', '${displayName}', 'component')" title="Delete component">
-                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
+    const standaloneInitialCount = 10;
+    const initialStandalone = standaloneComponents.slice(0, standaloneInitialCount);
+    const remainingStandalone = standaloneComponents.slice(standaloneInitialCount);
+
+    html += `<div id="standalone-components-items">`;
+    initialStandalone.forEach((component) => {
+      html += renderStandaloneComponentCard(component);
     });
+    html += `</div>`;
+
+    if (remainingStandalone.length > 0) {
+      window._remainingStandaloneComps = remainingStandalone;
+
+      html += `<div id="standalone-components-load-more" style="text-align: center; padding: 6px 0;">
+        <button onclick="loadMoreStandaloneComps(${standaloneInitialCount})" class="btn-secondary" style="width: 100%; font-size: 11px; padding: 6px;">
+        Load ${remainingStandalone.length} more components</button></div>`;
+    }
 
     if (componentSets.length > 0) {
       html += `</div>`;
@@ -6758,6 +6750,101 @@ function displayComponentHygieneSection(result) {
     }
   }
 }
+
+// --- Lazy loading helpers for Component Hygiene ---
+
+function renderVariantCard(variant, parentId) {
+  const variantName = SecurityUtils.escapeHTML(variant.name);
+  return `
+    <div class="quality-issue-card" data-ignore-id="${variant.id}" style="margin-bottom: 8px; padding: 0 10px; height: 32px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
+        <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          ${variantName}
+        </div>
+        <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+          <button class="icon-button focus-btn" onclick="event.stopPropagation(); focusOnComponent('${variant.id}')" title="Focus on variant">
+            <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+          </button>
+          <button class="icon-button ignore-btn" onclick="event.stopPropagation(); ignoreItem('component', '${variant.id}', '${variantName}')" title="Ignore variant">
+            <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
+          </button>
+          <button class="icon-button delete-btn" data-component-id="${variant.id}" onclick="event.stopPropagation(); deleteComponent('${variant.id}', '${variantName}', 'variant', '${parentId}')" title="Delete variant">
+            <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderStandaloneComponentCard(component) {
+  const displayName = SecurityUtils.escapeHTML(component.name);
+  return `
+    <div class="quality-issue-card" data-ignore-id="${component.id}" style="margin-bottom: 8px; padding: 0 10px; height: 32px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 4px; display: flex; align-items: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;">
+        <div style="flex: 1; min-width: 0; font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          ${displayName}
+        </div>
+        <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+          <button class="icon-button focus-btn" onclick="focusOnComponent('${component.id}')" title="Focus on component">
+            <span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span>
+          </button>
+          <button class="icon-button ignore-btn" onclick="ignoreItem('component', '${component.id}', '${displayName}')" title="Ignore component">
+            <span class="material-symbols-outlined" style="font-size: 14px;">visibility_off</span>
+          </button>
+          <button class="icon-button delete-btn" data-component-id="${component.id}" onclick="deleteComponent('${component.id}', '${displayName}', 'component')" title="Delete component">
+            <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+window.loadMoreVariantCards = function(groupId, currentCount) {
+  if (!window._remainingVariants || !window._remainingVariants[groupId]) return;
+  var container = document.getElementById(groupId + '-variants');
+  var loadMoreDiv = document.getElementById(groupId + '-load-more');
+  var batchSize = 20;
+  var data = window._remainingVariants[groupId];
+  var batch = data.variants.slice(0, batchSize);
+  var remaining = data.variants.slice(batchSize);
+  window._remainingVariants[groupId] = { variants: remaining, parentId: data.parentId };
+
+  var tempDiv = document.createElement('div');
+  batch.forEach(function(variant) {
+    tempDiv.innerHTML += renderVariantCard(variant, data.parentId);
+  });
+  while (tempDiv.firstChild) {
+    container.appendChild(tempDiv.firstChild);
+  }
+  if (remaining.length > 0) {
+    loadMoreDiv.innerHTML = '<button onclick="loadMoreVariantCards(\'' + groupId + '\', ' + (currentCount + batchSize) + ')" class="btn-secondary" style="width: 100%; font-size: 11px; padding: 6px;">Load ' + remaining.length + ' more variants</button>';
+  } else {
+    loadMoreDiv.remove();
+  }
+};
+
+window.loadMoreStandaloneComps = function(currentCount) {
+  if (!window._remainingStandaloneComps || window._remainingStandaloneComps.length === 0) return;
+  var container = document.getElementById('standalone-components-items');
+  var loadMoreDiv = document.getElementById('standalone-components-load-more');
+  var batchSize = 20;
+  var batch = window._remainingStandaloneComps.slice(0, batchSize);
+  var remaining = window._remainingStandaloneComps.slice(batchSize);
+  window._remainingStandaloneComps = remaining;
+
+  var tempDiv = document.createElement('div');
+  batch.forEach(function(component) {
+    tempDiv.innerHTML += renderStandaloneComponentCard(component);
+  });
+  while (tempDiv.firstChild) {
+    container.appendChild(tempDiv.firstChild);
+  }
+  if (remaining.length > 0) {
+    loadMoreDiv.innerHTML = '<button onclick="loadMoreStandaloneComps(' + (currentCount + batchSize) + ')" class="btn-secondary" style="width: 100%; font-size: 11px; padding: 6px;">Load ' + remaining.length + ' more components</button>';
+  } else {
+    loadMoreDiv.remove();
+  }
+};
 
 // Function to display Variable Hygiene section
 function displayVariableHygieneSection(result) {
@@ -6924,13 +7011,18 @@ function displayVariableHygieneSection(result) {
     return out;
   }
 
-  Object.entries(collectionGroups).forEach(([collectionName, variables], gIdx) => {
+  const collectionEntries = Object.entries(collectionGroups);
+  const collectionInitialCount = 5;
+  const initialCollections = collectionEntries.slice(0, collectionInitialCount);
+  const remainingCollections = collectionEntries.slice(collectionInitialCount);
+
+  function renderCollectionBlock(collectionName, variables, gIdx) {
     const groupId = `unused-var-group-${gIdx}`;
     const escapedCollectionName = SecurityUtils.escapeHTML(collectionName);
     const collectionId = variables[0].collectionId;
     const tree = buildVariableTree(variables);
 
-    html += `
+    return `
       <div class="variable-collection" data-collection-id="${collectionId}" style="margin-bottom: 8px;">
         <div class="collection-header collapsed"
              onclick="this.classList.toggle('collapsed'); const content = document.getElementById('${groupId}-content'); content.style.display = content.style.display === 'none' ? 'block' : 'none'; const icon = this.querySelector('.collection-toggle-icon'); icon.style.transform = this.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';"
@@ -6952,7 +7044,28 @@ function displayVariableHygieneSection(result) {
         </div>
       </div>
     `;
+  }
+
+  html += `<div id="unused-var-collections">`;
+  initialCollections.forEach(([collectionName, variables], gIdx) => {
+    html += renderCollectionBlock(collectionName, variables, gIdx);
   });
+  html += `</div>`;
+
+  if (remainingCollections.length > 0) {
+    // Store remaining collections along with their render function context
+    window._remainingVarCollections = {
+      entries: remainingCollections,
+      startIdx: collectionInitialCount,
+      buildTree: buildVariableTree,
+      renderNode: renderTreeNode,
+      countVars: countTreeVars
+    };
+
+    html += `<div id="unused-var-collections-load-more" style="text-align: center; padding: 8px 0;">
+      <button onclick="loadMoreVarCollections()" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">
+      Load ${remainingCollections.length} more collections</button></div>`;
+  }
 
   // Ignored items management panel — grouped by collection, then by group prefixes (always render, hidden when empty)
   const hasIgnoredVars = result.ignoredVariables && result.ignoredVariables.length > 0;
@@ -7075,6 +7188,59 @@ function displayVariableHygieneSection(result) {
     }
   }
 }
+
+// --- Lazy loading for Variable Hygiene collections ---
+
+window.loadMoreVarCollections = function() {
+  if (!window._remainingVarCollections || window._remainingVarCollections.entries.length === 0) return;
+
+  var container = document.getElementById('unused-var-collections');
+  var loadMoreDiv = document.getElementById('unused-var-collections-load-more');
+  var batchSize = 5;
+  var data = window._remainingVarCollections;
+  var batch = data.entries.slice(0, batchSize);
+  var remaining = data.entries.slice(batchSize);
+  var startIdx = data.startIdx;
+
+  data.entries = remaining;
+  data.startIdx = startIdx + batchSize;
+
+  var tempDiv = document.createElement('div');
+  batch.forEach(function(entry, batchIdx) {
+    var collectionName = entry[0];
+    var variables = entry[1];
+    var gIdx = startIdx + batchIdx;
+    var groupId = 'unused-var-group-' + gIdx;
+    var escapedCollectionName = SecurityUtils.escapeHTML(collectionName);
+    var collectionId = variables[0].collectionId;
+    var tree = data.buildTree(variables);
+
+    tempDiv.innerHTML += '<div class="variable-collection" data-collection-id="' + collectionId + '" style="margin-bottom: 8px;">' +
+      '<div class="collection-header collapsed"' +
+        ' onclick="this.classList.toggle(\'collapsed\'); var content = document.getElementById(\'' + groupId + '-content\'); content.style.display = content.style.display === \'none\' ? \'block\' : \'none\'; var icon = this.querySelector(\'.collection-toggle-icon\'); icon.style.transform = this.classList.contains(\'collapsed\') ? \'rotate(-90deg)\' : \'rotate(0deg)\';"' +
+        ' style="display: flex; align-items: center; gap: 10px; cursor: pointer; height: 32px; padding: 0 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">' +
+        '<span class="material-symbols-outlined collection-toggle-icon" style="font-size: 18px; color: rgba(255,255,255,0.4); transition: transform 0.2s; transform: rotate(-90deg);">expand_more</span>' +
+        '<span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); flex: 1;">' + escapedCollectionName + '</span>' +
+        '<span style="font-size: 10px; color: rgba(255,255,255,0.3); padding: 1px 6px;">' + variables.length + '</span>' +
+        '<button class="icon-button ignore-btn" onclick="event.stopPropagation(); ignoreItem(\'collection\', \'' + collectionId + '\', \'' + escapedCollectionName + '\')" title="Ignore entire collection" style="flex-shrink: 0; width: 18px; height: 18px; min-width: 18px;">' +
+          '<span class="material-symbols-outlined" style="font-size: 12px;">visibility_off</span>' +
+        '</button>' +
+      '</div>' +
+      '<div id="' + groupId + '-content" style="display: none; padding: 4px 0;">' +
+        data.renderNode(tree, '', collectionId, 0, groupId) +
+      '</div></div>';
+  });
+
+  while (tempDiv.firstChild) {
+    container.appendChild(tempDiv.firstChild);
+  }
+
+  if (remaining.length > 0) {
+    loadMoreDiv.innerHTML = '<button onclick="loadMoreVarCollections()" class="btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">Load ' + remaining.length + ' more collections</button>';
+  } else {
+    loadMoreDiv.remove();
+  }
+};
 
 // Tailwind namespace list and suggestion map (shared)
 const TAILWIND_NAMESPACES = [
@@ -7320,7 +7486,10 @@ window.QualityAnimationController = {
       promises.push(this.animateValue(goodCountEl, startGood, goodTarget, 600));
     }
     
-    // 2. Animate bar
+    // 2. Animate bar — force reflow so browser computes the initial 0% width
+    // before we set the target. Without this, the transition has no "from" state
+    // and the bar jumps to the final width instantly.
+    barEl.getBoundingClientRect();
     barEl.style.transition = 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
     barEl.style.width = `${scoreTarget}%`;
     
@@ -7669,7 +7838,7 @@ function updateScoreInstant(category, issueDelta, totalDelta) {
             scoreKey: 'componentHygiene',
             safeLabel: 'unused-components',
             getData: function() { return window.componentHygieneData; },
-            totalKey: 'totalComponents',
+            totalKey: 'totalDeletableUnits',
             unusedKey: 'unusedCount'
         },
         tokenCoverage: {
