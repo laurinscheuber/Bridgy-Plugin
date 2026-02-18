@@ -321,6 +321,31 @@ figma.codegen.on('generate', (_event) => {
 });
 
 /**
+ * Helper to match paint color against a target value (hex or rgb string)
+ */
+function matchesTargetValue(paint: any, targetValue?: string): boolean {
+  if (!targetValue) return true;
+  if (!paint || !paint.color) return false;
+
+  const { r, g, b } = paint.color;
+  const toHex = (n: number) => {
+    const hex = Math.round(n * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+  const rgb = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+
+  // Normalize target value
+  const target = targetValue.trim();
+
+  // Check matches (case-insensitive for hex, precise for rgb string)
+  return target.toUpperCase() === hex ||
+    target === rgb ||
+    target.replace(/\s/g, '') === rgb.replace(/\s/g, '');
+}
+
+/**
  * Helper function to apply a variable to a node property
  */
 async function applyVariableToNode(
@@ -328,6 +353,7 @@ async function applyVariableToNode(
   variable: Variable,
   property: string,
   category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
+  targetValue?: string,
 ): Promise<boolean> {
   try {
     // Map property names to Figma bindable properties
@@ -389,9 +415,16 @@ async function applyVariableToNode(
       const fillNode = node as any;
       if ('fills' in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
         const fills = [...fillNode.fills];
+        // Find the first solid fill that doesn't have a color variable bound
         const solidFillIndex = fills.findIndex(
-          (fill: any) => fill && fill.type === 'SOLID' && fill.visible !== false,
+          (fill: any) =>
+            fill &&
+            fill.type === 'SOLID' &&
+            fill.visible !== false &&
+            (!fill.boundVariables || !fill.boundVariables.color) &&
+            matchesTargetValue(fill, targetValue)
         );
+
         if (solidFillIndex !== -1) {
           const targetPaint: any = fills[solidFillIndex];
           const alias = figma.variables.createVariableAlias(variable);
@@ -404,7 +437,7 @@ async function applyVariableToNode(
             throw err;
           }
         } else {
-          console.warn(`[BRIDGY] No solid fill found to apply color`);
+          console.warn(`[BRIDGY] No suitable solid fill found to apply color`);
         }
       } else {
         console.warn(`[BRIDGY] Node has no fills`);
@@ -417,9 +450,16 @@ async function applyVariableToNode(
         strokeNode.strokes.length > 0
       ) {
         const strokes = [...strokeNode.strokes];
+        // Find the first solid stroke that doesn't have a color variable bound
         const solidStrokeIndex = strokes.findIndex(
-          (stroke: any) => stroke && stroke.type === 'SOLID' && stroke.visible !== false,
+          (stroke: any) =>
+            stroke &&
+            stroke.type === 'SOLID' &&
+            stroke.visible !== false &&
+            (!stroke.boundVariables || !stroke.boundVariables.color) &&
+            matchesTargetValue(stroke, targetValue)
         );
+
         if (solidStrokeIndex !== -1) {
           const targetPaint: any = strokes[solidStrokeIndex];
           const alias = figma.variables.createVariableAlias(variable);
@@ -432,7 +472,7 @@ async function applyVariableToNode(
             throw err;
           }
         } else {
-          console.warn(`[BRIDGY] No solid stroke found to apply color`);
+          console.warn(`[BRIDGY] No suitable solid stroke found to apply color`);
         }
       }
     } else {
@@ -784,7 +824,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // 1. Find all local component definitions (Component and ComponentSet)
           // 2. Find all instances
           // 3. Map instances to local definitions synchronously
-          
+
           // Ensure all pages are loaded for accurate stats
           await figma.loadAllPagesAsync();
 
@@ -834,7 +874,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               // Map children ID to Set ID
               for (const child of (node as ComponentSetNode).children) {
                 if (child.type === 'COMPONENT') {
-                  variantToSetId.set(child.id, node.id);                }
+                  variantToSetId.set(child.id, node.id);
+                }
               }
             } else if (node.type === 'COMPONENT') {
               // Only add standalone components (if they are not part of a set)
@@ -851,7 +892,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // 3. Match Instances to Definitions
           console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
-          
+
           for (const instance of allInstances) {
             // Use getMainComponentAsync to avoid hygiene errors with dynamic pages
             let mainId: string | undefined;
@@ -887,7 +928,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 id: instance.id,
                 name: instance.name, // Instance name might differ from component name
                 parentName: parentName,
-              });            
+              });
             }
           }
 
@@ -1027,7 +1068,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Find components with no instances (unused components)
           const unusedComponents: any[] = [];
-          
+
           console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
           console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
 
@@ -1108,17 +1149,17 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           console.log(`Component hygiene analysis complete. Found ${unusedDeletableUnits} unused deletable units out of ${totalDeletableUnits} total.`);
 
           if (unusedCount === 0 && totalComponents > 0) {
-              console.log('DEBUG: 0 unused found. Dumping sample defs to check consistency:');
-              // Check the first few defs to see if they have instances
-              let i = 0;
-              for (const [id, def] of localDefinitions.entries()) {
-                  if (i++ > 5) break; 
-                  console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
-                  if (def.isSet) {
-                      const set = def.node as ComponentSetNode;
-                      console.log(` - Variants: ${set.children.length}`);
-                  }
+            console.log('DEBUG: 0 unused found. Dumping sample defs to check consistency:');
+            // Check the first few defs to see if they have instances
+            let i = 0;
+            for (const [id, def] of localDefinitions.entries()) {
+              if (i++ > 5) break;
+              console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
+              if (def.isSet) {
+                const set = def.node as ComponentSetNode;
+                console.log(` - Variants: ${set.children.length}`);
               }
+            }
           }
 
           figma.ui.postMessage({
@@ -2172,7 +2213,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // Get all collections
           const collections = await figma.variables.getLocalVariableCollectionsAsync();
           let renamedCount = 0;
-          
+
           // If variableId is provided, only rename that specific variable (for standalone variables)
           if (variableId) {
             const variable = await figma.variables.getVariableByIdAsync(variableId);
@@ -2237,7 +2278,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
           // Trigger validation refresh
           const validation = await CSSExportService.getTailwindV4ValidationStatus();
-          
+
           figma.ui.postMessage({
             type: 'tailwind-v4-validation',
             validation: validation,
@@ -2272,7 +2313,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case 'apply-token-to-nodes':
         try {
           const applyMsg = msg as any;
-          const { nodeIds, variableId, property, category } = applyMsg;
+          const { nodeIds, variableId, property, category, targetValue } = applyMsg;
 
           if (!nodeIds || !variableId || !property || !category) {
             throw new Error('Missing required parameters for applying token');
@@ -2317,6 +2358,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 variable,
                 property,
                 category,
+                targetValue,
               );
               if (applied) {
                 successCount++;
@@ -2346,37 +2388,37 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           });
 
           // Listen for variable changes to auto-refresh
-  // This handles changes made in the Figma UI outside the plugin
-  // We use a debounce to avoid spamming refreshes during rapid edits
-  let refreshTimeout: number | undefined;
-  
-  // @ts-ignore - 'change' event might not be in all typings yet or requires specific strictness
-  if (figma.variables && typeof (figma.variables as any).on === 'function') {
-    (figma.variables as any).on('change', (event: any) => {
-      console.log('Variable change detected in Figma:', event);
-      
-      // Clear existing timeout
-      if (refreshTimeout) {
-        clearTimeout(refreshTimeout);
-      }
-      
-      // Debounce refresh (1 second)
-      refreshTimeout = setTimeout(() => {
-        console.log('Triggering auto-refresh due to variable changes...');
-        collectDocumentData().then((refreshedData) => {
-          figma.ui.postMessage({
-            type: 'refresh-success',
-            variables: refreshedData.variables,
-            styles: refreshedData.styles,
-            components: refreshedData.components,
-            message: 'Auto-refreshed from Figma changes',
-          });
-        });
-      }, 1000) as unknown as number;
-    });
-  }
+          // This handles changes made in the Figma UI outside the plugin
+          // We use a debounce to avoid spamming refreshes during rapid edits
+          let refreshTimeout: number | undefined;
 
-  // Show UInotification
+          // @ts-ignore - 'change' event might not be in all typings yet or requires specific strictness
+          if (figma.variables && typeof (figma.variables as any).on === 'function') {
+            (figma.variables as any).on('change', (event: any) => {
+              console.log('Variable change detected in Figma:', event);
+
+              // Clear existing timeout
+              if (refreshTimeout) {
+                clearTimeout(refreshTimeout);
+              }
+
+              // Debounce refresh (1 second)
+              refreshTimeout = setTimeout(() => {
+                console.log('Triggering auto-refresh due to variable changes...');
+                collectDocumentData().then((refreshedData) => {
+                  figma.ui.postMessage({
+                    type: 'refresh-success',
+                    variables: refreshedData.variables,
+                    styles: refreshedData.styles,
+                    components: refreshedData.components,
+                    message: 'Auto-refreshed from Figma changes',
+                  });
+                });
+              }, 1000) as unknown as number;
+            });
+          }
+
+          // Show UInotification
           if (successCount > 0) {
             figma.notify(`✓ Applied token to ${successCount} node${successCount !== 1 ? 's' : ''}`);
           }

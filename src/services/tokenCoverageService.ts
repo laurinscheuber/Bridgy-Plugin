@@ -20,6 +20,10 @@ export interface MatchingVariable {
   matchType: 'EXACT' | 'NEAR';
 }
 
+export interface AnalysisStats {
+  totalAttributes: number;
+}
+
 export interface TokenCoverageIssue {
   property: string;
   value: string;
@@ -33,6 +37,7 @@ export interface TokenCoverageIssue {
 
 export interface TokenCoverageResult {
   totalNodes: number;
+  totalAttributes?: number;
   totalIssues: number;
   issuesByCategory: {
     Layout: TokenCoverageIssue[];
@@ -302,6 +307,7 @@ export class TokenCoverageService {
     let instanceCount = 0;
     let frameCount = 0;
     const issuesMap = new Map<string, TokenCoverageIssue>();
+    const stats: AnalysisStats = { totalAttributes: 0 };
 
     // Optimization: Fetch all variables once
     const allVariables = await this.getAllVariables();
@@ -420,7 +426,7 @@ export class TokenCoverageService {
 
       // --- 3. Token Coverage Analysis ---
       // This MUST be done line-by-line using existing helper
-      await this.analyzeNode(node, issuesMap);
+      await this.analyzeNode(node, issuesMap, stats);
     }
 
     // --- POST-PROCESSING: Calculate Hygiene Results ---
@@ -670,11 +676,20 @@ export class TokenCoverageService {
     // Calculate simple percentage score based on affected layers (as expected by user)
     // Collect all unique node IDs that have issues
     const affectedNodesSet = new Set<string>();
+    let totalIssueCount = 0;
+
     for (const issue of issuesMap.values()) {
       issue.nodeIds.forEach(id => affectedNodesSet.add(id));
+      totalIssueCount += issue.count;
     }
     const totalAffectedNodes = affectedNodesSet.size;
-    const tokenCoverageScore = totalNodes === 0 ? 100 : Math.round(((totalNodes - totalAffectedNodes) / totalNodes) * 100);
+
+    // Attribute-based score
+    const totalAttributes = stats.totalAttributes;
+
+    const tokenCoverageScore = totalAttributes === 0
+      ? 100
+      : Math.round(((totalAttributes - totalIssueCount) / totalAttributes) * 100);
 
     let weightedScore = 0;
     let weights = {
@@ -713,7 +728,8 @@ export class TokenCoverageService {
 
     return {
       totalNodes,
-      totalIssues: totalAffectedNodes, // Return affected layers count instead of unique issue types
+      totalAttributes: stats.totalAttributes,
+      totalIssues: totalIssueCount, // Return total attribute issues count
       issuesByCategory,
       qualityScore: weightedScore,
       subScores: {
@@ -758,6 +774,7 @@ export class TokenCoverageService {
   private static async analyzeNode(
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
+    stats: AnalysisStats,
   ): Promise<void> {
     // SKIP LIMIT: We removed the check for isInsideInstance to allow full recursive analysis.
     // The previous logic was:
@@ -768,16 +785,16 @@ export class TokenCoverageService {
     // The updated findAll filters already handle this.
 
     // Check Layout properties
-    this.checkLayoutProperties(node, issuesMap);
+    this.checkLayoutProperties(node, issuesMap, stats);
 
     // Check Fill properties
-    this.checkFillProperties(node, issuesMap);
+    this.checkFillProperties(node, issuesMap, stats);
 
     // Check Stroke properties
-    this.checkStrokeProperties(node, issuesMap);
+    this.checkStrokeProperties(node, issuesMap, stats);
 
     // Check Appearance properties
-    this.checkAppearanceProperties(node, issuesMap);
+    this.checkAppearanceProperties(node, issuesMap, stats);
   }
 
   /**
@@ -792,9 +809,13 @@ export class TokenCoverageService {
   /**
    * Checks layout properties (spacing, sizing)
    */
+  /**
+   * Checks layout properties (spacing, sizing)
+   */
   private static checkLayoutProperties(
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
+    stats: AnalysisStats,
   ): void {
     // Check if node has layout properties
     if (!('minWidth' in node)) return;
@@ -805,19 +826,23 @@ export class TokenCoverageService {
     if (
       'minWidth' in layoutNode &&
       layoutNode.minWidth !== null &&
-      layoutNode.minWidth !== 0 &&
-      !this.isVariableBound(layoutNode, 'minWidth')
+      layoutNode.minWidth !== 0
     ) {
-      this.addIssue(issuesMap, 'Min Width', this.formatValue(layoutNode.minWidth), node, 'Layout');
+      stats.totalAttributes++;
+      if (!this.isVariableBound(layoutNode, 'minWidth')) {
+        this.addIssue(issuesMap, 'Min Width', this.formatValue(layoutNode.minWidth), node, 'Layout');
+      }
     }
 
     // Check maxWidth - exclude zero values
     if (
       layoutNode.maxWidth !== null &&
-      layoutNode.maxWidth !== 0 &&
-      !this.isVariableBound(layoutNode, 'maxWidth')
+      layoutNode.maxWidth !== 0
     ) {
-      this.addIssue(issuesMap, 'Max Width', this.formatValue(layoutNode.maxWidth), node, 'Layout');
+      stats.totalAttributes++;
+      if (!this.isVariableBound(layoutNode, 'maxWidth')) {
+        this.addIssue(issuesMap, 'Max Width', this.formatValue(layoutNode.maxWidth), node, 'Layout');
+      }
     }
 
     // Check width (if not auto) - exclude zero values and dynamic sizing
@@ -826,10 +851,12 @@ export class TokenCoverageService {
       layoutNode.width &&
       typeof layoutNode.width === 'number' &&
       layoutNode.width !== 0 &&
-      !this.isVariableBound(layoutNode, 'width') &&
       !this.isWidthDynamic(layoutNode)
     ) {
-      this.addIssue(issuesMap, 'Width', this.formatValue(layoutNode.width), node, 'Layout');
+      stats.totalAttributes++;
+      if (!this.isVariableBound(layoutNode, 'width')) {
+        this.addIssue(issuesMap, 'Width', this.formatValue(layoutNode.width), node, 'Layout');
+      }
     }
 
     // Check height (if not auto) - exclude zero values and dynamic sizing
@@ -838,42 +865,48 @@ export class TokenCoverageService {
       layoutNode.height &&
       typeof layoutNode.height === 'number' &&
       layoutNode.height !== 0 &&
-      !this.isVariableBound(layoutNode, 'height') &&
       !this.isHeightDynamic(layoutNode)
     ) {
-      this.addIssue(issuesMap, 'Height', this.formatValue(layoutNode.height), node, 'Layout');
+      stats.totalAttributes++;
+      if (!this.isVariableBound(layoutNode, 'height')) {
+        this.addIssue(issuesMap, 'Height', this.formatValue(layoutNode.height), node, 'Layout');
+      }
     }
 
     // Check minHeight - exclude zero values
     if (
       'minHeight' in layoutNode &&
       layoutNode.minHeight !== null &&
-      layoutNode.minHeight !== 0 &&
-      !this.isVariableBound(layoutNode, 'minHeight')
+      layoutNode.minHeight !== 0
     ) {
-      this.addIssue(
-        issuesMap,
-        'Min Height',
-        this.formatValue(layoutNode.minHeight),
-        node,
-        'Layout',
-      );
+      stats.totalAttributes++;
+      if (!this.isVariableBound(layoutNode, 'minHeight')) {
+        this.addIssue(
+          issuesMap,
+          'Min Height',
+          this.formatValue(layoutNode.minHeight),
+          node,
+          'Layout',
+        );
+      }
     }
 
     // Check maxHeight - exclude zero values
     if (
       'maxHeight' in layoutNode &&
       layoutNode.maxHeight !== null &&
-      layoutNode.maxHeight !== 0 &&
-      !this.isVariableBound(layoutNode, 'maxHeight')
+      layoutNode.maxHeight !== 0
     ) {
-      this.addIssue(
-        issuesMap,
-        'Max Height',
-        this.formatValue(layoutNode.maxHeight),
-        node,
-        'Layout',
-      );
+      stats.totalAttributes++;
+      if (!this.isVariableBound(layoutNode, 'maxHeight')) {
+        this.addIssue(
+          issuesMap,
+          'Max Height',
+          this.formatValue(layoutNode.maxHeight),
+          node,
+          'Layout',
+        );
+      }
     }
 
     // Check auto-layout properties
@@ -881,10 +914,12 @@ export class TokenCoverageService {
       // Check gap (itemSpacing) - exclude zero values
       if (
         typeof layoutNode.itemSpacing === 'number' &&
-        layoutNode.itemSpacing !== 0 &&
-        !this.isVariableBound(layoutNode, 'itemSpacing')
+        layoutNode.itemSpacing !== 0
       ) {
-        this.addIssue(issuesMap, 'Gap', this.formatValue(layoutNode.itemSpacing), node, 'Layout');
+        stats.totalAttributes++;
+        if (!this.isVariableBound(layoutNode, 'itemSpacing')) {
+          this.addIssue(issuesMap, 'Gap', this.formatValue(layoutNode.itemSpacing), node, 'Layout');
+        }
       }
 
       // Check padding - consolidate if all values are the same, exclude zero values
@@ -906,26 +941,39 @@ export class TokenCoverageService {
 
       if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
         // Report as consolidated "Padding"
+        stats.totalAttributes++;
         this.addIssue(issuesMap, 'Padding', this.formatValue(paddingLeft), node, 'Layout');
       } else {
         // Report individual padding values (only non-zero and non-bound)
-        if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, 'paddingLeft')) {
-          this.addIssue(issuesMap, 'Padding Left', this.formatValue(paddingLeft), node, 'Layout');
+        if (paddingLeft !== 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(layoutNode, 'paddingLeft')) {
+            this.addIssue(issuesMap, 'Padding Left', this.formatValue(paddingLeft), node, 'Layout');
+          }
         }
-        if (paddingTop !== 0 && !this.isVariableBound(layoutNode, 'paddingTop')) {
-          this.addIssue(issuesMap, 'Padding Top', this.formatValue(paddingTop), node, 'Layout');
+        if (paddingTop !== 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(layoutNode, 'paddingTop')) {
+            this.addIssue(issuesMap, 'Padding Top', this.formatValue(paddingTop), node, 'Layout');
+          }
         }
-        if (paddingRight !== 0 && !this.isVariableBound(layoutNode, 'paddingRight')) {
-          this.addIssue(issuesMap, 'Padding Right', this.formatValue(paddingRight), node, 'Layout');
+        if (paddingRight !== 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(layoutNode, 'paddingRight')) {
+            this.addIssue(issuesMap, 'Padding Right', this.formatValue(paddingRight), node, 'Layout');
+          }
         }
-        if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, 'paddingBottom')) {
-          this.addIssue(
-            issuesMap,
-            'Padding Bottom',
-            this.formatValue(paddingBottom),
-            node,
-            'Layout',
-          );
+        if (paddingBottom !== 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(layoutNode, 'paddingBottom')) {
+            this.addIssue(
+              issuesMap,
+              'Padding Bottom',
+              this.formatValue(paddingBottom),
+              node,
+              'Layout',
+            );
+          }
         }
       }
     }
@@ -937,6 +985,7 @@ export class TokenCoverageService {
   private static checkFillProperties(
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
+    stats: AnalysisStats,
   ): void {
     if (!('fills' in node)) return;
 
@@ -944,6 +993,7 @@ export class TokenCoverageService {
     if (!Array.isArray(fills) || fills.length === 0) return;
 
     // Check if any paint has a color variable bound
+    stats.totalAttributes++; // Fills count as 1 attribute (the collection of fills)
     if (!this.isPaintColorVariableBound(fills)) {
       // Get the first solid fill
       const solidFill = fills.find((fill) => fill.type === 'SOLID' && fill.visible !== false);
@@ -961,6 +1011,7 @@ export class TokenCoverageService {
   private static checkStrokeProperties(
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
+    stats: AnalysisStats,
   ): void {
     if (!('strokes' in node)) return;
 
@@ -968,6 +1019,7 @@ export class TokenCoverageService {
     if (!Array.isArray(strokes) || strokes.length === 0) return;
 
     // Check stroke color (paint-level binding)
+    stats.totalAttributes++; // Stroke Color counts as 1
     if (!this.isPaintColorVariableBound(strokes)) {
       const solidStroke = strokes.find(
         (stroke) => stroke.type === 'SOLID' && stroke.visible !== false,
@@ -992,14 +1044,17 @@ export class TokenCoverageService {
       this.isVariableBound(node as any, 'strokeBottomWeight') ||
       this.isVariableBound(node as any, 'strokeLeftWeight');
 
-    if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
-      this.addIssue(
-        issuesMap,
-        'Stroke Weight',
-        this.formatValue(strokeWeightValue),
-        node,
-        'Stroke',
-      );
+    if (hasNumericStrokeWeight && strokeWeightValue !== 0) {
+      stats.totalAttributes++; // Stroke Weight counts as 1
+      if (!anyStrokeWeightBound) {
+        this.addIssue(
+          issuesMap,
+          'Stroke Weight',
+          this.formatValue(strokeWeightValue),
+          node,
+          'Stroke',
+        );
+      }
     }
   }
 
@@ -1009,15 +1064,18 @@ export class TokenCoverageService {
   private static checkAppearanceProperties(
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
+    stats: AnalysisStats,
   ): void {
     // Check opacity - exclude zero and one (default) values
     if (
       'opacity' in node &&
       node.opacity !== 1 &&
-      node.opacity !== 0 &&
-      !this.isVariableBound(node, 'opacity')
+      node.opacity !== 0
     ) {
-      this.addIssue(issuesMap, 'Opacity', `${node.opacity}`, node, 'Appearance');
+      stats.totalAttributes++;
+      if (!this.isVariableBound(node, 'opacity')) {
+        this.addIssue(issuesMap, 'Opacity', `${node.opacity}`, node, 'Appearance');
+      }
     }
 
     // Check corner radius - exclude zero values as they typically don't need tokens
@@ -1048,9 +1106,12 @@ export class TokenCoverageService {
 
       // Check for mixed radius (some nodes like Vector don't have individual corners)
       if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === 'number') {
-        if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, 'cornerRadius') && !this.isVariableBound(rectNode, 'topLeftRadius')) {
-          this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance');
-          return;
+        if (rectNode.cornerRadius > 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(rectNode, 'cornerRadius') && !this.isVariableBound(rectNode, 'topLeftRadius')) {
+            this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance');
+            return;
+          }
         }
       }
 
@@ -1062,44 +1123,57 @@ export class TokenCoverageService {
 
       if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
         // Report as consolidated "Corner Radius"
+        stats.totalAttributes++;
         this.addIssue(issuesMap, 'Corner Radius', this.formatValue(topLeft), node, 'Appearance');
       } else {
         // Report individual corner radii (only non-zero and non-bound)
-        if (topLeft > 0 && !this.isVariableBound(rectNode, 'topLeftRadius')) {
-          this.addIssue(
-            issuesMap,
-            'Corner Radius (Top Left)',
-            this.formatValue(topLeft),
-            node,
-            'Appearance',
-          );
+        if (topLeft > 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(rectNode, 'topLeftRadius')) {
+            this.addIssue(
+              issuesMap,
+              'Corner Radius (Top Left)',
+              this.formatValue(topLeft),
+              node,
+              'Appearance',
+            );
+          }
         }
-        if (topRight > 0 && !this.isVariableBound(rectNode, 'topRightRadius')) {
-          this.addIssue(
-            issuesMap,
-            'Corner Radius (Top Right)',
-            this.formatValue(topRight),
-            node,
-            'Appearance',
-          );
+        if (topRight > 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(rectNode, 'topRightRadius')) {
+            this.addIssue(
+              issuesMap,
+              'Corner Radius (Top Right)',
+              this.formatValue(topRight),
+              node,
+              'Appearance',
+            );
+          }
         }
-        if (bottomLeft > 0 && !this.isVariableBound(rectNode, 'bottomLeftRadius')) {
-          this.addIssue(
-            issuesMap,
-            'Corner Radius (Bottom Left)',
-            this.formatValue(bottomLeft),
-            node,
-            'Appearance',
-          );
+        if (bottomLeft > 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(rectNode, 'bottomLeftRadius')) {
+            this.addIssue(
+              issuesMap,
+              'Corner Radius (Bottom Left)',
+              this.formatValue(bottomLeft),
+              node,
+              'Appearance',
+            );
+          }
         }
-        if (bottomRight > 0 && !this.isVariableBound(rectNode, 'bottomRightRadius')) {
-          this.addIssue(
-            issuesMap,
-            'Corner Radius (Bottom Right)',
-            this.formatValue(bottomRight),
-            node,
-            'Appearance',
-          );
+        if (bottomRight > 0) {
+          stats.totalAttributes++;
+          if (!this.isVariableBound(rectNode, 'bottomRightRadius')) {
+            this.addIssue(
+              issuesMap,
+              'Corner Radius (Bottom Right)',
+              this.formatValue(bottomRight),
+              node,
+              'Appearance',
+            );
+          }
         }
       }
     }

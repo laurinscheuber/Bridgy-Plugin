@@ -7080,6 +7080,7 @@ ${Object.keys(cssProperties).map((property) => {
             let instanceCount = 0;
             let frameCount = 0;
             const issuesMap = /* @__PURE__ */ new Map();
+            const stats = { totalAttributes: 0 };
             const allVariables = yield this.getAllVariables();
             allVariables.forEach((v) => {
               if (v.variable) {
@@ -7156,7 +7157,7 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
               }
-              yield this.analyzeNode(node, issuesMap);
+              yield this.analyzeNode(node, issuesMap, stats);
             }
             const unusedVariables = [];
             allVariables.forEach((v) => {
@@ -7317,11 +7318,14 @@ ${Object.keys(cssProperties).map((property) => {
             const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
             const isTailwindV4 = exportFormat === "tailwind-v4";
             const affectedNodesSet = /* @__PURE__ */ new Set();
+            let totalIssueCount = 0;
             for (const issue of issuesMap.values()) {
               issue.nodeIds.forEach((id) => affectedNodesSet.add(id));
+              totalIssueCount += issue.count;
             }
             const totalAffectedNodes = affectedNodesSet.size;
-            const tokenCoverageScore = totalNodes === 0 ? 100 : Math.round((totalNodes - totalAffectedNodes) / totalNodes * 100);
+            const totalAttributes = stats.totalAttributes;
+            const tokenCoverageScore = totalAttributes === 0 ? 100 : Math.round((totalAttributes - totalIssueCount) / totalAttributes * 100);
             let weightedScore = 0;
             let weights = {
               tokenCoverage: "0%",
@@ -7350,8 +7354,9 @@ ${Object.keys(cssProperties).map((property) => {
             }
             return {
               totalNodes,
-              totalIssues: totalAffectedNodes,
-              // Return affected layers count instead of unique issue types
+              totalAttributes: stats.totalAttributes,
+              totalIssues: totalIssueCount,
+              // Return total attribute issues count
               issuesByCategory,
               qualityScore: weightedScore,
               subScores: {
@@ -7392,12 +7397,12 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Analyzes a single node for token coverage issues
          */
-        static analyzeNode(node, issuesMap) {
+        static analyzeNode(node, issuesMap, stats) {
           return __awaiter(this, void 0, void 0, function* () {
-            this.checkLayoutProperties(node, issuesMap);
-            this.checkFillProperties(node, issuesMap);
-            this.checkStrokeProperties(node, issuesMap);
-            this.checkAppearanceProperties(node, issuesMap);
+            this.checkLayoutProperties(node, issuesMap, stats);
+            this.checkFillProperties(node, issuesMap, stats);
+            this.checkStrokeProperties(node, issuesMap, stats);
+            this.checkAppearanceProperties(node, issuesMap, stats);
           });
         }
         /**
@@ -7410,31 +7415,55 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Checks layout properties (spacing, sizing)
          */
-        static checkLayoutProperties(node, issuesMap) {
+        /**
+         * Checks layout properties (spacing, sizing)
+         */
+        static checkLayoutProperties(node, issuesMap, stats) {
           if (!("minWidth" in node))
             return;
           const layoutNode = node;
-          if ("minWidth" in layoutNode && layoutNode.minWidth !== null && layoutNode.minWidth !== 0 && !this.isVariableBound(layoutNode, "minWidth")) {
-            this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
+          if ("minWidth" in layoutNode && layoutNode.minWidth !== null && layoutNode.minWidth !== 0) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(layoutNode, "minWidth")) {
+              this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
+            }
           }
-          if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0 && !this.isVariableBound(layoutNode, "maxWidth")) {
-            this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
+          if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(layoutNode, "maxWidth")) {
+              this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
+            }
           }
-          if ("width" in layoutNode && layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isVariableBound(layoutNode, "width") && !this.isWidthDynamic(layoutNode)) {
-            this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
+          if ("width" in layoutNode && layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isWidthDynamic(layoutNode)) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(layoutNode, "width")) {
+              this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
+            }
           }
-          if ("height" in layoutNode && layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isVariableBound(layoutNode, "height") && !this.isHeightDynamic(layoutNode)) {
-            this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
+          if ("height" in layoutNode && layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isHeightDynamic(layoutNode)) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(layoutNode, "height")) {
+              this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
+            }
           }
-          if ("minHeight" in layoutNode && layoutNode.minHeight !== null && layoutNode.minHeight !== 0 && !this.isVariableBound(layoutNode, "minHeight")) {
-            this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
+          if ("minHeight" in layoutNode && layoutNode.minHeight !== null && layoutNode.minHeight !== 0) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(layoutNode, "minHeight")) {
+              this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
+            }
           }
-          if ("maxHeight" in layoutNode && layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0 && !this.isVariableBound(layoutNode, "maxHeight")) {
-            this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
+          if ("maxHeight" in layoutNode && layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(layoutNode, "maxHeight")) {
+              this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
+            }
           }
           if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
-            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0 && !this.isVariableBound(layoutNode, "itemSpacing")) {
-              this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout");
+            if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0) {
+              stats.totalAttributes++;
+              if (!this.isVariableBound(layoutNode, "itemSpacing")) {
+                this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout");
+              }
             }
             const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;
             const paddingTop = typeof layoutNode.paddingTop === "number" ? layoutNode.paddingTop : 0;
@@ -7443,19 +7472,32 @@ ${Object.keys(cssProperties).map((property) => {
             const allPaddingSame = paddingLeft === paddingTop && paddingTop === paddingRight && paddingRight === paddingBottom;
             const anyPaddingBound = this.isVariableBound(layoutNode, "paddingLeft") || this.isVariableBound(layoutNode, "paddingTop") || this.isVariableBound(layoutNode, "paddingRight") || this.isVariableBound(layoutNode, "paddingBottom");
             if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
+              stats.totalAttributes++;
               this.addIssue(issuesMap, "Padding", this.formatValue(paddingLeft), node, "Layout");
             } else {
-              if (paddingLeft !== 0 && !this.isVariableBound(layoutNode, "paddingLeft")) {
-                this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout");
+              if (paddingLeft !== 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(layoutNode, "paddingLeft")) {
+                  this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout");
+                }
               }
-              if (paddingTop !== 0 && !this.isVariableBound(layoutNode, "paddingTop")) {
-                this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout");
+              if (paddingTop !== 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(layoutNode, "paddingTop")) {
+                  this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout");
+                }
               }
-              if (paddingRight !== 0 && !this.isVariableBound(layoutNode, "paddingRight")) {
-                this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout");
+              if (paddingRight !== 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(layoutNode, "paddingRight")) {
+                  this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout");
+                }
               }
-              if (paddingBottom !== 0 && !this.isVariableBound(layoutNode, "paddingBottom")) {
-                this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout");
+              if (paddingBottom !== 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(layoutNode, "paddingBottom")) {
+                  this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout");
+                }
               }
             }
           }
@@ -7463,12 +7505,13 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Checks fill/color properties
          */
-        static checkFillProperties(node, issuesMap) {
+        static checkFillProperties(node, issuesMap, stats) {
           if (!("fills" in node))
             return;
           const fills = node.fills;
           if (!Array.isArray(fills) || fills.length === 0)
             return;
+          stats.totalAttributes++;
           if (!this.isPaintColorVariableBound(fills)) {
             const solidFill = fills.find((fill) => fill.type === "SOLID" && fill.visible !== false);
             if (solidFill && solidFill.type === "SOLID") {
@@ -7481,12 +7524,13 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Checks stroke properties
          */
-        static checkStrokeProperties(node, issuesMap) {
+        static checkStrokeProperties(node, issuesMap, stats) {
           if (!("strokes" in node))
             return;
           const strokes = node.strokes;
           if (!Array.isArray(strokes) || strokes.length === 0)
             return;
+          stats.totalAttributes++;
           if (!this.isPaintColorVariableBound(strokes)) {
             const solidStroke = strokes.find((stroke) => stroke.type === "SOLID" && stroke.visible !== false);
             if (solidStroke && solidStroke.type === "SOLID") {
@@ -7498,16 +7542,22 @@ ${Object.keys(cssProperties).map((property) => {
           const hasNumericStrokeWeight = "strokeWeight" in node && typeof node.strokeWeight === "number";
           const strokeWeightValue = hasNumericStrokeWeight ? node.strokeWeight : 0;
           const anyStrokeWeightBound = this.isVariableBound(node, "strokeWeight") || this.isVariableBound(node, "strokeTopWeight") || this.isVariableBound(node, "strokeRightWeight") || this.isVariableBound(node, "strokeBottomWeight") || this.isVariableBound(node, "strokeLeftWeight");
-          if (hasNumericStrokeWeight && strokeWeightValue !== 0 && !anyStrokeWeightBound) {
-            this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke");
+          if (hasNumericStrokeWeight && strokeWeightValue !== 0) {
+            stats.totalAttributes++;
+            if (!anyStrokeWeightBound) {
+              this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke");
+            }
           }
         }
         /**
          * Checks appearance properties (opacity, radius)
          */
-        static checkAppearanceProperties(node, issuesMap) {
-          if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0 && !this.isVariableBound(node, "opacity")) {
-            this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
+        static checkAppearanceProperties(node, issuesMap, stats) {
+          if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0) {
+            stats.totalAttributes++;
+            if (!this.isVariableBound(node, "opacity")) {
+              this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
+            }
           }
           if ("cornerRadius" in node && node.type !== "SECTION") {
             const rectNode = node;
@@ -7517,26 +7567,42 @@ ${Object.keys(cssProperties).map((property) => {
             const bottomRight = "bottomRightRadius" in rectNode && typeof rectNode.bottomRightRadius === "number" ? rectNode.bottomRightRadius : 0;
             const allRadiiSame = topLeft === topRight && topRight === bottomLeft && bottomLeft === bottomRight;
             if (rectNode.cornerRadius !== figma.mixed && typeof rectNode.cornerRadius === "number") {
-              if (rectNode.cornerRadius > 0 && !this.isVariableBound(rectNode, "cornerRadius") && !this.isVariableBound(rectNode, "topLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance");
-                return;
+              if (rectNode.cornerRadius > 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(rectNode, "cornerRadius") && !this.isVariableBound(rectNode, "topLeftRadius")) {
+                  this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance");
+                  return;
+                }
               }
             }
             const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
             if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
+              stats.totalAttributes++;
               this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance");
             } else {
-              if (topLeft > 0 && !this.isVariableBound(rectNode, "topLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance");
+              if (topLeft > 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(rectNode, "topLeftRadius")) {
+                  this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance");
+                }
               }
-              if (topRight > 0 && !this.isVariableBound(rectNode, "topRightRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance");
+              if (topRight > 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(rectNode, "topRightRadius")) {
+                  this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance");
+                }
               }
-              if (bottomLeft > 0 && !this.isVariableBound(rectNode, "bottomLeftRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance");
+              if (bottomLeft > 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(rectNode, "bottomLeftRadius")) {
+                  this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance");
+                }
               }
-              if (bottomRight > 0 && !this.isVariableBound(rectNode, "bottomRightRadius")) {
-                this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance");
+              if (bottomRight > 0) {
+                stats.totalAttributes++;
+                if (!this.isVariableBound(rectNode, "bottomRightRadius")) {
+                  this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance");
+                }
               }
             }
           }
@@ -9364,7 +9430,22 @@ ${Object.keys(cssProperties).map((property) => {
           ];
         }
       });
-      function applyVariableToNode(node, variable, property, category) {
+      function matchesTargetValue(paint, targetValue) {
+        if (!targetValue)
+          return true;
+        if (!paint || !paint.color)
+          return false;
+        const { r, g, b } = paint.color;
+        const toHex = (n) => {
+          const hex2 = Math.round(n * 255).toString(16);
+          return hex2.length === 1 ? "0" + hex2 : hex2;
+        };
+        const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+        const rgb = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+        const target = targetValue.trim();
+        return target.toUpperCase() === hex || target === rgb || target.replace(/\s/g, "") === rgb.replace(/\s/g, "");
+      }
+      function applyVariableToNode(node, variable, property, category, targetValue) {
         return __awaiter(this, void 0, void 0, function* () {
           try {
             const propertyMap = {
@@ -9421,7 +9502,7 @@ ${Object.keys(cssProperties).map((property) => {
               const fillNode = node;
               if ("fills" in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
                 const fills = [...fillNode.fills];
-                const solidFillIndex = fills.findIndex((fill) => fill && fill.type === "SOLID" && fill.visible !== false);
+                const solidFillIndex = fills.findIndex((fill) => fill && fill.type === "SOLID" && fill.visible !== false && (!fill.boundVariables || !fill.boundVariables.color) && matchesTargetValue(fill, targetValue));
                 if (solidFillIndex !== -1) {
                   const targetPaint = fills[solidFillIndex];
                   const alias = figma.variables.createVariableAlias(variable);
@@ -9434,7 +9515,7 @@ ${Object.keys(cssProperties).map((property) => {
                     throw err;
                   }
                 } else {
-                  console.warn(`[BRIDGY] No solid fill found to apply color`);
+                  console.warn(`[BRIDGY] No suitable solid fill found to apply color`);
                 }
               } else {
                 console.warn(`[BRIDGY] Node has no fills`);
@@ -9443,7 +9524,7 @@ ${Object.keys(cssProperties).map((property) => {
               const strokeNode = node;
               if ("strokes" in strokeNode && Array.isArray(strokeNode.strokes) && strokeNode.strokes.length > 0) {
                 const strokes = [...strokeNode.strokes];
-                const solidStrokeIndex = strokes.findIndex((stroke) => stroke && stroke.type === "SOLID" && stroke.visible !== false);
+                const solidStrokeIndex = strokes.findIndex((stroke) => stroke && stroke.type === "SOLID" && stroke.visible !== false && (!stroke.boundVariables || !stroke.boundVariables.color) && matchesTargetValue(stroke, targetValue));
                 if (solidStrokeIndex !== -1) {
                   const targetPaint = strokes[solidStrokeIndex];
                   const alias = figma.variables.createVariableAlias(variable);
@@ -9456,7 +9537,7 @@ ${Object.keys(cssProperties).map((property) => {
                     throw err;
                   }
                 } else {
-                  console.warn(`[BRIDGY] No solid stroke found to apply color`);
+                  console.warn(`[BRIDGY] No suitable solid stroke found to apply color`);
                 }
               }
             } else {
@@ -10859,7 +10940,7 @@ ${Object.keys(cssProperties).map((property) => {
             case "apply-token-to-nodes":
               try {
                 const applyMsg = msg;
-                const { nodeIds, variableId, property, category } = applyMsg;
+                const { nodeIds, variableId, property, category, targetValue } = applyMsg;
                 if (!nodeIds || !variableId || !property || !category) {
                   throw new Error("Missing required parameters for applying token");
                 }
@@ -10886,7 +10967,7 @@ ${Object.keys(cssProperties).map((property) => {
                       errors.push(`Node ${nodeId}: Invalid type ${node.type}`);
                       continue;
                     }
-                    const applied = yield applyVariableToNode(node, variable, property, category);
+                    const applied = yield applyVariableToNode(node, variable, property, category, targetValue);
                     if (applied) {
                       successCount++;
                     } else {

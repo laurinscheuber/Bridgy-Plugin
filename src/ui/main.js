@@ -2874,12 +2874,21 @@ window.onmessage = (event) => {
                   delete window.tokenFixInProgress;
                 });
 
-                // Update state incrementally
-                const mvCat = window.qualityState.categories.missingVariables;
-                mvCat.bad = Math.max(0, mvCat.bad - 1);
-                mvCat.good = mvCat.good + 1;
-                mvCat.score = mvCat.total === 0 ? 100 : Math.round((mvCat.good / mvCat.total) * 100);
-                updateAllCategoryUI();
+                // CORRECTION LOGIC: If some nodes failed, we need to revert the optimistic update for them
+                if (message.failCount > 0 && window.qualityState && window.qualityState.categories.missingVariables) {
+                  const mvCat = window.qualityState.categories.missingVariables;
+                  console.warn(`Reverting optimistic update for ${message.failCount} failed nodes`);
+
+                  // Revert operations for failed nodes
+                  mvCat.bad = mvCat.bad + message.failCount;
+                  mvCat.good = Math.max(0, mvCat.good - message.failCount);
+
+                  // Recalculate score
+                  mvCat.score = mvCat.total === 0 ? 100 : Math.round((mvCat.good / mvCat.total) * 100);
+
+                  // Update UI to reflect correction
+                  updateAllCategoryUI();
+                }
               } else {
                 // If card not found, clean up immediately
                 delete window.tokenFixIssueId;
@@ -5348,7 +5357,8 @@ function handleTokenCoverageResult(result) {
   console.log('Quality: Token coverage result received', result);
 
   const cat = window.qualityState.categories.missingVariables;
-  cat.total = result.totalNodes || 0;
+  // Use totalAttributes if available (attribute-based), otherwise fallback to totalNodes
+  cat.total = result.totalAttributes !== undefined ? result.totalAttributes : (result.totalNodes || 0);
   cat.bad = result.totalIssues || 0;
   cat.good = Math.max(0, cat.total - cat.bad);
   cat.score = result.subScores ? result.subScores.tokenCoverage : (cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100));
@@ -5545,7 +5555,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
     }
 
     html += '</div></div>';
-    html += '<button id="' + issueId + '-apply-btn" class="token-fix-apply-btn btn-apply-fix" onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-original-onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" disabled>' +
+    html += '<button id="' + issueId + '-apply-btn" class="token-fix-apply-btn btn-apply-fix" onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-original-onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-target-value="' + SecurityUtils.escapeHTML(val) + '" disabled>' +
       '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply</button>';
     html += '</div>';
   }
@@ -11468,29 +11478,43 @@ function applyTokenToSelection(issueId, property, category) {
     return;
   }
 
+  // Guard against double clicks or concurrent updates
+  if (window.tokenFixInProgress) {
+    console.warn('Fix already in progress, ignoring click');
+    return;
+  }
+
   // Get all selected node IDs
   const occurrenceCheckboxes = document.querySelectorAll(
     `.occurrence-checkbox[data-issue-id="${issueId}"]:checked`,
   );
-  const nodeIds = [];
+
+  // Collect ALL node IDs (do not de-duplicate, as multiple issues may exist on same node)
+  const allNodeIds = [];
 
   occurrenceCheckboxes.forEach((cb) => {
     try {
       const ids = JSON.parse(cb.dataset.nodeIds || '[]');
       if (Array.isArray(ids)) {
-        nodeIds.push(...ids);
+        ids.forEach(id => allNodeIds.push(id));
       }
     } catch (error) {
       console.error('Failed to parse node IDs:', error);
     }
   });
 
+  const nodeIds = allNodeIds;
+
   if (nodeIds.length === 0) {
     console.warn('No nodes selected');
     return;
   }
 
-  console.log('Applying token:', { variableId, property, category, nodeIds });
+  // Get Target Value from button (for precise targeting)
+  const applyBtn = document.getElementById(`${issueId}-apply-btn`);
+  const targetValue = applyBtn ? applyBtn.dataset.targetValue : null;
+
+  console.log('Applying token:', { variableId, property, category, nodeIds: nodeIds.length, targetValue });
 
   // Save scroll position before processing
   window.tokenFixScrollPosition = window.scrollY || document.documentElement.scrollTop;
@@ -11520,15 +11544,38 @@ function applyTokenToSelection(issueId, property, category) {
     }
   }
 
+  // --- OPTIMISTIC UI UPDATE ---
+  // Immediately update stats to reflect the fix
+  const catName = 'missingVariables'; // currently the only category using this flow
+  if (window.qualityState && window.qualityState.categories[catName]) {
+    const cat = window.qualityState.categories[catName];
+
+    // Count total occurrences from the checkboxes (sum of all node occurrences)
+    const fixedIssueCount = nodeIds.length;
+
+    // Update counts
+    cat.bad = Math.max(0, cat.bad - fixedIssueCount);
+    cat.good = Number(cat.good) + fixedIssueCount;
+
+    // Recalculate score based on new counts
+    cat.score = cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100);
+
+    // Update UI immediately
+    updateAllCategoryUI();
+  }
+  // -----------------------------
+
   // Disable button during operation
-  const applyBtn = document.getElementById(`${issueId}-apply-btn`);
+  // const applyBtn is defined above
 
   // Track this button for success feedback handler
   window.lastApplyButtonId = `${issueId}-apply-btn`;
 
-  applyBtn.disabled = true;
-  applyBtn.classList.add('btn-loading');
-  applyBtn.innerHTML = ''; // Clear content for spinner
+  if (applyBtn) {
+    applyBtn.disabled = true;
+    applyBtn.classList.add('btn-loading');
+    applyBtn.innerHTML = ''; // Clear content for spinner
+  }
 
   // Send message to plugin
   parent.postMessage(
@@ -11539,6 +11586,7 @@ function applyTokenToSelection(issueId, property, category) {
         variableId,
         property,
         category,
+        targetValue, // Pass the value to target specific fills
         suppressNotification: true, // Signal backend to suppress standard notification if possible, or handle on frontend
       },
     },
@@ -11547,9 +11595,15 @@ function applyTokenToSelection(issueId, property, category) {
 
   // Auto-reset fallback (safety net)
   setTimeout(() => {
-    if (applyBtn && applyBtn.classList.contains('btn-loading')) {
-      applyBtn.classList.remove('btn-loading');
-      applyBtn.innerHTML =
+    // Remove from processing set regardless of success/fail (timeout fallback)
+    if (window.processingIssues) {
+      window.processingIssues.delete(issueId);
+    }
+
+    const btn = document.getElementById(`${issueId}-apply-btn`);
+    if (btn && btn.classList.contains('btn-loading')) {
+      btn.classList.remove('btn-loading');
+      btn.innerHTML =
         '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
       updateIssueApplyButtonState(issueId);
     }
