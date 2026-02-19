@@ -2777,6 +2777,36 @@ window.onmessage = (event) => {
           el.classList.add('quality-fade-out');
           el.addEventListener('animationend', () => el.remove());
         }
+
+        // Update parent component set count if variant was deleted
+        if (deletionType === 'variant' && message.parentId) {
+          const parentAccordion = document.querySelector(`.quality-accordion[data-component-id="${message.parentId}"]`);
+          if (parentAccordion) {
+            const badge = parentAccordion.querySelector('.quality-variant-badge');
+            if (badge) {
+              const text = badge.textContent; // e.g. "3/4"
+              const parts = text.split('/');
+              if (parts.length === 2) {
+                let unused = parseInt(parts[0]);
+                let total = parseInt(parts[1]);
+                if (!isNaN(unused) && !isNaN(total)) {
+                  unused = Math.max(0, unused - 1);
+                  total = Math.max(0, total - 1);
+                  badge.textContent = `${unused}/${total}`;
+
+                  // If no more unused variants, remove the whole accordion eventually?
+                  // Or let it be 0/X until refresh. 
+                  // If unused becomes 0, usually we remove it from "Unused Components" list entirely.
+                  if (unused === 0) {
+                    // Optionally fade out parent accordion too
+                    parentAccordion.classList.add('quality-fade-out');
+                    setTimeout(() => parentAccordion.remove(), 300);
+                  }
+                }
+              }
+            }
+          }
+        }
       }
 
       // Update state incrementally
