@@ -41,7 +41,7 @@ describe('TokenCoverageService', () => {
     const mockNodes = [
       {
         id: 'node1',
-        type: 'FRAME',
+        type: 'COMPONENT',
         layoutMode: 'AUTO',
         fills: [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }], // Hardcoded white
         boundVariables: {},
@@ -57,33 +57,33 @@ describe('TokenCoverageService', () => {
     expect(result.totalNodes).toBe(1);
     expect(result.subScores).toBeDefined();
     expect(result.subScores?.tokenCoverage).toBeDefined();
-    
+
     // 1 issue (fills) on 1 node -> density score should be < 100
     expect(result.qualityScore).toBeLessThan(100);
   });
 
   it('should validate Tailwind v4 compatibility', async () => {
-     // Mock Variables with mix of valid/invalid names
+    // Mock Variables with mix of valid/invalid names
     const mockVariables = [
       {
-         variable: { id: 'v1', name: 'color/primary', resolvedType: 'COLOR', valuesByMode: {} },
-         collection: { defaultModeId: 'm1', name: 'C1' } 
+        variable: { id: 'v1', name: 'color/primary', resolvedType: 'COLOR', valuesByMode: {} },
+        collection: { defaultModeId: 'm1', name: 'C1' }
       },
       {
-         variable: { id: 'v2', name: 'invalid/name', resolvedType: 'COLOR', valuesByMode: {} },
-         collection: { defaultModeId: 'm1', name: 'C1' }
+        variable: { id: 'v2', name: 'invalid/name', resolvedType: 'COLOR', valuesByMode: {} },
+        collection: { defaultModeId: 'm1', name: 'C1' }
       }
     ];
 
     (figma.variables.getLocalVariableCollectionsAsync as any).mockResolvedValue([{ variableIds: ['v1', 'v2'] }]);
     (figma.variables.getVariableByIdAsync as any).mockImplementation((id) => {
-        return Promise.resolve(mockVariables.find(m => m.variable.id === id)?.variable);
+      return Promise.resolve(mockVariables.find(m => m.variable.id === id)?.variable);
     });
 
     (figma.currentPage.findAll as any).mockReturnValue([]); // No nodes, just checking var analysis
 
     const result = await TokenCoverageService.analyzeCurrentPage();
-    
+
     // Total vars = 2. Valid = 1 (color/primary). Invalid = 1. Score = 50.
     expect(result.tailwindValidation.valid.length).toBe(1);
     expect(result.tailwindValidation.invalid.length).toBe(1);
