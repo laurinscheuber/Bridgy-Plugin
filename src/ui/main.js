@@ -2242,6 +2242,46 @@ window.onmessage = (event) => {
             delete window.tailwindFixInProgress;
             delete window.tailwindFixedGroupName;
 
+            // Check if a validation result arrived while we were animating
+            if (window.pendingTailwindValidation) {
+              console.log('Processing pending tailwind validation after animation');
+              const validation = window.pendingTailwindValidation;
+              window.tailwindV4Validation = validation;
+              delete window.pendingTailwindValidation;
+              
+              // Process the validation data to update quality state
+              if (validation && validation.groups) {
+                 let total = 0;
+                 let bad = 0;
+                 validation.groups.forEach(g => {
+                   total += g.variableCount;
+                   if (!g.isValid) bad += g.variableCount;
+                 });
+                 const good = total - bad;
+                 const score = total === 0 ? 100 : Math.round((good / total) * 100);
+
+                 if (!window.qualityState.categories.tailwind) {
+                    window.qualityState.categories.tailwind = {};
+                 }
+                 window.qualityState.categories.tailwind.active = true;
+                 window.qualityState.categories.tailwind.score = score;
+                 window.qualityState.categories.tailwind.good = good;
+                 window.qualityState.categories.tailwind.bad = bad;
+                 window.qualityState.categories.tailwind.total = total;
+                 window.qualityState.categories.tailwind.data = validation;
+                 
+                 // Update the UI
+                 if (typeof updateAllCategoryUI === 'function') {
+                    updateAllCategoryUI();
+                 }
+                 
+                 // If we have issues, we might need to re-render, but usually the UI is already correct via optimistic updates.
+                 // If we have 0 issues, the success message is already shown by the code above.
+                 // Force a re-render only if we have unexpected issues (bad > 0) but the UI thinks we are done?
+                 // For now, trust the optimistic update and just update the header via updateAllCategoryUI.
+              }
+            }
+
             // Trigger a targeted quality state update flag
             // The tailwind-v4-validation message arriving shortly will update the UI components
             window.pendingQualityRefresh = true;
@@ -2265,13 +2305,36 @@ window.onmessage = (event) => {
       // which is sent by the plugin after renaming
 
       // Update top-level counts for "Standalone variables" and "Invalid groups"
-      const isStandalone = !message.oldGroupName || message.oldGroupName === 'Ungrouped' || message.oldGroupName.indexOf('/') === -1;
+      // Determine which container the item belonged to by checking the DOM element
       let containerId = '';
+      let isGroup = false;
 
-      if (isStandalone) {
-        containerId = 'tw-standalone';
-      } else {
-        containerId = 'tw-invalid-groups';
+      if (window.tailwindProcessingItemId) {
+        const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
+        if (itemCard) {
+          const invalidGroupsContainer = document.getElementById('tw-invalid-groups');
+          const standaloneContainer = document.getElementById('tw-standalone');
+
+          if (invalidGroupsContainer && invalidGroupsContainer.contains(itemCard)) {
+            containerId = 'tw-invalid-groups';
+            isGroup = true;
+          } else if (standaloneContainer && standaloneContainer.contains(itemCard)) {
+            containerId = 'tw-standalone';
+            isGroup = false;
+          }
+        }
+      }
+
+      // Fallback matching if DOM element is gone (shouldn't happen with current logic as we hide instead of remove)
+      if (!containerId) {
+         const isStandalone = !message.oldGroupName || message.oldGroupName === 'Ungrouped' || message.oldGroupName.indexOf('/') === -1;
+         if (isStandalone && message.renamedCount === 1) { // Heuristic: if 1 var and looks component-like, assume standalone
+             containerId = 'tw-standalone';
+             isGroup = false;
+         } else {
+             containerId = 'tw-invalid-groups';
+             isGroup = true;
+         }
       }
 
       const containerEl = document.getElementById(containerId);
@@ -2279,9 +2342,12 @@ window.onmessage = (event) => {
         const countEl = containerEl.querySelector('.quality-accordion-count');
         if (countEl) {
           let currentCount = parseInt(countEl.textContent.replace(/[^0-9]/g, '')) || 0;
-          // Decrease by the number of renamed items (variableCount)
-          const renamedCount = message.renamedCount || 1;
-          currentCount = Math.max(0, currentCount - renamedCount);
+          
+          // If it's a group, we decrement by 1 (one group removed)
+          // If it's standalone items, we decrement by the number of variables (or 1 if individual)
+          const decrementAmount = isGroup ? 1 : (message.renamedCount || 1);
+          
+          currentCount = Math.max(0, currentCount - decrementAmount);
 
           countEl.textContent = currentCount;
 
@@ -2291,42 +2357,44 @@ window.onmessage = (event) => {
           }
         }
       }
-    } else if (message.type === 'variable-group-rename-error') {
-      console.error('Error renaming variable group:', message.error);
+      // Check if BOTH sections are empty/hidden
+      const invalidGroupsContainer = document.getElementById('tw-invalid-groups');
+      const standaloneContainer = document.getElementById('tw-standalone');
+      
+      const invalidGroupsVisible = invalidGroupsContainer && invalidGroupsContainer.style.display !== 'none';
+      const standaloneVisible = standaloneContainer && standaloneContainer.style.display !== 'none';
 
-      if (typeof showNotification === 'function') {
-        showNotification(
-          'error',
-          'Rename Failed',
-          message.error || 'Failed to rename variable group',
-        );
-      }
-
-      // Restore scroll position
-      if (window.tailwindScrollPosition !== undefined) {
-        window.scrollTo(0, window.tailwindScrollPosition);
-        delete window.tailwindScrollPosition;
-      }
-
-      // Re-enable buttons if the item still exists
-      if (window.tailwindProcessingItemId) {
-        const addPrefixBtn = document.getElementById(`${window.tailwindProcessingItemId}-add-prefix-btn`);
-        const replaceBtn = document.getElementById(`${window.tailwindProcessingItemId}-replace-btn`);
-
-        if (addPrefixBtn) {
-          addPrefixBtn.disabled = false;
-          addPrefixBtn.style.opacity = '1';
-          addPrefixBtn.style.pointerEvents = 'auto';
-          addPrefixBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span> Add Prefix';
+      // If both are hidden (or don't exist), show success message
+      if (!invalidGroupsVisible && !standaloneVisible) {
+        const tailwindContent = document.getElementById('tailwind-content');
+        if (tailwindContent) {
+           tailwindContent.innerHTML = `
+            <div class="tailwind-success-message" style="text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease-out;">
+              <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
+              </div>
+              <h3 style="margin: 0 0 8px; color: white; font-size: 16px; font-weight: 600;">All variables compatible!</h3>
+              <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5;">
+                Congratulations, you have resolved all tailwind incompatible variables.
+              </p>
+            </div>
+          `;
+          
+          // Force update the category header to green immediately
+          const twHeader = document.querySelector('#quality-cat-tailwind .quality-category-title');
+          if (twHeader) {
+            twHeader.style.color = '#22c55e';
+            if (!twHeader.querySelector('.check-icon')) {
+               const check = document.createElement('span');
+               check.className = 'material-symbols-outlined check-icon';
+               check.textContent = 'check_circle';
+               check.style.cssText = 'font-size: 16px; margin-left: 8px; vertical-align: middle;';
+               twHeader.appendChild(check);
+            }
+          }
         }
-
-        if (replaceBtn) {
-          replaceBtn.disabled = false;
-          replaceBtn.style.opacity = '1';
-          replaceBtn.style.pointerEvents = 'auto';
-          replaceBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">find_replace</span> Replace';
-        }
       }
+      // Error handling block removed as this handler is for success only
 
       // Clean up saved state and allow re-rendering again
       delete window.tailwindProcessingItemId;
@@ -2584,17 +2652,19 @@ window.onmessage = (event) => {
         });
       }
     } else if (message.type === 'tailwind-v4-validation') {
+      // If a fix is in progress, defer processing to prevent race conditions
+      if (window.tailwindFixInProgress) {
+        console.log('Deferring tailwind validation until animation completes');
+        window.pendingTailwindValidation = message.validation;
+        return;
+      }
+
       // Store Tailwind v4 validation result
       tailwindV4Validation = message.validation;
       window.tailwindV4Validation = message.validation;
 
-      // Skip re-rendering if a Tailwind fix is in progress to prevent layout shift
-      if (window.tailwindFixInProgress) {
-
-        // Just update the validation data, don't re-render
-        // The CSS hiding animation will complete smoothly
-      } else {
-        // Normal flow: re-render variables to show validation issues
+      // Normal flow: re-render variables to show validation issues
+      if (window.variablesData) { // Use simpler check instead of re-checking tailwindFixInProgress logic
         if (variablesData && variablesData.length > 0) {
           try {
             console.log('[DEBUG] tailwind-v4-validation handler calling renderVariables');
@@ -2664,6 +2734,33 @@ window.onmessage = (event) => {
       // Handle successful refresh
       // Deprecated in favor of refresh-success
     } else if (message.type === 'variable-group-rename-error') {
+      // Check for race-condition errors (e.g. double submission)
+      // If we are currently fixing or JUST fixed something, and we get an error about "undefined" or "not found",
+      // it's likely a race condition from a double-click. Ignore it.
+      const isRaceCondition = window.tailwindFixInProgress || window.justFixedTailwind;
+      const isNotFoundError = !message.error || message.error.includes('undefined') || message.error.includes('not found') || message.error.includes('No variables found');
+
+      if (isRaceCondition && isNotFoundError) {
+        console.log('Suppressing race-condition error during/after tailwind fix:', message.error);
+        return;
+      }
+
+        // Clean up state if GENUINE error occurs
+      if (window.tailwindFixInProgress) {
+         if (window.tailwindProcessingItemId) {
+            const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
+            if (itemCard) {
+               // Restore visibility if we started hiding it
+               itemCard.style.opacity = '1';
+               itemCard.style.display = '';
+            }
+         }
+         delete window.tailwindProcessingItemId;
+         delete window.tailwindActiveCollectionId;
+         delete window.tailwindFixInProgress;
+         delete window.tailwindFixedGroupName;
+      }
+      
       showNotification('error', 'Rename Failed', message.error || 'Failed to rename variable group');
     } else if (message.type === 'refresh-error') {
       // Handle refresh error
@@ -2815,6 +2912,18 @@ window.onmessage = (event) => {
       ucCat.good = ucCat.good + 1;
       ucCat.score = ucCat.total === 0 ? 100 : Math.round((ucCat.good / ucCat.total) * 100);
       updateAllCategoryUI();
+      
+      // If we reached 0 issues, verify and show success message
+      if (ucCat.bad === 0) {
+        const container = document.getElementById('unused-components-content');
+        if (container) {
+           renderResolutionSuccessState(
+              container,
+              'No unused components!',
+              'Excellent! All components in your system are being utilized.'
+           );
+        }
+      }
 
     } else if (message.type === 'batch-variants-deleted') {
       // Handle successful batch variant deletion
@@ -2848,6 +2957,18 @@ window.onmessage = (event) => {
       bvCat.good = bvCat.good + deletedCount;
       bvCat.score = bvCat.total === 0 ? 100 : Math.round((bvCat.good / bvCat.total) * 100);
       updateAllCategoryUI();
+
+      // If we reached 0 issues, verify and show success message
+      if (bvCat.bad === 0) {
+        const container = document.getElementById('unused-components-content');
+        if (container) {
+           renderResolutionSuccessState(
+              container,
+              'No unused components!',
+              'Excellent! All components in your system are being utilized.'
+           );
+        }
+      }
 
     } else if (message.type === 'delete-component-error') {
       // Handle component deletion error
@@ -5344,6 +5465,51 @@ function updateCategoryProgress(id, category) {
     pctEl.textContent = category.score + '%';
     pctEl.style.color = getScoreColor(category.score);
   }
+
+  // General success state styling (green header + checkmark)
+  const section = document.getElementById('quality-cat-' + id);
+  if (section) {
+    const title = section.querySelector('.quality-category-title');
+    if (title) {
+      if (category.score === 100) {
+        title.style.color = '#22c55e'; // Green
+        if (!title.querySelector('.check-icon')) {
+          const check = document.createElement('span');
+          check.className = 'material-symbols-outlined check-icon';
+          check.textContent = 'check_circle';
+          check.style.cssText = 'font-size: 16px; margin-left: 8px; vertical-align: middle;';
+          title.appendChild(check);
+        }
+      } else {
+        title.style.color = ''; // Reset
+        const check = title.querySelector('.check-icon');
+        if (check) check.remove();
+      }
+    }
+  }
+
+  // Toggle Tailwind section visibility specifically
+  if (id === 'tailwind') {
+    const twSection = document.getElementById('quality-cat-tailwind');
+    if (twSection) {
+       twSection.style.display = category.active ? '' : 'none';
+    }
+  }
+}
+
+function renderResolutionSuccessState(container, title, message) {
+  if (!container) return;
+  container.innerHTML = `
+    <div class="quality-success-message" style="text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease-out;">
+      <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+        <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
+      </div>
+      <h3 style="margin: 0 0 8px; color: white; font-size: 16px; font-weight: 600;">${title}</h3>
+      <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5;">
+        ${message}
+      </p>
+    </div>
+  `;
 }
 
 function updateQualityGauge() {
@@ -5503,7 +5669,11 @@ function renderMissingVariablesContent(result) {
   });
 
   if (!hasAnyIssues) {
-    container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">No missing variable issues found.</div>';
+    renderResolutionSuccessState(
+      container,
+      'All variables found!',
+      'Great job! All styles are correctly linked to variables.'
+    );
     return;
   }
 
@@ -5683,7 +5853,11 @@ function renderUnusedVariablesContent(result) {
   if (!container) return;
 
   if (!result.unusedVariables || result.unusedVariables.length === 0) {
-    container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">No unused variables found.</div>';
+    renderResolutionSuccessState(
+      container,
+      'No unused variables!',
+      'Your design system is clean. All variables are being used.'
+    );
     return;
   }
 
@@ -5734,7 +5908,11 @@ function renderUnusedComponentsContent(result) {
   if (!container) return;
 
   if (!result.unusedComponents || result.unusedComponents.length === 0) {
-    container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">No unused components found.</div>';
+    renderResolutionSuccessState(
+      container,
+      'No unused components!',
+      'Excellent! All components in your system are being utilized.'
+    );
     return;
   }
 
@@ -5792,7 +5970,17 @@ function renderTailwindContent(validation) {
   if (!container) return;
 
   if (!validation || !validation.invalidGroups || validation.invalidGroups.length === 0) {
-    container.innerHTML = '<div style="padding: 16px 0; color: rgba(255,255,255,0.5); font-size: 12px;">All variables are Tailwind compatible.</div>';
+    container.innerHTML = `
+      <div class="tailwind-success-message" style="text-align: center; padding: 40px 20px;">
+        <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+          <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
+        </div>
+        <h3 style="margin: 0 0 8px; color: white; font-size: 16px; font-weight: 600;">All variables compatible!</h3>
+        <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5;">
+          Congratulations, you have resolved all tailwind incompatible variables.
+        </p>
+      </div>
+    `;
     return;
   }
 
@@ -5875,6 +6063,18 @@ window.deleteUnusedVariableNew = function (variableId, variableName, rowId) {
   cat.score = cat.total === 0 ? 100 : Math.round((cat.good / cat.total) * 100);
 
   updateAllCategoryUI();
+
+  // If we reached 0 issues, verify and show success message
+  if (cat.bad === 0) {
+    const container = document.getElementById('unused-variables-content');
+    if (container) {
+       renderResolutionSuccessState(
+          container,
+          'No unused variables!',
+          'Your design system is clean. All variables are being used.'
+       );
+    }
+  }
 };
 
 window.loadMoreMVIssues = function (category, currentCount) {
