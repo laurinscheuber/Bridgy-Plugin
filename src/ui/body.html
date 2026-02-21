@@ -249,7 +249,7 @@
         <div id="quality-cat-missing-variables" class="quality-category-section">
           <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-missing-variables')">
             <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
-            <h3 class="quality-category-title">Missing Variables</h3>
+            <h3 class="quality-category-title" data-tooltip="Identify elements using hard-coded values instead of design variables.">Missing Variables</h3>
             <div class="quality-category-stats" id="stats-missing-variables">
               <span class="cat-good-count" id="good-missing-variables">0</span>
               <div class="quality-progress-bar">
@@ -260,7 +260,6 @@
             </div>
           </div>
           <div class="quality-category-body" id="body-missing-variables" style="display: none;">
-            <p class="quality-category-desc">Identify elements using hard-coded values instead of design variables.</p>
             <div id="missing-variables-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -271,7 +270,7 @@
         <div id="quality-cat-unused-variables" class="quality-category-section">
           <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-unused-variables')">
             <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
-            <h3 class="quality-category-title">Unused Variables</h3>
+            <h3 class="quality-category-title" data-tooltip="Variables not used in any component, variant, instance, or styling property.">Unused Variables</h3>
             <div class="quality-category-stats" id="stats-unused-variables">
               <span class="cat-good-count" id="good-unused-variables">0</span>
               <div class="quality-progress-bar">
@@ -282,7 +281,6 @@
             </div>
           </div>
           <div class="quality-category-body" id="body-unused-variables" style="display: none;">
-            <p class="quality-category-desc">Variables not used in any component, variant, instance, or styling property.</p>
             <div id="unused-variables-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -293,7 +291,7 @@
         <div id="quality-cat-unused-components" class="quality-category-section">
           <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-unused-components')">
             <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
-            <h3 class="quality-category-title">Unused Components</h3>
+            <h3 class="quality-category-title" data-tooltip="Components or variants that are not used anywhere in the design file.">Unused Components</h3>
             <div class="quality-category-stats" id="stats-unused-components">
               <span class="cat-good-count" id="good-unused-components">0</span>
               <div class="quality-progress-bar">
@@ -304,7 +302,6 @@
             </div>
           </div>
           <div class="quality-category-body" id="body-unused-components" style="display: none;">
-            <p class="quality-category-desc">Components or variants that are not used anywhere in the design file.</p>
             <div id="unused-components-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -315,7 +312,7 @@
         <div id="quality-cat-tailwind" class="quality-category-section" style="display: none;">
           <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-tailwind')">
             <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
-            <h3 class="quality-category-title">Tailwind Incompatible Variables</h3>
+            <h3 class="quality-category-title" data-tooltip="Variables that need Tailwind v4 compatible namespaces.">Tailwind Incompatible Variables</h3>
             <div class="quality-category-stats" id="stats-tailwind">
               <span class="cat-good-count" id="good-tailwind">0</span>
               <div class="quality-progress-bar">
@@ -326,7 +323,6 @@
             </div>
           </div>
           <div class="quality-category-body" id="body-tailwind" style="display: none;">
-            <p class="quality-category-desc">Variables that need Tailwind v4 compatible namespaces.</p>
             <div id="tailwind-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
