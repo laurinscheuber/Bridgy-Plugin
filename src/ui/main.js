@@ -5684,12 +5684,15 @@ function renderMissingVariablesContent(result) {
     if (issues.length === 0) return;
 
     const groupId = 'mv-' + category;
+    
+    // Calculate total attributes missing for this category
+    const totalAttributes = issues.reduce((sum, issue) => sum + (issue.totalNodes || issue.count || 0), 0);
 
     html += '<div class="quality-accordion" id="' + groupId + '">' +
       '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
       '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
       '<span class="quality-accordion-title">' + SecurityUtils.escapeHTML(category) + '</span>' +
-      '<span class="quality-accordion-count">' + issues.length + '</span>' +
+      '<span class="quality-accordion-count">' + totalAttributes + '</span>' +
       '</div>' +
       '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;">';
 
@@ -5732,7 +5735,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
   const colorPreview = isColor ? '<div class="quality-color-preview" style="background: ' + val + ';"></div>' : '';
 
   let html = '<div id="' + issueId + '-card" class="quality-issue-card" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
-    '<div class="quality-issue-header" onclick="toggleIssueCard(\'' + issueId + '\')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; border-radius: 8px;">' +
+    '<div class="quality-issue-header" onclick="toggleIssueCard(\'' + issueId + '\')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; cursor: pointer; border-radius: 8px;">' +
     '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
     '<span id="' + issueId + '-chevron" class="material-symbols-outlined" style="font-size: 18px; opacity: 0.7; transition: transform 0.2s;">chevron_right</span>' +
     '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap;">' + SecurityUtils.escapeHTML(issue.property) + '</div>' +
@@ -5745,7 +5748,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
     '<span style="font-size: 11px; font-weight: 500;">' + (issue.totalNodes || issue.count) + '</span>' +
     '</div>' +
     '</div>' +
-    '<div id="' + issueId + '-body" style="display: none; padding: 8px 12px;">';
+    '<div id="' + issueId + '-body" style="display: none; padding: 8px 16px;">';
 
   if (exactMatches.length === 0 && nearMatches.length === 0) {
     html += '<div style="margin-bottom: 8px;">' +
@@ -5814,27 +5817,27 @@ function renderMissingVarIssueCard(issue, category, idx) {
     componentGroups[frameName].instances.push({ id: issue.nodeIds[i], name: nodeName });
   });
 
-  Object.entries(componentGroups).forEach(([groupName, data], groupIdx) => {
-    const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
-    html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
-      '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">' +
-      '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
-      '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
-      '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
-      // USE groupName as the Header Title (it contains the Context/Component Name)
-      '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
-      '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
-      '</div>' +
-      '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
-
-    data.instances.forEach(inst => {
-      html += '<div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0;">' +
-        '<div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">' +
-        '<span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>' +
-        '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
+    Object.entries(componentGroups).forEach(([groupName, data], groupIdx) => {
+      const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
+      html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
+        '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 16px 6px 0; cursor: pointer;">' +
+        '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
+        '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
+        '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
+        // USE groupName as the Header Title (it contains the Context/Component Name)
+        '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
+        '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
         '</div>' +
-        '<button class="quality-focus-btn" onclick="window.focusOnNode(\'' + inst.id + '\')"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button></div>';
-    });
+        '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
+
+      data.instances.forEach(inst => {
+        html += '<div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 4px 0;">' +
+          '<div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">' +
+          '<span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>' +
+          '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
+          '</div>' +
+          '<button class="quality-focus-btn" onclick="window.focusOnNode(\'' + inst.id + '\')"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button></div>';
+      });
 
     html += '</div></div>';
   });

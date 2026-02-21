@@ -5740,14 +5740,7 @@ input[type='checkbox']:indeterminate {
   transition: all 0.2s ease;
 }
 
-/* Active/Expanded State - Violet Highlight */
-.quality-issue-card.expanded {
-  background: rgba(139, 92, 246, 0.1);
-  /* Light violet background */
-  border-color: #8b5cf6;
-  /* Violet border */
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.2);
-}
+/* Active/Expanded State - Violet Highlight removed to reduce layer clutter */
 
 .quality-issue-card:hover {
   border-color: rgba(139, 92, 246, 0.2);
@@ -7134,7 +7127,7 @@ body.edit-mode .quality-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 16px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
