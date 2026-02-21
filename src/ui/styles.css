@@ -6285,6 +6285,7 @@ input[type='checkbox']:indeterminate {
 .page-selector-btn {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 6px 12px;
   background: rgba(255, 255, 255, 0.06);
@@ -6297,6 +6298,7 @@ input[type='checkbox']:indeterminate {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: 140px;
 }
 
 .page-selector-btn:hover {
