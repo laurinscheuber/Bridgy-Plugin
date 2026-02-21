@@ -6312,7 +6312,7 @@ input[type='checkbox']:indeterminate {
 .page-selector-dropdown {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;
   margin-top: 8px;
   width: 260px;
   background: #1a1a1a;
@@ -6324,6 +6324,7 @@ input[type='checkbox']:indeterminate {
   flex-direction: column;
   overflow: hidden;
   animation: dropdownFadeIn 0.2s ease-out;
+  transform-origin: top right;
 }
 
 @keyframes dropdownFadeIn {
@@ -6802,12 +6803,46 @@ body.edit-mode .quality-header {
   margin-bottom: 24px;
 }
 
-.quality-header-controls {
-  display: flex;
+.quality-score-layout-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  gap: 16px 32px;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  min-height: 32px;
+  justify-content: center;
+}
+
+.quality-gauge-cell {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.quality-legend-cell {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.quality-label-cell {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: -8px;
+}
+
+.quality-dropdown-cell {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .quality-page-selector {
@@ -6851,14 +6886,6 @@ body.edit-mode .quality-header {
 }
 
 /* --- Score Section --- */
-.quality-score-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 48px;
-  padding: 16px 0;
-}
-
 .quality-score-gauge {
   display: flex;
   flex-direction: column;
@@ -6888,10 +6915,10 @@ body.edit-mode .quality-header {
 }
 
 .quality-score-label-main {
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 300;
   color: white;
-  letter-spacing: -0.2px;
+  letter-spacing: 0.5px;
   margin-top: -1px;
 }
 

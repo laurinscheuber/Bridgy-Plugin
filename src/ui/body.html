@@ -205,30 +205,40 @@
     <div class="content-padding">
       <!-- Quality Header -->
       <div class="quality-header-new">
-        <div class="quality-header-controls">
-          <!-- Page Selection Dropdown -->
-          <div id="quality-page-selector-container" class="quality-page-selector">
-            <div style="font-size: 11px; opacity: 0.5;">Checking Pages...</div>
-          </div>
-        </div>
-
-        <div class="quality-score-section">
-          <!-- Left: Circular Score -->
-          <div class="quality-score-gauge">
-            <div id="quality-score-ring-container" class="quality-score-ring">
-              <!-- SVG gauge injected here -->
+        <div class="quality-score-layout-grid">
+          <!-- Top Left: Circular Score -->
+          <div class="quality-gauge-cell">
+            <div class="quality-score-gauge">
+              <div id="quality-score-ring-container" class="quality-score-ring">
+                <!-- SVG gauge injected here -->
+              </div>
             </div>
+          </div>
+
+          <!-- Top Right: Legend -->
+          <div class="quality-legend-cell">
+            <div class="quality-score-legend">
+              <div class="legend-item"><span class="legend-dot legend-critical"></span> 0 - 49 (Beginner)</div>
+              <div class="legend-item"><span class="legend-dot legend-average"></span> 50 - 89 (Intermediate)</div>
+              <div class="legend-item"><span class="legend-dot legend-optimal"></span> 90 - 100 (Professional)</div>
+            </div>
+          </div>
+
+          <!-- Bottom Left: Title & Stats Text -->
+          <div class="quality-label-cell">
             <div class="quality-score-label">
               <div class="quality-score-label-sub">Design System</div>
               <div class="quality-score-label-main">Quality Score</div>
               <div id="quality-summary-stats" class="quality-score-label-stats">0 nodes • 0 issues</div>
             </div>
           </div>
-          <!-- Right: Legend -->
-          <div class="quality-score-legend">
-            <div class="legend-item"><span class="legend-dot legend-critical"></span> 0 - 49 (Critical)</div>
-            <div class="legend-item"><span class="legend-dot legend-average"></span> 50 - 89 (Average)</div>
-            <div class="legend-item"><span class="legend-dot legend-optimal"></span> 90 - 100 (Optimal)</div>
+
+          <!-- Bottom Right: Dropdown -->
+          <div class="quality-dropdown-cell">
+            <!-- Page Selection Dropdown -->
+            <div id="quality-page-selector-container" class="quality-page-selector">
+              <div style="font-size: 11px; opacity: 0.5;">Checking Pages...</div>
+            </div>
           </div>
         </div>
       </div>
