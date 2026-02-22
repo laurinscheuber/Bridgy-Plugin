@@ -1286,11 +1286,11 @@ export class TokenCoverageService {
    *
    * Algorithm: walk UP the ancestor chain from the node itself (inclusive).
    * The first COMPONENT, COMPONENT_SET, or INSTANCE boundary found IS the owner.
-   *  - If that boundary is an INSTANCE  → resolve to its main component (from map)
-   *  - If that boundary is a COMPONENT  → use it directly
-   * Non-component nodes (FRAME, GROUP, RECTANGLE, TEXT …) are transparent and never
-   * redefine the ownership context. This ensures an entire instance subtree is always
-   * grouped under the instance's source component, not the visual parent.
+   *  - VARIANT (COMPONENT inside COMPONENT_SET) → type 'VARIANT', name "SetName / VariantName"
+   *  - COMPONENT (standalone)                  → type 'COMPONENT'
+   *  - COMPONENT_SET                            → type 'COMPONENT_SET'
+   *  - INSTANCE                                 → resolve to main component (or VARIANT)
+   * Non-component nodes (FRAME, GROUP, RECTANGLE, TEXT …) are transparent.
    */
   private static getOwnershipContext(
     node: SceneNode,
@@ -1301,15 +1301,28 @@ export class TokenCoverageService {
     while (current) {
       if (current.type === 'PAGE' || current.type === 'DOCUMENT') break;
 
-      if (current.type === 'COMPONENT' || current.type === 'COMPONENT_SET') {
-        // This component IS the owner.
-        return { id: current.id, name: current.name, type: current.type };
+      if (current.type === 'COMPONENT_SET') {
+        return { id: current.id, name: current.name, type: 'COMPONENT_SET' };
+      }
+
+      if (current.type === 'COMPONENT') {
+        // Check if this component is a variant (its parent is a COMPONENT_SET)
+        if (current.parent && current.parent.type === 'COMPONENT_SET') {
+          const setName = current.parent.name;
+          return { id: current.id, name: `${setName} / ${current.name}`, type: 'VARIANT' };
+        }
+        return { id: current.id, name: current.name, type: 'COMPONENT' };
       }
 
       if (current.type === 'INSTANCE') {
         // Look up the main component in the prefetched map.
         const mainComp = instanceMainCompMap.get(current.id);
         if (mainComp) {
+          // Check if the main component is itself a variant
+          if (mainComp.parent && mainComp.parent.type === 'COMPONENT_SET') {
+            const setName = mainComp.parent.name;
+            return { id: mainComp.id, name: `${setName} / ${mainComp.name}`, type: 'VARIANT' };
+          }
           return { id: mainComp.id, name: mainComp.name, type: 'COMPONENT' };
         }
         // Main component unavailable (remote or inaccessible) → fall back to the instance itself.

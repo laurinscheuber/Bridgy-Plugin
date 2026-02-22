@@ -5760,47 +5760,54 @@ function renderMissingVariablesContent(result) {
 
 /**
  * Returns an inline SVG icon for a node group header based on node type.
- * COMPONENT / COMPONENT_SET → Figma component icon (solid purple diamond)
- * INSTANCE → Figma instance icon (hollow purple diamond)
- * other → generic layers icon (Material Symbols)
+ * Uses the real Figma-style icons (from uploaded SVGs), scaled to 14×14.
  */
 function getNodeGroupIconSvg(nodeType) {
+  // Component: four-diamond cross (solid)
   if (nodeType === 'COMPONENT' || nodeType === 'COMPONENT_SET') {
-    // Figma component icon: solid purple diamond
-    return '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-      '<rect x="7" y="0.5" width="9" height="9" rx="1" transform="rotate(45 7 0.5)" fill="#C75EEA"/>' +
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path fill-rule="evenodd" clip-rule="evenodd" d="M6.75067 5.25067L7.69333 6.19333L11.0573 9.55733L12 10.5L12.9427 9.55733L16.3067 6.19333L17.2493 5.25067L16.3067 4.30667L12.9427 0.942667L12 0L11.0573 0.942667L7.69333 4.30667L6.75067 5.25067ZM6.75067 18.7493L7.69333 19.6933L11.0573 23.0573L12 24L12.9427 23.0573L16.3067 19.6933L17.2493 18.7507L16.3067 17.8067L12.9427 14.4427L12 13.5L11.0573 14.4427L7.69333 17.8067L6.75067 18.7493ZM0.942667 12.9427L0 12L0.942667 11.0573L4.30667 7.69333L5.25067 6.75067L6.19333 7.69333L9.55733 11.0573L10.5 12L9.55733 12.9427L6.19333 16.3067L5.25067 17.2493L4.30667 16.3067L0.942667 12.9427ZM13.5 12L14.4427 12.9427L17.8067 16.3067L18.7493 17.2493L19.6933 16.3067L23.0573 12.9427L24 12L23.0573 11.0573L19.6933 7.69333L18.7507 6.75067L17.8067 7.69333L14.4427 11.0573L13.5 12Z" fill="#9747FF"/>' +
       '</svg>';
   }
+  // Variant: solid diamond
+  if (nodeType === 'VARIANT') {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path fill-rule="evenodd" clip-rule="evenodd" d="M24 12L12 0L0 12L12 24L24 12Z" fill="#9747FF"/>' +
+      '</svg>';
+  }
+  // Instance: hollow diamond (outline only)
   if (nodeType === 'INSTANCE') {
-    // Figma instance icon: hollow purple diamond with white fill
-    return '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-      '<rect x="7" y="1.5" width="7.5" height="7.5" rx="0.5" transform="rotate(45 7 1.5)" fill="rgba(255,255,255,0.08)" stroke="#C75EEA" stroke-width="1.4"/>' +
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path fill-rule="evenodd" clip-rule="evenodd" d="M24 12L12 0L0 12L12 24L24 12ZM1.88533 12L12 1.88533L22.1147 12L12 22.1147L1.88533 12Z" fill="#9747FF"/>' +
       '</svg>';
   }
-  // Fallback: generic icon
+  // Fallback: generic square
   return '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-    '<rect x="1" y="1" width="12" height="12" rx="2" fill="rgba(255,255,255,0.15)"/>' +
+    '<rect x="1" y="1" width="12" height="12" rx="2" fill="rgba(255,255,255,0.2)"/>' +
     '</svg>';
 }
 
 /**
  * Returns an inline SVG icon for an individual leaf node based on node type.
- * COMPONENT / COMPONENT_SET → Figma component icon (small, solid)
- * INSTANCE → Figma instance icon (small, hollow)
- * other → generic layer square
+ * Same icons as the header, scaled to 12×12.
  */
 function getNodeLeafIconSvg(nodeType) {
   if (nodeType === 'COMPONENT' || nodeType === 'COMPONENT_SET') {
-    return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-      '<rect x="6" y="0.5" width="7.5" height="7.5" rx="0.5" transform="rotate(45 6 0.5)" fill="#C75EEA"/>' +
+    return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path fill-rule="evenodd" clip-rule="evenodd" d="M6.75067 5.25067L7.69333 6.19333L11.0573 9.55733L12 10.5L12.9427 9.55733L16.3067 6.19333L17.2493 5.25067L16.3067 4.30667L12.9427 0.942667L12 0L11.0573 0.942667L7.69333 4.30667L6.75067 5.25067ZM6.75067 18.7493L7.69333 19.6933L11.0573 23.0573L12 24L12.9427 23.0573L16.3067 19.6933L17.2493 18.7507L16.3067 17.8067L12.9427 14.4427L12 13.5L11.0573 14.4427L7.69333 17.8067L6.75067 18.7493ZM0.942667 12.9427L0 12L0.942667 11.0573L4.30667 7.69333L5.25067 6.75067L6.19333 7.69333L9.55733 11.0573L10.5 12L9.55733 12.9427L6.19333 16.3067L5.25067 17.2493L4.30667 16.3067L0.942667 12.9427ZM13.5 12L14.4427 12.9427L17.8067 16.3067L18.7493 17.2493L19.6933 16.3067L23.0573 12.9427L24 12L23.0573 11.0573L19.6933 7.69333L18.7507 6.75067L17.8067 7.69333L14.4427 11.0573L13.5 12Z" fill="#9747FF"/>' +
+      '</svg>';
+  }
+  if (nodeType === 'VARIANT') {
+    return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path fill-rule="evenodd" clip-rule="evenodd" d="M24 12L12 0L0 12L12 24L24 12Z" fill="#9747FF"/>' +
       '</svg>';
   }
   if (nodeType === 'INSTANCE') {
-    return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-      '<rect x="6" y="1" width="6.5" height="6.5" rx="0.5" transform="rotate(45 6 1)" fill="rgba(255,255,255,0.08)" stroke="#C75EEA" stroke-width="1.3"/>' +
+    return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path fill-rule="evenodd" clip-rule="evenodd" d="M24 12L12 0L0 12L12 24L24 12ZM1.88533 12L12 1.88533L22.1147 12L12 22.1147L1.88533 12Z" fill="#9747FF"/>' +
       '</svg>';
   }
-  // Fallback: generic layers-style icon
+  // Fallback
   return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
     '<rect x="1" y="1" width="10" height="10" rx="2" fill="rgba(255,255,255,0.25)"/>' +
     '</svg>';
@@ -5906,6 +5913,9 @@ function renderMissingVarIssueCard(issue, category, idx) {
 
   Object.entries(componentGroups).forEach(([groupName, data], groupIdx) => {
     const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
+    // data.groupType is set by the backend ownership context ('COMPONENT', 'VARIANT', 'INSTANCE').
+    // Use it directly — leaf nodeType values are actual Figma types (RECTANGLE, TEXT, …)
+    // and never contain 'VARIANT' since Figma API exposes variants as COMPONENT nodes.
     const groupIconSvg = getNodeGroupIconSvg(data.groupType);
     html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
       '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 16px 6px 0; cursor: pointer;">' +
