@@ -5719,6 +5719,43 @@ function renderMissingVariablesContent(result) {
   });
 
   container.innerHTML = html;
+
+  // Auto-expand if we have a pending issue ID from variable creation
+  if (window.pendingFixIssueId) {
+    const issueId = window.pendingFixIssueId;
+    const parts = issueId.split('-');
+    if (parts.length >= 3) {
+      const category = parts.slice(1, parts.length - 1).join('-');
+      const groupId = 'mv-' + category;
+
+      setTimeout(() => {
+        // Expand the category accordion if it's currently closed
+        const accordion = document.getElementById(groupId);
+        if (accordion && !accordion.classList.contains('expanded')) {
+          if (typeof window.toggleQualityAccordion === 'function') {
+            window.toggleQualityAccordion(groupId);
+          }
+        }
+
+        // Expand the specific issue card if it's currently closed
+        const issueCard = document.getElementById(issueId + '-card');
+        if (issueCard && !issueCard.classList.contains('expanded')) {
+          if (typeof window.toggleIssueCard === 'function') {
+            window.toggleIssueCard(issueId);
+          }
+        }
+
+        // Scroll into view
+        if (issueCard) {
+          issueCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+    }
+
+    // Clear state so it only runs once per variable creation
+    window.pendingFixIssueId = null;
+    window.pendingFixContext = null;
+  }
 }
 
 function renderMissingVarIssueCard(issue, category, idx) {
