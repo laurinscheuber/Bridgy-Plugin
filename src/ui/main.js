@@ -2248,37 +2248,37 @@ window.onmessage = (event) => {
               const validation = window.pendingTailwindValidation;
               window.tailwindV4Validation = validation;
               delete window.pendingTailwindValidation;
-              
+
               // Process the validation data to update quality state
               if (validation && validation.groups) {
-                 let total = 0;
-                 let bad = 0;
-                 validation.groups.forEach(g => {
-                   total += g.variableCount;
-                   if (!g.isValid) bad += g.variableCount;
-                 });
-                 const good = total - bad;
-                 const score = total === 0 ? 100 : Math.round((good / total) * 100);
+                let total = 0;
+                let bad = 0;
+                validation.groups.forEach(g => {
+                  total += g.variableCount;
+                  if (!g.isValid) bad += g.variableCount;
+                });
+                const good = total - bad;
+                const score = total === 0 ? 100 : Math.round((good / total) * 100);
 
-                 if (!window.qualityState.categories.tailwind) {
-                    window.qualityState.categories.tailwind = {};
-                 }
-                 window.qualityState.categories.tailwind.active = true;
-                 window.qualityState.categories.tailwind.score = score;
-                 window.qualityState.categories.tailwind.good = good;
-                 window.qualityState.categories.tailwind.bad = bad;
-                 window.qualityState.categories.tailwind.total = total;
-                 window.qualityState.categories.tailwind.data = validation;
-                 
-                 // Update the UI
-                 if (typeof updateAllCategoryUI === 'function') {
-                    updateAllCategoryUI();
-                 }
-                 
-                 // If we have issues, we might need to re-render, but usually the UI is already correct via optimistic updates.
-                 // If we have 0 issues, the success message is already shown by the code above.
-                 // Force a re-render only if we have unexpected issues (bad > 0) but the UI thinks we are done?
-                 // For now, trust the optimistic update and just update the header via updateAllCategoryUI.
+                if (!window.qualityState.categories.tailwind) {
+                  window.qualityState.categories.tailwind = {};
+                }
+                window.qualityState.categories.tailwind.active = true;
+                window.qualityState.categories.tailwind.score = score;
+                window.qualityState.categories.tailwind.good = good;
+                window.qualityState.categories.tailwind.bad = bad;
+                window.qualityState.categories.tailwind.total = total;
+                window.qualityState.categories.tailwind.data = validation;
+
+                // Update the UI
+                if (typeof updateAllCategoryUI === 'function') {
+                  updateAllCategoryUI();
+                }
+
+                // If we have issues, we might need to re-render, but usually the UI is already correct via optimistic updates.
+                // If we have 0 issues, the success message is already shown by the code above.
+                // Force a re-render only if we have unexpected issues (bad > 0) but the UI thinks we are done?
+                // For now, trust the optimistic update and just update the header via updateAllCategoryUI.
               }
             }
 
@@ -2327,14 +2327,14 @@ window.onmessage = (event) => {
 
       // Fallback matching if DOM element is gone (shouldn't happen with current logic as we hide instead of remove)
       if (!containerId) {
-         const isStandalone = !message.oldGroupName || message.oldGroupName === 'Ungrouped' || message.oldGroupName.indexOf('/') === -1;
-         if (isStandalone && message.renamedCount === 1) { // Heuristic: if 1 var and looks component-like, assume standalone
-             containerId = 'tw-standalone';
-             isGroup = false;
-         } else {
-             containerId = 'tw-invalid-groups';
-             isGroup = true;
-         }
+        const isStandalone = !message.oldGroupName || message.oldGroupName === 'Ungrouped' || message.oldGroupName.indexOf('/') === -1;
+        if (isStandalone && message.renamedCount === 1) { // Heuristic: if 1 var and looks component-like, assume standalone
+          containerId = 'tw-standalone';
+          isGroup = false;
+        } else {
+          containerId = 'tw-invalid-groups';
+          isGroup = true;
+        }
       }
 
       const containerEl = document.getElementById(containerId);
@@ -2342,11 +2342,11 @@ window.onmessage = (event) => {
         const countEl = containerEl.querySelector('.quality-accordion-count');
         if (countEl) {
           let currentCount = parseInt(countEl.textContent.replace(/[^0-9]/g, '')) || 0;
-          
+
           // If it's a group, we decrement by 1 (one group removed)
           // If it's standalone items, we decrement by the number of variables (or 1 if individual)
           const decrementAmount = isGroup ? 1 : (message.renamedCount || 1);
-          
+
           currentCount = Math.max(0, currentCount - decrementAmount);
 
           countEl.textContent = currentCount;
@@ -2360,7 +2360,7 @@ window.onmessage = (event) => {
       // Check if BOTH sections are empty/hidden
       const invalidGroupsContainer = document.getElementById('tw-invalid-groups');
       const standaloneContainer = document.getElementById('tw-standalone');
-      
+
       const invalidGroupsVisible = invalidGroupsContainer && invalidGroupsContainer.style.display !== 'none';
       const standaloneVisible = standaloneContainer && standaloneContainer.style.display !== 'none';
 
@@ -2368,7 +2368,7 @@ window.onmessage = (event) => {
       if (!invalidGroupsVisible && !standaloneVisible) {
         const tailwindContent = document.getElementById('tailwind-content');
         if (tailwindContent) {
-           tailwindContent.innerHTML = `
+          tailwindContent.innerHTML = `
             <div class="tailwind-success-message" style="text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease-out;">
               <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                 <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
@@ -2379,17 +2379,17 @@ window.onmessage = (event) => {
               </p>
             </div>
           `;
-          
+
           // Force update the category header to green immediately
           const twHeader = document.querySelector('#quality-cat-tailwind .quality-category-title');
           if (twHeader) {
             twHeader.style.color = '#22c55e';
             if (!twHeader.querySelector('.check-icon')) {
-               const check = document.createElement('span');
-               check.className = 'material-symbols-outlined check-icon';
-               check.textContent = 'check_circle';
-               check.style.cssText = 'font-size: 16px; margin-left: 8px; vertical-align: middle;';
-               twHeader.appendChild(check);
+              const check = document.createElement('span');
+              check.className = 'material-symbols-outlined check-icon';
+              check.textContent = 'check_circle';
+              check.style.cssText = 'font-size: 16px; margin-left: 8px; vertical-align: middle;';
+              twHeader.appendChild(check);
             }
           }
         }
@@ -2745,22 +2745,22 @@ window.onmessage = (event) => {
         return;
       }
 
-        // Clean up state if GENUINE error occurs
+      // Clean up state if GENUINE error occurs
       if (window.tailwindFixInProgress) {
-         if (window.tailwindProcessingItemId) {
-            const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
-            if (itemCard) {
-               // Restore visibility if we started hiding it
-               itemCard.style.opacity = '1';
-               itemCard.style.display = '';
-            }
-         }
-         delete window.tailwindProcessingItemId;
-         delete window.tailwindActiveCollectionId;
-         delete window.tailwindFixInProgress;
-         delete window.tailwindFixedGroupName;
+        if (window.tailwindProcessingItemId) {
+          const itemCard = document.getElementById(`${window.tailwindProcessingItemId}-card`);
+          if (itemCard) {
+            // Restore visibility if we started hiding it
+            itemCard.style.opacity = '1';
+            itemCard.style.display = '';
+          }
+        }
+        delete window.tailwindProcessingItemId;
+        delete window.tailwindActiveCollectionId;
+        delete window.tailwindFixInProgress;
+        delete window.tailwindFixedGroupName;
       }
-      
+
       showNotification('error', 'Rename Failed', message.error || 'Failed to rename variable group');
     } else if (message.type === 'refresh-error') {
       // Handle refresh error
@@ -2912,16 +2912,16 @@ window.onmessage = (event) => {
       ucCat.good = ucCat.good + 1;
       ucCat.score = ucCat.total === 0 ? 100 : Math.round((ucCat.good / ucCat.total) * 100);
       updateAllCategoryUI();
-      
+
       // If we reached 0 issues, verify and show success message
       if (ucCat.bad === 0) {
         const container = document.getElementById('unused-components-content');
         if (container) {
-           renderResolutionSuccessState(
-              container,
-              'No unused components!',
-              'Excellent! All components in your system are being utilized.'
-           );
+          renderResolutionSuccessState(
+            container,
+            'No unused components!',
+            'Excellent! All components in your system are being utilized.'
+          );
         }
       }
 
@@ -2962,11 +2962,11 @@ window.onmessage = (event) => {
       if (bvCat.bad === 0) {
         const container = document.getElementById('unused-components-content');
         if (container) {
-           renderResolutionSuccessState(
-              container,
-              'No unused components!',
-              'Excellent! All components in your system are being utilized.'
-           );
+          renderResolutionSuccessState(
+            container,
+            'No unused components!',
+            'Excellent! All components in your system are being utilized.'
+          );
         }
       }
 
@@ -5492,7 +5492,7 @@ function updateCategoryProgress(id, category) {
   if (id === 'tailwind') {
     const twSection = document.getElementById('quality-cat-tailwind');
     if (twSection) {
-       twSection.style.display = category.active ? '' : 'none';
+      twSection.style.display = category.active ? '' : 'none';
     }
   }
 }
@@ -5684,7 +5684,7 @@ function renderMissingVariablesContent(result) {
     if (issues.length === 0) return;
 
     const groupId = 'mv-' + category;
-    
+
     // Calculate total attributes missing for this category
     const totalAttributes = issues.reduce((sum, issue) => sum + (issue.totalNodes || issue.count || 0), 0);
 
@@ -5756,6 +5756,54 @@ function renderMissingVariablesContent(result) {
     window.pendingFixIssueId = null;
     window.pendingFixContext = null;
   }
+}
+
+/**
+ * Returns an inline SVG icon for a node group header based on node type.
+ * COMPONENT / COMPONENT_SET → Figma component icon (solid purple diamond)
+ * INSTANCE → Figma instance icon (hollow purple diamond)
+ * other → generic layers icon (Material Symbols)
+ */
+function getNodeGroupIconSvg(nodeType) {
+  if (nodeType === 'COMPONENT' || nodeType === 'COMPONENT_SET') {
+    // Figma component icon: solid purple diamond
+    return '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="7" y="0.5" width="9" height="9" rx="1" transform="rotate(45 7 0.5)" fill="#C75EEA"/>' +
+      '</svg>';
+  }
+  if (nodeType === 'INSTANCE') {
+    // Figma instance icon: hollow purple diamond with white fill
+    return '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="7" y="1.5" width="7.5" height="7.5" rx="0.5" transform="rotate(45 7 1.5)" fill="rgba(255,255,255,0.08)" stroke="#C75EEA" stroke-width="1.4"/>' +
+      '</svg>';
+  }
+  // Fallback: generic icon
+  return '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect x="1" y="1" width="12" height="12" rx="2" fill="rgba(255,255,255,0.15)"/>' +
+    '</svg>';
+}
+
+/**
+ * Returns an inline SVG icon for an individual leaf node based on node type.
+ * COMPONENT / COMPONENT_SET → Figma component icon (small, solid)
+ * INSTANCE → Figma instance icon (small, hollow)
+ * other → generic layer square
+ */
+function getNodeLeafIconSvg(nodeType) {
+  if (nodeType === 'COMPONENT' || nodeType === 'COMPONENT_SET') {
+    return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="6" y="0.5" width="7.5" height="7.5" rx="0.5" transform="rotate(45 6 0.5)" fill="#C75EEA"/>' +
+      '</svg>';
+  }
+  if (nodeType === 'INSTANCE') {
+    return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="6" y="1" width="6.5" height="6.5" rx="0.5" transform="rotate(45 6 1)" fill="rgba(255,255,255,0.08)" stroke="#C75EEA" stroke-width="1.3"/>' +
+      '</svg>';
+  }
+  // Fallback: generic layers-style icon
+  return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect x="1" y="1" width="10" height="10" rx="2" fill="rgba(255,255,255,0.25)"/>' +
+    '</svg>';
 }
 
 function renderMissingVarIssueCard(issue, category, idx) {
@@ -5848,33 +5896,37 @@ function renderMissingVarIssueCard(issue, category, idx) {
   const componentGroups = {};
   issue.nodeNames.forEach((nodeName, i) => {
     const frameName = issue.nodeFrames ? issue.nodeFrames[i] : 'Unknown Frame';
-    if (!componentGroups[frameName]) componentGroups[frameName] = { count: 0, ids: [], instances: [] };
+    const groupType = (issue.nodeGroupTypes && issue.nodeGroupTypes[i]) ? issue.nodeGroupTypes[i] : 'INSTANCE';
+    const nodeType = (issue.nodeTypes && issue.nodeTypes[i]) ? issue.nodeTypes[i] : 'INSTANCE';
+    if (!componentGroups[frameName]) componentGroups[frameName] = { count: 0, ids: [], instances: [], groupType };
     componentGroups[frameName].count++;
     componentGroups[frameName].ids.push(issue.nodeIds[i]);
-    componentGroups[frameName].instances.push({ id: issue.nodeIds[i], name: nodeName });
+    componentGroups[frameName].instances.push({ id: issue.nodeIds[i], name: nodeName, nodeType });
   });
 
-    Object.entries(componentGroups).forEach(([groupName, data], groupIdx) => {
-      const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
-      html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
-        '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 16px 6px 0; cursor: pointer;">' +
-        '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
-        '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
-        '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
-        // USE groupName as the Header Title (it contains the Context/Component Name)
-        '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
-        '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
-        '</div>' +
-        '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
+  Object.entries(componentGroups).forEach(([groupName, data], groupIdx) => {
+    const ngId = 'node-group-' + category + '-' + idx + '-' + groupIdx;
+    const groupIconSvg = getNodeGroupIconSvg(data.groupType);
+    html += '<div class="quality-node-item" data-issue-id="' + issueId + '">' +
+      '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 16px 6px 0; cursor: pointer;">' +
+      '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
+      '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
+      '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
+      '<span style="margin-right: 6px; flex-shrink: 0; display: flex; align-items: center;">' + groupIconSvg + '</span>' +
+      '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
+      '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
+      '</div>' +
+      '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
 
-      data.instances.forEach(inst => {
-        html += '<div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 4px 0;">' +
-          '<div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">' +
-          '<span class="material-symbols-outlined" style="font-size: 14px; opacity: 0.5;">layers</span>' +
-          '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
-          '</div>' +
-          '<button class="quality-focus-btn" onclick="window.focusOnNode(\'' + inst.id + '\')"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button></div>';
-      });
+    data.instances.forEach(inst => {
+      const leafIconSvg = getNodeLeafIconSvg(inst.nodeType);
+      html += '<div class="instance-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 4px 0;">' +
+        '<div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">' +
+        '<span style="flex-shrink: 0; display: flex; align-items: center; opacity: 0.6;">' + leafIconSvg + '</span>' +
+        '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
+        '</div>' +
+        '<button class="quality-focus-btn" onclick="window.focusOnNode(\'' + inst.id + '\')" title="Focus on layer"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button></div>';
+    });
 
     html += '</div></div>';
   });
@@ -6108,11 +6160,11 @@ window.deleteUnusedVariableNew = function (variableId, variableName, rowId) {
   if (cat.bad === 0) {
     const container = document.getElementById('unused-variables-content');
     if (container) {
-       renderResolutionSuccessState(
-          container,
-          'No unused variables!',
-          'Your design system is clean. All variables are being used.'
-       );
+      renderResolutionSuccessState(
+        container,
+        'No unused variables!',
+        'Your design system is clean. All variables are being used.'
+      );
     }
   }
 };
@@ -10346,7 +10398,7 @@ function showPreview(tokens) {
   }
 
   // Load existing collections to populate the dropdown
-  loadExistingCollections();
+  // loadExistingCollections(); // REMOVED to prevent infinite loop (showPreview -> loadExistingCollections -> updateExistingCollectionsDropdown -> showPreview)
 }
 
 function checkDuplicate(tokenName) {

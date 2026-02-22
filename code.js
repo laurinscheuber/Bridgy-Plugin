@@ -7075,6 +7075,7 @@ ${Object.keys(cssProperties).map((property) => {
             const localComponentDefs = /* @__PURE__ */ new Map();
             const componentUsage = /* @__PURE__ */ new Map();
             const variantToSetId = /* @__PURE__ */ new Map();
+            const instanceMainCompMap = /* @__PURE__ */ new Map();
             let totalNodes = 0;
             let autoLayoutCount = 0;
             let instanceCount = 0;
@@ -7121,14 +7122,14 @@ ${Object.keys(cssProperties).map((property) => {
                 });
               }
               if (node.type === "INSTANCE") {
-                let mainId = null;
+                let mainComp = null;
                 try {
-                  const main = yield node.getMainComponentAsync();
-                  if (main)
-                    mainId = main.id;
+                  mainComp = yield node.getMainComponentAsync();
                 } catch (e) {
                 }
-                if (mainId) {
+                if (mainComp) {
+                  const mainId = mainComp.id;
+                  instanceMainCompMap.set(node.id, mainComp);
                   if (!componentUsage.has(mainId)) {
                     componentUsage.set(mainId, /* @__PURE__ */ new Set());
                   }
@@ -7160,7 +7161,7 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                 }
               }
-              yield this.analyzeNode(node, issuesMap, stats);
+              yield this.analyzeNode(node, issuesMap, stats, instanceMainCompMap);
             }
             const unusedVariables = [];
             allVariables.forEach((v) => {
@@ -7400,12 +7401,12 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Analyzes a single node for token coverage issues
          */
-        static analyzeNode(node, issuesMap, stats) {
-          return __awaiter(this, void 0, void 0, function* () {
-            this.checkLayoutProperties(node, issuesMap, stats);
-            this.checkFillProperties(node, issuesMap, stats);
-            this.checkStrokeProperties(node, issuesMap, stats);
-            this.checkAppearanceProperties(node, issuesMap, stats);
+        static analyzeNode(node_1, issuesMap_1, stats_1) {
+          return __awaiter(this, arguments, void 0, function* (node, issuesMap, stats, instanceMainCompMap = /* @__PURE__ */ new Map()) {
+            this.checkLayoutProperties(node, issuesMap, stats, instanceMainCompMap);
+            this.checkFillProperties(node, issuesMap, stats, instanceMainCompMap);
+            this.checkStrokeProperties(node, issuesMap, stats, instanceMainCompMap);
+            this.checkAppearanceProperties(node, issuesMap, stats, instanceMainCompMap);
           });
         }
         /**
@@ -7421,51 +7422,51 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Checks layout properties (spacing, sizing)
          */
-        static checkLayoutProperties(node, issuesMap, stats) {
+        static checkLayoutProperties(node, issuesMap, stats, instanceMainCompMap = /* @__PURE__ */ new Map()) {
           if (!("minWidth" in node))
             return;
           const layoutNode = node;
           if ("minWidth" in layoutNode && layoutNode.minWidth !== null && layoutNode.minWidth !== 0) {
             stats.totalAttributes++;
             if (!this.isVariableBound(layoutNode, "minWidth")) {
-              this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout");
+              this.addIssue(issuesMap, "Min Width", this.formatValue(layoutNode.minWidth), node, "Layout", instanceMainCompMap);
             }
           }
           if (layoutNode.maxWidth !== null && layoutNode.maxWidth !== 0) {
             stats.totalAttributes++;
             if (!this.isVariableBound(layoutNode, "maxWidth")) {
-              this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout");
+              this.addIssue(issuesMap, "Max Width", this.formatValue(layoutNode.maxWidth), node, "Layout", instanceMainCompMap);
             }
           }
           if ("width" in layoutNode && layoutNode.width && typeof layoutNode.width === "number" && layoutNode.width !== 0 && !this.isWidthDynamic(layoutNode)) {
             stats.totalAttributes++;
             if (!this.isVariableBound(layoutNode, "width")) {
-              this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout");
+              this.addIssue(issuesMap, "Width", this.formatValue(layoutNode.width), node, "Layout", instanceMainCompMap);
             }
           }
           if ("height" in layoutNode && layoutNode.height && typeof layoutNode.height === "number" && layoutNode.height !== 0 && !this.isHeightDynamic(layoutNode)) {
             stats.totalAttributes++;
             if (!this.isVariableBound(layoutNode, "height")) {
-              this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout");
+              this.addIssue(issuesMap, "Height", this.formatValue(layoutNode.height), node, "Layout", instanceMainCompMap);
             }
           }
           if ("minHeight" in layoutNode && layoutNode.minHeight !== null && layoutNode.minHeight !== 0) {
             stats.totalAttributes++;
             if (!this.isVariableBound(layoutNode, "minHeight")) {
-              this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout");
+              this.addIssue(issuesMap, "Min Height", this.formatValue(layoutNode.minHeight), node, "Layout", instanceMainCompMap);
             }
           }
           if ("maxHeight" in layoutNode && layoutNode.maxHeight !== null && layoutNode.maxHeight !== 0) {
             stats.totalAttributes++;
             if (!this.isVariableBound(layoutNode, "maxHeight")) {
-              this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout");
+              this.addIssue(issuesMap, "Max Height", this.formatValue(layoutNode.maxHeight), node, "Layout", instanceMainCompMap);
             }
           }
           if ("layoutMode" in layoutNode && layoutNode.layoutMode !== "NONE") {
             if (typeof layoutNode.itemSpacing === "number" && layoutNode.itemSpacing !== 0) {
               stats.totalAttributes++;
               if (!this.isVariableBound(layoutNode, "itemSpacing")) {
-                this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout");
+                this.addIssue(issuesMap, "Gap", this.formatValue(layoutNode.itemSpacing), node, "Layout", instanceMainCompMap);
               }
             }
             const paddingLeft = typeof layoutNode.paddingLeft === "number" ? layoutNode.paddingLeft : 0;
@@ -7476,30 +7477,30 @@ ${Object.keys(cssProperties).map((property) => {
             const anyPaddingBound = this.isVariableBound(layoutNode, "paddingLeft") || this.isVariableBound(layoutNode, "paddingTop") || this.isVariableBound(layoutNode, "paddingRight") || this.isVariableBound(layoutNode, "paddingBottom");
             if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
               stats.totalAttributes++;
-              this.addIssue(issuesMap, "Padding", this.formatValue(paddingLeft), node, "Layout");
+              this.addIssue(issuesMap, "Padding", this.formatValue(paddingLeft), node, "Layout", instanceMainCompMap);
             } else {
               if (paddingLeft !== 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(layoutNode, "paddingLeft")) {
-                  this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout");
+                  this.addIssue(issuesMap, "Padding Left", this.formatValue(paddingLeft), node, "Layout", instanceMainCompMap);
                 }
               }
               if (paddingTop !== 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(layoutNode, "paddingTop")) {
-                  this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout");
+                  this.addIssue(issuesMap, "Padding Top", this.formatValue(paddingTop), node, "Layout", instanceMainCompMap);
                 }
               }
               if (paddingRight !== 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(layoutNode, "paddingRight")) {
-                  this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout");
+                  this.addIssue(issuesMap, "Padding Right", this.formatValue(paddingRight), node, "Layout", instanceMainCompMap);
                 }
               }
               if (paddingBottom !== 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(layoutNode, "paddingBottom")) {
-                  this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout");
+                  this.addIssue(issuesMap, "Padding Bottom", this.formatValue(paddingBottom), node, "Layout", instanceMainCompMap);
                 }
               }
             }
@@ -7508,7 +7509,7 @@ ${Object.keys(cssProperties).map((property) => {
         /**
          * Checks fill/color properties
          */
-        static checkFillProperties(node, issuesMap, stats) {
+        static checkFillProperties(node, issuesMap, stats, instanceMainCompMap = /* @__PURE__ */ new Map()) {
           if (!("fills" in node))
             return;
           const fills = node.fills;
@@ -7520,14 +7521,14 @@ ${Object.keys(cssProperties).map((property) => {
             if (solidFill && solidFill.type === "SOLID") {
               const color = solidFill.color;
               const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-              this.addIssue(issuesMap, "Fill Color", colorValue, node, "Fill");
+              this.addIssue(issuesMap, "Fill Color", colorValue, node, "Fill", instanceMainCompMap);
             }
           }
         }
         /**
          * Checks stroke properties
          */
-        static checkStrokeProperties(node, issuesMap, stats) {
+        static checkStrokeProperties(node, issuesMap, stats, instanceMainCompMap = /* @__PURE__ */ new Map()) {
           if (!("strokes" in node))
             return;
           const strokes = node.strokes;
@@ -7539,7 +7540,7 @@ ${Object.keys(cssProperties).map((property) => {
             if (solidStroke && solidStroke.type === "SOLID") {
               const color = solidStroke.color;
               const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-              this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke");
+              this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke", instanceMainCompMap);
             }
           }
           const hasNumericStrokeWeight = "strokeWeight" in node && typeof node.strokeWeight === "number";
@@ -7548,18 +7549,18 @@ ${Object.keys(cssProperties).map((property) => {
           if (hasNumericStrokeWeight && strokeWeightValue !== 0) {
             stats.totalAttributes++;
             if (!anyStrokeWeightBound) {
-              this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke");
+              this.addIssue(issuesMap, "Stroke Weight", this.formatValue(strokeWeightValue), node, "Stroke", instanceMainCompMap);
             }
           }
         }
         /**
          * Checks appearance properties (opacity, radius)
          */
-        static checkAppearanceProperties(node, issuesMap, stats) {
+        static checkAppearanceProperties(node, issuesMap, stats, instanceMainCompMap = /* @__PURE__ */ new Map()) {
           if ("opacity" in node && node.opacity !== 1 && node.opacity !== 0) {
             stats.totalAttributes++;
             if (!this.isVariableBound(node, "opacity")) {
-              this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance");
+              this.addIssue(issuesMap, "Opacity", `${node.opacity}`, node, "Appearance", instanceMainCompMap);
             }
           }
           if ("cornerRadius" in node && node.type !== "SECTION") {
@@ -7573,7 +7574,7 @@ ${Object.keys(cssProperties).map((property) => {
               if (rectNode.cornerRadius > 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(rectNode, "cornerRadius") && !this.isVariableBound(rectNode, "topLeftRadius")) {
-                  this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance");
+                  this.addIssue(issuesMap, "Corner Radius", this.formatValue(rectNode.cornerRadius), node, "Appearance", instanceMainCompMap);
                   return;
                 }
               }
@@ -7581,30 +7582,30 @@ ${Object.keys(cssProperties).map((property) => {
             const anyRadiusBound = this.isVariableBound(rectNode, "topLeftRadius") || this.isVariableBound(rectNode, "topRightRadius") || this.isVariableBound(rectNode, "bottomLeftRadius") || this.isVariableBound(rectNode, "bottomRightRadius");
             if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
               stats.totalAttributes++;
-              this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance");
+              this.addIssue(issuesMap, "Corner Radius", this.formatValue(topLeft), node, "Appearance", instanceMainCompMap);
             } else {
               if (topLeft > 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(rectNode, "topLeftRadius")) {
-                  this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance");
+                  this.addIssue(issuesMap, "Corner Radius (Top Left)", this.formatValue(topLeft), node, "Appearance", instanceMainCompMap);
                 }
               }
               if (topRight > 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(rectNode, "topRightRadius")) {
-                  this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance");
+                  this.addIssue(issuesMap, "Corner Radius (Top Right)", this.formatValue(topRight), node, "Appearance", instanceMainCompMap);
                 }
               }
               if (bottomLeft > 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(rectNode, "bottomLeftRadius")) {
-                  this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance");
+                  this.addIssue(issuesMap, "Corner Radius (Bottom Left)", this.formatValue(bottomLeft), node, "Appearance", instanceMainCompMap);
                 }
               }
               if (bottomRight > 0) {
                 stats.totalAttributes++;
                 if (!this.isVariableBound(rectNode, "bottomRightRadius")) {
-                  this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance");
+                  this.addIssue(issuesMap, "Corner Radius (Bottom Right)", this.formatValue(bottomRight), node, "Appearance", instanceMainCompMap);
                 }
               }
             }
@@ -7674,10 +7675,105 @@ ${Object.keys(cssProperties).map((property) => {
           return false;
         }
         /**
-         * Adds or updates an issue in the issues map
+         * Determines the ownership context for any node using the NEAREST-BOUNDARY rule.
+         *
+         * Algorithm: walk UP the ancestor chain from the node itself (inclusive).
+         * The first COMPONENT, COMPONENT_SET, or INSTANCE boundary found IS the owner.
+         *  - If that boundary is an INSTANCE  → resolve to its main component (from map)
+         *  - If that boundary is a COMPONENT  → use it directly
+         * Non-component nodes (FRAME, GROUP, RECTANGLE, TEXT …) are transparent and never
+         * redefine the ownership context. This ensures an entire instance subtree is always
+         * grouped under the instance's source component, not the visual parent.
          */
-        static addIssue(issuesMap, property, value, node, category) {
-          const context = this.getIssueContext(node);
+        static getOwnershipContext(node, instanceMainCompMap) {
+          let current = node;
+          while (current) {
+            if (current.type === "PAGE" || current.type === "DOCUMENT")
+              break;
+            if (current.type === "COMPONENT" || current.type === "COMPONENT_SET") {
+              return { id: current.id, name: current.name, type: current.type };
+            }
+            if (current.type === "INSTANCE") {
+              const mainComp = instanceMainCompMap.get(current.id);
+              if (mainComp) {
+                return { id: mainComp.id, name: mainComp.name, type: "COMPONENT" };
+              }
+              return { id: current.id, name: current.name, type: "INSTANCE" };
+            }
+            current = current.parent;
+          }
+          return null;
+        }
+        /**
+         * Checks whether a given property on an instance differs from the main component's value.
+         * Returns true if the property is overridden (i.e., no longer synchronized).
+         */
+        static isPropertyOverriddenOnInstance(instance, property, instanceValue, mainComp) {
+          try {
+            if (property === "Fill Color") {
+              const fills = mainComp.fills;
+              if (!Array.isArray(fills) || fills.length === 0)
+                return true;
+              const solid = fills.find((f) => f.type === "SOLID" && f.visible !== false);
+              if (!solid)
+                return true;
+              const c = solid.color;
+              const mainValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+              return mainValue !== instanceValue;
+            }
+            if (property === "Stroke Color") {
+              const strokes = mainComp.strokes;
+              if (!Array.isArray(strokes) || strokes.length === 0)
+                return true;
+              const solid = strokes.find((s) => s.type === "SOLID" && s.visible !== false);
+              if (!solid)
+                return true;
+              const c = solid.color;
+              const mainValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+              return mainValue !== instanceValue;
+            }
+            const propMap = {
+              "Width": "width",
+              "Height": "height",
+              "Min Width": "minWidth",
+              "Max Width": "maxWidth",
+              "Min Height": "minHeight",
+              "Max Height": "maxHeight",
+              "Gap": "itemSpacing",
+              "Padding": "paddingLeft",
+              "Padding Left": "paddingLeft",
+              "Padding Top": "paddingTop",
+              "Padding Right": "paddingRight",
+              "Padding Bottom": "paddingBottom",
+              "Corner Radius": "cornerRadius",
+              "Corner Radius (Top Left)": "topLeftRadius",
+              "Corner Radius (Top Right)": "topRightRadius",
+              "Corner Radius (Bottom Left)": "bottomLeftRadius",
+              "Corner Radius (Bottom Right)": "bottomRightRadius",
+              "Stroke Weight": "strokeWeight",
+              "Opacity": "opacity"
+            };
+            const figmaProp = propMap[property];
+            if (figmaProp && figmaProp in mainComp) {
+              const mainRaw = mainComp[figmaProp];
+              if (typeof mainRaw === "number") {
+                const instanceNum = parseFloat(instanceValue);
+                const diff = Math.abs(instanceNum - mainRaw);
+                return diff > VALUE_MATCH_TOLERANCE;
+              }
+            }
+          } catch (e) {
+          }
+          return false;
+        }
+        /**
+         * Adds or updates an issue in the issues map.
+         * Grouping is ownership-based:
+         *  - Synchronized instances → grouped under their main component
+         *  - Overridden instances   → grouped independently
+         */
+        static addIssue(issuesMap, property, value, node, category, instanceMainCompMap = /* @__PURE__ */ new Map()) {
+          const context = this.getOwnershipContext(node, instanceMainCompMap);
           if (!context) {
             return;
           }
@@ -7687,11 +7783,9 @@ ${Object.keys(cssProperties).map((property) => {
             issue.count++;
             issue.nodeIds.push(node.id);
             issue.nodeNames.push(node.name);
-            if (issue.nodeFrames) {
-              issue.nodeFrames.push(context.name);
-            } else {
-              issue.nodeFrames = [context.name];
-            }
+            issue.nodeFrames.push(context.name);
+            issue.nodeGroupTypes.push(context.type);
+            issue.nodeTypes.push(node.type);
           } else {
             issuesMap.set(key, {
               property,
@@ -7700,7 +7794,8 @@ ${Object.keys(cssProperties).map((property) => {
               nodeIds: [node.id],
               nodeNames: [node.name],
               nodeFrames: [context.name],
-              // This will be the "Group Header" in UI
+              nodeGroupTypes: [context.type],
+              nodeTypes: [node.type],
               category
             });
           }
@@ -10646,11 +10741,25 @@ ${Object.keys(cssProperties).map((property) => {
                   type: "import-complete",
                   result: {
                     importedCount: result.success,
+                    success: result.success,
+                    // Added for compatibility with UI
                     errors: result.errors,
                     collectionName: importOptions.collectionName,
                     groupsCreated: result.groupsCreated
                   }
                 });
+                try {
+                  const refreshedData = yield collectDocumentData();
+                  figma.ui.postMessage({
+                    type: "refresh-success",
+                    variables: refreshedData.variables,
+                    styles: refreshedData.styles,
+                    components: refreshedData.components,
+                    message: "Tokens imported and data refreshed"
+                  });
+                } catch (refreshError) {
+                  console.error("Auto-refresh failed:", refreshError);
+                }
               } catch (error) {
                 console.error("Import failed:", error);
                 figma.ui.postMessage({

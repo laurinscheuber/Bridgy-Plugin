@@ -31,6 +31,10 @@ export interface TokenCoverageIssue {
   nodeIds: string[];
   nodeNames: string[];
   nodeFrames: string[];
+  /** Type of each group-header node (COMPONENT, COMPONENT_SET, or INSTANCE) */
+  nodeGroupTypes: string[];
+  /** Type of each individual leaf node (COMPONENT, INSTANCE, FRAME, TEXT, etc.) */
+  nodeTypes: string[];
   category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance';
   matchingVariables?: MatchingVariable[];
 }
@@ -300,6 +304,8 @@ export class TokenCoverageService {
     const localComponentDefs = new Map<string, ComponentNode | ComponentSetNode>();
     const componentUsage = new Map<string, Set<string>>(); // ComponentID -> Set<InstanceID>
     const variantToSetId = new Map<string, string>();
+    // Instance → main component map (for override detection in addIssue)
+    const instanceMainCompMap = new Map<string, ComponentNode>();
 
     // Initialize counters and maps
     let totalNodes = 0;
@@ -378,15 +384,18 @@ export class TokenCoverageService {
 
       // Track Usage (Instances)
       if (node.type === 'INSTANCE') {
-        let mainId = null;
+        let mainComp: ComponentNode | null = null;
         try {
-          const main = await (node as InstanceNode).getMainComponentAsync();
-          if (main) mainId = main.id;
+          mainComp = await (node as InstanceNode).getMainComponentAsync();
         } catch (e) {
           // mainComponent access might fail if remote or other reasons
         }
 
-        if (mainId) {
+        if (mainComp) {
+          const mainId = mainComp.id;
+          // Store for override detection in addIssue
+          instanceMainCompMap.set(node.id, mainComp);
+
           // Mark specific variant as used
           if (!componentUsage.has(mainId)) {
             componentUsage.set(mainId, new Set());
@@ -432,7 +441,7 @@ export class TokenCoverageService {
 
       // --- 3. Token Coverage Analysis ---
       // This MUST be done line-by-line using existing helper
-      await this.analyzeNode(node, issuesMap, stats);
+      await this.analyzeNode(node, issuesMap, stats, instanceMainCompMap);
     }
 
     // --- POST-PROCESSING: Calculate Hygiene Results ---
@@ -781,26 +790,19 @@ export class TokenCoverageService {
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
     stats: AnalysisStats,
+    instanceMainCompMap: Map<string, ComponentNode> = new Map(),
   ): Promise<void> {
-    // SKIP LIMIT: We removed the check for isInsideInstance to allow full recursive analysis.
-    // The previous logic was:
-    // if (this.isInsideInstance(node)) { return; }
-    // Now we analyze EVERYTHING that was passed in.
-
-    // However, we should still ensure we aren't analyzing things that figma.findAll matches but we don't handle.
-    // The updated findAll filters already handle this.
-
     // Check Layout properties
-    this.checkLayoutProperties(node, issuesMap, stats);
+    this.checkLayoutProperties(node, issuesMap, stats, instanceMainCompMap);
 
     // Check Fill properties
-    this.checkFillProperties(node, issuesMap, stats);
+    this.checkFillProperties(node, issuesMap, stats, instanceMainCompMap);
 
     // Check Stroke properties
-    this.checkStrokeProperties(node, issuesMap, stats);
+    this.checkStrokeProperties(node, issuesMap, stats, instanceMainCompMap);
 
     // Check Appearance properties
-    this.checkAppearanceProperties(node, issuesMap, stats);
+    this.checkAppearanceProperties(node, issuesMap, stats, instanceMainCompMap);
   }
 
   /**
@@ -822,6 +824,7 @@ export class TokenCoverageService {
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
     stats: AnalysisStats,
+    instanceMainCompMap: Map<string, ComponentNode> = new Map(),
   ): void {
     // Check if node has layout properties
     if (!('minWidth' in node)) return;
@@ -836,7 +839,7 @@ export class TokenCoverageService {
     ) {
       stats.totalAttributes++;
       if (!this.isVariableBound(layoutNode, 'minWidth')) {
-        this.addIssue(issuesMap, 'Min Width', this.formatValue(layoutNode.minWidth), node, 'Layout');
+        this.addIssue(issuesMap, 'Min Width', this.formatValue(layoutNode.minWidth), node, 'Layout', instanceMainCompMap);
       }
     }
 
@@ -847,7 +850,7 @@ export class TokenCoverageService {
     ) {
       stats.totalAttributes++;
       if (!this.isVariableBound(layoutNode, 'maxWidth')) {
-        this.addIssue(issuesMap, 'Max Width', this.formatValue(layoutNode.maxWidth), node, 'Layout');
+        this.addIssue(issuesMap, 'Max Width', this.formatValue(layoutNode.maxWidth), node, 'Layout', instanceMainCompMap);
       }
     }
 
@@ -861,7 +864,7 @@ export class TokenCoverageService {
     ) {
       stats.totalAttributes++;
       if (!this.isVariableBound(layoutNode, 'width')) {
-        this.addIssue(issuesMap, 'Width', this.formatValue(layoutNode.width), node, 'Layout');
+        this.addIssue(issuesMap, 'Width', this.formatValue(layoutNode.width), node, 'Layout', instanceMainCompMap);
       }
     }
 
@@ -875,7 +878,7 @@ export class TokenCoverageService {
     ) {
       stats.totalAttributes++;
       if (!this.isVariableBound(layoutNode, 'height')) {
-        this.addIssue(issuesMap, 'Height', this.formatValue(layoutNode.height), node, 'Layout');
+        this.addIssue(issuesMap, 'Height', this.formatValue(layoutNode.height), node, 'Layout', instanceMainCompMap);
       }
     }
 
@@ -893,6 +896,7 @@ export class TokenCoverageService {
           this.formatValue(layoutNode.minHeight),
           node,
           'Layout',
+          instanceMainCompMap,
         );
       }
     }
@@ -911,6 +915,7 @@ export class TokenCoverageService {
           this.formatValue(layoutNode.maxHeight),
           node,
           'Layout',
+          instanceMainCompMap,
         );
       }
     }
@@ -924,7 +929,7 @@ export class TokenCoverageService {
       ) {
         stats.totalAttributes++;
         if (!this.isVariableBound(layoutNode, 'itemSpacing')) {
-          this.addIssue(issuesMap, 'Gap', this.formatValue(layoutNode.itemSpacing), node, 'Layout');
+          this.addIssue(issuesMap, 'Gap', this.formatValue(layoutNode.itemSpacing), node, 'Layout', instanceMainCompMap);
         }
       }
 
@@ -948,25 +953,25 @@ export class TokenCoverageService {
       if (allPaddingSame && !anyPaddingBound && paddingLeft !== 0) {
         // Report as consolidated "Padding"
         stats.totalAttributes++;
-        this.addIssue(issuesMap, 'Padding', this.formatValue(paddingLeft), node, 'Layout');
+        this.addIssue(issuesMap, 'Padding', this.formatValue(paddingLeft), node, 'Layout', instanceMainCompMap);
       } else {
         // Report individual padding values (only non-zero and non-bound)
         if (paddingLeft !== 0) {
           stats.totalAttributes++;
           if (!this.isVariableBound(layoutNode, 'paddingLeft')) {
-            this.addIssue(issuesMap, 'Padding Left', this.formatValue(paddingLeft), node, 'Layout');
+            this.addIssue(issuesMap, 'Padding Left', this.formatValue(paddingLeft), node, 'Layout', instanceMainCompMap);
           }
         }
         if (paddingTop !== 0) {
           stats.totalAttributes++;
           if (!this.isVariableBound(layoutNode, 'paddingTop')) {
-            this.addIssue(issuesMap, 'Padding Top', this.formatValue(paddingTop), node, 'Layout');
+            this.addIssue(issuesMap, 'Padding Top', this.formatValue(paddingTop), node, 'Layout', instanceMainCompMap);
           }
         }
         if (paddingRight !== 0) {
           stats.totalAttributes++;
           if (!this.isVariableBound(layoutNode, 'paddingRight')) {
-            this.addIssue(issuesMap, 'Padding Right', this.formatValue(paddingRight), node, 'Layout');
+            this.addIssue(issuesMap, 'Padding Right', this.formatValue(paddingRight), node, 'Layout', instanceMainCompMap);
           }
         }
         if (paddingBottom !== 0) {
@@ -978,6 +983,7 @@ export class TokenCoverageService {
               this.formatValue(paddingBottom),
               node,
               'Layout',
+              instanceMainCompMap,
             );
           }
         }
@@ -992,6 +998,7 @@ export class TokenCoverageService {
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
     stats: AnalysisStats,
+    instanceMainCompMap: Map<string, ComponentNode> = new Map(),
   ): void {
     if (!('fills' in node)) return;
 
@@ -1006,7 +1013,7 @@ export class TokenCoverageService {
       if (solidFill && solidFill.type === 'SOLID') {
         const color = solidFill.color;
         const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-        this.addIssue(issuesMap, 'Fill Color', colorValue, node, 'Fill');
+        this.addIssue(issuesMap, 'Fill Color', colorValue, node, 'Fill', instanceMainCompMap);
       }
     }
   }
@@ -1018,6 +1025,7 @@ export class TokenCoverageService {
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
     stats: AnalysisStats,
+    instanceMainCompMap: Map<string, ComponentNode> = new Map(),
   ): void {
     if (!('strokes' in node)) return;
 
@@ -1033,7 +1041,7 @@ export class TokenCoverageService {
       if (solidStroke && solidStroke.type === 'SOLID') {
         const color = solidStroke.color;
         const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-        this.addIssue(issuesMap, 'Stroke Color', colorValue, node, 'Stroke');
+        this.addIssue(issuesMap, 'Stroke Color', colorValue, node, 'Stroke', instanceMainCompMap);
       }
     }
 
@@ -1059,6 +1067,7 @@ export class TokenCoverageService {
           this.formatValue(strokeWeightValue),
           node,
           'Stroke',
+          instanceMainCompMap,
         );
       }
     }
@@ -1071,6 +1080,7 @@ export class TokenCoverageService {
     node: SceneNode,
     issuesMap: Map<string, TokenCoverageIssue>,
     stats: AnalysisStats,
+    instanceMainCompMap: Map<string, ComponentNode> = new Map(),
   ): void {
     // Check opacity - exclude zero and one (default) values
     if (
@@ -1080,7 +1090,7 @@ export class TokenCoverageService {
     ) {
       stats.totalAttributes++;
       if (!this.isVariableBound(node, 'opacity')) {
-        this.addIssue(issuesMap, 'Opacity', `${node.opacity}`, node, 'Appearance');
+        this.addIssue(issuesMap, 'Opacity', `${node.opacity}`, node, 'Appearance', instanceMainCompMap);
       }
     }
 
@@ -1115,7 +1125,7 @@ export class TokenCoverageService {
         if (rectNode.cornerRadius > 0) {
           stats.totalAttributes++;
           if (!this.isVariableBound(rectNode, 'cornerRadius') && !this.isVariableBound(rectNode, 'topLeftRadius')) {
-            this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance');
+            this.addIssue(issuesMap, 'Corner Radius', this.formatValue(rectNode.cornerRadius), node, 'Appearance', instanceMainCompMap);
             return;
           }
         }
@@ -1130,7 +1140,7 @@ export class TokenCoverageService {
       if (allRadiiSame && !anyRadiusBound && topLeft > 0) {
         // Report as consolidated "Corner Radius"
         stats.totalAttributes++;
-        this.addIssue(issuesMap, 'Corner Radius', this.formatValue(topLeft), node, 'Appearance');
+        this.addIssue(issuesMap, 'Corner Radius', this.formatValue(topLeft), node, 'Appearance', instanceMainCompMap);
       } else {
         // Report individual corner radii (only non-zero and non-bound)
         if (topLeft > 0) {
@@ -1142,6 +1152,7 @@ export class TokenCoverageService {
               this.formatValue(topLeft),
               node,
               'Appearance',
+              instanceMainCompMap,
             );
           }
         }
@@ -1154,6 +1165,7 @@ export class TokenCoverageService {
               this.formatValue(topRight),
               node,
               'Appearance',
+              instanceMainCompMap,
             );
           }
         }
@@ -1166,6 +1178,7 @@ export class TokenCoverageService {
               this.formatValue(bottomLeft),
               node,
               'Appearance',
+              instanceMainCompMap,
             );
           }
         }
@@ -1178,6 +1191,7 @@ export class TokenCoverageService {
               this.formatValue(bottomRight),
               node,
               'Appearance',
+              instanceMainCompMap,
             );
           }
         }
@@ -1268,7 +1282,116 @@ export class TokenCoverageService {
   }
 
   /**
-   * Adds or updates an issue in the issues map
+   * Determines the ownership context for any node using the NEAREST-BOUNDARY rule.
+   *
+   * Algorithm: walk UP the ancestor chain from the node itself (inclusive).
+   * The first COMPONENT, COMPONENT_SET, or INSTANCE boundary found IS the owner.
+   *  - If that boundary is an INSTANCE  → resolve to its main component (from map)
+   *  - If that boundary is a COMPONENT  → use it directly
+   * Non-component nodes (FRAME, GROUP, RECTANGLE, TEXT …) are transparent and never
+   * redefine the ownership context. This ensures an entire instance subtree is always
+   * grouped under the instance's source component, not the visual parent.
+   */
+  private static getOwnershipContext(
+    node: SceneNode,
+    instanceMainCompMap: Map<string, ComponentNode>,
+  ): { id: string; name: string; type: string } | null {
+    let current: SceneNode | BaseNode | null = node;
+
+    while (current) {
+      if (current.type === 'PAGE' || current.type === 'DOCUMENT') break;
+
+      if (current.type === 'COMPONENT' || current.type === 'COMPONENT_SET') {
+        // This component IS the owner.
+        return { id: current.id, name: current.name, type: current.type };
+      }
+
+      if (current.type === 'INSTANCE') {
+        // Look up the main component in the prefetched map.
+        const mainComp = instanceMainCompMap.get(current.id);
+        if (mainComp) {
+          return { id: mainComp.id, name: mainComp.name, type: 'COMPONENT' };
+        }
+        // Main component unavailable (remote or inaccessible) → fall back to the instance itself.
+        return { id: current.id, name: current.name, type: 'INSTANCE' };
+      }
+
+      // Any other node type (FRAME, GROUP, RECTANGLE, TEXT, …) is transparent:
+      // keep walking up.
+      current = current.parent;
+    }
+
+    return null; // No ownership boundary found → skip this node
+  }
+
+  /**
+   * Checks whether a given property on an instance differs from the main component's value.
+   * Returns true if the property is overridden (i.e., no longer synchronized).
+   */
+  private static isPropertyOverriddenOnInstance(
+    instance: InstanceNode,
+    property: string,
+    instanceValue: string,
+    mainComp: ComponentNode,
+  ): boolean {
+    try {
+      if (property === 'Fill Color') {
+        const fills = (mainComp as any).fills;
+        if (!Array.isArray(fills) || fills.length === 0) return true;
+        const solid = fills.find((f: any) => f.type === 'SOLID' && f.visible !== false);
+        if (!solid) return true;
+        const c = solid.color;
+        const mainValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+        return mainValue !== instanceValue;
+      }
+      if (property === 'Stroke Color') {
+        const strokes = (mainComp as any).strokes;
+        if (!Array.isArray(strokes) || strokes.length === 0) return true;
+        const solid = strokes.find((s: any) => s.type === 'SOLID' && s.visible !== false);
+        if (!solid) return true;
+        const c = solid.color;
+        const mainValue = `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+        return mainValue !== instanceValue;
+      }
+      // For numeric properties (Width, Height, Padding, etc.) compare parsed float values
+      const propMap: Record<string, string> = {
+        'Width': 'width', 'Height': 'height',
+        'Min Width': 'minWidth', 'Max Width': 'maxWidth',
+        'Min Height': 'minHeight', 'Max Height': 'maxHeight',
+        'Gap': 'itemSpacing',
+        'Padding': 'paddingLeft',
+        'Padding Left': 'paddingLeft', 'Padding Top': 'paddingTop',
+        'Padding Right': 'paddingRight', 'Padding Bottom': 'paddingBottom',
+        'Corner Radius': 'cornerRadius',
+        'Corner Radius (Top Left)': 'topLeftRadius',
+        'Corner Radius (Top Right)': 'topRightRadius',
+        'Corner Radius (Bottom Left)': 'bottomLeftRadius',
+        'Corner Radius (Bottom Right)': 'bottomRightRadius',
+        'Stroke Weight': 'strokeWeight',
+        'Opacity': 'opacity',
+      };
+      const figmaProp = propMap[property];
+      if (figmaProp && figmaProp in (mainComp as any)) {
+        const mainRaw = (mainComp as any)[figmaProp];
+        if (typeof mainRaw === 'number') {
+          // instanceValue is formatted e.g. "8px" or "0.5"
+          const instanceNum = parseFloat(instanceValue);
+          const diff = Math.abs(instanceNum - mainRaw);
+          return diff > VALUE_MATCH_TOLERANCE;
+        }
+      }
+    } catch (e) {
+      // If we can't compare safely, assume NOT overridden (safer: show in component group)
+    }
+    return false;
+  }
+
+
+  /**
+   * Adds or updates an issue in the issues map.
+   * Grouping is ownership-based:
+   *  - Synchronized instances → grouped under their main component
+   *  - Overridden instances   → grouped independently
    */
   private static addIssue(
     issuesMap: Map<string, TokenCoverageIssue>,
@@ -1276,19 +1399,17 @@ export class TokenCoverageService {
     value: string,
     node: SceneNode,
     category: 'Layout' | 'Fill' | 'Stroke' | 'Appearance',
+    instanceMainCompMap: Map<string, ComponentNode> = new Map(),
   ): void {
-    // 1. Get Context (Outermost Component/Instance)
-    const context = this.getIssueContext(node);
+    // 1. Get Ownership Context (nearest boundary rule)
+    const context = this.getOwnershipContext(node, instanceMainCompMap);
 
     // 2. Filter Scope: If no context (loose frame), skip reporting
     if (!context) {
       return;
     }
 
-    // 3. Create Grouping Key
-    // User Requirement: "One issue card" per property/value.
-    // So we DO NOT include the context.id in the key.
-    // The splitting happens INSIDE the card via nodeFrames (which stores context name).
+    // 3. Create Grouping Key (one issue card per property/value)
     const key = `${category}:${property}:${value}`;
 
     if (issuesMap.has(key)) {
@@ -1296,12 +1417,9 @@ export class TokenCoverageService {
       issue.count++;
       issue.nodeIds.push(node.id);
       issue.nodeNames.push(node.name);
-      // We store the context name in nodeFrames for the UI to display as "Group Header"
-      if (issue.nodeFrames) {
-        issue.nodeFrames.push(context.name);
-      } else {
-        issue.nodeFrames = [context.name];
-      }
+      issue.nodeFrames.push(context.name);
+      issue.nodeGroupTypes.push(context.type);
+      issue.nodeTypes.push(node.type);
     } else {
       issuesMap.set(key, {
         property,
@@ -1309,7 +1427,9 @@ export class TokenCoverageService {
         count: 1,
         nodeIds: [node.id],
         nodeNames: [node.name],
-        nodeFrames: [context.name], // This will be the "Group Header" in UI
+        nodeFrames: [context.name],
+        nodeGroupTypes: [context.type],
+        nodeTypes: [node.type],
         category,
       });
     }

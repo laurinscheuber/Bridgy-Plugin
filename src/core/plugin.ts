@@ -1880,11 +1880,26 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             type: 'import-complete',
             result: {
               importedCount: result.success,
+              success: result.success, // Added for compatibility with UI
               errors: result.errors,
               collectionName: importOptions.collectionName,
               groupsCreated: result.groupsCreated,
             },
           });
+
+          // Auto-refresh data after import (Restored)
+          try {
+            const refreshedData = await collectDocumentData();
+            figma.ui.postMessage({
+              type: 'refresh-success',
+              variables: refreshedData.variables,
+              styles: refreshedData.styles,
+              components: refreshedData.components,
+              message: 'Tokens imported and data refreshed',
+            });
+          } catch (refreshError) {
+            console.error('Auto-refresh failed:', refreshError);
+          }
         } catch (error: any) {
           console.error('Import failed:', error);
           figma.ui.postMessage({
