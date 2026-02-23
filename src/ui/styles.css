@@ -5747,6 +5747,20 @@ input[type='checkbox']:indeterminate {
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* Let the custom-select dropdown overflow the card boundaries */
+.quality-issue-card {
+  overflow: visible;
+}
+
+.quality-issue-card [id$="-body"] {
+  overflow: visible;
+}
+
+.fix-actions-row {
+  position: relative;
+  overflow: visible;
+}
+
 /* Loading Spinner */
 .plugin-loading-spinner {
   width: 24px;
@@ -7120,7 +7134,7 @@ body.edit-mode .quality-header {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .quality-accordion-header {

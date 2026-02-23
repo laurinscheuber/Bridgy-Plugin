@@ -2149,7 +2149,7 @@ window.onmessage = (event) => {
               }
             }
             // Select the new option (also auto-checks all nodes + enables Apply)
-            selectCustomOption(issueId, id, label, 'exact');
+            selectCustomOption(issueId, id, label, 'exact', true);
 
           } else {
             // Case A: no dropdown — only "Create New Variable" button exists.
@@ -2194,7 +2194,7 @@ window.onmessage = (event) => {
               }
 
               // Select the new option (also auto-checks all nodes + enables Apply)
-              selectCustomOption(issueId, id, label, 'exact');
+              selectCustomOption(issueId, id, label, 'exact', true);
             }
           }
         }
@@ -6220,12 +6220,12 @@ function renderTailwindContent(validation) {
       const itemId = 'tw-group-' + idx;
       const displayName = SecurityUtils.escapeHTML(group.name);
 
-      html += '<div id="' + itemId + '-card" class="quality-row-item" style="padding: 10px; flex-direction: column; align-items: stretch; gap: 8px;">' +
-        '<div style="display: flex; justify-content: space-between; align-items: center;"><div>' +
+      html += '<div id="' + itemId + '-card" class="quality-row-item" style="padding: 10px; align-items: center; gap: 8px;">' +
+        '<div style="flex: 1; min-width: 0;">' +
         '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px;">' + displayName + '</div>' +
         '<div style="font-size: 11px; color: rgba(255,255,255,0.5);">' + group.variableCount + ' variable' + (group.variableCount !== 1 ? 's' : '') + '</div>' +
-        '</div></div>' +
-        '<div style="display: flex; gap: 8px; align-items: center;">' +
+        '</div>' +
+        '<div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">' +
         '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', false)">' +
         '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(group.name) + '</select>' +
         '<button id="' + itemId + '-replace-btn" class="quality-tw-btn secondary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'replace\', null)" disabled title="Replace prefix">' +
@@ -11803,7 +11803,7 @@ function toggleCustomSelect(issueId) {
 /**
  * Handle custom option selection
  */
-function selectCustomOption(issueId, value, label, type) {
+function selectCustomOption(issueId, value, label, type, skipAutoSelect) {
   const select = document.getElementById(`${issueId}-custom-select`);
   if (!select) return;
 
@@ -11829,7 +11829,7 @@ function selectCustomOption(issueId, value, label, type) {
   updateIssueApplyButtonState(issueId);
 
   // Auto-select all nodes if a specific variable was chosen (not "create new")
-  if (value && value !== 'create-new') {
+  if (!skipAutoSelect && value && value !== 'create-new') {
     const selectAllCheckbox = document.getElementById(`${issueId}-select-all`);
     if (selectAllCheckbox && !selectAllCheckbox.checked) {
       selectAllCheckbox.checked = true;
