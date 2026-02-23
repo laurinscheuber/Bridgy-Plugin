@@ -3140,9 +3140,63 @@ window.onmessage = (event) => {
                 setTimeout(() => {
                   if (card.parentNode) card.remove();
 
-                  // Update Quality Accordion Count (e.g. "Layout (2)")
-                  // Trigger updateAllCategoryUI? It's done below via state update.
+                  // After removing the card, check if the parent accordion group is now empty
+                  checkIfAccordionEmpty(issueId);
                 }, 500);
+              } else {
+                // Update the accordion count badge even if the card isn't fully empty
+                updateAccordionCount(issueId);
+              }
+            }
+
+            // Check if a category accordion has no remaining issue cards
+            function checkIfAccordionEmpty(issueId) {
+              // Extract category from issueId (format: issue-{Category}-{Index})
+              const parts = issueId.split('-');
+              if (parts.length < 3) return;
+              const category = parts.slice(1, parts.length - 1).join('-');
+              const accordion = document.getElementById('mv-' + category);
+              if (!accordion) return;
+
+              // Check for remaining visible cards in the accordion
+              const remainingCards = accordion.querySelectorAll('.quality-issue-card:not(.quality-fade-out)');
+              if (remainingCards.length === 0) {
+                // Accordion is empty — fade it out
+                accordion.classList.add('quality-fade-out');
+                setTimeout(() => {
+                  if (accordion.parentNode) accordion.remove();
+
+                  // Check if ALL accordions are gone — show success state
+                  const container = document.getElementById('missing-variables-content');
+                  if (container) {
+                    const remainingAccordions = container.querySelectorAll('.quality-accordion:not(.quality-fade-out)');
+                    if (remainingAccordions.length === 0) {
+                      renderResolutionSuccessState(
+                        container,
+                        'All variables found!',
+                        'Great job! All styles are correctly linked to variables.'
+                      );
+                    }
+                  }
+                }, 500);
+              } else {
+                // Update the count badge on the accordion header
+                updateAccordionCount(issueId);
+              }
+            }
+
+            // Update the accordion count badge after a card is removed or nodes are fixed
+            function updateAccordionCount(issueId) {
+              const parts = issueId.split('-');
+              if (parts.length < 3) return;
+              const category = parts.slice(1, parts.length - 1).join('-');
+              const accordion = document.getElementById('mv-' + category);
+              if (!accordion) return;
+
+              const countBadge = accordion.querySelector('.quality-accordion-count');
+              if (countBadge) {
+                const remainingCards = accordion.querySelectorAll('.quality-issue-card:not(.quality-fade-out)');
+                countBadge.textContent = remainingCards.length;
               }
             }
 
