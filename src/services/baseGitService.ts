@@ -88,17 +88,6 @@ export interface BaseGitService {
     branchName: string,
   ): Promise<{ pullRequestUrl?: string }>;
 
-  /**
-   * Commit component test with full workflow
-   */
-  commitComponentTest(
-    settings: GitSettings,
-    commitMessage: string,
-    componentName: string,
-    testContent: string,
-    testFilePath: string,
-    branchName: string,
-  ): Promise<{ pullRequestUrl?: string }>;
 
   /**
    * Clear all stored tokens (for security/logout)

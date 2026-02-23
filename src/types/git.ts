@@ -10,10 +10,8 @@ export interface GitSettings {
   projectId: string; // GitLab: numeric/namespace, GitHub: owner/repo
   token?: string;
   filePath?: string;
-  testFilePath?: string;
   strategy?: string;
   branchName?: string;
-  testBranchName?: string;
   exportFormat?: 'css' | 'scss';
   saveToken: boolean;
   savedAt: string;

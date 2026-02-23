@@ -54,7 +54,6 @@ interface GitLabError {
 
 // Constants from configuration
 const DEFAULT_BRANCH_NAME = GIT_CONFIG.DEFAULT_BRANCH;
-const DEFAULT_TEST_BRANCH_NAME = GIT_CONFIG.DEFAULT_TEST_BRANCH;
 
 // Custom error classes
 class GitLabAPIError extends Error {
@@ -733,132 +732,9 @@ export class GitLabService {
     }
   }
 
-  /**
-   * Commit component test files to GitLab
-   */
-  static async commitComponentTest(
-    settings: GitLabSettings,
-    commitMessage: string,
-    componentName: string,
-    testContent: string,
-    testFilePath: string = 'components/{componentName}.spec.ts',
-    branchName: string = DEFAULT_TEST_BRANCH_NAME,
-  ): Promise<{ mergeRequestUrl?: string }> {
-    return await ErrorHandler.withErrorHandling(
-      async () => {
-        const { projectId, gitlabToken } = settings;
-        this.validateComponentTestParameters(
-          projectId,
-          gitlabToken,
-          commitMessage,
-          componentName,
-          testContent,
-        );
 
-        // Replace {componentName} placeholder in file path if present
-        const normalizedComponentName = this.normalizeComponentName(componentName);
 
-        // Replace all occurrences of {componentName} in the file path
-        const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
 
-        // Create component-specific branch name - use dashes instead of slashes to avoid GitLab issues
-        const featureBranch = `${branchName}-${normalizedComponentName}`;
-
-        // Get project information
-        const projectData = await this.fetchProjectInfo(projectId, gitlabToken, settings);
-        const defaultBranch = projectData.default_branch || 'main';
-
-        // Create or get feature branch
-        await this.createFeatureBranch(
-          projectId,
-          gitlabToken,
-          featureBranch,
-          defaultBranch,
-          settings,
-        );
-
-        // Check if file exists and prepare commit
-        const { fileData, action } = await this.prepareFileCommit(
-          projectId,
-          gitlabToken,
-          filePath,
-          featureBranch,
-          settings,
-        );
-
-        // Create the commit
-        await this.createCommit(
-          projectId,
-          gitlabToken,
-          featureBranch,
-          commitMessage,
-          filePath,
-          testContent,
-          action,
-          fileData && fileData.last_commit_id,
-          settings,
-        );
-
-        // Check for existing merge request
-        const existingMR = await this.findExistingMergeRequest(
-          projectId,
-          gitlabToken,
-          featureBranch,
-          settings,
-        );
-
-        if (!existingMR) {
-          // Create new merge request if none exists
-          const mrDescription = `Automatically created merge request for component test: ${componentName}`;
-          const newMR = await this.createMergeRequest(
-            projectId,
-            gitlabToken,
-            featureBranch,
-            defaultBranch,
-            commitMessage,
-            mrDescription,
-            true, // Mark as draft for component tests
-            settings,
-          );
-          return { mergeRequestUrl: newMR.web_url };
-        }
-
-        return { mergeRequestUrl: existingMR.web_url };
-      },
-      {
-        operation: 'commit_component_test',
-        component: 'GitLabService',
-        severity: 'high',
-      },
-    );
-  }
-
-  /**
-   * Validate component test parameters
-   */
-  private static validateComponentTestParameters(
-    projectId: string,
-    gitlabToken: string,
-    commitMessage: string,
-    componentName: string,
-    testContent: string,
-  ): void {
-    if (!projectId || !projectId.trim()) {
-      throw new Error('Project ID is required');
-    }
-    if (!gitlabToken || !gitlabToken.trim()) {
-      throw new GitLabAuthError('GitLab token is required');
-    }
-    if (!commitMessage || !commitMessage.trim()) {
-      throw new Error('Commit message is required');
-    }
-    if (!componentName || !componentName.trim()) {
-      throw new Error('Component name is required');
-    }
-    if (!testContent || !testContent.trim()) {
-      throw new Error('Test content is required');
-    }
-  }
 
   /**
    * Normalize component name for use in file paths and branch names

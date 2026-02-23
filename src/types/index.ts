@@ -50,10 +50,8 @@ export interface GitLabSettings {
   projectId: string;
   gitlabToken?: string;
   filePath?: string;
-  testFilePath?: string;
   strategy?: string;
   branchName?: string;
-  testBranchName?: string;
   exportFormat?: 'css' | 'scss';
   saveToken: boolean;
   savedAt: string;
@@ -84,17 +82,14 @@ export interface PluginMessage {
   gitlabToken?: string;
   commitMessage?: string;
   filePath?: string;
-  testFilePath?: string;
   strategy?: string;
   branchName?: string;
-  testBranchName?: string;
   exportFormat?: 'css' | 'scss';
   cssData?: string;
   testContent?: string;
   shareWithTeam?: boolean;
   saveToken?: boolean;
   generateAllVariants?: boolean;
-  includeStateTests?: boolean;
   shouldDownload?: boolean;
   forceCreate?: boolean;
   forCommit?: boolean;

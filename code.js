@@ -315,10 +315,8 @@
       exports.buildGitLabWebUrlSync = buildGitLabWebUrlSync;
       exports.GIT_CONFIG = {
         DEFAULT_BRANCH: "feature/variables",
-        DEFAULT_TEST_BRANCH: "feature/component-tests",
         DEFAULT_COMMIT_PATTERNS: {
-          variables: "Update CSS variables from Figma",
-          tests: "Add component test for {componentName}"
+          variables: "Update CSS variables from Figma"
         }
       };
     }
@@ -1757,7 +1755,6 @@
       var cryptoService_1 = require_cryptoService();
       var proxyService_1 = require_proxyService();
       var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
-      var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
       var GitLabAPIError = class extends Error {
         constructor(message, statusCode, response) {
           super(message);
@@ -2216,66 +2213,6 @@
           });
         }
         /**
-         * Commit component test files to GitLab
-         */
-        static commitComponentTest(settings_1, commitMessage_1, componentName_1, testContent_1) {
-          return __awaiter(this, arguments, void 0, function* (settings, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.spec.ts", branchName = DEFAULT_TEST_BRANCH_NAME) {
-            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
-              const { projectId, gitlabToken } = settings;
-              this.validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent);
-              const normalizedComponentName = this.normalizeComponentName(componentName);
-              const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
-              const featureBranch = `${branchName}-${normalizedComponentName}`;
-              const projectData = yield this.fetchProjectInfo(projectId, gitlabToken, settings);
-              const defaultBranch = projectData.default_branch || "main";
-              yield this.createFeatureBranch(projectId, gitlabToken, featureBranch, defaultBranch, settings);
-              const { fileData, action } = yield this.prepareFileCommit(projectId, gitlabToken, filePath, featureBranch, settings);
-              yield this.createCommit(projectId, gitlabToken, featureBranch, commitMessage, filePath, testContent, action, fileData && fileData.last_commit_id, settings);
-              const existingMR = yield this.findExistingMergeRequest(projectId, gitlabToken, featureBranch, settings);
-              if (!existingMR) {
-                const mrDescription = `Automatically created merge request for component test: ${componentName}`;
-                const newMR = yield this.createMergeRequest(
-                  projectId,
-                  gitlabToken,
-                  featureBranch,
-                  defaultBranch,
-                  commitMessage,
-                  mrDescription,
-                  true,
-                  // Mark as draft for component tests
-                  settings
-                );
-                return { mergeRequestUrl: newMR.web_url };
-              }
-              return { mergeRequestUrl: existingMR.web_url };
-            }), {
-              operation: "commit_component_test",
-              component: "GitLabService",
-              severity: "high"
-            });
-          });
-        }
-        /**
-         * Validate component test parameters
-         */
-        static validateComponentTestParameters(projectId, gitlabToken, commitMessage, componentName, testContent) {
-          if (!projectId || !projectId.trim()) {
-            throw new Error("Project ID is required");
-          }
-          if (!gitlabToken || !gitlabToken.trim()) {
-            throw new GitLabAuthError("GitLab token is required");
-          }
-          if (!commitMessage || !commitMessage.trim()) {
-            throw new Error("Commit message is required");
-          }
-          if (!componentName || !componentName.trim()) {
-            throw new Error("Component name is required");
-          }
-          if (!testContent || !testContent.trim()) {
-            throw new Error("Test content is required");
-          }
-        }
-        /**
          * Normalize component name for use in file paths and branch names
          */
         static normalizeComponentName(componentName) {
@@ -2465,10 +2402,8 @@
             projectId: settings.projectId,
             gitlabToken: settings.token,
             filePath: settings.filePath,
-            testFilePath: settings.testFilePath,
             strategy: settings.strategy,
             branchName: settings.branchName,
-            testBranchName: settings.testBranchName,
             exportFormat: settings.exportFormat,
             saveToken: settings.saveToken,
             savedAt: settings.savedAt,
@@ -2489,10 +2424,8 @@
             projectId: settings.projectId,
             token: settings.gitlabToken,
             filePath: settings.filePath,
-            testFilePath: settings.testFilePath,
             strategy: settings.strategy,
             branchName: settings.branchName,
-            testBranchName: settings.testBranchName,
             exportFormat: settings.exportFormat,
             saveToken: settings.saveToken,
             savedAt: settings.savedAt,
@@ -2617,15 +2550,6 @@
           return __awaiter(this, void 0, void 0, function* () {
             const gitlabSettings = this.toGitLabSettings(settings);
             const result = yield gitlabService_1.GitLabService.commitToGitLab(gitlabSettings, commitMessage, filePath, cssData, branchName);
-            return {
-              pullRequestUrl: result.mergeRequestUrl
-            };
-          });
-        }
-        commitComponentTest(settings, commitMessage, componentName, testContent, testFilePath, branchName) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const result = yield gitlabService_1.GitLabService.commitComponentTest(gitlabSettings, commitMessage, componentName, testContent, testFilePath, branchName);
             return {
               pullRequestUrl: result.mergeRequestUrl
             };
@@ -2952,7 +2876,6 @@
       var proxyService_1 = require_proxyService();
       var repositoryCacheService_1 = require_repositoryCacheService();
       var DEFAULT_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_BRANCH;
-      var DEFAULT_TEST_BRANCH_NAME = config_1.GIT_CONFIG.DEFAULT_TEST_BRANCH;
       var GitHubService = class _GitHubService {
         /**
          * Get the GitHub API base URL
@@ -3431,31 +3354,6 @@
             });
           });
         }
-        commitComponentTest(settings_1, commitMessage_1, componentName_1, testContent_1) {
-          return __awaiter(this, arguments, void 0, function* (settings, commitMessage, componentName, testContent, testFilePath = "components/{componentName}.spec.ts", branchName = DEFAULT_TEST_BRANCH_NAME) {
-            return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
-              this.validateComponentTestParameters(settings, commitMessage, componentName, testContent);
-              const normalizedComponentName = this.normalizeComponentName(componentName);
-              const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
-              const featureBranch = `${branchName}-${normalizedComponentName}`;
-              const project = yield this.getProject(settings);
-              const defaultBranch = project.defaultBranch;
-              yield this.createBranch(settings, featureBranch, defaultBranch);
-              yield this.commitFile(settings, commitMessage, filePath, testContent, featureBranch);
-              const existingPR = yield this.findExistingPullRequest(settings, featureBranch);
-              if (!existingPR) {
-                const prDescription = `Automatically created pull request for component test: ${componentName}`;
-                const newPR = yield this.createPullRequest(settings, featureBranch, defaultBranch, commitMessage, prDescription, true);
-                return { pullRequestUrl: newPR.webUrl };
-              }
-              return { pullRequestUrl: existingPR.webUrl };
-            }), {
-              operation: "commit_component_test",
-              component: "GitHubService",
-              severity: "high"
-            });
-          });
-        }
         clearAllTokens() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -3521,23 +3419,6 @@
           }
           if (!cssData || !cssData.trim()) {
             throw new Error("CSS data is required");
-          }
-        }
-        validateComponentTestParameters(settings, commitMessage, componentName, testContent) {
-          if (!settings.projectId || !settings.projectId.trim()) {
-            throw new Error("Project ID is required");
-          }
-          if (!settings.token || !settings.token.trim()) {
-            throw new baseGitService_1.GitAuthError("GitHub token is required");
-          }
-          if (!commitMessage || !commitMessage.trim()) {
-            throw new Error("Commit message is required");
-          }
-          if (!componentName || !componentName.trim()) {
-            throw new Error("Component name is required");
-          }
-          if (!testContent || !testContent.trim()) {
-            throw new Error("Test content is required");
           }
         }
         normalizeComponentName(componentName) {
@@ -5116,521 +4997,6 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
     }
   });
 
-  // dist/utils/stateTestingUtils.js
-  var require_stateTestingUtils = __commonJS({
-    "dist/utils/stateTestingUtils.js"(exports) {
-      "use strict";
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.INTERACTIVE_STATES = exports.STATE_SPECIFIC_PROPERTIES = exports.STATIC_PROPERTIES = exports.INTERACTIVE_PROPERTIES = void 0;
-      exports.shouldTestPropertyForState = shouldTestPropertyForState;
-      exports.toKebabCase = toKebabCase;
-      exports.toCamelCase = toCamelCase;
-      exports.generateTestHelpers = generateTestHelpers;
-      exports.generateStateTests = generateStateTests;
-      exports.analyzeComponentStateVariants = analyzeComponentStateVariants;
-      exports.findStyleDifferences = findStyleDifferences;
-      exports.generateStateTestsFromVariants = generateStateTestsFromVariants;
-      var config_1 = require_config();
-      var es2015_helpers_1 = require_es2015_helpers();
-      exports.INTERACTIVE_PROPERTIES = config_1.CSS_PROPERTIES.INTERACTIVE;
-      exports.STATIC_PROPERTIES = config_1.CSS_PROPERTIES.STATIC;
-      exports.STATE_SPECIFIC_PROPERTIES = config_1.TEST_CONFIG.STATE_SPECIFIC_PROPERTIES;
-      exports.INTERACTIVE_STATES = [
-        {
-          state: "hover",
-          pseudoClass: ":hover",
-          properties: exports.STATE_SPECIFIC_PROPERTIES.hover
-        },
-        {
-          state: "focus",
-          pseudoClass: ":focus",
-          properties: exports.STATE_SPECIFIC_PROPERTIES.focus
-        },
-        {
-          state: "active",
-          pseudoClass: ":active",
-          properties: exports.STATE_SPECIFIC_PROPERTIES.active
-        },
-        {
-          state: "disabled",
-          pseudoClass: ":disabled",
-          properties: exports.STATE_SPECIFIC_PROPERTIES.disabled
-        }
-      ];
-      function shouldTestPropertyForState(property) {
-        const kebabProperty = property.replace(/([A-Z])/g, "-$1").toLowerCase();
-        if ((0, es2015_helpers_1.arrayIncludes)(exports.INTERACTIVE_PROPERTIES, property) || (0, es2015_helpers_1.arrayIncludes)(exports.INTERACTIVE_PROPERTIES, kebabProperty)) {
-          return true;
-        }
-        const colorRelatedKeywords = [
-          "color",
-          "background",
-          "border",
-          "outline",
-          "shadow",
-          "fill",
-          "stroke"
-        ];
-        return colorRelatedKeywords.some((keyword) => property.toLowerCase().indexOf(keyword) !== -1 || kebabProperty.indexOf(keyword) !== -1);
-      }
-      function toKebabCase(property) {
-        return property.replace(/([A-Z])/g, "-$1").toLowerCase();
-      }
-      function toCamelCase(property) {
-        return property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      }
-      function generateTestHelpers() {
-        return `  const resolveCssVariable = (variableName: string, stylesheetHrefPart = 'styles.css'): string | undefined => {
-    const targetSheet = Array.from(document.styleSheets)
-      .find(sheet => sheet.href?.includes(stylesheetHrefPart));
-
-    const rootRule = Array.from(targetSheet?.cssRules || [])
-      .filter(rule => rule instanceof CSSStyleRule)
-      .find(rule => rule.selectorText === ':root');
-
-    const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
-    if (value?.startsWith('var(')) {
-      const nestedVar = value.match(/var\\((--[^)]+)\\)/)?.[1];
-      return nestedVar ? resolveCssVariable(nestedVar, stylesheetHrefPart) : undefined;
-    }
-
-    return value;
-  };
-
-  const resolveCssValueWithVariables = (cssValue: string, stylesheetHrefPart = 'styles.css'): string => {
-    if (!cssValue || typeof cssValue !== 'string') {
-      return cssValue;
-    }
-
-    // Replace all var() functions in the CSS value
-    return cssValue.replace(/var\\((--[^,)]+)(?:,\\s*([^)]+))?\\)/g, (match, varName, fallback) => {
-      const resolvedValue = resolveCssVariable(varName, stylesheetHrefPart);
-      return resolvedValue || fallback || match;
-    });
-  };
-
-  const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: any) => {
-    // Regex necessairy because angular attaches identifier after the selector
-    const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const style = Array.from(document.styleSheets)
-      .flatMap(sheet => Array.from(sheet.cssRules || []))
-      .filter(r => r instanceof CSSStyleRule)
-      .find(r => regex.test(r.selectorText))
-      ?.style;
-
-    return style!.getPropertyValue(prop);
-  };
-
-  const checkStyleProperty = (selector: string, pseudoClass: string, property: string, expectedValue?: string) => {
-    // TODO: please check whether the selector is correct
-    const value = getCssPropertyForRule(selector, pseudoClass, property);
-    if (!value) {
-      // If no value is found for this pseudo-class, that's okay - not all states need all properties
-      return;
-    }
-
-    if (value.indexOf('var(') !== -1) {
-      const resolvedValue = resolveCssValueWithVariables(value);
-      if (expectedValue) {
-        expect(resolvedValue).toBe(expectedValue);
-      } else {
-        expect(resolvedValue).toBeDefined();
-      }
-    } else {
-      if (expectedValue) {
-        expect(value).toBe(expectedValue);
-      } else {
-        expect(value).toBeDefined();
-      }
-    }
-  };`;
-      }
-      function generateStateTests(componentSelector, states, componentStyles) {
-        const tests = [];
-        const hasInteractiveElement = Object.keys(componentStyles).some(shouldTestPropertyForState);
-        if (!hasInteractiveElement) {
-          return "";
-        }
-        states.forEach((state) => {
-          const componentInteractiveProps = Object.keys(componentStyles).filter(shouldTestPropertyForState);
-          const allPropertiesToTest = new Set(componentInteractiveProps.map(toKebabCase).concat(state.properties));
-          if (allPropertiesToTest.size > 0) {
-            const testName = `should have correct ${state.state} styles`;
-            const propertyChecks = Array.from(allPropertiesToTest).map((prop) => {
-              const camelCaseProp = toCamelCase(prop);
-              const expectedValue = componentStyles[camelCaseProp];
-              if (expectedValue && typeof expectedValue === "string") {
-                if (prop === "color" || prop === "background-color" || prop.indexOf("border") !== -1) {
-                  return `      { property: '${prop}', expected: '${expectedValue}' }`;
-                }
-              }
-              return `      { property: '${prop}', expected: undefined }`;
-            }).join(",\n");
-            const testCode = `
-  it('${testName}', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    const propertiesToCheck = [
-${propertyChecks}
-    ];
-
-    propertiesToCheck.forEach(({ property, expected }) => {
-      // TODO: Please check if this selector still matches the component's implementation
-      checkStyleProperty('${componentSelector}', '${state.pseudoClass}', property, expected);
-    });
-  });`;
-            tests.push(testCode);
-          }
-        });
-        return tests.join("\n");
-      }
-      function analyzeComponentStateVariants(variants) {
-        const stateStyleMap = /* @__PURE__ */ new Map();
-        variants.forEach((variant, index) => {
-          const stateName = extractStateFromVariantName(variant.name);
-          if (!stateName) {
-            console.log("DEBUG: No state name found, skipping variant");
-            return;
-          }
-          let styles;
-          try {
-            styles = typeof variant.styles === "string" ? JSON.parse(variant.styles) : variant.styles;
-            console.log(`DEBUG: Parsed ${Object.keys(styles).length} style properties for state "${stateName}"`);
-          } catch (e) {
-            console.error("Error parsing variant styles:", e);
-            return;
-          }
-          const styleMap = new Map((0, es2015_helpers_1.objectEntries)(styles));
-          stateStyleMap.set(stateName, styleMap);
-        });
-        return stateStyleMap;
-      }
-      function extractStateFromVariantName(variantName) {
-        let stateMatch = variantName.match(/State=(\w+)/i);
-        if (stateMatch) {
-          return stateMatch[1].toLowerCase();
-        }
-        stateMatch = variantName.match(/Property\s*\d*\s*=\s*(\w+)/i);
-        if (stateMatch) {
-          return stateMatch[1].toLowerCase();
-        }
-        stateMatch = variantName.match(/(\w+)=(\w+)/i);
-        if (stateMatch) {
-          return stateMatch[2].toLowerCase();
-        }
-        return null;
-      }
-      function findStyleDifferences(baseStyles, compareStyles) {
-        const differences = /* @__PURE__ */ new Map();
-        compareStyles.forEach((value, key) => {
-          const baseValue = baseStyles.get(key);
-          if (baseValue !== value) {
-            differences.set(key, value);
-          }
-        });
-        return differences;
-      }
-      function generateStateTestsFromVariants(componentSelector, variants, defaultStyles) {
-        const tests = [];
-        const stateStyleMap = analyzeComponentStateVariants(variants);
-        let defaultStateStyles = stateStyleMap.get("default");
-        if (!defaultStateStyles) {
-          defaultStateStyles = new Map((0, es2015_helpers_1.objectEntries)(defaultStyles));
-        }
-        const allStates = Array.from(stateStyleMap.keys()).filter((state) => state !== "default");
-        allStates.forEach((stateName) => {
-          const stateStyles = stateStyleMap.get(stateName);
-          if (!stateStyles)
-            return;
-          const differences = findStyleDifferences(defaultStateStyles, stateStyles);
-          if (differences.size === 0)
-            return;
-          const pseudoClass = stateName.startsWith(":") ? stateName : `:${stateName}`;
-          const testName = `should have correct ${stateName} styles`;
-          const propertyChecks = Array.from(differences.entries()).map(([property, value]) => {
-            const kebabProperty = toKebabCase(property);
-            return `      { property: '${kebabProperty}', expected: '${value}' }`;
-          }).join(",\n");
-          const testCode = `
-  it('${testName}', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (!element) return;
-
-    const propertiesToCheck = [
-${propertyChecks}
-    ];
-
-    propertiesToCheck.forEach(({ property, expected }) => {
-      // TODO: Please check if this selector still matches the component's implementation
-      checkStyleProperty('${componentSelector}', '${pseudoClass}', property, expected);
-    });
-  });`;
-          tests.push(testCode);
-        });
-        return tests.join("\n");
-      }
-    }
-  });
-
-  // dist/utils/componentUtils.js
-  var require_componentUtils = __commonJS({
-    "dist/utils/componentUtils.js"(exports) {
-      "use strict";
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.hexToRgb = hexToRgb;
-      exports.normalizeColorForTesting = normalizeColorForTesting;
-      exports.normalizeComplexColorValue = normalizeComplexColorValue;
-      exports.parseComponentName = parseComponentName;
-      exports.generateStyleChecks = generateStyleChecks;
-      exports.createTestWithStyleChecks = createTestWithStyleChecks;
-      var stateTestingUtils_1 = require_stateTestingUtils();
-      var config_1 = require_config();
-      var es2015_helpers_1 = require_es2015_helpers();
-      function hexToRgb(hex) {
-        const cleanHex = hex.replace("#", "");
-        if (!config_1.PATTERNS.HEX_COLOR.BOTH.test(cleanHex)) {
-          return hex;
-        }
-        let fullHex = cleanHex;
-        if (cleanHex.length === 3) {
-          fullHex = cleanHex.split("").map((char) => char + char).join("");
-        }
-        const r = parseInt(fullHex.substring(0, 2), 16);
-        const g = parseInt(fullHex.substring(2, 4), 16);
-        const b = parseInt(fullHex.substring(4, 6), 16);
-        return `rgb(${r}, ${g}, ${b})`;
-      }
-      function normalizeColorForTesting(color) {
-        if (!color || typeof color !== "string") {
-          return color;
-        }
-        if (color.startsWith("rgb(") || color.startsWith("rgba(")) {
-          return color;
-        }
-        if (color.startsWith("#") || config_1.PATTERNS.HEX_COLOR.BOTH.test(color)) {
-          return hexToRgb(color);
-        }
-        return color;
-      }
-      function normalizeComplexColorValue(value) {
-        if (!value || typeof value !== "string") {
-          return value;
-        }
-        return value.replace(config_1.PATTERNS.HEX_COLOR.INLINE, (match) => {
-          return hexToRgb(match);
-        });
-      }
-      function parseComponentName(name) {
-        const result = {
-          name,
-          type: null,
-          state: null
-        };
-        const typeMatch = name.match(config_1.PATTERNS.COMPONENT_NAME.TYPE);
-        if (typeMatch && typeMatch[1]) {
-          result.type = typeMatch[1].trim();
-        }
-        const stateMatch = name.match(config_1.PATTERNS.COMPONENT_NAME.STATE);
-        if (stateMatch && stateMatch[1]) {
-          result.state = stateMatch[1].trim();
-        }
-        return result;
-      }
-      function generateStyleChecks(styleChecks) {
-        if (!styleChecks.length) {
-          return "        // No style properties to check";
-        }
-        function stripCssVarFallback(value) {
-          return value.replace(config_1.PATTERNS.CSS_VARIABLE.STRIP_FALLBACK, "$1").replace(config_1.PATTERNS.WHITESPACE_NORMALIZE, " ").trim();
-        }
-        return styleChecks.map((check) => {
-          const expected = stripCssVarFallback(String(check.value));
-          return `        // Check ${check.property}
-        expect(computedStyle.${check.property}).toBe('${expected}');`;
-        }).join("\n\n");
-      }
-      var LAYOUT_PROPERTIES = config_1.CSS_PROPERTIES.LAYOUT;
-      function generateTextContentTests(textElements, componentVariants) {
-        if (!textElements || textElements.length === 0) {
-          return "";
-        }
-        const tests = [];
-        const textWithStyles = textElements.filter((el) => el.textStyles && Object.keys(el.textStyles).length > 0);
-        if (textWithStyles.length > 0) {
-          if (componentVariants && componentVariants.length > 0) {
-            const variantGroups = /* @__PURE__ */ new Map();
-            componentVariants.forEach((variant) => {
-              const stateMatch = variant.name.match(/State=([^,]+)/i);
-              const sizeMatch = variant.name.match(/Size=([^,]+)/i);
-              const propMatch = variant.name.match(/Property\s*\d*\s*=\s*([^,]+)/i);
-              const state = stateMatch && stateMatch[1] ? stateMatch[1].toLowerCase() : propMatch && propMatch[1] ? propMatch[1].toLowerCase() : "default";
-              const size = sizeMatch && sizeMatch[1] ? sizeMatch[1].toLowerCase() : "default";
-              const key = `${state}-${size}`;
-              if (!variantGroups.has(key)) {
-                variantGroups.set(key, []);
-              }
-              variantGroups.get(key).push(variant);
-            });
-            variantGroups.forEach((variants, key) => {
-              const variant = variants[0];
-              if (variant.textElements && variant.textElements.length > 0) {
-                const [state, size] = key.split("-");
-                const textStyleTest = `
-  it('should have correct text styles for ${state} state, ${size} size', () => {
-    const element = fixture.nativeElement;
-    const textElement = element.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    
-    if (!textElement) {
-      LoggingService.warn('No text element found for style testing', undefined, LoggingService.CATEGORIES.TESTING);
-      return;
-    }
-    
-    const computedStyle = window.getComputedStyle(textElement);
-    ${variant.textElements.map((textEl, index) => {
-                  const styles = textEl.textStyles;
-                  if (!styles || Object.keys(styles).length === 0)
-                    return "";
-                  const assertions = [];
-                  if (styles.fontSize) {
-                    const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
-                    assertions.push(`
-    expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
-                  }
-                  if (styles.fontFamily) {
-                    const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
-                    assertions.push(`
-    expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
-                  }
-                  if (styles.fontWeight) {
-                    const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
-                    assertions.push(`
-    expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
-                  }
-                  if (styles.color) {
-                    const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim());
-                    assertions.push(`
-    expect(computedStyle.color).toBe('${normalizedColor}');`);
-                  }
-                  return assertions.join("");
-                }).join("")}
-  });`;
-                tests.push(textStyleTest);
-              }
-            });
-          } else {
-            const textStyleTest = `
-  it('should have correct text styles', () => {
-    const element = fixture.nativeElement;
-    const textElement = element.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    
-    if (!textElement) {
-      LoggingService.warn('No text element found for style testing', undefined, LoggingService.CATEGORIES.TESTING);
-      return;
-    }
-    
-    const computedStyle = window.getComputedStyle(textElement);
-    ${textWithStyles.map((textEl, index) => {
-              const styles = textEl.textStyles;
-              const assertions = [];
-              if (styles.fontSize) {
-                const normalizedFontSize = styles.fontSize.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
-                assertions.push(`
-    expect(computedStyle.fontSize).toBe('${normalizedFontSize}');`);
-              }
-              if (styles.fontFamily) {
-                const normalizedFontFamily = styles.fontFamily.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
-                assertions.push(`
-    expect(computedStyle.fontFamily).toBe('${normalizedFontFamily}');`);
-              }
-              if (styles.fontWeight) {
-                const normalizedFontWeight = styles.fontWeight.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim();
-                assertions.push(`
-    expect(computedStyle.fontWeight).toBe('${normalizedFontWeight}');`);
-              }
-              if (styles.color) {
-                const normalizedColor = normalizeColorForTesting(styles.color.replace(/var\([^,]+,\s*([^)]+)\)/g, "$1").trim());
-                assertions.push(`
-    expect(computedStyle.color).toBe('${normalizedColor}');`);
-              }
-              return assertions.join("");
-            }).join("")}
-  });`;
-            tests.push(textStyleTest);
-          }
-        }
-        return tests.join("");
-      }
-      function createTestWithStyleChecks(componentName, kebabName, styleChecks, includeStateTests = true, includeSizeTests = true, componentVariants, textElements) {
-        function stripCssVarFallback(value) {
-          return value.replace(/var\([^,]+,\s*([^\)]+)\)/g, "$1").replace(/\s+/g, " ").trim();
-        }
-        const styleCheckCode = styleChecks.length > 0 ? styleChecks.map((check) => {
-          const expected = stripCssVarFallback(String(check.value));
-          if ((0, es2015_helpers_1.arrayIncludes)(LAYOUT_PROPERTIES, check.property)) {
-            return `      // Check ${check.property} (layout property - often structural)
-      // expect(computedStyle.${check.property}).toBe('${expected}');`;
-          }
-          return `      // Check ${check.property}
-      expect(computedStyle.${check.property}).toBe('${expected}');`;
-        }).join("\n\n") : "      // No style properties to check";
-        const words = componentName.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
-        const pascalName = words.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join("");
-        const componentSelector = `.${kebabName}`;
-        const stylesObject = {};
-        styleChecks.forEach((check) => {
-          stylesObject[check.property] = check.value;
-        });
-        let stateTestsCode = "";
-        if (includeStateTests) {
-          if (componentVariants && componentVariants.length > 0) {
-            stateTestsCode = (0, stateTestingUtils_1.generateStateTestsFromVariants)(componentSelector, componentVariants, stylesObject);
-          } else {
-            const hasInteractiveProperties = styleChecks.some((check) => (0, stateTestingUtils_1.shouldTestPropertyForState)(check.property));
-            if (hasInteractiveProperties) {
-              stateTestsCode = (0, stateTestingUtils_1.generateStateTests)(componentSelector, stateTestingUtils_1.INTERACTIVE_STATES, stylesObject);
-            }
-          }
-        }
-        const hasVariantTests = componentVariants && componentVariants.length > 0 && (includeStateTests || includeSizeTests);
-        const helperFunctions = hasVariantTests ? `
-${(0, stateTestingUtils_1.generateTestHelpers)()}
-` : "";
-        return `import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ${pascalName}Component } from './${kebabName}.component';
-
-describe('${pascalName}Component', () => {
-  let component: ${pascalName}Component;
-  let fixture: ComponentFixture<${pascalName}Component>;${helperFunctions}
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [ ${pascalName}Component ]
-    })
-    .compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(${pascalName}Component);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should have correct styles', () => {
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (element) {
-      const computedStyle = window.getComputedStyle(element);
-      
-${styleCheckCode}
-    } else {
-      LoggingService.warn('No suitable element found to test styles', undefined, LoggingService.CATEGORIES.TESTING);
-    }
-  });${stateTestsCode}${generateTextContentTests(textElements, componentVariants)}
-});`;
-      }
-    }
-  });
-
   // dist/services/cacheService.js
   var require_cacheService = __commonJS({
     "dist/services/cacheService.js"(exports) {
@@ -5959,12 +5325,9 @@ ${styleCheckCode}
       };
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ComponentService = void 0;
-      var componentUtils_1 = require_componentUtils();
       var es2015_helpers_1 = require_es2015_helpers();
-      var css_1 = require_css();
       var errorHandler_1 = require_errorHandler();
       var cacheService_1 = require_cacheService();
-      var PSEUDO_STATES = ["hover", "active", "focus", "disabled"];
       var cssCache = cacheService_1.CSSCache.getInstance();
       var perfCache = cacheService_1.PerformanceCache.getInstance();
       var ComponentService = class _ComponentService {
@@ -5981,28 +5344,6 @@ ${styleCheckCode}
           }
           cache.set(key, value);
           this.enforcesCacheLimit(cache);
-        }
-        static isSimpleColorProperty(property) {
-          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.SIMPLE_COLORS, property);
-        }
-        static isComplexColorProperty(property) {
-          return (0, es2015_helpers_1.arrayIncludes)(css_1.CSS_PROPERTIES.COMPLEX_COLORS, property);
-        }
-        static hasDecimalPixelValues(value) {
-          const decimalPixelRegex = /\d+\.\d+px/;
-          return decimalPixelRegex.test(value);
-        }
-        static normalizeStyleValue(property, value) {
-          if (typeof value !== "string") {
-            return value;
-          }
-          if (this.isSimpleColorProperty(property)) {
-            return (0, componentUtils_1.normalizeColorForTesting)(value);
-          }
-          if (this.isComplexColorProperty(property)) {
-            return (0, componentUtils_1.normalizeComplexColorValue)(value);
-          }
-          return value;
         }
         static collectComponents() {
           return __awaiter(this, void 0, void 0, function* () {
@@ -6129,289 +5470,6 @@ ${styleCheckCode}
         static getComponentById(id) {
           return this.componentMap.get(id);
         }
-        static generateTest(component, includeStateTests = true, includeSizeTests = true) {
-          const componentName = component.name;
-          const kebabName = componentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-          const isComponentSet = component.type === "COMPONENT_SET";
-          if (isComponentSet && component.children && component.children.length > 0) {
-            return this.generateComponentSetTest(component);
-          }
-          const componentVariants = isComponentSet ? component.children : void 0;
-          let styles;
-          try {
-            styles = typeof component.styles === "string" ? JSON.parse(component.styles) : component.styles;
-          } catch (e) {
-            console.error("Error parsing component styles:", e);
-            styles = {};
-          }
-          const styleChecks = [];
-          (0, es2015_helpers_1.objectEntries)(styles).forEach(([key, value]) => {
-            let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-            if (camelCaseKey === "background") {
-              camelCaseKey = "backgroundColor";
-            }
-            styleChecks.push({
-              property: camelCaseKey,
-              value: this.normalizeStyleValue(camelCaseKey, value)
-            });
-          });
-          if (component.textElements) {
-            component.textElements.filter((textElement) => textElement.textStyles).forEach((textElement) => {
-              (0, es2015_helpers_1.objectEntries)(textElement.textStyles).forEach(([key, value]) => {
-                if (value) {
-                  styleChecks.push({
-                    property: key,
-                    value: this.normalizeStyleValue(key, value)
-                  });
-                }
-              });
-            });
-          }
-          if (isComponentSet) {
-            const defaultVariant = component.children && component.children.length > 0 ? component.children[0] : null;
-            if (defaultVariant) {
-              let variantStyles;
-              try {
-                variantStyles = typeof defaultVariant.styles === "string" ? JSON.parse(defaultVariant.styles) : defaultVariant.styles;
-              } catch (e) {
-                console.error("Error parsing variant styles:", e);
-                variantStyles = {};
-              }
-              const variantStyleChecks = [];
-              (0, es2015_helpers_1.objectEntries)(variantStyles).forEach(([key, value]) => {
-                let camelCaseKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-                if (camelCaseKey === "background") {
-                  camelCaseKey = "backgroundColor";
-                }
-                variantStyleChecks.push({
-                  property: camelCaseKey,
-                  value: this.normalizeStyleValue(camelCaseKey, value)
-                });
-              });
-              return (0, componentUtils_1.createTestWithStyleChecks)(componentName, kebabName, variantStyleChecks, includeStateTests, includeSizeTests, componentVariants, defaultVariant.textElements);
-            }
-          }
-          return (0, componentUtils_1.createTestWithStyleChecks)(componentName, kebabName, styleChecks, includeStateTests, includeSizeTests, componentVariants, component.textElements);
-        }
-        static generateComponentSetTest(componentSet) {
-          if (!componentSet.children || componentSet.children.length === 0) {
-            return this.generateTest(componentSet);
-          }
-          const { kebabName, pascalName } = this.parseComponentName(componentSet.name);
-          const variantResult = this.generateVariantTests(componentSet, kebabName, pascalName);
-          return this.buildComponentSetTestTemplate(pascalName, kebabName, variantResult.tests, variantResult.variantProps);
-        }
-        static parseComponentName(name) {
-          if (!name || typeof name !== "string") {
-            throw new Error(`Invalid component name: ${name}`);
-          }
-          const cached = this.nameCache.get(name);
-          if (cached) {
-            return cached;
-          }
-          const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-          if (!kebabName) {
-            throw new Error(`Could not generate valid kebab-case name from: ${name}`);
-          }
-          const words = name.split(/[^a-zA-Z0-9]+/).filter((word) => word.length > 0);
-          if (words.length === 0) {
-            throw new Error(`Could not extract words from component name: ${name}`);
-          }
-          const pascalName = words.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`).join("");
-          const result = { kebabName, pascalName };
-          this.nameCache.set(name, result);
-          return result;
-        }
-        static generateVariantTests(componentSet, kebabName, pascalName) {
-          const childrenHash = componentSet.children ? componentSet.children.map((c) => c.id + c.name).join("|") : "";
-          const cacheKey = `variants-${componentSet.id}-${childrenHash}`;
-          const cached = this.testCache.get(cacheKey);
-          if (cached) {
-            return { tests: cached, variantProps: [] };
-          }
-          const variantTestParts = [];
-          const processedVariants = /* @__PURE__ */ new Set();
-          const allVariantProps = [];
-          componentSet.children.forEach((variant) => {
-            try {
-              const variantProps = this.parseVariantName(variant.name);
-              const testId = variant.name;
-              if (processedVariants.has(testId)) {
-                return;
-              }
-              processedVariants.add(testId);
-              allVariantProps.push(variantProps);
-              const styles = this.parseStyles(variant.styles);
-              const cssProperties = this.extractCssProperties(styles);
-              const textStyles = this.extractTextStyles(variant.textElements);
-              const state = variantProps.state || "default";
-              const isPseudoState = this.isPseudoState(state);
-              if (isPseudoState) {
-                variantTestParts.push(this.generatePseudoStateTest(variantProps, cssProperties, kebabName, textStyles));
-              } else {
-                variantTestParts.push(this.generateComponentPropertyTest(variantProps, cssProperties, kebabName, pascalName, textStyles));
-              }
-            } catch (error) {
-              console.error("Error generating test for variant:", variant.name, error);
-            }
-          });
-          const result = {
-            tests: variantTestParts.join(""),
-            variantProps: allVariantProps
-          };
-          this.testCache.set(cacheKey, result.tests);
-          return result;
-        }
-        static parseVariantName(variantName) {
-          if (!variantName || typeof variantName !== "string") {
-            throw new Error(`Invalid variant name: ${variantName}`);
-          }
-          const props = {};
-          const parts = variantName.split(",");
-          parts.forEach((part) => {
-            const trimmedPart = part.trim();
-            const propertyMatch = trimmedPart.match(/^([^=]+)=(.+)$/);
-            if (propertyMatch) {
-              const propertyName = propertyMatch[1].trim();
-              const propertyValue = propertyMatch[2].trim();
-              const camelCaseName = propertyName.replace(/\s+/g, "").replace(/^(.)/g, (match) => match.toLowerCase()).replace(/[^a-zA-Z0-9]/g, "");
-              props[camelCaseName] = propertyValue;
-              if (propertyName.toLowerCase() === "state") {
-                props.state = propertyValue;
-              }
-            }
-          });
-          return props;
-        }
-        static parseStyles(styles) {
-          if (!styles) {
-            return {};
-          }
-          if (typeof styles === "string") {
-            const cached = this.styleCache.get(styles);
-            if (cached) {
-              return cached;
-            }
-            try {
-              const parsed = JSON.parse(styles);
-              const result = typeof parsed === "object" && parsed !== null ? parsed : {};
-              this.styleCache.set(styles, result);
-              return result;
-            } catch (error) {
-              console.error("Failed to parse styles JSON:", error);
-              const emptyResult = {};
-              this.styleCache.set(styles, emptyResult);
-              return emptyResult;
-            }
-          }
-          return typeof styles === "object" && styles !== null ? styles : {};
-        }
-        static isPseudoState(state) {
-          return (0, es2015_helpers_1.arrayIncludes)(PSEUDO_STATES, state.toLowerCase());
-        }
-        static generateInputDeclarations(allVariantProps) {
-          const propertyValues = /* @__PURE__ */ new Map();
-          allVariantProps.forEach((variantProps) => {
-            (0, es2015_helpers_1.objectEntries)(variantProps).forEach(([propName, propValue]) => {
-              if (propName === "state") {
-                return;
-              }
-              if (!propertyValues.has(propName)) {
-                propertyValues.set(propName, /* @__PURE__ */ new Set());
-              }
-              propertyValues.get(propName).add(propValue);
-            });
-          });
-          const inputDeclarations = [];
-          propertyValues.forEach((values, propName) => {
-            const uniqueValues = Array.from(values).sort();
-            if (uniqueValues.length === 1) {
-              inputDeclarations.push(`  @Input() ${propName}: string = '${uniqueValues[0]}';`);
-            } else {
-              const unionType = uniqueValues.map((val) => `'${val}'`).join(" | ");
-              const defaultValue = uniqueValues[0];
-              inputDeclarations.push(`  @Input() ${propName}: ${unionType} = '${defaultValue}';`);
-            }
-          });
-          if (inputDeclarations.length === 0) {
-            return "";
-          }
-          return `/*
-TODO: Add these @Input() properties to your component:
-
-${inputDeclarations.join("\n")}
-
-Don't forget to add this import:
-import { CommonModule } from '@angular/common';
-
-IMPORTANT: Ensure your variables file is imported in your stylesheets to make CSS variables available for testing.
-*/`;
-        }
-        static buildComponentSetTestTemplate(pascalName, kebabName, variantTests, variantProps) {
-          const inputDeclarations = variantProps ? this.generateInputDeclarations(variantProps) : "";
-          return `${inputDeclarations}${inputDeclarations ? "\n\n" : ""}import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ${pascalName}Component } from './${kebabName}.component';
-
-describe('${pascalName}Component - All Variants', () => {
-  let component: ${pascalName}Component;
-  let fixture: ComponentFixture<${pascalName}Component>;
-
-  const resolveCssVariable = (variableName: string, stylesheetHrefPart = 'styles.css'): string | undefined => {
-    const targetSheet = Array.from(document.styleSheets)
-      .find(sheet => sheet.href?.includes(stylesheetHrefPart));
-
-    const rootRule = Array.from(targetSheet?.cssRules || [])
-      .filter(rule => rule instanceof CSSStyleRule)
-      .find(rule => rule.selectorText === ':root');
-
-    const value = rootRule?.style?.getPropertyValue(variableName)?.trim();
-    if (value?.startsWith('var(')) {
-      const nestedVar = value.match(/var\\((--[^)]+)\\)/)?.[1];
-      return nestedVar ? resolveCssVariable(nestedVar, stylesheetHrefPart) : undefined;
-    }
-
-    return value;
-  };
-
-  const resolveCssValueWithVariables = (cssValue: string, stylesheetHrefPart = 'styles.css'): string => {
-    if (!cssValue || typeof cssValue !== 'string') {
-      return cssValue;
-    }
-
-    // Replace all var() functions in the CSS value
-    return cssValue.replace(/var\\((--[^,)]+)(?:,\\s*([^)]+))?\\)/g, (match, varName, fallback) => {
-      const resolvedValue = resolveCssVariable(varName, stylesheetHrefPart);
-      return resolvedValue || fallback || match;
-    });
-  };
-
-  const getCssPropertyForRule = (cssSelector: string, pseudoClass: string, prop: any) => {
-    // Regex necessairy because angular attaches identifier after the selector
-    const regex = new RegExp(\`\${cssSelector}([\\\\s\\\\S]*?)\${pseudoClass}\`);
-    const style = Array.from(document.styleSheets)
-      .flatMap(sheet => Array.from(sheet.cssRules || []))
-      .filter(r => r instanceof CSSStyleRule)
-      .find(r => regex.test(r.selectorText))
-      ?.style;
-
-    return style!.getPropertyValue(prop);
-  };
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [${pascalName}Component],
-    }).compileComponents();
-  });
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(${pascalName}Component);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-${variantTests}
-});`;
-        }
         static collectAllVariables() {
           return __awaiter(this, void 0, void 0, function* () {
             return yield errorHandler_1.ErrorHandler.withErrorHandling(() => __awaiter(this, void 0, void 0, function* () {
@@ -6447,283 +5505,6 @@ ${variantTests}
               severity: "medium"
             });
           });
-        }
-        static resolveStyleVariables(styles, textElements, componentName) {
-          if (!styles || typeof styles !== "object") {
-            return styles;
-          }
-          const resolvedStyles = Object.assign({}, styles);
-          Object.keys(styles).forEach((property) => {
-            if (styles.hasOwnProperty(property)) {
-              const value = styles[property];
-              if (typeof value === "string") {
-                resolvedStyles[property] = this.replaceVariableIdsWithNames(value);
-              }
-            }
-          });
-          if (textElements && textElements.length > 0) {
-            textElements.forEach((textElement) => {
-              if (textElement.textStyles) {
-                Object.keys(textElement.textStyles).forEach((key) => {
-                  if (textElement.textStyles.hasOwnProperty(key)) {
-                    const value = textElement.textStyles[key];
-                    if (value) {
-                      const resolvedValue = typeof value === "string" ? this.replaceVariableIdsWithNames(value) : value;
-                      const kebabKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
-                      resolvedStyles[kebabKey] = resolvedValue;
-                    }
-                  }
-                });
-              }
-            });
-          }
-          return resolvedStyles;
-        }
-        static replaceVariableIdsWithNames(cssValue) {
-          return cssValue.replace(/VariableID:([a-f0-9:]+)\/[\d.]+/g, (match, variableId) => {
-            Array.from(this.allVariables.values()).find((variable) => {
-              const figmaVariable = variable;
-              if (figmaVariable && figmaVariable.id === variableId.replace(/:/g, ":")) {
-                const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-                return `var(--${formattedName})`;
-              }
-            });
-            return match;
-          }).replace(/var\(--[a-f0-9-]+\)/g, (match) => {
-            const varId = match.replace(/var\(--([^)]+)\)/, "$1");
-            Array.from(this.allVariables.values()).forEach((variable) => {
-              const figmaVariable = variable;
-              if (figmaVariable && figmaVariable.id && (figmaVariable.id.indexOf(varId) !== -1 || varId.indexOf(figmaVariable.id) !== -1)) {
-                const formattedName = figmaVariable.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-                return `var(--${formattedName})`;
-              }
-            });
-            return match;
-          });
-        }
-        static extractTextStyles(textElements) {
-          if (!textElements || textElements.length === 0) {
-            return {};
-          }
-          const styleKeyMap = {
-            "font-size": "fontSize",
-            "font-family": "fontFamily",
-            "font-weight": "fontWeight",
-            color: "color",
-            "line-height": "lineHeight",
-            "letter-spacing": "letterSpacing"
-          };
-          const hexToRgb = (hex) => {
-            let cleanHex = hex.substring(1);
-            if (cleanHex.length === 3) {
-              cleanHex = cleanHex.split("").map((char) => char + char).join("");
-            }
-            const r = parseInt(cleanHex.substring(0, 2), 16);
-            const g = parseInt(cleanHex.substring(2, 4), 16);
-            const b = parseInt(cleanHex.substring(4, 6), 16);
-            return `rgb(${r}, ${g}, ${b})`;
-          };
-          return (0, es2015_helpers_1.arrayFlatMap)(textElements.filter((textEl) => textEl.textStyles), (textEl) => (0, es2015_helpers_1.objectEntries)(textEl.textStyles).filter(([_, value]) => value != null && value !== "").map(([styleKey, value]) => {
-            const cssProperty = styleKeyMap[styleKey];
-            if (!cssProperty)
-              return null;
-            let expectedValue = String(value);
-            if (expectedValue.indexOf("var(") !== -1) {
-              const fallbackMatch = expectedValue.match(/var\([^,]+,\s*([^)]+)\)/);
-              if (fallbackMatch) {
-                expectedValue = fallbackMatch[1].trim();
-              }
-            }
-            if (/^#[0-9A-Fa-f]{3,6}$/.test(expectedValue)) {
-              expectedValue = hexToRgb(expectedValue);
-            }
-            return [cssProperty, expectedValue];
-          }).filter(Boolean)).reduce((acc, [property, value]) => {
-            acc[property] = value;
-            return acc;
-          }, {});
-        }
-        static extractCssProperties(styles) {
-          const cssProperties = {};
-          const collectedStyles = {};
-          Object.keys(styles).forEach((key) => {
-            if (styles.hasOwnProperty(key)) {
-              const value = styles[key];
-              let camelCaseKey = key.replace(/-([a-z])/g, function(g) {
-                return g[1].toUpperCase();
-              });
-              if (camelCaseKey === "background") {
-                camelCaseKey = "backgroundColor";
-              }
-              collectedStyles[camelCaseKey] = this.normalizeStyleValue(camelCaseKey, value);
-            }
-          });
-          const paddingProps = ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft"];
-          const marginProps = ["marginTop", "marginRight", "marginBottom", "marginLeft"];
-          if (paddingProps.some((prop) => collectedStyles[prop])) {
-            cssProperties["padding"] = "computed";
-          } else if (collectedStyles.padding) {
-            cssProperties["padding"] = String(collectedStyles.padding);
-          }
-          if (marginProps.some((prop) => collectedStyles[prop])) {
-            cssProperties["margin"] = "computed";
-          } else if (collectedStyles.margin) {
-            cssProperties["margin"] = String(collectedStyles.margin);
-          }
-          const shorthandSkip = new Set(paddingProps.concat(marginProps));
-          Object.keys(collectedStyles).filter((prop) => collectedStyles[prop] && !shorthandSkip.has(prop)).forEach((prop) => {
-            cssProperties[prop] = String(collectedStyles[prop]);
-          });
-          return cssProperties;
-        }
-        static generatePseudoStateTest(variantProps, cssProperties, kebabName, textStyles = {}) {
-          const state = variantProps.state || "default";
-          const pseudoClass = `:${state.toLowerCase()}`;
-          const propDescriptions = (0, es2015_helpers_1.objectEntries)(variantProps).filter(([key, value]) => key !== "state" && value !== "default").map(([key, value]) => `${key}="${value}"`).join(" ");
-          const testDescription = `should have correct :${state.toLowerCase()} styles${propDescriptions ? ` for ${propDescriptions}` : ""}`;
-          const allProperties = Object.assign({}, cssProperties, textStyles);
-          const testableProperties = Object.keys(allProperties).filter((property) => {
-            const expectedValue = allProperties[property];
-            if (expectedValue === "computed")
-              return false;
-            if (expectedValue.indexOf("var(") !== -1) {
-              const replaced = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => fallback.trim());
-              return replaced !== expectedValue;
-            }
-            return true;
-          });
-          if (testableProperties.length === 0) {
-            return `
-  it('${testDescription}', () => {
-    console.log('${testDescription}: No specific values to test');
-  });`;
-          }
-          return `
-  it('${testDescription}', () => {
-    const propertiesToCheck = [
-${testableProperties.map((property) => {
-            const expectedValue = allProperties[property];
-            let expectedTest = expectedValue;
-            if (expectedValue.indexOf("var(") !== -1) {
-              expectedTest = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => {
-                return fallback.trim();
-              });
-              if (expectedTest === expectedValue) {
-                expectedTest = null;
-              }
-            }
-            expectedTest = expectedTest.replace(/#([0-9A-Fa-f]{3,6})\b/g, (match, hex) => {
-              let fullHex = hex;
-              if (hex.length === 3) {
-                fullHex = hex.split("").map((char) => char + char).join("");
-              }
-              const r = parseInt(fullHex.substring(0, 2), 16);
-              const g = parseInt(fullHex.substring(2, 4), 16);
-              const b = parseInt(fullHex.substring(4, 6), 16);
-              return `rgb(${r}, ${g}, ${b})`;
-            });
-            const cssProperty = property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
-            const isTextStyle = textStyles.hasOwnProperty(property);
-            return `      { 
-        property: '${property}', 
-        cssProperty: '${cssProperty}', 
-        expectedValue: '${expectedTest}'${isTextStyle ? ", isTextStyle: true" : ""} 
-      }`;
-          }).join(",\n")}
-    ];
-
-    propertiesToCheck.forEach((check) => {
-      // TODO: please check whether the selector is correct
-      const resolvedValue = getCssPropertyForRule('.${kebabName}', '${pseudoClass}', check.cssProperty);
-      
-      if (resolvedValue) {
-        if (resolvedValue.indexOf('var(') !== -1) {
-          const actualValue = resolveCssValueWithVariables(resolvedValue);
-          expect(actualValue).withContext(check.property).toBe(check.expectedValue);
-        } else {
-          expect(resolvedValue).withContext(check.property).toBe(check.expectedValue);
-        }
-      } else {
-        // Fallback to computed style if CSS rule not found
-        console.log('No CSS rule found for:', check.cssProperty);
-        ${Object.keys(variantProps).filter((key) => key !== "state").map((key) => `component.${key} = '${variantProps[key]}';`).join("\n        ")}
-        fixture.detectChanges();
-        const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-        const computedStyle = window.getComputedStyle(element);
-        expect(computedStyle.getPropertyValue(check.cssProperty)).withContext(check.property).toBe(check.expectedValue);
-      }
-    });
-  });`;
-        }
-        static generateComponentPropertyTest(variantProps, cssProperties, kebabName, pascalName, textStyles = {}) {
-          const componentProps = [];
-          const testDescriptionParts = [];
-          (0, es2015_helpers_1.objectEntries)(variantProps).forEach(([propName, propValue]) => {
-            if (propValue !== "default") {
-              if (propName === "state" && ["hover", "active", "focus", "disabled"].indexOf(propValue.toLowerCase()) !== -1) {
-                return;
-              }
-              let componentPropName = propName;
-              if (propName === "variantType" || propName === "variant") {
-                componentPropName = "variant";
-              }
-              componentProps.push(`component.${componentPropName} = '${propValue.toLowerCase()}';`);
-              testDescriptionParts.push(`${propName}="${propValue}"`);
-            }
-          });
-          const testDescription = testDescriptionParts.join(" ");
-          const testName = testDescription ? `should have correct styles for ${testDescription}` : "should have correct styles";
-          return `
-  it('${testName}', () => {
-    ${componentProps.length > 0 ? `${componentProps.join("\n    ")}
-    fixture.detectChanges();
-` : ""}
-    const element = fixture.nativeElement.querySelector('button, div, span, a, p, h1, h2, h3, h4, h5, h6');
-    if (element) {
-      const computedStyle = window.getComputedStyle(element);
-
-${Object.keys(cssProperties).map((property) => {
-            const expectedValue = cssProperties[property];
-            let expectedTest = expectedValue;
-            if (expectedValue === "computed") {
-              return `      // ${property} (shorthand property)
-      // expect(computedStyle.${property}).toBe('expected-value');`;
-            }
-            if (expectedValue.indexOf("var(") !== -1) {
-              expectedTest = expectedValue.replace(/var\([^,]+,\s*([^)]+)\)/g, (match, fallback) => {
-                return fallback.trim();
-              });
-              if (expectedTest === expectedValue) {
-                return `      // ${property} (CSS variable without fallback)
-      // expect(computedStyle.${property}).toBe('expected-value');`;
-              }
-            }
-            expectedTest = expectedTest.replace(/#([0-9A-Fa-f]{3,6})\b/g, (match, hex) => {
-              let fullHex = hex;
-              if (hex.length === 3) {
-                fullHex = hex.split("").map((char) => char + char).join("");
-              }
-              const r = parseInt(fullHex.substring(0, 2), 16);
-              const g = parseInt(fullHex.substring(2, 4), 16);
-              const b = parseInt(fullHex.substring(4, 6), 16);
-              return `rgb(${r}, ${g}, ${b})`;
-            });
-            const hasDecimalWarning = this.hasDecimalPixelValues(expectedValue) || expectedValue !== expectedTest && this.hasDecimalPixelValues(expectedTest);
-            if (hasDecimalWarning) {
-              return `      // Note: Figma may have rounded decimal pixel values - test may fail due to rounding
-      expect(computedStyle.${property}).withContext('${property}').toBe('${expectedTest}');`;
-            } else {
-              return `      expect(computedStyle.${property}).withContext('${property}').toBe('${expectedTest}');`;
-            }
-          }).join("\n\n")}${Object.keys(textStyles).length > 0 ? "\n\n" + Object.keys(textStyles).map((property) => {
-            const expectedValue = textStyles[property];
-            return `      expect(computedStyle.${property}).withContext('${property}').toBe('${expectedValue}');`;
-          }).join("\n\n") : ""}
-
-    } else {
-      console.warn('No suitable element found to test styles');
-    }
-  });`;
         }
         static extractTextElements(node) {
           return __awaiter(this, void 0, void 0, function* () {
@@ -6935,9 +5716,6 @@ ${Object.keys(cssProperties).map((property) => {
       exports.ComponentService = ComponentService;
       ComponentService.componentMap = /* @__PURE__ */ new Map();
       ComponentService.allVariables = /* @__PURE__ */ new Map();
-      ComponentService.styleCache = /* @__PURE__ */ new Map();
-      ComponentService.testCache = /* @__PURE__ */ new Map();
-      ComponentService.nameCache = /* @__PURE__ */ new Map();
       ComponentService.MAX_CACHE_SIZE = 1e3;
       ComponentService.CACHE_CLEANUP_THRESHOLD = 800;
     }
@@ -9727,24 +8505,6 @@ ${Object.keys(cssProperties).map((property) => {
                 exportFormat: format
               });
               break;
-            case "generate-test":
-              if (!msg.componentId) {
-                throw new Error(`Missing required component ID`);
-              }
-              const component = componentService_1.ComponentService.getComponentById(msg.componentId);
-              if (!component) {
-                throw new Error(`Component with ID ${msg.componentId} not found`);
-              }
-              yield componentService_1.ComponentService.loadComponentDetails(msg.componentId);
-              const testContent = componentService_1.ComponentService.generateTest(component, msg.includeStateTests !== false);
-              figma.ui.postMessage({
-                type: "test-generated",
-                componentName: msg.componentName || component.name,
-                testContent,
-                isComponentSet: component.type === "COMPONENT_SET",
-                forCommit: msg.forCommit
-              });
-              break;
             case "load-component-styles":
               if (!msg.componentId) {
                 throw new Error(`Missing required component ID for loading styles`);
@@ -9829,10 +8589,8 @@ ${Object.keys(cssProperties).map((property) => {
                 projectId: msg.projectId || "",
                 token: msg.token,
                 filePath: msg.filePath || "src/variables.css",
-                testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
                 strategy: msg.strategy || "merge-request",
                 branchName: msg.branchName || "feature/variables",
-                testBranchName: msg.testBranchName || "feature/component-tests",
                 exportFormat: msg.exportFormat || "css",
                 saveToken: msg.saveToken || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -9857,10 +8615,8 @@ ${Object.keys(cssProperties).map((property) => {
                 projectId: msg.projectId || "",
                 gitlabToken: msg.gitlabToken,
                 filePath: msg.filePath || "src/variables.css",
-                testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
                 strategy: msg.strategy || "merge-request",
                 branchName: msg.branchName || "feature/variables",
-                testBranchName: msg.testBranchName || "feature/component-tests",
                 exportFormat: msg.exportFormat || "css",
                 saveToken: msg.saveToken || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -10520,10 +9276,8 @@ ${Object.keys(cssProperties).map((property) => {
                   token: msg.token || msg.gitlabToken,
                   // Accept either
                   filePath: msg.filePath || "src/variables.css",
-                  testFilePath: "components/{componentName}.spec.ts",
                   strategy: "merge-request",
                   branchName: msg.branchName || "feature/variables",
-                  testBranchName: "feature/component-tests",
                   exportFormat: "css",
                   saveToken: false,
                   savedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -10567,77 +9321,6 @@ ${Object.keys(cssProperties).map((property) => {
                   type: "commit-error",
                   error: errorMessage,
                   errorType,
-                  statusCode: error.statusCode
-                });
-              }
-              break;
-            case "commit-component-test":
-              if (!msg.projectId || !msg.token && !msg.gitlabToken || !msg.commitMessage || !msg.testContent || !msg.componentName) {
-                throw new Error("Missing required fields for component test commit");
-              }
-              try {
-                const provider = msg.provider || "gitlab";
-                const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
-                const settings = {
-                  provider,
-                  baseUrl: msg.baseUrl || msg.gitlabUrl || "",
-                  projectId: msg.projectId,
-                  token: msg.token || msg.gitlabToken,
-                  filePath: "variables.css",
-                  // Default value
-                  testFilePath: msg.testFilePath || "components/{componentName}.spec.ts",
-                  strategy: "merge-request",
-                  // Default value
-                  branchName: "feature/variables",
-                  // Default value
-                  testBranchName: msg.branchName || "feature/component-tests",
-                  exportFormat: "css",
-                  // Default value
-                  saveToken: false,
-                  // Default value
-                  savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-                  savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
-                };
-                const testResult = yield gitService2.commitComponentTest(settings, msg.commitMessage, msg.componentName, msg.testContent, msg.testFilePath || "components/{componentName}.spec.ts", msg.branchName || "feature/component-tests");
-                figma.ui.postMessage({
-                  type: "test-commit-success",
-                  message: config_1.SUCCESS_MESSAGES.TEST_COMMIT_SUCCESS,
-                  componentName: msg.componentName,
-                  mergeRequestUrl: testResult && testResult.pullRequestUrl
-                });
-              } catch (error) {
-                let errorMessage = "Unknown error occurred";
-                let errorType = "unknown";
-                if (error.name === "GitLabAuthError") {
-                  errorType = "auth";
-                  errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
-                } else if (error.name === "GitLabNetworkError") {
-                  errorType = "network";
-                  errorMessage = "Network error. Please check your internet connection and GitLab server availability.";
-                } else if (error.name === "GitLabAPIError") {
-                  if (error.statusCode === 401 || error.statusCode === 403) {
-                    errorType = "auth";
-                    errorMessage = "Authentication failed. Please check your GitLab token and permissions.";
-                  } else {
-                    errorType = "api";
-                    if (error.statusCode === 404) {
-                      errorMessage = "Project not found. Please check your project ID.";
-                    } else if (error.statusCode === 422) {
-                      errorMessage = "Invalid data provided. Please check your settings and try again.";
-                    } else if (error.statusCode === 429) {
-                      errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
-                    } else {
-                      errorMessage = error.message || "GitLab API error occurred.";
-                    }
-                  }
-                } else {
-                  errorMessage = error.message || "Unknown error occurred";
-                }
-                figma.ui.postMessage({
-                  type: "test-commit-error",
-                  error: errorMessage,
-                  errorType,
-                  componentName: msg.componentName,
                   statusCode: error.statusCode
                 });
               }

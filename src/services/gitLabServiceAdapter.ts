@@ -18,10 +18,8 @@ export class GitLabServiceAdapter implements BaseGitService {
       projectId: settings.projectId,
       gitlabToken: settings.token,
       filePath: settings.filePath,
-      testFilePath: settings.testFilePath,
       strategy: settings.strategy,
       branchName: settings.branchName,
-      testBranchName: settings.testBranchName,
       exportFormat: settings.exportFormat,
       saveToken: settings.saveToken,
       savedAt: settings.savedAt,
@@ -43,10 +41,8 @@ export class GitLabServiceAdapter implements BaseGitService {
       projectId: settings.projectId,
       token: settings.gitlabToken,
       filePath: settings.filePath,
-      testFilePath: settings.testFilePath,
       strategy: settings.strategy,
       branchName: settings.branchName,
-      testBranchName: settings.testBranchName,
       exportFormat: settings.exportFormat,
       saveToken: settings.saveToken,
       savedAt: settings.savedAt,
@@ -254,29 +250,6 @@ export class GitLabServiceAdapter implements BaseGitService {
     };
   }
 
-  async commitComponentTest(
-    settings: GitSettings,
-    commitMessage: string,
-    componentName: string,
-    testContent: string,
-    testFilePath: string,
-    branchName: string,
-  ): Promise<{ pullRequestUrl?: string }> {
-    const gitlabSettings = this.toGitLabSettings(settings);
-
-    const result = await GitLabService.commitComponentTest(
-      gitlabSettings,
-      commitMessage,
-      componentName,
-      testContent,
-      testFilePath,
-      branchName,
-    );
-
-    return {
-      pullRequestUrl: result.mergeRequestUrl,
-    };
-  }
 
   async clearAllTokens(): Promise<void> {
     await GitLabService.clearAllTokens();

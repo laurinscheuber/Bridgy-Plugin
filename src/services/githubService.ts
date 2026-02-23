@@ -92,7 +92,6 @@ interface GitHubRef {
 
 // Constants
 const DEFAULT_BRANCH_NAME = GIT_CONFIG.DEFAULT_BRANCH;
-const DEFAULT_TEST_BRANCH_NAME = GIT_CONFIG.DEFAULT_TEST_BRANCH;
 
 export class GitHubService implements BaseGitService {
   private static readonly DEFAULT_HEADERS = API_CONFIG.DEFAULT_HEADERS;
@@ -759,59 +758,7 @@ export class GitHubService implements BaseGitService {
     );
   }
 
-  async commitComponentTest(
-    settings: GitSettings,
-    commitMessage: string,
-    componentName: string,
-    testContent: string,
-    testFilePath: string = 'components/{componentName}.spec.ts',
-    branchName: string = DEFAULT_TEST_BRANCH_NAME,
-  ): Promise<{ pullRequestUrl?: string }> {
-    return await ErrorHandler.withErrorHandling(
-      async () => {
-        this.validateComponentTestParameters(settings, commitMessage, componentName, testContent);
 
-        // Normalize component name and file path
-        const normalizedComponentName = this.normalizeComponentName(componentName);
-        const filePath = testFilePath.replace(/{componentName}/g, normalizedComponentName);
-        const featureBranch = `${branchName}-${normalizedComponentName}`;
-
-        // Get project info
-        const project = await this.getProject(settings);
-        const defaultBranch = project.defaultBranch;
-
-        // Create or verify branch
-        await this.createBranch(settings, featureBranch, defaultBranch);
-
-        // Commit the test file
-        await this.commitFile(settings, commitMessage, filePath, testContent, featureBranch);
-
-        // Check for existing PR
-        const existingPR = await this.findExistingPullRequest(settings, featureBranch);
-
-        if (!existingPR) {
-          // Create new PR
-          const prDescription = `Automatically created pull request for component test: ${componentName}`;
-          const newPR = await this.createPullRequest(
-            settings,
-            featureBranch,
-            defaultBranch,
-            commitMessage,
-            prDescription,
-            true, // Mark as draft
-          );
-          return { pullRequestUrl: newPR.webUrl };
-        }
-
-        return { pullRequestUrl: existingPR.webUrl };
-      },
-      {
-        operation: 'commit_component_test',
-        component: 'GitHubService',
-        severity: 'high',
-      },
-    );
-  }
 
   async clearAllTokens(): Promise<void> {
     try {
@@ -904,32 +851,7 @@ export class GitHubService implements BaseGitService {
     }
   }
 
-  private validateComponentTestParameters(
-    settings: GitSettings,
-    commitMessage: string,
-    componentName: string,
-    testContent: string,
-  ): void {
-    if (!settings.projectId || !settings.projectId.trim()) {
-      throw new Error('Project ID is required');
-    }
 
-    if (!settings.token || !settings.token.trim()) {
-      throw new GitAuthError('GitHub token is required');
-    }
-
-    if (!commitMessage || !commitMessage.trim()) {
-      throw new Error('Commit message is required');
-    }
-
-    if (!componentName || !componentName.trim()) {
-      throw new Error('Component name is required');
-    }
-
-    if (!testContent || !testContent.trim()) {
-      throw new Error('Test content is required');
-    }
-  }
 
   private normalizeComponentName(componentName: string): string {
     return componentName

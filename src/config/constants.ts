@@ -74,9 +74,7 @@ export const buildGitLabWebUrlSync = (gitlabUrl?: string): string => {
 // Git Configuration
 export const GIT_CONFIG = {
   DEFAULT_BRANCH: 'feature/variables',
-  DEFAULT_TEST_BRANCH: 'feature/component-tests',
   DEFAULT_COMMIT_PATTERNS: {
     variables: 'Update CSS variables from Figma',
-    tests: 'Add component test for {componentName}',
   },
 } as const;
