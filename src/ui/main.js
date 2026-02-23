@@ -6091,7 +6091,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
       '<div class="node-header" onclick="toggleQualityNodeGroup(\'' + ngId + '\')" style="display: flex; align-items: center; padding: 6px 16px 6px 0; cursor: pointer;">' +
       '<input type="checkbox" class="occurrence-checkbox" data-issue-id="' + issueId + '" data-node-ids=\'' + SecurityUtils.escapeHTML(JSON.stringify(data.ids)) + '\' onchange="updateIssueApplyButtonState(\'' + issueId + '\')" style="margin-right: 2px; cursor: pointer;" onclick="event.stopPropagation();">' +
       '<button class="nav-icon" style="width: 24px; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); margin-right: 2px;" id="' + ngId + '-toggle">' +
-      '<span class="material-symbols-outlined" style="font-size: 18px;">expand_more</span></button>' +
+      '<span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span></button>' +
       '<span style="margin-right: 6px; flex-shrink: 0; display: flex; align-items: center;">' + groupIconSvg + '</span>' +
       '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
       '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
@@ -11632,7 +11632,7 @@ function toggleQualityNodeGroup(groupId) {
     container.style.display = isExpanded ? 'none' : 'block';
 
     if (toggle) {
-      toggle.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+      toggle.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
     }
   }
 }
