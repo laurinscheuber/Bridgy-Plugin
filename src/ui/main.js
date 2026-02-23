@@ -5499,6 +5499,10 @@ function runQualityAnalysis() {
   // Reset lazy-load state
   window.qualityRemainingIssues = {};
 
+  // Set loading flag and show "-" placeholder in score gauge immediately
+  window.qualityLoading = true;
+  updateQualityGauge();
+
   // Show loading spinners in all category bodies
   ['missing-variables', 'unused-variables', 'unused-components', 'tailwind'].forEach(id => {
     const content = document.getElementById(id + '-content');
@@ -5528,6 +5532,10 @@ window.refreshQualityAnalysis = function () {
   if (btn) btn.classList.add('spinning');
 
   window.qualityScanPerformed = false;
+
+  // Set loading flag and show "-" placeholder immediately
+  window.qualityLoading = true;
+  updateQualityGauge();
 
   // Reset state
   Object.keys(window.qualityState.categories).forEach(key => {
@@ -5565,6 +5573,15 @@ function updateAllCategoryUI() {
   const twSection = document.getElementById('quality-cat-tailwind');
   if (twSection) {
     twSection.style.display = cats.tailwind.active ? '' : 'none';
+  }
+
+  // Clear loading flag once all required categories have data
+  if (window.qualityLoading) {
+    const requiredCats = [cats.missingVariables, cats.unusedVariables, cats.unusedComponents];
+    const allLoaded = requiredCats.every(c => c.data !== null && c.data !== undefined);
+    if (allLoaded) {
+      window.qualityLoading = false;
+    }
   }
 
   updateQualityGauge();
@@ -5640,14 +5657,25 @@ function updateQualityGauge() {
   const container = document.getElementById('quality-score-ring-container');
   if (!container) return;
 
-  const score = getOverallQualityScore();
-  const color = getScoreColor(score);
   const size = 150;
   const cx = size / 2;
   const cy = size / 2;
   const radius = 58;
   const strokeWidth = 10;
   const circumference = 2 * Math.PI * radius;
+
+  // Show "-" placeholder while loading
+  if (window.qualityLoading) {
+    const placeholderColor = 'rgba(255,255,255,0.3)';
+    container.innerHTML = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" style="display: block;">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + strokeWidth + '" />' +
+      '<text x="' + cx + '" y="' + cy + '" text-anchor="middle" dominant-baseline="central" style="fill: ' + placeholderColor + '; font-size: 36px; font-weight: 800; font-family: \'SF Mono\', \'JetBrains Mono\', monospace;">-</text>' +
+      '</svg>';
+    return;
+  }
+
+  const score = getOverallQualityScore();
+  const color = getScoreColor(score);
   const offset = circumference * (1 - score / 100);
 
   container.innerHTML = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" style="display: block;">' +
