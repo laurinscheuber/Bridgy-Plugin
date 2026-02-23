@@ -2175,21 +2175,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           const modeId = collection.defaultModeId;
           variable.setValueForMode(modeId, resolvedValue);
 
-          // 5. Notify success and refresh
+          // 5. Notify success
           figma.notify(`Created variable ${variable.name}`);
-
-          // Trigger refresh to update UI lists
-          await collectDocumentData();
-
-          // Also re-analyze token coverage so the new variable appears as a match?
-          // The UI might want to simply apply it immediately.
-          // Since we refreshed data, the list of variables sent to UI will include it.
-          // But the token coverage UI needs to know about it.
-          // Let's re-run analyzeCurrentPage to update the "Found Matches" list?
-          // Or just let the user re-scan?
-          // Best UX: Re-scan coverage + Refresh Data.
-
-          // Send explicit success message with new variable details
           // Send explicit success message with new variable details
           figma.ui.postMessage({
             type: 'variable-created',

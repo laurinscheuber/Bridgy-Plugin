@@ -10987,7 +10987,6 @@ ${Object.keys(cssProperties).map((property) => {
                 const modeId = collection.defaultModeId;
                 variable.setValueForMode(modeId, resolvedValue);
                 figma.notify(`Created variable ${variable.name}`);
-                yield collectDocumentData();
                 figma.ui.postMessage({
                   type: "variable-created",
                   variable: {

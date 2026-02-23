@@ -2119,16 +2119,86 @@ window.onmessage = (event) => {
     } else if (message.type === 'variable-created') {
       console.log('Received variable-created:', message.variable);
       const { name, id, key } = message.variable;
+      const collectionName = message.variable.collectionName || '';
       const issueId = message.context && message.context.issueId;
+      const label = (collectionName ? collectionName + ' / ' : '') + name;
 
-      // Ensure pending state is set for post-analysis view restoration
+      // ── In-place DOM update: NO re-render, NO re-analysis ──
       if (issueId) {
-        window.pendingFixIssueId = issueId;
-      }
+        const card = document.getElementById(issueId + '-card');
+        if (card) {
+          const customSelect = document.getElementById(issueId + '-custom-select');
 
-      // Re-analyze coverage to reflect changes and update UI using the new variable
-      window.qualityScanPerformed = false;
-      runQualityAnalysis();
+          if (customSelect) {
+            // Case B: dropdown already exists — add new option and select it
+            const menu = customSelect.querySelector('.custom-select-menu');
+            if (menu) {
+              const divider = menu.querySelector('.custom-select-divider');
+              // Add "Exact Matches" header if missing
+              if (!menu.querySelector('.custom-select-group-header.exact') && divider) {
+                divider.insertAdjacentHTML('beforebegin',
+                  '<div class="custom-select-group-header exact">Exact Matches</div>');
+              }
+              const optHtml = '<div class="custom-select-option" onclick="selectCustomOption(\'' +
+                issueId + '\', \'' + id + '\', \'' + SecurityUtils.escapeHTML(label) +
+                '\', \'exact\')">' + SecurityUtils.escapeHTML(label) + '</div>';
+              if (divider) {
+                divider.insertAdjacentHTML('beforebegin', optHtml);
+              } else {
+                menu.insertAdjacentHTML('afterbegin', optHtml);
+              }
+            }
+            // Select the new option (also auto-checks all nodes + enables Apply)
+            selectCustomOption(issueId, id, label, 'exact');
+
+          } else {
+            // Case A: no dropdown — only "Create New Variable" button exists.
+            // Replace it with a full dropdown + Apply button.
+            const body = document.getElementById(issueId + '-body');
+            if (body) {
+              const property = card.dataset.property || '';
+              const category = card.dataset.category || '';
+              const targetValue = card.dataset.value || '';
+
+              // Remove the "Create New Variable" button container
+              const createBtn = body.querySelector('.btn-create-variable');
+              const createBtnContainer = createBtn ? createBtn.parentElement : null;
+
+              const fixHtml =
+                '<div class="fix-actions-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">' +
+                '<div id="' + issueId + '-custom-select" class="custom-select" data-value="' + id + '">' +
+                '<div class="custom-select-trigger" onclick="toggleCustomSelect(\'' + issueId + '\')" style="border: 2px solid #8b5cf6;">' +
+                '<span class="trigger-text">' + SecurityUtils.escapeHTML(label) + '</span>' +
+                '<span class="material-symbols-outlined trigger-icon">expand_more</span></div>' +
+                '<div class="custom-select-menu">' +
+                '<div class="custom-select-group-header exact">Exact Matches</div>' +
+                '<div class="custom-select-option selected" onclick="selectCustomOption(\'' + issueId +
+                '\', \'' + id + '\', \'' + SecurityUtils.escapeHTML(label) +
+                '\', \'exact\')">' + SecurityUtils.escapeHTML(label) +
+                ' <span class="material-symbols-outlined" style="font-size: 14px;">check</span></div>' +
+                '<div class="custom-select-divider"></div>' +
+                '<div class="custom-select-option create-new" onclick="selectCustomOption(\'' + issueId +
+                '\', \'create-new\', \'+ Create new variable...\', \'\')">+ Create new variable...</div>' +
+                '</div></div>' +
+                '<button id="' + issueId + '-apply-btn" class="token-fix-apply-btn btn-apply-fix"' +
+                ' onclick="applyTokenToSelection(\'' + issueId + '\', \'' + SecurityUtils.escapeHTML(property) +
+                '\', \'' + SecurityUtils.escapeHTML(category) + '\')"' +
+                ' data-target-value="' + SecurityUtils.escapeHTML(targetValue) + '" disabled>' +
+                '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply</button>' +
+                '</div>';
+
+              if (createBtnContainer) {
+                createBtnContainer.outerHTML = fixHtml;
+              } else {
+                body.insertAdjacentHTML('afterbegin', fixHtml);
+              }
+
+              // Select the new option (also auto-checks all nodes + enables Apply)
+              selectCustomOption(issueId, id, label, 'exact');
+            }
+          }
+        }
+      }
 
       // Notify user
       if (typeof showNotification === 'function') {
@@ -5720,36 +5790,82 @@ function renderMissingVariablesContent(result) {
 
   container.innerHTML = html;
 
-  // Auto-expand if we have a pending issue ID from variable creation
-  if (window.pendingFixIssueId) {
-    const issueId = window.pendingFixIssueId;
-    const parts = issueId.split('-');
-    if (parts.length >= 3) {
-      const category = parts.slice(1, parts.length - 1).join('-');
-      const groupId = 'mv-' + category;
+  // Auto-expand + auto-select newly created variable after re-analysis
+  if (window.pendingFixIssueId || window.pendingFixContext) {
+    const ctx = window.pendingFixContext;
+    let issueId = window.pendingFixIssueId;
 
-      setTimeout(() => {
-        // Expand the category accordion if it's currently closed
-        const accordion = document.getElementById(groupId);
-        if (accordion && !accordion.classList.contains('expanded')) {
-          if (typeof window.toggleQualityAccordion === 'function') {
-            window.toggleQualityAccordion(groupId);
+    // If issue indices shifted after re-analysis, try to find the card by category + value
+    if (ctx && ctx.value) {
+      const issueCards = container.querySelectorAll('.quality-issue-card');
+      for (const card of issueCards) {
+        const valueEl = card.querySelector('div[style*="monospace"]') || card.querySelector('.issue-value-display');
+        if (valueEl && valueEl.textContent.trim() === ctx.value) {
+          // Found the card with matching value
+          const cardId = card.id; // format: issue-Category-Index-card
+          if (cardId && cardId.endsWith('-card')) {
+            issueId = cardId.replace(/-card$/, '');
           }
+          break;
         }
+      }
+    }
 
-        // Expand the specific issue card if it's currently closed
-        const issueCard = document.getElementById(issueId + '-card');
-        if (issueCard && !issueCard.classList.contains('expanded')) {
-          if (typeof window.toggleIssueCard === 'function') {
-            window.toggleIssueCard(issueId);
+    if (issueId) {
+      const parts = issueId.split('-');
+      if (parts.length >= 3) {
+        const category = parts.slice(1, parts.length - 1).join('-');
+        const groupId = 'mv-' + category;
+
+        setTimeout(() => {
+          // Expand the category accordion if it's currently closed
+          const accordion = document.getElementById(groupId);
+          if (accordion && !accordion.classList.contains('expanded')) {
+            if (typeof window.toggleQualityAccordion === 'function') {
+              window.toggleQualityAccordion(groupId);
+            }
           }
-        }
 
-        // Scroll into view
-        if (issueCard) {
-          issueCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 50);
+          // Expand the specific issue card if it's currently closed
+          const issueCard = document.getElementById(issueId + '-card');
+          if (issueCard && !issueCard.classList.contains('expanded')) {
+            if (typeof window.toggleIssueCard === 'function') {
+              window.toggleIssueCard(issueId);
+            }
+          }
+
+          // Auto-select the newly created variable in the dropdown
+          if (ctx && ctx.variableId) {
+            const customSelect = document.getElementById(issueId + '-custom-select');
+            if (customSelect) {
+              // Find the option that matches the new variable ID
+              const options = customSelect.querySelectorAll('.custom-select-option');
+              let found = false;
+              for (const opt of options) {
+                const onclickAttr = opt.getAttribute('onclick') || '';
+                if (onclickAttr.includes(ctx.variableId)) {
+                  // Extract the label from the option text
+                  const label = opt.textContent.trim();
+                  selectCustomOption(issueId, ctx.variableId, label, 'exact');
+                  found = true;
+                  break;
+                }
+              }
+              if (!found) {
+                // Fallback: build label from context and select directly
+                const label = (ctx.collectionName ? ctx.collectionName + ' / ' : '') + ctx.variableName;
+                selectCustomOption(issueId, ctx.variableId, label, 'exact');
+              }
+            }
+          }
+
+          // Scroll into view
+          const issueCard2 = document.getElementById(issueId + '-card');
+          if (issueCard2) {
+            issueCard2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
     }
 
     // Clear state so it only runs once per variable creation
@@ -5826,7 +5942,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
   const isColor = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(val);
   const colorPreview = isColor ? '<div class="quality-color-preview" style="background: ' + val + ';"></div>' : '';
 
-  let html = '<div id="' + issueId + '-card" class="quality-issue-card" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
+  let html = '<div id="' + issueId + '-card" class="quality-issue-card" data-property="' + SecurityUtils.escapeHTML(issue.property) + '" data-category="' + SecurityUtils.escapeHTML(category) + '" data-value="' + SecurityUtils.escapeHTML(val) + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
     '<div class="quality-issue-header" onclick="toggleIssueCard(\'' + issueId + '\')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; cursor: pointer; border-radius: 8px;">' +
     '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
     '<span id="' + issueId + '-chevron" class="material-symbols-outlined" style="font-size: 18px; opacity: 0.7; transition: transform 0.2s;">chevron_right</span>' +
@@ -6834,15 +6950,21 @@ window.submitCreateVariable = function () {
     '*',
   );
 
-  // Update UI
-  const select = document.getElementById(`${issueId}-var-select`);
-  if (select) {
-    const opt = document.createElement('option');
-    opt.text = `Creating ${fullVariableName}...`;
-    opt.value = 'creating';
-    select.add(opt);
-    select.value = 'creating';
-    select.disabled = true;
+  // Show loading state on the existing UI elements
+  const customSelect = document.getElementById(`${issueId}-custom-select`);
+  if (customSelect) {
+    // Case B: dropdown exists — update the trigger text
+    const triggerText = customSelect.querySelector('.trigger-text');
+    if (triggerText) triggerText.textContent = `Creating ${fullVariableName}...`;
+  } else {
+    // Case A: only "Create New" button exists — show loading state on it
+    const card = document.getElementById(`${issueId}-card`);
+    const createBtn = card && card.querySelector('.btn-create-variable');
+    if (createBtn) {
+      createBtn.textContent = `Creating ${fullVariableName}...`;
+      createBtn.disabled = true;
+      createBtn.style.opacity = '0.6';
+    }
   }
 
   closeCreateVariableModal();
