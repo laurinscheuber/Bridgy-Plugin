@@ -1235,12 +1235,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           // Load all pages to scan for variable usage
           await figma.loadAllPagesAsync();
 
-          // Scan all nodes for variable bindings
+          // Scan ALL nodes across the entire document for variable bindings (ignores page selection)
           for (const page of figma.root.children) {
-            // Apply scoping if pageIds are provided (empty array means scan all pages)
-            if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-              continue;
-            }
 
             const allNodes = page.findAll();
 

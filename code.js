@@ -10251,9 +10251,6 @@ ${Object.keys(cssProperties).map((property) => {
                 }
                 yield figma.loadAllPagesAsync();
                 for (const page of figma.root.children) {
-                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-                    continue;
-                  }
                   const allNodes = page.findAll();
                   for (const node of allNodes) {
                     try {
