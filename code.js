@@ -10056,6 +10056,8 @@ ${Object.keys(cssProperties).map((property) => {
                   }
                   const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
                   localNodes.push(...pageDefs);
+                }
+                for (const page of figma.root.children) {
                   const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
                   allInstances.push(...pageInstances);
                 }

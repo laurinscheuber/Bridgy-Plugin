@@ -980,16 +980,17 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           const localNodes: (ComponentNode | ComponentSetNode)[] = [];
           const allInstances: InstanceNode[] = [];
 
-          // Scan all pages for components and instances
+          // 1. Collect component DEFINITIONS only from selected pages (respects page filter for listing)
           for (const page of figma.root.children) {
-            // Apply scoping if pageIds are provided (empty array means scan all pages)
             if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
               continue;
             }
-
             const pageDefs = page.findAllWithCriteria({ types: ['COMPONENT', 'COMPONENT_SET'] });
             localNodes.push(...pageDefs);
+          }
 
+          // 2. Collect ALL instances across the ENTIRE document (global usage check)
+          for (const page of figma.root.children) {
             const pageInstances = page.findAllWithCriteria({ types: ['INSTANCE'] });
             allInstances.push(...pageInstances);
           }
