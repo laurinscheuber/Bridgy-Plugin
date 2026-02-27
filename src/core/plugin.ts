@@ -764,27 +764,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
-      case 'check-oauth-status':
-        try {
-          const { OAuthService } = await import('../services/oauthService');
-          const status = OAuthService.getOAuthStatus();
 
-          figma.ui.postMessage({
-            type: 'oauth-status',
-            status: status,
-          });
-        } catch (error: any) {
-          console.error('Error checking OAuth status:', error);
-          figma.ui.postMessage({
-            type: 'oauth-status',
-            status: {
-              available: false,
-              configured: false,
-              message: 'OAuth service unavailable',
-            },
-          });
-        }
-        break;
 
       case 'get-component-usage':
         try {
@@ -1272,7 +1252,12 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
                 const color = varValue as { r: number; g: number; b: number; a?: number };
                 resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
               } else if (variable.resolvedType === 'FLOAT') {
+                // Round to max 2 decimal places
+                resolvedValue = String(Math.round(Number(varValue) * 100) / 100);
+              } else if (variable.resolvedType === 'STRING') {
                 resolvedValue = String(varValue);
+              } else {
+                 resolvedValue = String(varValue);
               }
 
               unusedVariables.push({
@@ -1477,30 +1462,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
-      case 'start-oauth-flow':
-        try {
-          const { OAuthService } = await import('../services/oauthService');
 
-          if (!OAuthService.isOAuthConfigured()) {
-            throw new Error('OAuth is not configured. Please use Personal Access Token method.');
-          }
-
-          const oauthUrl = OAuthService.generateGitHubOAuthUrl();
-
-          figma.ui.postMessage({
-            type: 'oauth-url',
-            url: oauthUrl,
-          });
-        } catch (error: any) {
-          figma.ui.postMessage({
-            type: 'oauth-callback',
-            data: {
-              success: false,
-              error: error.message || 'Failed to start OAuth flow',
-            },
-          });
-        }
-        break;
 
       case 'open-external':
         try {
