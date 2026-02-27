@@ -5947,6 +5947,15 @@ input[type='checkbox']:indeterminate {
   /* Reduced vertical padding */
 }
 
+/* Icon Button Hover States for Quality Items */
+.icon-btn-focus:hover {
+  color: #a78bfa !important;
+}
+
+.icon-btn-delete:hover {
+  color: #ef4444 !important;
+}
+
 /* Stats Tab Styles */
 .stats-summary {
   display: flex;
@@ -7156,7 +7165,7 @@ body.edit-mode .quality-header {
   transition: transform 0.2s ease;
 }
 
-.quality-accordion.expanded .quality-accordion-chevron {
+.quality-accordion.expanded > .quality-accordion-header .quality-accordion-chevron {
   transform: rotate(90deg);
 }
 
@@ -7304,7 +7313,7 @@ body.edit-mode .quality-header {
 
 /* --- Tailwind Namespace Select --- */
 .quality-namespace-select {
-  padding: 6px 8px;
+  padding: 4px 6px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(139, 92, 246, 0.3);
   border-radius: 4px;
@@ -7315,7 +7324,7 @@ body.edit-mode .quality-header {
 
 /* --- Tailwind Action Buttons --- */
 .quality-tw-btn {
-  padding: 6px 12px;
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
   font-size: 11px;
@@ -7407,4 +7416,30 @@ body.edit-mode .quality-header {
 .custom-select-option.selected {
   background: var(--glass-purple-medium);
   color: white;
+}
+/* ========================================= */
+/* USER GUIDE ACCORDION (Details/Summary)    */
+/* ========================================= */
+.guide-accordion summary::-webkit-details-marker {
+  display: none;
+}
+.guide-accordion[open] summary .material-symbols-outlined:last-child {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+.guide-accordion summary .material-symbols-outlined:last-child {
+  transition: transform 0.3s ease;
+}
+
+/* User Guide Workkflow Visual */
+@media (max-width: 600px) {
+  .workflow-visual-container {
+    flex-direction: column !important;
+  }
+  .workflow-visual-container > div .material-symbols-outlined:last-child {
+    right: 50% !important;
+    top: auto !important;
+    bottom: -20px !important;
+    transform: translateX(50%) rotate(90deg) !important;
+  }
 }

@@ -23,6 +23,8 @@ class SecurityUtils {
           match.includes('deleteStyle(') ||
           match.includes('deleteComponent(') ||
           match.includes('focusOnComponent(') ||
+          match.includes('openUserGuide(') ||
+          match.includes('openUnitsModal(') ||
           match.includes('console.log(') ||
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
@@ -63,6 +65,8 @@ class SecurityUtils {
           match.includes('deleteStyle(') ||
           match.includes('deleteComponent(') ||
           match.includes('focusOnComponent(') ||
+          match.includes('openUserGuide(') ||
+          match.includes('openUnitsModal(') ||
 
           match.includes('alert(') ||
           match.includes('simulateImport(') ||
@@ -1836,14 +1840,6 @@ window.onmessage = (event) => {
               <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">${message.error}</div>
             </div>
           `;
-    } else if (message.type === 'oauth-status') {
-      displayOAuthStatus(message.status);
-    } else if (message.type === 'oauth-url') {
-      // Open OAuth URL in new window
-      window.open(message.url, '_blank', 'width=600,height=700,scrollbars=yes,resizable=yes');
-      showNotification('info', 'OAuth', 'Complete authentication in the popup window', 5000);
-    } else if (message.type === 'oauth-callback') {
-      handleOAuthCallback(message.data);
     } else if (message.type === 'document-data') {
       updatePluginLoadingProgress(loadingSteps[3], 75);
       variablesData = message.variablesData;
@@ -2018,84 +2014,6 @@ window.onmessage = (event) => {
       // Trigger ZIP download with component data based on selected language
       const language = message.language || 'angular';
       downloadComponentsZip(message.files, language);
-    } else if (message.type === 'test-generated') {
-      // Handle test generation result
-      if (message.forCommit) {
-        // For commit, send the commit-component-test message
-        if (!window.gitlabSettings) {
-          showError(
-            'Configuration Required',
-            'Please configure your GitLab settings in the Settings tab first.',
-          );
-
-          // Reset button state
-          const buttons = document.querySelectorAll('button.loading');
-          buttons.forEach((button) => {
-            if (button.textContent === 'Committing...') {
-              button.classList.remove('loading');
-              button.textContent = button.dataset.originalText || 'Commit Test';
-              button.disabled = false;
-            }
-          });
-
-          // Open settings modal
-          openSettingsModal();
-          return;
-        }
-
-        // Get commit message
-        const commitMessage = `feat: add component test for ${message.componentName}`;
-
-        // Send to plugin for commit
-        parent.postMessage(
-          {
-            pluginMessage: {
-              type: 'commit-component-test',
-              provider: window.gitlabSettings.provider || 'gitlab',
-              gitlabUrl: window.gitlabSettings.gitlabUrl,
-              baseUrl: window.gitlabSettings.baseUrl,
-              projectId: window.gitlabSettings.projectId,
-              token: window.gitlabSettings.token || window.gitlabSettings.gitlabToken,
-              gitlabToken: window.gitlabSettings.token || window.gitlabSettings.gitlabToken,
-              commitMessage: commitMessage,
-              componentName: message.componentName,
-              testContent: message.testContent,
-              testFilePath:
-                window.gitlabSettings.testFilePath || 'components/{componentName}.spec.ts',
-              branchName: window.gitlabSettings.testBranchName || 'feature/component-tests',
-            },
-          },
-          '*',
-        );
-      } else {
-        downloadTest(message.componentName, message.testContent);
-        const buttons = document.querySelectorAll('button.loading');
-        buttons.forEach((button) => {
-          if (
-            button.textContent === 'Generating test...' ||
-            button.textContent === 'Generating...'
-          ) {
-            button.classList.remove('loading');
-            // Clear timeout if it exists
-            if (button.dataset.timeoutId) {
-              clearTimeout(parseInt(button.dataset.timeoutId));
-              delete button.dataset.timeoutId;
-            }
-            // Restore the original button text
-            button.textContent = button.dataset.originalText || 'Generate Test';
-            button.disabled = false;
-
-            const successMessage = button.parentElement.nextElementSibling;
-            if (successMessage && successMessage.classList.contains('test-success-message')) {
-              successMessage.textContent = 'Test generated successfully!';
-              successMessage.style.display = 'block';
-              setTimeout(() => {
-                successMessage.style.display = 'none';
-              }, 3000);
-            }
-          }
-        });
-      }
     } else if (message.type === 'collections-loaded') {
       // Handle existing collections data
       const collections = message.collections || [];
@@ -5018,128 +4936,6 @@ function updateExportButtonText() {
   exportButton.innerHTML = `<span class="material-symbols-outlined">download</span><span class="toolbar-btn-text">Download</span>`;
 }
 
-function generateTest(
-  componentId,
-  componentName,
-  button,
-  generateAllVariants = false,
-  forCommit = false,
-) {
-  try {
-    // Validate inputs
-    if (!componentId || !componentName || !button) {
-      throw new Error('Missing required parameters for test generation');
-    }
-
-    if (!button.parentElement) {
-      throw new Error('Button element is not properly attached to DOM');
-    }
-
-    // Validate component name
-    if (typeof componentName !== 'string' || componentName.trim().length === 0) {
-      throw new Error('Invalid component name provided');
-    }
-
-    // Enhanced loading state for test generation
-    const loadingText = forCommit ? 'Committing test...' : 'Generating test...';
-
-    // Store original text before changing it
-    if (!button.dataset.originalText) {
-      button.dataset.originalText = button.textContent;
-    }
-
-    showButtonLoading(button, loadingText);
-
-    const successMessage = button.parentElement.nextElementSibling;
-    if (successMessage && successMessage.classList.contains('test-success-message')) {
-      successMessage.style.display = 'none';
-    }
-
-    // Add timeout to prevent hanging operations
-    const timeoutId = setTimeout(() => {
-      console.warn('Test generation timed out');
-      button.classList.remove('loading');
-      button.textContent = button.dataset.originalText || 'Generate Test';
-      button.disabled = false;
-      showError('Generation Timeout', 'Test generation took too long. Please try again.');
-    }, 60000); // 60 seconds timeout
-
-    // Store timeout ID for potential cleanup
-    button.dataset.timeoutId = timeoutId;
-
-    if (forCommit) {
-      // TRACKING: Mark test as committed/exported for User Guide
-      try {
-        localStorage.setItem('bridgy_last_export_test', 'true');
-      } catch (e) {
-        console.warn('localStorage access failed:', e);
-      }
-      if (typeof refreshUserGuide === 'function') refreshUserGuide();
-
-      // For commits, we need to pass all the context needed for the backend to commit
-      parent.postMessage(
-        {
-          pluginMessage: {
-            type: 'commit-component-test',
-            componentId: componentId,
-            componentName: componentName,
-            settings: window.gitlabSettings, // Pass all settings
-            provider: window.gitlabSettings?.provider || 'gitlab',
-            token: window.gitlabSettings?.token || window.gitlabSettings?.gitlabToken,
-            gitlabToken: window.gitlabSettings?.token || window.gitlabSettings?.gitlabToken, // Compat
-            projectId: window.gitlabSettings?.projectId,
-            baseUrl: window.gitlabSettings?.baseUrl,
-            commitMessage: `test: add component test for ${componentName}`,
-            // We'll let the backend generate the content if it's missing,
-            // or the backend logic for 'commit-component-test' might need to be adjusted to generate it first.
-            // However, based on the error "Missing required fields", we were hitting the commit handler directly.
-            // A better approach is often: Generate -> Get Content -> Commit.
-            // But for now, let's fix the immediate "Missing required fields" error by checking if we have content.
-            // If we don't have content, we should probably trigger 'generate-test' with a flag to commit after.
-            // BUT, looking at the previous logic that failed, it seems it WAS creating a commit message directly?
-            // Let's assume for now we want to use the backend's ability to generate & commit.
-            // If 'commit-component-test' expects 'testContent', we must provide it.
-            // Since we don't have it here, we should probably stick to 'generate-test' BUT pass 'forCommit: true'
-            // AND ensure the backend handles 'forCommit' correctly.
-
-            // WAIT: The previous error came from 'commit-component-test' handler.
-            // This means 'generate-test' in backend probably sends 'commit-component-test' OR the UI calls it directly.
-            // If I change this to send 'commit-component-test', I MUST provide 'testContent'.
-
-            // Let's stick to 'generate-test' but ensure we pass the settings needed for the *callback* or *subsequent step*.
-            type: 'generate-test',
-            componentId: componentId,
-            componentName: componentName,
-            generateAllVariants: generateAllVariants,
-            forCommit: forCommit, // Backend should handle this
-            // Pass these just in case backend needs them for the subsequent commit
-            provider: window.gitlabSettings?.provider || 'gitlab',
-            // we don't need tokens here if generate-test just generates.
-          },
-        },
-        '*',
-      );
-    } else {
-      parent.postMessage(
-        {
-          pluginMessage: {
-            type: 'generate-test',
-            componentId: componentId,
-            componentName: componentName,
-            generateAllVariants: generateAllVariants,
-            forCommit: forCommit,
-          },
-        },
-        '*',
-      );
-    }
-  } catch (error) {
-    // ... catch block
-    console.error('Error in generateTest:', error);
-    // ... (rest of catch block)
-  }
-}
-
 function downloadComponentsZip(files, language) {
   if (!files || files.length === 0) {
     showError('Export Failed', 'No components available to export');
@@ -5195,25 +4991,6 @@ function downloadComponentsZip(files, language) {
       console.error('Error generating ZIP file:', error);
       showError('Export Failed', 'Failed to generate the export files. Please try again.');
     });
-}
-
-// Function to download a generated test
-function downloadTest(componentName, testContent) {
-  // Create a kebab case version of the component name for the file name
-  const kebabName = componentName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-
-  const blob = new Blob([testContent], { type: 'text/javascript' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${kebabName}.component.spec.ts`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 // Search functionality
@@ -5556,7 +5333,7 @@ window.refreshQualityAnalysis = function () {
 
 function getOverallQualityScore() {
   const cats = window.qualityState.categories;
-  const activeCategories = Object.values(cats).filter(c => c.active !== false);
+  const activeCategories = Object.values(cats).filter(c => c.active !== false && c.data !== null);
   if (activeCategories.length === 0) return 0;
   const sum = activeCategories.reduce((acc, c) => acc + c.score, 0);
   return Math.round(sum / activeCategories.length);
@@ -6161,42 +5938,107 @@ function renderUnusedVariablesContent(result) {
     return;
   }
 
-  const groups = {};
+  // Build tree
+  const collections = {};
   result.unusedVariables.forEach(v => {
-    if (!groups[v.collectionName]) groups[v.collectionName] = [];
-    groups[v.collectionName].push(v);
+    if (!collections[v.collectionName]) collections[v.collectionName] = { _vars: [], _groups: {} };
+    
+    // Clean up name: strictly split by '/'
+    const parts = v.name.split('/');
+    
+    let currentNode = collections[v.collectionName];
+    for (let i = 0; i < parts.length - 1; i++) {
+        const p = parts[i];
+        if (!currentNode._groups[p]) currentNode._groups[p] = { _vars: [], _groups: {} };
+        currentNode = currentNode._groups[p];
+    }
+    const shortName = parts[parts.length - 1];
+    currentNode._vars.push({ ...v, shortName });
   });
 
-  let html = '';
+  function getCount(node) {
+    let count = node._vars.length;
+    for (const g in node._groups) count += getCount(node._groups[g]);
+    return count;
+  }
 
-  Object.entries(groups).forEach(([collectionName, variables], gIdx) => {
-    const groupId = 'uv-group-' + gIdx;
-    const escapedName = SecurityUtils.escapeHTML(collectionName);
-
-    html += '<div class="quality-accordion" id="' + groupId + '">' +
-      '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
-      '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
-      '<span class="quality-accordion-title">' + escapedName + '</span>' +
-      '<span class="quality-accordion-count">' + variables.length + '</span>' +
-      '</div>' +
-      '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;">';
-
-    variables.forEach((variable, vIdx) => {
-      const displayName = SecurityUtils.escapeHTML(variable.name);
+  function renderTree(node, groupIdPrefix, depth = 0) {
+    let html = '';
+    
+    // Background scaling for depth logic to visualize hierarchy
+    const bgGroup = depth % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)';
+    const bgVar = depth % 2 === 0 ? 'rgba(255,255,255,0.0)' : 'rgba(255,255,255,0.02)';
+    
+    // Render variables first
+    node._vars.forEach((variable, vIdx) => {
+      const displayName = SecurityUtils.escapeHTML(variable.shortName);
       const isColor = variable.resolvedType === 'COLOR' || /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(variable.resolvedValue || '');
-      const colorPreview = (isColor && variable.resolvedValue) ? '<div class="quality-color-preview" style="background: ' + variable.resolvedValue + ';"></div>' : '';
+      
+      let previewContent = '';
+      if (isColor && variable.resolvedValue) {
+        previewContent = '<div style="font-family: \'SF Mono\', monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(variable.resolvedValue) + '<div class="quality-color-preview" style="background: ' + variable.resolvedValue + ';"></div></div>';
+      } else if (variable.resolvedValue) {
+        previewContent = '<div style="font-family: \'SF Mono\', monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">' + SecurityUtils.escapeHTML(variable.resolvedValue) + '</div>';
+      }
 
-      html += '<div class="quality-row-item" id="uv-' + gIdx + '-' + vIdx + '-row" data-variable-id="' + variable.id + '">' +
-        '<div style="display: flex; align-items: center; flex: 1; min-width: 0;">' +
-        '<span class="quality-row-name">' + displayName + '</span>' +
-        colorPreview +
+      const rowId = groupIdPrefix + '-v-' + vIdx + '-row';
+      // Use quality-issue-card matching Missing Variables, but tighter padding for leaf nodes
+      html += '<div id="' + rowId + '" class="quality-issue-card" data-variable-id="' + variable.id + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
+        '<div class="quality-issue-header" style="display: flex; justify-content: space-between; align-items: center; height: 34px; box-sizing: border-box; padding: 0 16px; border-radius: 8px;">' +
+        
+        // Left side: Name and Value
+        '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
+        '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap;">' + displayName + '</div>' +
+        previewContent +
         '</div>' +
-        '<div class="quality-row-actions">' +
-        '<button class="quality-delete-btn" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'uv-' + gIdx + '-' + vIdx + '-row\')" title="Delete variable">' +
-        '<span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+        
+        // Right side: Delete button
+        '<div style="display: flex; align-items: center; gap: 4px;">' +
+        '<button class="icon-btn-delete" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'' + rowId + '\')" title="Delete variable" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4); transition: color 0.15s ease;" onmouseover="this.style.color=\'#f87171\'" onmouseout="this.style.color=\'rgba(255,255,255,0.4)\'">' +
+        '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span>' +
+        '</button>' +
+        '</div>' +
+        '</div></div>';
+    });
+    
+    // Sort and render child groups
+    const sortedGroups = Object.keys(node._groups).sort((a,b) => a.localeCompare(b));
+    sortedGroups.forEach((gName, gIdx) => {
+      const childNode = node._groups[gName];
+      const childCount = getCount(childNode);
+      const childGroupId = groupIdPrefix + '-g-' + gIdx;
+      const escapedName = SecurityUtils.escapeHTML(gName);
+
+      // Group styling inherits global .quality-accordion matching Missing Variables exactly
+      html += '<div class="quality-accordion" id="' + childGroupId + '">' +
+        '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + childGroupId + '\')">' +
+        '<span class="material-symbols-outlined quality-accordion-chevron" style="font-size: 18px;">chevron_right</span>' +
+        '<span class="quality-accordion-title">' + escapedName + '</span>' +
+        '<span class="quality-accordion-count">' + childCount + '</span>' +
+        '</div>' +
+        '<div class="quality-accordion-body" id="' + childGroupId + '-body" style="display: none; ' + (depth > 0 ? 'margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);' : '') + '">' +
+        renderTree(childNode, childGroupId, depth + 1) +
         '</div></div>';
     });
 
+    return html;
+  }
+
+  let html = '';
+  Object.entries(collections).forEach(([collectionName, rootNode], cIdx) => {
+    const cGroupId = 'uv-col-' + cIdx;
+    const escapedColName = SecurityUtils.escapeHTML(collectionName);
+    const totalVarsCount = getCount(rootNode);
+
+    html += '<div class="quality-accordion" id="' + cGroupId + '">' +
+      '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + cGroupId + '\')">' +
+      '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+      '<span class="quality-accordion-title" style="font-weight: 600;">' + escapedColName + '</span>' +
+      '<span class="quality-accordion-count">' + totalVarsCount + '</span>' +
+      '</div>' +
+      '<div class="quality-accordion-body" id="' + cGroupId + '-body" style="display: none;">';
+    
+    html += renderTree(rootNode, cGroupId, 0);
     html += '</div></div>';
   });
 
@@ -6227,38 +6069,40 @@ function renderUnusedComponentsContent(result) {
       const groupId = 'uc-' + idx;
       const variantIds = component.unusedVariants.map(v => v.id).join(',');
 
-      html += '<div class="quality-accordion" id="' + groupId + '" data-component-id="' + component.id + '">' +
+      html += '<div class="quality-accordion" id="' + groupId + '" data-component-id="' + component.id + '" style="margin-bottom: 4px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02);">' +
         '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
-        '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
+        '<span class="material-symbols-outlined quality-accordion-chevron" style="font-size: 18px;">chevron_right</span>' +
         '<span class="quality-accordion-title" style="text-transform: none; letter-spacing: normal; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500;">' + displayName + '</span>' +
         '<span class="quality-variant-badge">' + component.unusedVariantCount + '/' + component.totalVariants + '</span>' +
-        '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteAllUnusedVariants(\'' + component.id + '\', \'' + displayName + '\', \'' + variantIds + '\')" title="Delete all unused variants">' +
-        '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
+        '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteAllUnusedVariants(\'' + component.id + '\', \'' + displayName + '\', \'' + variantIds + '\')" title="Delete all unused variants" style="background: transparent; border: none; box-shadow: none; padding: 4px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
         '</div>' +
-        '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;"><div class="quality-variant-list">';
+        '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none; margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);">' +
+        '<div class="quality-variant-list" style="display: flex; flex-direction: column; gap: 0;">';
 
       component.unusedVariants.forEach((variant, vIdx) => {
         const variantName = SecurityUtils.escapeHTML(variant.name);
-        html += '<div class="quality-variant-row" id="uc-' + idx + '-v-' + vIdx + '-row" data-component-id="' + variant.id + '">' +
-          '<span class="quality-variant-name" title="' + variantName + '">' + variantName + '</span>' +
-          '<div class="quality-row-actions">' +
-          '<button class="quality-focus-btn" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus">' +
-          '<span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
-          '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant">' +
-          '<span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
-          '</div></div>';
+        html += '<div class="quality-issue-card quality-variant-row" id="uc-' + idx + '-v-' + vIdx + '-row" data-component-id="' + variant.id + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
+          '<div class="quality-issue-header" style="display: flex; justify-content: space-between; align-items: center; height: 34px; box-sizing: border-box; padding: 0 16px; border-radius: 8px;">' +
+          '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
+          '<span class="quality-variant-name" title="' + variantName + '" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.7);">' + variantName + '</span>' +
+          '</div>' +
+          '<div class="quality-row-actions" style="display: flex; gap: 4px; align-items: center;">' +
+          '<button class="icon-btn-focus" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
+          '<button class="icon-btn-delete" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+          '</div></div></div>';
       });
 
       html += '</div></div></div>';
     } else {
-      html += '<div class="quality-row-item" id="uc-' + idx + '-row" data-component-id="' + component.id + '">' +
-        '<span class="quality-row-name">' + displayName + '</span>' +
-        '<div class="quality-row-actions">' +
-        '<button class="quality-focus-btn" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus">' +
-        '<span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button>' +
-        '<button class="quality-delete-btn" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component">' +
-        '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
-        '</div></div>';
+      html += '<div class="quality-issue-card quality-row-item" id="uc-' + idx + '-row" data-component-id="' + component.id + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
+        '<div class="quality-issue-header" style="display: flex; justify-content: space-between; align-items: center; height: 34px; box-sizing: border-box; padding: 0 16px; border-radius: 8px;">' +
+        '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
+        '<span class="quality-row-name" style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + displayName + '</span>' +
+        '</div>' +
+        '<div class="quality-row-actions" style="display: flex; gap: 4px; align-items: center;">' +
+        '<button class="icon-btn-focus" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
+        '<button class="icon-btn-delete" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+        '</div></div></div>';
     }
   });
 
@@ -6302,7 +6146,7 @@ function renderTailwindContent(validation) {
       const itemId = 'tw-group-' + idx;
       const displayName = SecurityUtils.escapeHTML(group.name);
 
-      html += '<div id="' + itemId + '-card" class="quality-row-item" style="padding: 10px; align-items: center; gap: 8px;">' +
+      html += '<div id="' + itemId + '-card" class="quality-row-item" style="height: 34px; box-sizing: border-box; padding: 0 16px; align-items: center; gap: 8px; display: flex;">' +
         '<div style="flex: 1; min-width: 0;">' +
         '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px;">' + displayName + '</div>' +
         '<div style="font-size: 11px; color: rgba(255,255,255,0.5);">' + group.variableCount + ' variable' + (group.variableCount !== 1 ? 's' : '') + '</div>' +
@@ -6332,7 +6176,7 @@ function renderTailwindContent(validation) {
       const itemId = 'tw-standalone-' + idx;
       const displayName = SecurityUtils.escapeHTML(variable.name);
 
-      html += '<div id="' + itemId + '-card" class="quality-row-item" style="padding: 8px 10px; gap: 8px;">' +
+      html += '<div id="' + itemId + '-card" class="quality-row-item" style="height: 34px; box-sizing: border-box; padding: 0 16px; align-items: center; gap: 8px; display: flex; justify-content: space-between;">' +
         '<span class="quality-row-name">' + displayName + '</span>' +
         '<div style="display: flex; gap: 6px; align-items: center;">' +
         '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', true)">' +
@@ -7205,16 +7049,26 @@ window.applyTailwindNamespace = function (currentGroupName, itemId, variableCoun
 
 // (expandAllQuality and collapseAllQuality removed - simplified)
 
-// Function to open user guide modal
+// Onboarding State
+let currentOnboardingSlide = 0;
+const totalOnboardingSlides = 4;
+
+// Function to open user guide modal (Accordion layout)
 function openUserGuide() {
-  document.getElementById('user-guide-modal').style.display = 'block';
-  document.body.classList.add('modal-open');
+  const modal = document.getElementById('user-guide-modal');
+  if (modal) {
+    modal.style.display = 'block';
+    document.body.classList.add('modal-open');
+  }
 }
 
 // Function to close user guide modal
 function closeUserGuide() {
-  document.getElementById('user-guide-modal').style.display = 'none';
-  document.body.classList.remove('modal-open');
+  const modal = document.getElementById('user-guide-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+  }
 }
 
 // Function to open GitHub with specific feedback type
@@ -7331,12 +7185,9 @@ function confirmReset() {
   document.getElementById('config-project-id').value = '';
   document.getElementById('config-file-path').value = 'src/variables.css';
   document.getElementById('config-export-format').value = 'css';
-  document.getElementById('config-test-file-path').value =
-    'components/{componentName}/{componentName}.spec.ts';
   document.getElementById('config-token').value = '';
   document.getElementById('config-strategy').value = 'merge-request';
   document.getElementById('config-branch').value = 'feature/variables';
-  document.getElementById('config-test-branch').value = 'feature/component-tests';
   document.getElementById('config-save-token').checked = true;
   document.getElementById('config-share-team').checked = true;
 
@@ -7456,8 +7307,7 @@ function onProviderChange() {
     if (tokenLabel) tokenLabel.textContent = 'GitHub Access Token';
     if (tokenInput) tokenInput.placeholder = 'Enter your GitHub token';
 
-    // Check OAuth availability
-    if (typeof checkOAuthAvailability === 'function') checkOAuthAvailability();
+    if (tokenHelp) tokenHelp.textContent = 'Recommended: Use a personal/project access token.';
   }
 }
 
@@ -7845,181 +7695,6 @@ function checkOAuthAvailability() {
   );
 }
 
-function displayOAuthStatus(status) {
-  const oauthLoginButton = document.getElementById('oauth-login-button');
-  const oauthStatus = document.getElementById('oauth-status');
-  const tokenHelp = document.getElementById('token-help');
-
-  if (!oauthLoginButton || !oauthStatus || !tokenHelp) return;
-
-  // OAuth disabled for now - always hide OAuth elements
-  oauthLoginButton.style.display = 'none';
-  oauthStatus.style.display = 'none';
-
-  // Show generic help text
-  tokenHelp.innerHTML =
-    'Create a Personal Access Token in your provider settings (GitHub or GitLab)';
-}
-
-async function startOAuthFlow() {
-  try {
-    const button = document.getElementById('oauth-login-button');
-    if (button) {
-      button.disabled = true;
-      button.textContent = 'Connecting...';
-    }
-
-    // Start OAuth flow directly using popup
-    const result = await startGitHubOAuthFlow();
-
-    if (result.success) {
-      handleOAuthCallback({
-        success: true,
-        accessToken: result.token,
-        user: result.user,
-      });
-    } else {
-      showError('OAuth Error', result.error || 'OAuth authentication failed');
-    }
-  } catch (error) {
-    console.error('OAuth flow error:', error);
-    showError('OAuth Error', error.message || 'Failed to start OAuth flow');
-  } finally {
-    const button = document.getElementById('oauth-login-button');
-    if (button) {
-      button.disabled = false;
-      button.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
-              <path d="M12 0.5C5.373 0.5 0 5.873 0 12.5c0 5.301 3.438 9.8 8.207 11.387.6.111.82-.26.82-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.757-1.333-1.757-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.419-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 6.844c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 22.092 24 17.592 24 12.5 24 5.873 18.627 0.5 12 0.5z"/>
-            </svg>Login with GitHub`;
-    }
-  }
-}
-
-// GitHub OAuth Flow Implementation
-async function startGitHubOAuthFlow() {
-  // GitHub OAuth configuration
-  const GITHUB_CLIENT_ID = 'Ov23liKXGtyeKaklFf0Q';
-  const REDIRECT_URI = 'https://bridgy-oauth.netlify.app/github/callback';
-  const SCOPES = ['repo', 'read:user', 'user:email'];
-
-  // Generate secure state parameter
-  const state = generateSecureState();
-
-  // Build OAuth URL
-  const authUrl = new URL('https://github.com/login/oauth/authorize');
-  authUrl.searchParams.set('client_id', GITHUB_CLIENT_ID);
-  authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-  authUrl.searchParams.set('scope', SCOPES.join(' '));
-  authUrl.searchParams.set('state', state);
-  authUrl.searchParams.set('response_type', 'code');
-
-  return new Promise((resolve) => {
-    try {
-      // Open popup window
-      const popup = window.open(
-        authUrl.toString(),
-        'github-oauth',
-        'width=600,height=700,scrollbars=yes,resizable=yes',
-      );
-
-      if (!popup) {
-        resolve({
-          success: false,
-          error: 'Failed to open OAuth popup. Please allow popups for this site.',
-        });
-        return;
-      }
-
-      // Listen for messages from popup
-      const messageHandler = (event) => {
-        if (event.origin !== 'https://bridgy-oauth.netlify.app') {
-          return;
-        }
-
-        if (event.data.type === 'oauth-success') {
-          window.removeEventListener('message', messageHandler);
-          popup.close();
-          resolve({
-            success: true,
-            token: event.data.token,
-            user: event.data.user,
-          });
-        } else if (event.data.type === 'oauth-error') {
-          window.removeEventListener('message', messageHandler);
-          popup.close();
-          resolve({
-            success: false,
-            error: event.data.error,
-          });
-        }
-      };
-
-      window.addEventListener('message', messageHandler);
-
-      // Check if popup was closed manually
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', messageHandler);
-          resolve({
-            success: false,
-            error: 'OAuth flow was cancelled by user',
-          });
-        }
-      }, 1000);
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        if (!popup.closed) {
-          popup.close();
-        }
-        clearInterval(checkClosed);
-        window.removeEventListener('message', messageHandler);
-        resolve({
-          success: false,
-          error: 'OAuth flow timed out',
-        });
-      }, 300000);
-    } catch (error) {
-      resolve({
-        success: false,
-        error: error.message || 'Failed to start OAuth flow',
-      });
-    }
-  });
-}
-
-// Generate secure state parameter for OAuth
-function generateSecureState() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (byte) => {
-    const hex = byte.toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  }).join('');
-}
-
-function handleOAuthCallback(authData) {
-  if (authData.success && authData.accessToken) {
-    // Fill token field with OAuth token
-    const tokenInput = document.getElementById('config-token');
-    if (tokenInput) {
-      tokenInput.value = authData.accessToken;
-    }
-
-    // Show success message
-    showNotification('success', 'OAuth Success', 'Successfully authenticated with GitHub!', 4000);
-
-    // Optional: Auto-load repositories
-    if (authData.accessToken) {
-      setTimeout(() => {
-        browseRepositories();
-      }, 1000);
-    }
-  } else {
-    showError('OAuth Error', authData.error || 'OAuth authentication failed');
-  }
-}
 
 // Helper to persist settings with optional silence
 function persistSettings(silent = false) {
@@ -8035,7 +7710,6 @@ function persistSettings(silent = false) {
     const projectIdElement = document.getElementById('config-project-id');
     const filePathElement = document.getElementById('config-file-path');
     const formatElement = document.getElementById('config-export-format');
-    const testFilePathElement = document.getElementById('config-test-file-path');
     const tokenElement = document.getElementById('config-token');
 
     if (
@@ -8043,7 +7717,6 @@ function persistSettings(silent = false) {
       !projectIdElement ||
       !filePathElement ||
       !formatElement ||
-      !testFilePathElement ||
       !tokenElement
     ) {
       throw new Error('Configuration form elements not found');
@@ -8061,20 +7734,16 @@ function persistSettings(silent = false) {
     const projectId = projectIdElement.value.trim();
     const filePath = filePathElement.value.trim() || 'src/variables.css';
     const exportFormat = formatElement.value;
-    const testFilePath =
-      testFilePathElement.value.trim() || 'components/{componentName}/{componentName}.spec.ts';
     const token = tokenElement.value.trim();
 
     const strategyElement = document.getElementById('config-strategy');
     const branchElement = document.getElementById('config-branch');
-    const testBranchElement = document.getElementById('config-test-branch');
     const saveTokenElement = document.getElementById('config-save-token');
     const shareTeamElement = document.getElementById('config-share-team');
 
     if (
       !strategyElement ||
       !branchElement ||
-      !testBranchElement ||
       !saveTokenElement ||
       !shareTeamElement
     ) {
@@ -8083,7 +7752,6 @@ function persistSettings(silent = false) {
 
     const strategy = strategyElement.value;
     const branch = branchElement.value.trim() || 'feature/variables';
-    const testBranch = testBranchElement.value.trim() || 'feature/component-tests';
     const saveToken = saveTokenElement.checked;
     const shareTeam = shareTeamElement.checked;
 
@@ -8146,11 +7814,9 @@ function persistSettings(silent = false) {
       projectId: projectId,
       filePath: filePath,
       exportFormat: exportFormat,
-      testFilePath: testFilePath,
       token: token,
       strategy: strategy,
       branchName: branch,
-      testBranchName: testBranch,
       saveToken: saveToken,
       isPersonal: !shareTeam,
       savedAt: new Date().toISOString(),
@@ -8164,11 +7830,9 @@ function persistSettings(silent = false) {
       projectId: projectId,
       filePath: filePath,
       exportFormat: exportFormat,
-      testFilePath: testFilePath,
       gitlabToken: token,
       strategy: strategy,
       branchName: branch,
-      testBranchName: testBranch,
       saveToken: saveToken,
       isPersonal: !shareTeam,
       savedAt: new Date().toISOString(),
@@ -8184,11 +7848,9 @@ function persistSettings(silent = false) {
           projectId: projectId,
           filePath: filePath,
           exportFormat: exportFormat,
-          testFilePath: testFilePath,
           token: token,
           strategy: strategy,
           branchName: branch,
-          testBranchName: testBranch,
           saveToken: saveToken,
           shareWithTeam: shareTeam,
         },
@@ -8252,12 +7914,9 @@ function loadConfigurationTab() {
         'config-project-id': settings.projectId || '',
         'config-file-path': settings.filePath || 'src/variables.css',
         'config-export-format': settings.exportFormat || 'css',
-        'config-test-file-path':
-          settings.testFilePath || 'components/{componentName}/{componentName}.spec.ts',
         'config-token': settings.token || settings.gitlabToken || '',
         'config-strategy': settings.strategy || 'merge-request',
         'config-branch': settings.branchName || 'feature/variables',
-        'config-test-branch': settings.testBranchName || 'feature/component-tests',
       };
 
       // Set URL based on provider
@@ -8305,10 +7964,8 @@ function loadConfigurationTab() {
         const display = strategy === 'merge-request' ? 'block' : 'none';
 
         const branchSection = document.getElementById('config-branch-section');
-        const testBranchSection = document.getElementById('config-test-branch-section');
 
         if (branchSection) branchSection.style.display = display;
-        if (testBranchSection) testBranchSection.style.display = display;
       }
 
       displayConfigMetadata();

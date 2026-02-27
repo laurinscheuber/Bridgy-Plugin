@@ -558,38 +558,13 @@
             <!-- Auth Token -->
             <div class="settings-input-group">
               <label class="settings-label" for="config-token" id="token-label">Access Token</label>
-              <div style="display: flex; gap: 8px">
-                <input
-                  type="password"
-                  id="config-token"
-                  style="flex: 1"
-                  placeholder="Enter Personal/Project Access Token"
-                />
-                <button
-                  id="oauth-login-button"
-                  onclick="startOAuthFlow()"
-                  class="compact-action-btn"
-                  style="
-                    width: auto;
-                    padding: 0 12px;
-                    gap: 4px;
-                    display: none;
-                    background: rgba(34, 197, 94, 0.1);
-                    border-color: rgba(34, 197, 94, 0.3);
-                    color: #4ade80;
-                  "
-                >
-                  <span class="material-symbols-outlined" style="font-size: 16px">security</span>
-                  OAuth
-                </button>
-              </div>
-              <div class="settings-helper">Recommended: Use a scoped project access token.</div>
-              <div
-                id="oauth-status"
-                style="margin-top: 4px; display: none; color: #4ade80; font-size: 11px"
-              >
-                ✓ OAuth login available
-              </div>
+              <input
+                type="password"
+                id="config-token"
+                style="width: 100%"
+                placeholder="Enter Personal/Project Access Token"
+              />
+              <div class="settings-helper" id="token-help">Recommended: Use a personal/project access token.</div>
             </div>
           </div>
         </div>
@@ -608,18 +583,6 @@
               <label class="settings-label" for="config-file-path">Variables File Path</label>
               <input type="text" id="config-file-path" placeholder="src/styles/variables.css" />
               <div class="settings-helper">Where should we write the CSS variables?</div>
-            </div>
-
-            <div class="settings-input-group">
-              <label class="settings-label" for="config-test-file-path"
-                >Component Test Template</label
-              >
-              <input
-                type="text"
-                id="config-test-file-path"
-                placeholder="components/{componentName}/{componentName}.spec.ts"
-              />
-              <div class="settings-helper">Use {componentName} as placeholder.</div>
             </div>
           </div>
         </div>
@@ -669,13 +632,7 @@
                   <span class="material-symbols-outlined" style="font-size: 16px">list</span>
                 </button>
               </div>
-            </div>
-
-            <div class="settings-input-group" id="config-test-branch-section">
-              <label class="settings-label" for="config-test-branch">Test Branch Prefix</label>
-              <input type="text" id="config-test-branch" placeholder="feature/test-{component}" />
-            </div>
-          </div>
+            </div>          </div>
         </div>
 
         <!-- SECTION 4: TEAM & ADVANCED -->
@@ -852,491 +809,151 @@
 
 <!-- User Guide Modal -->
 <div id="user-guide-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 800px">
+  <div class="modal-content" style="max-width: 800px;">
     <button class="close-modal" onclick="closeUserGuide()">
       <span class="material-symbols-outlined">close</span>
     </button>
     <div class="modal-header">
-      <h3>Bridgy - User Guide</h3>
+      <h3>User Guide</h3>
     </div>
+    
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+      
+      <!-- 1. Quality Score Exact UI Demo -->
+      <h4 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #10b981">speed</span>
+        Understanding the Quality Score (DQS)
+      </h4>
+      <p style="margin: 0 0 24px; color: rgba(255, 255, 255, 0.7); font-size: 14px; line-height: 1.5;">
+        The Design Quality Score measures how thoroughly your vectors rely on your Design System variables instead of hard-coded values.
+      </p>
+      
+      <!-- Fake UI Replica Container -->
+      <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin-bottom: 40px;">
+        <div class="quality-header-new" style="margin: 0; pointer-events: none;">
+          <div class="quality-score-layout-grid">
+            <!-- Top Left: Circular Score -->
+            <div class="quality-gauge-cell">
+              <div class="quality-score-gauge">
+                <div class="quality-score-ring">
+                  <!-- Static 73% SVG -->
+                  <svg width="150" height="150" viewBox="0 0 150 150" style="display: block;">
+                    <circle cx="75" cy="75" r="58" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" />
+                    <circle cx="75" cy="75" r="58" fill="none" stroke="#eab308" stroke-width="10" stroke-linecap="round" stroke-dasharray="364.42" stroke-dashoffset="98.39" transform="rotate(-90 75 75)" style="opacity: 1;" />
+                    <text x="75" y="75" text-anchor="middle" dominant-baseline="central" style="fill: #eab308; font-size: 32px; font-weight: 800; font-family: 'SF Mono', 'JetBrains Mono', monospace;">73</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-    <div class="modal-body" style="padding: 24px; max-height: 70vh; overflow-y: auto">
-      <!-- Welcome Banner -->
-      <div
-        style="
-          background: linear-gradient(135deg, rgba(88, 28, 135, 0.8), rgba(124, 58, 237, 0.6));
-          border-radius: 12px;
-          padding: 20px;
-          margin-bottom: 24px;
-          border: 1px solid rgba(139, 92, 246, 0.3);
-        "
-      >
-        <h4 style="margin: 0 0 8px 0; font-size: 16px; color: white">Welcome to Bridgy!</h4>
-        <p style="margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.9); line-height: 1.5">
-          This plugin helps designers and developers work together seamlessly. Export Figma
-          variables as CSS, generate component tests, and commit changes directly to your
-          repository.
-        </p>
+            <!-- Top Right: Legend -->
+            <div class="quality-legend-cell">
+              <div class="quality-score-legend">
+                <div class="legend-item" style="color: rgba(255,255,255,0.8);"><span class="legend-dot legend-critical" style="background: #ef4444;"></span> 0 - 49 (Beginner)</div>
+                <div class="legend-item" style="color: rgba(255,255,255,0.8);"><span class="legend-dot legend-average" style="background: #eab308;"></span> 50 - 89 (Intermediate)</div>
+                <div class="legend-item" style="color: rgba(255,255,255,0.8);"><span class="legend-dot legend-optimal" style="background: #22c55e;"></span> 90 - 100 (Professional)</div>
+              </div>
+            </div>
+
+            <!-- Bottom Left: Title & Stats Text -->
+            <div class="quality-label-cell">
+              <div class="quality-score-label">
+                <div class="quality-score-label-sub" style="color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">Design System</div>
+                <div class="quality-score-label-main" style="font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 4px;">Quality Score</div>
+                <div class="quality-score-label-stats" style="color: rgba(255,255,255,0.6); font-size: 12px;">1106 nodes • 2397 issues</div>
+              </div>
+            </div>
+
+            <!-- Bottom Right: Dropdown Simulation -->
+            <div class="quality-dropdown-cell">
+              <div class="quality-page-selector" style="opacity: 0.8; font-size: 13px;">
+                <span style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">All Pages</span>
+                <span class="material-symbols-outlined dropdown-icon">expand_more</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Collaboration Process -->
-      <h4
-        style="
-          margin: 0 0 16px 0;
-          font-size: 14px;
-          color: var(--text-primary);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        "
-      >
-        <span
-          class="material-symbols-outlined"
-          style="font-size: 18px; color: rgba(255, 255, 255, 0.8)"
-          >assignment</span
-        >
-        Collaboration Process
+      <!-- 2. Visual Collaboration Workflow -->
+      <h4 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #60a5fa">account_tree</span>
+        Optimal Collaboration Workflow
       </h4>
+      <p style="margin: 0 0 24px; color: rgba(255, 255, 255, 0.7); font-size: 14px; line-height: 1.5;">
+        Bridgy automates the handoff overhead. Follow this cycle to maintain absolute parity between Figma and the App.
+      </p>
 
-      <div
-        class="collaboration-guide"
-        style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px"
-      >
+      <div class="workflow-visual-container" style="display: flex; align-items: stretch; gap: 12px; margin-bottom: 32px; text-align: center;">
+        
         <!-- Step 1 -->
-        <div
-          class="guide-step-card"
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 16px;
-          "
-        >
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px">
-            <div
-              style="
-                background: var(--purple-600);
-                color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                font-size: 13px;
-              "
-            >
-              1
-            </div>
-            <h4 style="margin: 0; font-size: 14px; color: var(--text-primary)">
-              Initial Setup (One-time)
-            </h4>
+        <div style="flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px 12px; position: relative;">
+          <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(59, 130, 246, 0.3);">
+            <span class="material-symbols-outlined" style="color: #60a5fa; font-size: 20px;">brush</span>
           </div>
-          <div
-            style="
-              margin-left: 36px;
-              font-size: 13px;
-              color: rgba(255, 255, 255, 0.8);
-              line-height: 1.6;
-            "
-          >
-            <p style="margin: 0 0 8px 0">
-              <strong style="color: #a78bfa">Developer:</strong> Sets up project configuration in
-              the settings (⚙️ icon):
-            </p>
-            <ul
-              style="
-                margin: 0;
-                padding-left: 16px;
-                list-style-type: disc;
-                color: rgba(255, 255, 255, 0.7);
-              "
-            >
-              <li>GitLab Project ID and Access Token</li>
-              <li>File path for CSS variables</li>
-              <li>Branch naming strategy</li>
-              <li>Commit vs. Merge Request workflow</li>
-            </ul>
-          </div>
+          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">1. Designer Setup</h5>
+          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+            Designer erstellt Variablen und Components in Figma.
+          </p>
+          <span class="material-symbols-outlined" style="position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); z-index: 1; font-size: 20px;">arrow_forward</span>
         </div>
 
         <!-- Step 2 -->
-        <div
-          class="guide-step-card"
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 16px;
-          "
-        >
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px">
-            <div
-              style="
-                background: var(--purple-600);
-                color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                font-size: 13px;
-              "
-            >
-              2
-            </div>
-            <h4 style="margin: 0; font-size: 14px; color: var(--text-primary)">
-              Testing & Validation
-            </h4>
+        <div style="flex: 1; background: rgba(234, 179, 8, 0.05); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 12px; padding: 20px 12px; position: relative;">
+          <div style="width: 40px; height: 40px; background: rgba(234, 179, 8, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(234, 179, 8, 0.3);">
+            <span class="material-symbols-outlined" style="color: #facc15; font-size: 20px;">speed</span>
           </div>
-          <div
-            style="
-              margin-left: 36px;
-              font-size: 13px;
-              color: rgba(255, 255, 255, 0.8);
-              line-height: 1.6;
-            "
-          >
-            <p style="margin: 0 0 8px 0">
-              <strong style="color: #a78bfa">Designer:</strong> Tests the setup by making a small
-              change and committing it:
-            </p>
-            <ul
-              style="
-                margin: 0;
-                padding-left: 16px;
-                list-style-type: disc;
-                color: rgba(255, 255, 255, 0.7);
-              "
-            >
-              <li>Ensures variables sync correctly</li>
-              <li>Verifies the commit process works</li>
-              <li>Confirms the file appears in the repository</li>
-            </ul>
-          </div>
+          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">2. Improve DQS</h5>
+          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+            Designer verbessert DSG score mittels Bridgy.
+          </p>
+          <span class="material-symbols-outlined" style="position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); z-index: 1; font-size: 20px;">arrow_forward</span>
         </div>
 
         <!-- Step 3 -->
-        <div
-          class="guide-step-card"
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 16px;
-          "
-        >
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px">
-            <div
-              style="
-                background: var(--purple-600);
-                color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                font-size: 13px;
-              "
-            >
-              3
-            </div>
-            <h4 style="margin: 0; font-size: 14px; color: var(--text-primary)">Daily Workflow</h4>
+        <div style="flex: 1; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 20px 12px; position: relative; box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);">
+          <div style="width: 40px; height: 40px; background: rgba(139, 92, 246, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(139, 92, 246, 0.5);">
+            <span class="material-symbols-outlined" style="color: #c4b5fd; font-size: 20px;">mediation</span>
           </div>
-          <div
-            style="
-              margin-left: 36px;
-              font-size: 13px;
-              color: rgba(255, 255, 255, 0.8);
-              line-height: 1.6;
-            "
-          >
-            <div style="margin-bottom: 12px">
-              <p style="margin: 0 0 4px 0">
-                <strong style="color: #a78bfa">Designer – Update & Sync Designs</strong>
-              </p>
-              <ul
-                style="
-                  margin: 0;
-                  padding-left: 16px;
-                  list-style-type: disc;
-                  color: rgba(255, 255, 255, 0.7);
-                "
-              >
-                <li>Make design changes in Figma (colors, spacing, typography, etc.)</li>
-                <li>Open the Bridgy plugin</li>
-                <li>Review changes in the Variables tab</li>
-                <li>Commit to Repository with a clear, descriptive message</li>
-              </ul>
-            </div>
-            <div>
-              <p style="margin: 0 0 4px 0">
-                <strong style="color: #a78bfa">Developer – Generate Tests & Implement</strong>
-              </p>
-              <ul
-                style="
-                  margin: 0;
-                  padding-left: 16px;
-                  list-style-type: disc;
-                  color: rgba(255, 255, 255, 0.7);
-                "
-              >
-                <li>Open the Bridgy plugin</li>
-                <li>Generate comprehensive component tests from the Figma designs</li>
-                <li>Commit tests to a dedicated feature branch</li>
-                <li>
-                  Check out the branch & implement components using a test-driven development
-                  approach
-                </li>
-                <li>Review & integrate CSS variable changes from the designer</li>
-              </ul>
-            </div>
-          </div>
+          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">3. Bridgy Sync</h5>
+          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+            Designer committed Tokens als CSS/SCSS/Tailwind in guter Qualität direkt als MR in das Projekt.
+          </p>
+          <span class="material-symbols-outlined" style="position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); z-index: 1; font-size: 20px;">arrow_forward</span>
         </div>
+
+        <!-- Step 4 -->
+        <div style="flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px 12px;">
+          <div style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+            <span class="material-symbols-outlined" style="color: #10b981; font-size: 20px;">code</span>
+          </div>
+          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">4. Developer Review</h5>
+          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+            Entwickler merged das nach einem finalen Review.
+          </p>
+        </div>
+
       </div>
 
-      <!-- Key Features -->
-      <h4
-        style="
-          margin: 0 0 16px 0;
-          font-size: 14px;
-          color: var(--text-primary);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        "
-      >
-        <span
-          class="material-symbols-outlined"
-          style="font-size: 18px; color: rgba(255, 255, 255, 0.8)"
-          >stars</span
-        >
-        Key Features
-      </h4>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px">
-        <div
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">Variables Export</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
-            Export Figma variables as CSS custom properties, ready for development use.
-          </p>
+      <!-- General Strategy Tip -->
+      <details class="guide-accordion" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;">
+        <summary style="padding: 16px; cursor: pointer; font-weight: 500; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; list-style: none;">
+          <span class="material-symbols-outlined" style="font-size: 18px; color: #f472b6">settings_suggest</span>
+          Commit vs. Merge Request Strategies
+          <span class="material-symbols-outlined" style="margin-left: auto; font-size: 20px;">expand_more</span>
+        </summary>
+        <div style="padding: 0 16px 16px 16px; font-size: 13px; color: rgba(255, 255, 255, 0.8); line-height: 1.6; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px;">
+          <p style="margin: 0 0 8px 0;"><strong>Merge Requests (Recommended)</strong>: Committing edits will generate a new branch and MR automatically. Safe for collaboration.</p>
+          <p style="margin: 0;"><strong>Direct Commits</strong>: Instantly overwrites tracked files on the target branch. Faster for mature component libraries.</p>
         </div>
-        <div
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">Test Generation</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
-            Generate Angular component tests to ensure designs match implementation.
-          </p>
-        </div>
-        <div
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">GitLab Integration</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
-            Commit changes directly to GitLab with automatic merge request creation.
-          </p>
-        </div>
-        <div
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #a78bfa">Search & Filter</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); line-height: 1.4">
-            Easily find and review specific variables and components before export.
-          </p>
-        </div>
-      </div>
-
-      <!-- Design Quality Score Explanation -->
-      <h4
-        style="
-          margin: 0 0 16px 0;
-          font-size: 14px;
-          color: var(--text-primary);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        "
-      >
-        <span
-          class="material-symbols-outlined"
-          style="font-size: 18px; color: rgba(255, 255, 255, 0.8)"
-          >speed</span
-        >
-        Design Quality Score
-      </h4>
-      <div
-        style="
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 32px;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.7);
-          line-height: 1.6;
-        "
-      >
-        <p style="margin: 0 0 12px 0; color: var(--text-primary); font-weight: 500;">
-          The Design Quality Score (DQS) evaluates the maturity and consistency of your design system.
-        </p>
-        <div style="display: grid; gap: 12px;">
-          <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">1. Missing Variables</strong>
-            Identifies components, variants, and instances using hard-coded values where a design variable should be used.
-          </div>
-          <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">2. Unused Variables</strong>
-            Detects variables not used in any component, variant, instance, or styling property.
-          </div>
-          <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">3. Unused Components</strong>
-            Finds component sets with unused variants or standalone components that are not used anywhere.
-          </div>
-          <div>
-            <strong style="color: #a78bfa; display: block; margin-bottom: 2px;">4. Tailwind Incompatible Variables</strong>
-            Variables with groups that do not start with a valid Tailwind v4 namespace. Only active when Tailwind v4 export format is selected.
-          </div>
-          <div style="margin-top: 4px; padding: 8px 12px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-            <em style="font-size: 11px; color: rgba(255,255,255,0.6);">Weights adjust dynamically: all categories share equal weight. When Tailwind v4 is disabled, its weight is redistributed among the remaining categories.</em>
-          </div>
-        </div>
-      </div>
+      </details>
       
-      <!-- Workflow Strategies -->
-      <h4
-        style="
-          margin: 0 0 16px 0;
-          font-size: 14px;
-          color: var(--text-primary);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        "
-      >
-        <span
-          class="material-symbols-outlined"
-          style="font-size: 18px; color: rgba(255, 255, 255, 0.8)"
-          >settings</span
-        >
-        Workflow Strategies
-      </h4>
-      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px">
-        <div
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 3px solid #34d399;
-            padding: 12px;
-            border-radius: 0 8px 8px 0;
-          "
-        >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #34d399">
-            🔄 Merge Request Strategy (Recommended)
-          </h5>
-          <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.7); line-height: 1.5">
-            Each commit creates a merge request. Multiple commits to the same feature get added to
-            the same MR. Perfect for collaborative review and controlled integration.
-          </p>
-        </div>
-        <div
-          style="
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 3px solid #fbbf24;
-            padding: 12px;
-            border-radius: 0 8px 8px 0;
-          "
-        >
-          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #fbbf24">
-            ⚡ Direct Commit Strategy
-          </h5>
-          <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.7); line-height: 1.5">
-            Changes go directly to the main branch. Faster but requires more trust in the design
-            changes. Best for mature teams with established processes.
-          </p>
-        </div>
-      </div>
-
-      <!-- Pro Tips -->
-      <div
-        style="
-          background: rgba(139, 92, 246, 0.1);
-          border: 1px solid rgba(139, 92, 246, 0.3);
-          border-radius: 12px;
-          padding: 16px;
-        "
-      >
-        <h4
-          style="
-            margin: 0 0 12px 0;
-            font-size: 14px;
-            color: #c4b5fd;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          "
-        >
-          <span class="material-symbols-outlined" style="font-size: 18px">lightbulb</span>
-          Pro Tips
-        </h4>
-        <ul
-          style="
-            margin: 0;
-            padding-left: 20px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
-            line-height: 1.6;
-            list-style-type: circle;
-          "
-        >
-          <li>
-            Use descriptive commit messages (e.g., "Update primary colors for better accessibility")
-          </li>
-          <li>Review variables before committing to catch any unintended changes</li>
-          <li>Coordinate with developers for major design system changes</li>
-          <li>Test the setup with small changes before making large updates</li>
-          <li>Keep your Figma variable names consistent and descriptive</li>
-        </ul>
-      </div>
-
-      <div
-        style="
-          text-align: right;
-          margin-top: 24px;
-          padding-top: 16px;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-        "
-      >
-        <button onclick="closeUserGuide()" class="btn-primary" style="padding: 8px 24px">
-          Got It!
-        </button>
-      </div>
     </div>
+    
+    <div class="modal-footer" style="padding: 16px 24px; text-align: right; background: var(--bg-card); border-top: 1px solid rgba(255, 255, 255, 0.05); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+      <button onclick="closeUserGuide()" class="btn-primary-gradient" style="padding: 8px 24px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px; border: none; color: white;">Got It!</button>
+    </div>
+    
   </div>
 </div>
 
