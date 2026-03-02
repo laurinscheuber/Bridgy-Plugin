@@ -2805,6 +2805,11 @@ tr:last-child td {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--glass-white-light) 100%);
 }
 
+.modal-notification.warning {
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, var(--glass-white-light) 100%);
+}
+
 .modal-notification.info {
   border-left-color: var(--purple-light);
   background: linear-gradient(135deg, var(--glass-purple-10) 0%, var(--glass-white-light) 100%);
@@ -2832,6 +2837,11 @@ tr:last-child td {
 
 .modal-notification.error .modal-notification-icon {
   background: rgba(239, 68, 68, 0.8);
+  color: var(--neutral-0);
+}
+
+.modal-notification.warning .modal-notification-icon {
+  background: rgba(245, 158, 11, 0.8);
   color: var(--neutral-0);
 }
 
@@ -3958,7 +3968,6 @@ input[type='password']:focus {
 
 .import-section {
   background: var(--glass-white-light);
-  backdrop-filter: var(--blur-medium);
   border: 1px solid var(--glass-white-medium);
   border-radius: var(--radius-container);
   padding: var(--space-6);

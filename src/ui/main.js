@@ -46,7 +46,9 @@ class SecurityUtils {
           match.includes('selectAllVariables(') ||
           match.includes('expandAllStyleGroups(') ||
           match.includes('collapseAllStyleGroups(') ||
-          match.includes('selectAllStyles(')
+          match.includes('selectAllStyles(') ||
+          match.includes('toggleImportDestination(') ||
+          match.includes('importToFigma(')
         ) {
           return match;
         }
@@ -95,7 +97,9 @@ class SecurityUtils {
           match.includes('selectAllVariables(') ||
           match.includes('expandAllStyleGroups(') ||
           match.includes('collapseAllStyleGroups(') ||
-          match.includes('selectAllStyles(')
+          match.includes('selectAllStyles(') ||
+          match.includes('toggleImportDestination(') ||
+          match.includes('importToFigma(')
         ) {
           return match;
         }
@@ -1123,7 +1127,7 @@ function showModalNotification(modalId, type, title, message) {
     existingNotification.remove();
   }
 
-  const icon = type === 'success' ? '✓' : '✕';
+  const icon = type === 'success' ? '✓' : type === 'warning' ? '⚠' : '✕';
 
   // Check if message contains safe HTML (only allow <a> tags)
   const isHTMLMessage = message.includes('<a ') && message.includes('</a>');
@@ -2442,7 +2446,7 @@ window.onmessage = (event) => {
         // Show in-modal notification with merge request link
         const messageWithLink =
           message.message +
-          ` <a href="${message.mergeRequestUrl}" target="_blank">View Merge Request →</a>`;
+          ` <a href="${message.mergeRequestUrl}" target="_blank">View Merge Request</a>`;
         showModalSuccess('gitlab-modal', 'Merge Request Created!', messageWithLink);
 
         // Update button to close
@@ -8186,6 +8190,20 @@ function commitToGitLab() {
       return;
     }
 
+    // Tailwind v4 compatibility confirmation
+    const commitSettings = window.gitlabSettings || window.gitSettings;
+    if (
+      commitSettings?.exportFormat === 'tailwind-v4' &&
+      window.tailwindV4Validation &&
+      !window.tailwindV4Validation.isValid
+    ) {
+      const count = window.tailwindV4Validation.totalInvalid || window.tailwindV4Validation.invalidGroups?.length || 0;
+      const confirmed = confirm(
+        `${count} variable${count === 1 ? ' is' : 's are'} not compatible with Tailwind v4 format.\n\nIncompatible variables may cause issues in the generated code. Please coordinate with your developer before committing.\n\nDo you want to commit anyway?`
+      );
+      if (!confirmed) return;
+    }
+
     button.disabled = true;
     button.innerHTML = SecurityUtils.sanitizeHTML(`
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 8px; animation: spin 1s linear infinite;">
@@ -9921,7 +9939,7 @@ function categorizeToken(token) {
   return 'other';
 }
 
-function showPreview(tokens) {
+function showPreview(tokens, { skipScroll = false } = {}) {
   const previewSection = document.getElementById('preview-section');
   const previewContent = document.getElementById('preview-content');
 
@@ -10042,6 +10060,8 @@ function showPreview(tokens) {
           (t) => categorizeToken(t) === 'numeric',
         ).length;
         const aliasCount = groupTokens.filter((t) => t.isAlias).length;
+        const existingCount = groupTokens.filter((t) => checkDuplicate(t.name)).length;
+        const newCount = groupTokens.length - aliasCount - existingCount;
 
         // Clean group name (remove trailing slash if present for display)
         const displayName = groupName.endsWith('/')
@@ -10057,7 +10077,8 @@ function showPreview(tokens) {
                           ${displayName}
                           <span class="subgroup-stats">${groupTokens.length} vars • ${colorCount} colors • ${numericCount} numeric</span>
                           <div class="group-status" style="display: inline-flex; margin-left: 8px; gap: 4px;">
-                             <span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${groupTokens.length - aliasCount} new</span>
+                             ${newCount > 0 ? `<span class="status-badge new" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #4ade80;">${newCount} new</span>` : ''}
+                             ${existingCount > 0 ? `<span class="status-badge existing" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(254, 243, 199, 0.3); color: #d97706;">${existingCount} existing</span>` : ''}
                              ${aliasCount > 0 ? `<span class="status-badge alias" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: rgba(168, 85, 247, 0.2); color: #c084fc;">${aliasCount} refs</span>` : ''}
                           </div>
                         </div>
@@ -10267,6 +10288,11 @@ function showPreview(tokens) {
 
   previewContent.innerHTML = SecurityUtils.sanitizeHTML(previewHTML);
   previewSection.style.display = 'block';
+  if (!skipScroll) {
+    setTimeout(() => {
+      previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
 
   // Add event listener to update collection name preview
   const collectionNameInput = document.getElementById('collection-name');
@@ -10326,10 +10352,6 @@ window.toggleImportDestination = function (mode) {
 };
 
 function loadExistingCollections() {
-  const existingCollectionSelect = document.getElementById('existing-collection-select');
-  if (!existingCollectionSelect) return;
-
-  // Send message to backend to get existing collections
   parent.postMessage(
     {
       pluginMessage: {
@@ -10338,8 +10360,6 @@ function loadExistingCollections() {
     },
     '*',
   );
-
-  // The response will be handled by the message listener
 }
 
 window.simulateImport = function () {
@@ -10636,8 +10656,39 @@ function updateExistingCollectionsDropdown(collections) {
   // If we have parsed tokens and the preview is visible, re-render to show duplicate badges
   const previewSection = document.getElementById('preview-section');
   if (previewSection && previewSection.style.display !== 'none' && window.parsedTokens) {
+    // Preserve current destination mode before re-render
+    const activeRadio = document.querySelector('input[name="import-destination"]:checked');
+    const currentMode = activeRadio ? activeRadio.value : 'new';
+    const selectedCollectionId = document.getElementById('existing-collection-select')?.value || '';
+
     console.log('[DEBUG] Re-rendering preview with duplicate info');
-    showPreview(window.parsedTokens);
+    showPreview(window.parsedTokens, { skipScroll: true });
+
+    // Restore destination mode after re-render
+    if (currentMode === 'existing') {
+      const existingRadio = document.querySelector('input[name="import-destination"][value="existing"]');
+      if (existingRadio) existingRadio.checked = true;
+      const newGroup = document.getElementById('new-collection-group');
+      const existingGroup = document.getElementById('existing-collection-group');
+      if (newGroup) newGroup.style.display = 'none';
+      if (existingGroup) existingGroup.style.display = 'block';
+      // Re-populate dropdown since showPreview rebuilt the HTML
+      const select = document.getElementById('existing-collection-select');
+      if (select && collections && collections.length > 0) {
+        select.innerHTML = '';
+        const newOpt = document.createElement('option');
+        newOpt.value = '';
+        newOpt.textContent = 'New Collection...';
+        select.appendChild(newOpt);
+        collections.forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+        if (selectedCollectionId) select.value = selectedCollectionId;
+      }
+    }
   }
 }
 

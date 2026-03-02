@@ -1673,7 +1673,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           const diff = VariableImportService.compareTokens(tokens, validVariables);
 
           figma.ui.postMessage({
-            type: 'import-preview-ready',
+            type: 'preview-import-result',
             diff: diff,
             totalFound: tokens.length,
           });

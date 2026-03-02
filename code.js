@@ -4211,12 +4211,6 @@
               if (validFormats.indexOf(format.toLowerCase()) === -1) {
                 throw new Error(`Invalid export format: ${format}. Must be 'css', 'scss', or 'tailwind-v4'.`);
               }
-              if (format === "tailwind-v4") {
-                const validation = yield tailwindV4Service_1.TailwindV4Service.validateVariableGroups();
-                if (!validation.isValid) {
-                  throw new Error(`Cannot export to Tailwind v4 format. Invalid variable group namespaces: ${validation.invalidGroups.join(", ")}. All variable groups must use valid Tailwind v4 namespaces (e.g., color, spacing, radius).`);
-                }
-              }
               yield this.initialize();
               yield this.initialize();
               const collections = yield this.getProcessedCollections();
@@ -9084,7 +9078,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 const validVariables = allVariables.filter((v) => v !== null);
                 const diff = variableImportService_1.VariableImportService.compareTokens(tokens, validVariables);
                 figma.ui.postMessage({
-                  type: "import-preview-ready",
+                  type: "preview-import-result",
                   diff,
                   totalFound: tokens.length
                 });
