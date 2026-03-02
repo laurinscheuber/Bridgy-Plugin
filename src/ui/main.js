@@ -5952,15 +5952,15 @@ function renderUnusedVariablesContent(result) {
   const collections = {};
   result.unusedVariables.forEach(v => {
     if (!collections[v.collectionName]) collections[v.collectionName] = { _vars: [], _groups: {} };
-    
+
     // Clean up name: strictly split by '/'
     const parts = v.name.split('/');
-    
+
     let currentNode = collections[v.collectionName];
     for (let i = 0; i < parts.length - 1; i++) {
-        const p = parts[i];
-        if (!currentNode._groups[p]) currentNode._groups[p] = { _vars: [], _groups: {} };
-        currentNode = currentNode._groups[p];
+      const p = parts[i];
+      if (!currentNode._groups[p]) currentNode._groups[p] = { _vars: [], _groups: {} };
+      currentNode = currentNode._groups[p];
     }
     const shortName = parts[parts.length - 1];
     currentNode._vars.push({ ...v, shortName });
@@ -5974,16 +5974,16 @@ function renderUnusedVariablesContent(result) {
 
   function renderTree(node, groupIdPrefix, depth = 0) {
     let html = '';
-    
+
     // Background scaling for depth logic to visualize hierarchy
     const bgGroup = depth % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)';
     const bgVar = depth % 2 === 0 ? 'rgba(255,255,255,0.0)' : 'rgba(255,255,255,0.02)';
-    
+
     // Render variables first
     node._vars.forEach((variable, vIdx) => {
       const displayName = SecurityUtils.escapeHTML(variable.shortName);
       const isColor = variable.resolvedType === 'COLOR' || /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(variable.resolvedValue || '');
-      
+
       let previewContent = '';
       if (isColor && variable.resolvedValue) {
         previewContent = '<div style="font-family: \'SF Mono\', monospace; color: #a78bfa; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(variable.resolvedValue) + '<div class="quality-color-preview" style="background: ' + variable.resolvedValue + ';"></div></div>';
@@ -5995,13 +5995,13 @@ function renderUnusedVariablesContent(result) {
       // Use quality-issue-card matching Missing Variables, but tighter padding for leaf nodes
       html += '<div id="' + rowId + '" class="quality-issue-card" data-variable-id="' + variable.id + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
         '<div class="quality-issue-header" style="display: flex; justify-content: space-between; align-items: center; height: 34px; box-sizing: border-box; padding: 0 16px; border-radius: 8px;">' +
-        
+
         // Left side: Name and Value
         '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
         '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap;">' + displayName + '</div>' +
         previewContent +
         '</div>' +
-        
+
         // Right side: Delete button
         '<div style="display: flex; align-items: center; gap: 4px;">' +
         '<button class="icon-btn-delete" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'' + rowId + '\')" title="Delete variable" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4); transition: color 0.15s ease;" onmouseover="this.style.color=\'#f87171\'" onmouseout="this.style.color=\'rgba(255,255,255,0.4)\'">' +
@@ -6010,9 +6010,9 @@ function renderUnusedVariablesContent(result) {
         '</div>' +
         '</div></div>';
     });
-    
+
     // Sort and render child groups
-    const sortedGroups = Object.keys(node._groups).sort((a,b) => a.localeCompare(b));
+    const sortedGroups = Object.keys(node._groups).sort((a, b) => a.localeCompare(b));
     sortedGroups.forEach((gName, gIdx) => {
       const childNode = node._groups[gName];
       const childCount = getCount(childNode);
@@ -6047,7 +6047,7 @@ function renderUnusedVariablesContent(result) {
       '<span class="quality-accordion-count">' + totalVarsCount + '</span>' +
       '</div>' +
       '<div class="quality-accordion-body" id="' + cGroupId + '-body" style="display: none;">';
-    
+
     html += renderTree(rootNode, cGroupId, 0);
     html += '</div></div>';
   });
@@ -6156,7 +6156,7 @@ function renderTailwindContent(validation) {
       const itemId = 'tw-group-' + idx;
       const displayName = SecurityUtils.escapeHTML(group.name);
 
-      html += '<div id="' + itemId + '-card" class="quality-row-item" style="height: 34px; box-sizing: border-box; padding: 0 16px; align-items: center; gap: 8px; display: flex;">' +
+      html += '<div id="' + itemId + '-card" class="quality-row-item" style="height: auto; min-height: 34px; box-sizing: border-box; padding: 6px 16px; align-items: center; gap: 8px; display: flex;">' +
         '<div style="flex: 1; min-width: 0;">' +
         '<div style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px;">' + displayName + '</div>' +
         '<div style="font-size: 11px; color: rgba(255,255,255,0.5);">' + group.variableCount + ' variable' + (group.variableCount !== 1 ? 's' : '') + '</div>' +
@@ -6186,7 +6186,7 @@ function renderTailwindContent(validation) {
       const itemId = 'tw-standalone-' + idx;
       const displayName = SecurityUtils.escapeHTML(variable.name);
 
-      html += '<div id="' + itemId + '-card" class="quality-row-item" style="height: 34px; box-sizing: border-box; padding: 0 16px; align-items: center; gap: 8px; display: flex; justify-content: space-between;">' +
+      html += '<div id="' + itemId + '-card" class="quality-row-item" style="height: auto; min-height: 34px; box-sizing: border-box; padding: 6px 16px; align-items: center; gap: 8px; display: flex; justify-content: space-between;">' +
         '<span class="quality-row-name">' + displayName + '</span>' +
         '<div style="display: flex; gap: 6px; align-items: center;">' +
         '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', true)">' +
