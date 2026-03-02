@@ -1753,7 +1753,13 @@ window.onmessage = (event) => {
     } else if (message.type === 'git-settings-loaded') {
       updatePluginLoadingProgress(loadingSteps[1], 25);
       window.gitSettings = message.settings;
-      window.gitlabSettings = message.settings; // Backward compatibility
+      // Backward compatibility: map GitSettings field names to GitLabSettings field names
+      // so that commit and other legacy code paths can access settings.gitlabUrl / settings.gitlabToken
+      const s = message.settings;
+      window.gitlabSettings = Object.assign({}, s, {
+        gitlabUrl: s.gitlabUrl || s.baseUrl,
+        gitlabToken: s.gitlabToken || s.token,
+      });
       window.gitlabSettingsLoaded = true;
       loadConfigurationTab();
       updateRepositoryLink();
