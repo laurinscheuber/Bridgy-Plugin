@@ -4360,46 +4360,9 @@ input[type='password']:focus {
   }
 }
 
-/* OAuth Button Enhancement */
-#oauth-login-button {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#oauth-login-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, var(--glass-white-heavy), transparent);
-  transition: left 0.5s;
-}
-
 /* ===== VARIABLE IMPORT TAB STYLES ===== */
 
 /* Variable Import styles are included inline below */
-
-#oauth-login-button:hover::before {
-  left: 100%;
-}
-
-#oauth-login-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-}
-
-#oauth-login-button:active {
-  transform: translateY(0);
-}
-
-/* OAuth Status Animations */
-#oauth-status {
-  animation: fadeIn 0.3s ease-out;
-}
-
 /* Fix for Import Button Icon */
 .import-actions .btn svg,
 .btn-primary svg,
