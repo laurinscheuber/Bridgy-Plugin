@@ -33,15 +33,12 @@ src/
       │   └── 04-layout.css       # Layout system
       └── js/         # JavaScript modules
           ├── bridgy-utils.js     # Utility functions
-          ├── bridgy-state.js     # State management
           ├── bridgy-components.js # UI components
           ├── bridgy-api.js       # API communication
           └── bridgy-app.js       # Main application
 scripts/
   ├── build-ui.js       # Legacy UI build
-  ├── build-new-ui.js   # Modular UI build system
-  └── update-manifest.js
-docs/                   # Architecture documentation
+  ├── update-manifest.js
 dist/                   # Compiled output
 ```
 
@@ -224,22 +221,16 @@ The plugin has been completely reorganized from a monolithic structure to a mode
 - 1 large monolithic `styles.css` file
 - Difficult to maintain and extend
 
-### After (Modular)
+### After (Current Architecture)
 
-- **5 focused JavaScript modules** (72KB total)
-- **4 organized CSS modules** (37KB total)
-- **50+ reusable UI components**
-- **Centralized state management**
-- **Clean API communication layer**
+- **Centralized UI script** (`main.js`) handling DOM manipulation and state.
+- **Service modules** in `src/services/` for business logic (like VariableImportService).
+- **Clean API communication layer** between UI and Figma plugin context.
 
 ### Benefits
 
-- ✅ **Better maintainability**: Clear separation of concerns
-- ✅ **Reusable components**: Consistent UI patterns
+- ✅ **Better maintainability**: Clear separation of concerns between core logic and UI
 - ✅ **Developer-friendly**: Easy to find and modify code
-- ✅ **Future-proof**: Easy to add features without breaking existing code
-
-See `docs/code-organization.md` for complete documentation.
 
 ## Available Scripts
 
@@ -379,8 +370,6 @@ Modern browsers block popups by default. To use GitHub OAuth:
 4. **Edge**: Click popup blocked icon → "Always allow"
 
 **Alternative**: Use a [Personal Access Token](https://github.com/settings/tokens) instead of OAuth.
-
-For detailed OAuth setup and troubleshooting, see [docs/OAUTH_GUIDE.md](docs/OAUTH_GUIDE.md).
 
 ## Contributing
 
