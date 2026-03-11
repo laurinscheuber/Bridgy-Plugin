@@ -7059,7 +7059,54 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
           const firstMode = (_a = figmaVariable.valuesByMode) === null || _a === void 0 ? void 0 : _a[0];
           if (!firstMode)
             return false;
-          return false;
+          const figmaValue = firstMode.value;
+          const cleanCssValue = cssValue.trim().toLowerCase();
+          if (typeof figmaValue === "number") {
+            const parsedCssNumber = parseFloat(cleanCssValue);
+            if (!isNaN(parsedCssNumber)) {
+              if (parsedCssNumber === figmaValue)
+                return true;
+              if (cleanCssValue.endsWith("px") && parsedCssNumber === figmaValue)
+                return true;
+              if (cleanCssValue.endsWith("rem") && parsedCssNumber * 16 === figmaValue)
+                return true;
+            }
+            return false;
+          }
+          if (typeof figmaValue === "object" && "r" in figmaValue && "g" in figmaValue && "b" in figmaValue) {
+            const r = Math.round(figmaValue.r * 255);
+            const g = Math.round(figmaValue.g * 255);
+            const b = Math.round(figmaValue.b * 255);
+            const a = figmaValue.a !== void 0 ? figmaValue.a : 1;
+            const figmaRgba = `rgba(${r}, ${g}, ${b}, ${a})`;
+            const figmaRgb = `rgb(${r}, ${g}, ${b})`;
+            const normalizedCss = cleanCssValue.replace(/\s+/g, "");
+            const normalizedFigmaRgba = figmaRgba.replace(/\s+/g, "");
+            const normalizedFigmaRgb = figmaRgb.replace(/\s+/g, "");
+            if (normalizedCss === normalizedFigmaRgba || normalizedCss === normalizedFigmaRgb)
+              return true;
+            if (cleanCssValue.startsWith("#")) {
+              let hex = cleanCssValue.substring(1);
+              if (hex.length === 3) {
+                hex = hex.split("").map((char) => char + char).join("");
+              }
+              if (hex.length === 6 || hex.length === 8) {
+                const hexR = parseInt(hex.substring(0, 2), 16);
+                const hexG = parseInt(hex.substring(2, 4), 16);
+                const hexB = parseInt(hex.substring(4, 6), 16);
+                let hexA = 1;
+                if (hex.length === 8) {
+                  hexA = Math.round(parseInt(hex.substring(6, 8), 16) / 255 * 100) / 100;
+                }
+                const aDiff = Math.abs(a - hexA);
+                if (r === hexR && g === hexG && b === hexB && aDiff < 0.05) {
+                  return true;
+                }
+              }
+            }
+            return false;
+          }
+          return cleanCssValue === String(figmaValue).toLowerCase();
         }
         /**
          * Apply variables to Figma
