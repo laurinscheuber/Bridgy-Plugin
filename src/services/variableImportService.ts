@@ -391,18 +391,80 @@ export class VariableImportService {
   }
 
   private static valuesAreEquivalent(cssValue: string, figmaVariable: any): boolean {
-    // TODO: Implement sophisticated color matching (e.g. tinycolor2 or equivalent)
-    // For now simple check
-    // Figma variable structure depends on how we collected it (plugin.ts output)
-
-    // Check first mode value
     const firstMode = figmaVariable.valuesByMode?.[0];
     if (!firstMode) return false;
 
-    // This is a naive comparison.
-    // cssValue: "#fff" vs figmaValue: {r:1, g:1, b:1}
-    // For now, return false to be safe and show potential diff
-    return false;
+    const figmaValue = firstMode.value;
+    const cleanCssValue = cssValue.trim().toLowerCase();
+
+    // If Figma value is a number (e.g., spacing, radius)
+    if (typeof figmaValue === 'number') {
+      // Extract number from CSS value (e.g., "16px" -> 16, "1.5rem" -> 24 assuming base 16)
+      // Note: We're doing a simplified check. Ideally we'd use UnitsService to parse.
+      const parsedCssNumber = parseFloat(cleanCssValue);
+      
+      if (!isNaN(parsedCssNumber)) {
+        // Simple direct match for unitless numbers or exact matches
+        if (parsedCssNumber === figmaValue) return true;
+        
+        // Handle common pixel conversions if the CSS string has 'px'
+        if (cleanCssValue.endsWith('px') && parsedCssNumber === figmaValue) return true;
+        
+        // Handle rem conversion (assuming 16px base)
+        if (cleanCssValue.endsWith('rem') && parsedCssNumber * 16 === figmaValue) return true;
+      }
+      return false;
+    }
+
+    // If Figma value is a color object {r, g, b, a}
+    if (typeof figmaValue === 'object' && 'r' in figmaValue && 'g' in figmaValue && 'b' in figmaValue) {
+      // Format Figma color to rgba string for comparison
+      const r = Math.round(figmaValue.r * 255);
+      const g = Math.round(figmaValue.g * 255);
+      const b = Math.round(figmaValue.b * 255);
+      const a = figmaValue.a !== undefined ? figmaValue.a : 1;
+      
+      const figmaRgba = `rgba(${r}, ${g}, ${b}, ${a})`;
+      const figmaRgb = `rgb(${r}, ${g}, ${b})`;
+      
+      // Basic normalization of CSS color (remove spaces for easier matching)
+      const normalizedCss = cleanCssValue.replace(/\s+/g, '');
+      const normalizedFigmaRgba = figmaRgba.replace(/\s+/g, '');
+      const normalizedFigmaRgb = figmaRgb.replace(/\s+/g, '');
+
+      // Direct RGBA/RGB string match
+      if (normalizedCss === normalizedFigmaRgba || normalizedCss === normalizedFigmaRgb) return true;
+
+      // Hex matching
+      if (cleanCssValue.startsWith('#')) {
+        let hex = cleanCssValue.substring(1);
+        if (hex.length === 3) {
+          hex = hex.split('').map(char => char + char).join('');
+        }
+        
+        if (hex.length === 6 || hex.length === 8) {
+          const hexR = parseInt(hex.substring(0, 2), 16);
+          const hexG = parseInt(hex.substring(2, 4), 16);
+          const hexB = parseInt(hex.substring(4, 6), 16);
+          
+          let hexA = 1;
+          if (hex.length === 8) {
+             hexA = Math.round((parseInt(hex.substring(6, 8), 16) / 255) * 100) / 100;
+          }
+          
+          // Allow small rounding differences for alpha
+          const aDiff = Math.abs(a - hexA);
+          
+          if (r === hexR && g === hexG && b === hexB && aDiff < 0.05) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Fallback to strict equality for strings
+    return cleanCssValue === String(figmaValue).toLowerCase();
   }
 
   /**

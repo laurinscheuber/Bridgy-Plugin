@@ -6302,7 +6302,7 @@ input[type='checkbox']:indeterminate {
 .page-selector-dropdown {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   margin-top: 8px;
   width: 260px;
   background: #1a1a1a;
@@ -6314,6 +6314,12 @@ input[type='checkbox']:indeterminate {
   flex-direction: column;
   overflow: hidden;
   animation: dropdownFadeIn 0.2s ease-out;
+  transform-origin: top left;
+}
+
+.quality-page-selector .page-selector-dropdown {
+  left: auto;
+  right: 0;
   transform-origin: top right;
 }
 
@@ -7418,4 +7424,90 @@ body.edit-mode .quality-header {
     bottom: -20px !important;
     transform: translateX(50%) rotate(90deg) !important;
   }
+}
+
+/* Custom Select Dropdowns */
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--glass-white-light);
+  border: 1px solid var(--glass-white-20);
+  border-radius: var(--radius-md);
+  color: var(--neutral-0);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.custom-select-trigger:hover, .custom-select-trigger.active {
+  background: var(--glass-white-medium);
+  border-color: var(--glass-purple-medium);
+}
+
+.custom-select-trigger.active {
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.custom-select-trigger span.material-symbols-outlined {
+  font-size: 18px;
+  color: var(--glass-white-60);
+  transition: transform 0.2s ease;
+}
+
+.custom-select-trigger.active span.material-symbols-outlined {
+  transform: rotate(180deg);
+  color: var(--neutral-0);
+}
+
+.custom-select-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--neutral-800);
+  border: 1px solid var(--glass-white-20);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dark-heavy);
+  z-index: var(--z-dropdown);
+  max-height: 200px;
+  overflow-y: auto;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s ease;
+}
+
+.custom-select-options.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.custom-select-option {
+  padding: 8px 12px;
+  color: var(--glass-white-90);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  transition: all 0.2s ease;
+}
+
+.custom-select-option:hover {
+  background: var(--glass-purple-10);
+  color: var(--neutral-0);
+}
+
+.custom-select-option.selected {
+  background: var(--glass-purple-20);
+  color: var(--purple-light);
+  font-weight: 500;
 }

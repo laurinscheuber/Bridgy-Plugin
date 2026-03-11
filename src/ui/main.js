@@ -30,7 +30,6 @@ class SecurityUtils {
           match.includes('simulateImport(') ||
           match.includes('clearInput(') ||
           match.includes('copyToClipboard(') ||
-          match.includes('handleFileUpload(') ||
           match.includes('switchToQualityTab(') ||
           match.includes('dismissFeedback(') ||
           match.includes('closeNotification(') ||
@@ -74,7 +73,6 @@ class SecurityUtils {
           match.includes('simulateImport(') ||
           match.includes('clearInput(') ||
           match.includes('copyToClipboard(') ||
-          match.includes('handleFileUpload(') ||
           match.includes('switchToQualityTab(') ||
           match.includes('dismissFeedback(') ||
           match.includes('closeNotification(') ||
@@ -8602,6 +8600,12 @@ function renderUnitsSettings(data) {
         saveButtonModal.disabled = false;
       }
     });
+
+    // Initialize custom glassmorphism dropdown for dynamically added units
+    if (!dropdown.dataset.customized && window.CustomSelect) {
+      new window.CustomSelect(dropdown);
+      dropdown.dataset.customized = 'true';
+    }
   });
 }
 
@@ -8846,25 +8850,11 @@ function initializeVariableImportTab() {
 
             <div class="import-section">
               <h3>Input Design Tokens</h3>
-              <div class="input-tabs">
-                <button class="input-tab active" data-input="manual">Manual Input</button>
-                <button class="input-tab" data-input="file">File Upload</button>
-              </div>
               
               <div class="input-content active" id="manual-input">
-                <div class="input-format-selector">
-                  <label>
-                    <input type="radio" name="format" value="css" checked>
-                    CSS Variables
-                  </label>
-                  <label>
-                    <input type="radio" name="format" value="json">
-                    JSON Tokens
-                  </label>
-                </div>
                 <textarea 
                   id="token-input" 
-                  placeholder=":root {\\n  --primary-500: #8b5cf6;\\n  --space-4: 1rem;\\n  --text-lg: 1.125rem;\\n}"
+                  placeholder=":root {\n  --primary-500: #8b5cf6;\n  --space-4: 1rem;\n  --text-lg: 1.125rem;\n}\n\n// Or paste JSON/Tailwind Config:\n{\n  &quot;theme&quot;: {\n    &quot;colors&quot;: {\n      &quot;primary&quot;: &quot;#8b5cf6&quot;\n    }\n  }\n}"
                 ></textarea>
                 <div class="input-actions">
                   <button class="btn btn-primary" onclick="console.log('Button clicked!'); parseTokenInput();">Parse Tokens</button>
@@ -8872,22 +8862,6 @@ function initializeVariableImportTab() {
                   <button class="btn btn-secondary" onclick="clearInput()">Clear</button>
                 </div>
                 <div id="parse-status" class="parse-status" style="display: none;"></div>
-              </div>
-              
-              <!-- File Upload Input -->
-              <div id="upload-input" class="input-content">
-                <div class="file-upload-area" onclick="document.getElementById('file-picker').click()">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10,9 9,9 8,9"/>
-                  </svg>
-                  <p>Click to select or drag & drop your token file</p>
-                  <small>Supports .css, .scss, .json files</small>
-                </div>
-                <input type="file" id="file-picker" accept=".css,.json,.scss" style="display: none;" onchange="handleFileUpload(event)">
               </div>
             </div>
 
@@ -8907,17 +8881,7 @@ function initializeVariableImportTab() {
           </div>
         `;
 
-  // Initialize input tab switching
-  container.querySelectorAll('.input-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      container.querySelectorAll('.input-tab').forEach((t) => t.classList.remove('active'));
-      container.querySelectorAll('.input-content').forEach((c) => c.classList.remove('active'));
-
-      tab.classList.add('active');
-      const target = tab.dataset.input + '-input';
-      container.querySelector('#' + target).classList.add('active');
-    });
-  });
+  // Removed input tab switching logic because there is only one input view now
 
   // Load existing collections for the dropdown
   loadExistingCollections();
@@ -8959,18 +8923,19 @@ window.parseTokenInput = function () {
   // Simple token parsing simulation
   setTimeout(() => {
     try {
-      console.log('[DEBUG] In setTimeout, format value:', format ? format.value : 'null');
+      const isJson = textarea.value.trim().startsWith('{') || textarea.value.trim().startsWith('[');
+      console.log('[DEBUG] Detected format:', isJson ? 'JSON/Tailwind' : 'CSS/SCSS');
       console.log('[DEBUG] CSS content to parse:', textarea.value.substring(0, 200) + '...');
 
       let tokens = [];
-      if (format && format.value === 'css') {
-        console.log('[DEBUG] Calling parseCSSTokens...');
-        tokens = parseCSSTokens(textarea.value);
-        console.log('[DEBUG] parseCSSTokens returned:', tokens.length, 'tokens');
-      } else {
+      if (isJson) {
         console.log('[DEBUG] Calling parseJSONTokens...');
         tokens = parseJSONTokens(textarea.value);
         console.log('[DEBUG] parseJSONTokens returned:', tokens.length, 'tokens');
+      } else {
+        console.log('[DEBUG] Calling parseCSSTokens...');
+        tokens = parseCSSTokens(textarea.value);
+        console.log('[DEBUG] parseCSSTokens returned:', tokens.length, 'tokens');
       }
       console.log('[DEBUG] Final tokens array:', tokens);
 
@@ -9031,45 +8996,7 @@ window.clearInput = function () {
   if (importSection) importSection.style.display = 'none';
 };
 
-window.handleFileUpload = function (event) {
-  const file = event.target.files[0];
-  window.processFile(file);
-};
 
-window.processFile = function (file) {
-  if (!file) return;
-
-  const fileName = file.name.toLowerCase();
-  if (!fileName.endsWith('.css') && !fileName.endsWith('.json') && !fileName.endsWith('.scss')) {
-    alert('Please upload a .css, .scss, or .json file');
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const content = e.target.result;
-    const tokenInput = document.getElementById('token-input');
-
-    if (tokenInput) {
-      tokenInput.value = content;
-
-      // Auto-select the correct format based on extension
-      if (fileName.endsWith('.json')) {
-        const jsonRadio = document.querySelector('input[name="format"][value="json"]');
-        if (jsonRadio) jsonRadio.checked = true;
-      } else {
-        // CSS or SCSS
-        const cssRadio = document.querySelector('input[name="format"][value="css"]');
-        if (cssRadio) cssRadio.checked = true;
-      }
-
-      // Switch to manual input tab to show the content
-      const manualTab = document.querySelector('.input-tab[data-input="manual"]');
-      if (manualTab) manualTab.click();
-    }
-  };
-  reader.readAsText(file);
-};
 
 function showStatus(message, type) {
   const statusDiv = document.getElementById('parse-status');
@@ -9584,9 +9511,19 @@ function showPreview(tokens, { skipScroll = false } = {}) {
                   : token.value;
 
               const isDuplicate = checkDuplicate(token.name);
-              const duplicateBadge = isDuplicate
-                ? '<span class="status-badge alias" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d;">Exists</span>'
-                : '';
+              const overwriteCheckbox = document.getElementById('overwrite-existing');
+              const overwriteActive = overwriteCheckbox ? overwriteCheckbox.checked : false;
+              
+              let statusBadge = '';
+              if (isDuplicate) {
+                if (overwriteActive) {
+                  statusBadge = '<span class="status-badge" style="background-color: rgba(234,179,8,0.2); color: #facc15; border: 1px solid rgba(250,204,21,0.5);">Update</span>';
+                } else {
+                  statusBadge = '<span class="status-badge" style="background-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.2);">Skip</span>';
+                }
+              } else {
+                statusBadge = '<span class="status-badge new" style="background-color: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(74,222,128,0.5);">New</span>';
+              }
 
               return `
                               <div class="variable-row ${isDuplicate ? 'duplicate-row' : ''}">
@@ -9596,7 +9533,7 @@ function showPreview(tokens, { skipScroll = false } = {}) {
                                 </label>
                                 <span class="variable-type" style="font-size: 11px;">${category}</span>
                                 <span class="variable-value" style="font-size: 11px;">${valueDisplay}</span>
-                                ${duplicateBadge}
+                                ${statusBadge}
                                 ${token.isAlias ? '<span class="alias-badge">ref</span>' : ''}
                               </div>
                             `;
@@ -10322,6 +10259,7 @@ document.getElementById('confirm-import-btn')?.addEventListener('click', functio
   // we should have stored the raw tokens.
 
   // Let's assume we want to import everything that was previewed.
+  // Except for modified ones if 'overwrite' is false, they will just be merged (ignored by backend).
   const tokensToImport = [
     ...currentImportPreview.added,
     ...currentImportPreview.modified.map((m) => m.token),
@@ -10356,72 +10294,7 @@ function handleImportPreview(msg) {
   }
 
   currentImportPreview = msg.diff;
-  const { added, modified, unchanged, conflicts } = msg.diff;
-  const totalCount = added.length + modified.length + unchanged.length + conflicts.length;
-
-  // Update Stats with new format (icon + number only)
-  document.getElementById('preview-stat-total').querySelector('span:last-child').textContent =
-    totalCount;
-  document.getElementById('preview-stat-new').querySelector('span:last-child').textContent =
-    added.length;
-  document.getElementById('preview-stat-update').querySelector('span:last-child').textContent =
-    modified.length;
-  document.getElementById('preview-stat-conflict').querySelector('span:last-child').textContent =
-    conflicts.length;
-
-  // Render Table
-  const tbody = document.getElementById('preview-table-body');
-  tbody.innerHTML = '';
-
-  // Helper to get type icon
-  const getTypeIcon = (type) => {
-    const t = (type || '').toLowerCase();
-    if (t.includes('color'))
-      return '<span class="material-symbols-outlined" style="font-size: 14px; color: #a78bfa;">palette</span>';
-    if (t.includes('number') || t.includes('numeric') || t.includes('float'))
-      return '<span class="material-symbols-outlined" style="font-size: 14px; color: #60a5fa;">123</span>';
-    if (t.includes('string'))
-      return '<span class="material-symbols-outlined" style="font-size: 14px; color: #4ade80;">text_fields</span>';
-    if (t.includes('boolean'))
-      return '<span class="material-symbols-outlined" style="font-size: 14px; color: #fbbf24;">toggle_on</span>';
-    return '<span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.5);">data_object</span>';
-  };
-
-  // Helper to get status badge
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      new: '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(34,197,94,0.2); color: #4ade80; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">add</span>NEW</span>',
-      update:
-        '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(234,179,8,0.2); color: #facc15; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">sync</span>UPD</span>',
-      conflict:
-        '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(239,68,68,0.2); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">warning</span>!</span>',
-      ignore:
-        '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">remove</span>SKIP</span>',
-    };
-    return statusMap[status] || status.toUpperCase();
-  };
-
-  const appendRow = (token, status, oldValue = null) => {
-    const tr = document.createElement('tr');
-    const valueDisplay =
-      status === 'update' || status === 'conflict'
-        ? `<span style="color: rgba(255,255,255,0.4); font-size: 10px; text-decoration: line-through;">${SecurityUtils.escapeHTML(String(oldValue).substring(0, 20))}</span>
-             <span style="color: var(--purple-light);"> → ${SecurityUtils.escapeHTML(String(token.value).substring(0, 25))}</span>`
-        : `<span style="font-family: monospace; font-size: 11px;">${SecurityUtils.escapeHTML(String(token.value).substring(0, 30))}</span>`;
-
-    tr.innerHTML = `
-            <td style="font-size: 11px; font-family: monospace;">${SecurityUtils.escapeHTML(token.name)}</td>
-            <td style="text-align: center;">${getTypeIcon(token.type)}</td>
-            <td style="font-size: 11px;">${valueDisplay}</td>
-            <td style="text-align: center;">${getStatusBadge(status)}</td>
-          `;
-    tbody.appendChild(tr);
-  };
-
-  added.forEach((t) => appendRow(t, 'new'));
-  modified.forEach((m) => appendRow(m.token, 'update', m.oldValue));
-  conflicts.forEach((c) => appendRow(c.token, 'conflict', c.existingValue));
-  unchanged.forEach((t) => appendRow(t, 'ignore')); // Or 'unchanged'
+  renderImportPreviewTable();
 
   // Show preview section
   const previewSection = document.getElementById('import-preview-section');
@@ -10432,6 +10305,112 @@ function handleImportPreview(msg) {
     previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 100);
 }
+
+// Function to render the import preview table so it can be dynamically updated on toggle
+function renderImportPreviewTable() {
+  if (!currentImportPreview) return;
+  
+  const { added, modified, unchanged, conflicts } = currentImportPreview;
+  
+  // Check the state of the overwrite toggle
+  const overwriteCheckbox = document.getElementById('overwrite-existing');
+  const overwriteActive = overwriteCheckbox ? overwriteCheckbox.checked : false;
+
+  const totalCount = added.length + modified.length + unchanged.length + conflicts.length;
+
+  // Update Stats with new format
+  document.getElementById('preview-stat-total').querySelector('span:last-child').textContent = totalCount;
+  document.getElementById('preview-stat-new').querySelector('span:last-child').textContent = added.length;
+  
+  // Update count goes to 0 if overwrite is inactive, because they will be skipped
+  document.getElementById('preview-stat-update').querySelector('span:last-child').textContent = overwriteActive ? modified.length : 0;
+  document.getElementById('preview-stat-conflict').querySelector('span:last-child').textContent = conflicts.length;
+
+  // Render Table
+  const tbody = document.getElementById('preview-table-body');
+  if(tbody) {
+    tbody.innerHTML = '';
+
+    // Helper to get type icon
+    const getTypeIcon = (type) => {
+      const t = (type || '').toLowerCase();
+      if (t.includes('color'))
+        return '<span class="material-symbols-outlined" style="font-size: 14px; color: #a78bfa;">palette</span>';
+      if (t.includes('number') || t.includes('numeric') || t.includes('float'))
+        return '<span class="material-symbols-outlined" style="font-size: 14px; color: #60a5fa;">123</span>';
+      if (t.includes('string'))
+        return '<span class="material-symbols-outlined" style="font-size: 14px; color: #4ade80;">text_fields</span>';
+      if (t.includes('boolean'))
+        return '<span class="material-symbols-outlined" style="font-size: 14px; color: #fbbf24;">toggle_on</span>';
+      return '<span class="material-symbols-outlined" style="font-size: 14px; color: rgba(255,255,255,0.5);">data_object</span>';
+    };
+
+    // Helper to get status badge
+    const getStatusBadge = (status) => {
+      const statusMap = {
+        new: '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(34,197,94,0.2); color: #4ade80; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">add</span>NEW</span>',
+        update:
+          '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(234,179,8,0.2); color: #facc15; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">sync</span>UPD</span>',
+        conflict:
+          '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(239,68,68,0.2); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">warning</span>!</span>',
+        ignore:
+          '<span style="display: inline-flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;"><span class="material-symbols-outlined" style="font-size: 12px;">remove</span>SKIP</span>',
+      };
+      return statusMap[status] || status.toUpperCase();
+    };
+
+    const appendRow = (token, status, oldValue = null) => {
+      const tr = document.createElement('tr');
+      
+      // If it's a skip state, grey out the text slightly instead of showing a crossed out update
+      const valueDisplay =
+        (status === 'update' || status === 'conflict')
+          ? `<span style="color: rgba(255,255,255,0.4); font-size: 10px; text-decoration: line-through;">${SecurityUtils.escapeHTML(String(oldValue).substring(0, 20))}</span>
+               <span style="color: var(--purple-light);"> → ${SecurityUtils.escapeHTML(String(token.value).substring(0, 25))}</span>`
+          : `<span style="font-family: monospace; font-size: 11px; ${status === 'ignore' ? 'opacity: 0.5;' : ''}">${SecurityUtils.escapeHTML(String(token.value).substring(0, 30))}</span>`;
+
+      tr.innerHTML = `
+              <td style="font-size: 11px; font-family: monospace; ${status === 'ignore' ? 'opacity: 0.5;' : ''}">${SecurityUtils.escapeHTML(token.name)}</td>
+              <td style="text-align: center; ${status === 'ignore' ? 'opacity: 0.5;' : ''}">${getTypeIcon(token.type)}</td>
+              <td style="font-size: 11px;">${valueDisplay}</td>
+              <td style="text-align: center;">${getStatusBadge(status)}</td>
+            `;
+      tbody.appendChild(tr);
+    };
+
+    added.forEach((t) => appendRow(t, 'new'));
+    
+    // Modified logic checks the toggle. If toggle is false, all "modified" are ignored
+    modified.forEach((m) => {
+      const status = overwriteActive ? 'update' : 'ignore';
+      appendRow(m.token, status, m.oldValue);
+    });
+    
+    conflicts.forEach((c) => appendRow(c.token, 'conflict', c.existingValue));
+    unchanged.forEach((t) => appendRow(t, 'ignore'));
+  }
+}
+window.renderImportPreviewTable = renderImportPreviewTable;
+
+window.handleOverwriteToggleChange = function() {
+  const checkbox = document.getElementById('overwrite-existing');
+  if (!checkbox) return;
+  
+  const warning = document.getElementById('overwrite-warning');
+  if (warning) {
+    warning.style.display = checkbox.checked ? 'flex' : 'none';
+  }
+  
+  // Re-render the initial parsed tokens list to update badges
+  if (window.parsedTokens && window.parsedTokens.length > 0) {
+    showPreview(window.parsedTokens);
+  }
+  
+  // Re-render the final preview table if it exists
+  if(typeof renderImportPreviewTable === 'function') {
+    renderImportPreviewTable();
+  }
+};
 
 function handleImportComplete(msg) {
   const btn = document.getElementById('confirm-import-btn');
@@ -11388,5 +11367,121 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeTab && activeTab.dataset.tab === 'quality') {
       runQualityAnalysis();
     }
+    initCustomSelects(); // Initialize custom glassmorphism dropdowns
   }, 200);
 });
+
+// Custom Select implementation for replacing native <select> elements
+window.CustomSelect = class CustomSelect {
+  constructor(originalSelect) {
+    this.originalSelect = originalSelect;
+    
+    // Hide original
+    this.originalSelect.style.display = 'none';
+    
+    // Wrap the original select if it isn't already inside a relative container.
+    this.wrapper = document.createElement('div');
+    this.wrapper.className = 'custom-select-wrapper';
+    
+    // Insert wrapper before original, then move original inside
+    this.originalSelect.parentNode.insertBefore(this.wrapper, this.originalSelect);
+    this.wrapper.appendChild(this.originalSelect);
+    
+    // Build trigger
+    this.trigger = document.createElement('div');
+    this.trigger.className = 'custom-select-trigger';
+    
+    // Build options container
+    this.optionsContainer = document.createElement('div');
+    this.optionsContainer.className = 'custom-select-options';
+    
+    this.wrapper.appendChild(this.trigger);
+    this.wrapper.appendChild(this.optionsContainer);
+    
+    this.render();
+    this.setupEvents();
+    
+    // Auto-update when options change dynamically
+    this.observer = new MutationObserver(() => this.render());
+    this.observer.observe(this.originalSelect, { childList: true, subtree: true });
+    
+    // Handle programmatic value changes on original select
+    this.originalSelect.addEventListener('change', () => this.updateTriggerText());
+  }
+  
+  updateTriggerText() {
+    const selectedOption = this.originalSelect.options[this.originalSelect.selectedIndex];
+    const text = selectedOption ? selectedOption.text : 'Select...';
+    this.trigger.innerHTML = `<span>${text}</span><span class="material-symbols-outlined">expand_more</span>`;
+  }
+  
+  render() {
+    this.optionsContainer.innerHTML = '';
+    this.updateTriggerText();
+    
+    Array.from(this.originalSelect.options).forEach((option, index) => {
+      const optionEl = document.createElement('div');
+      optionEl.className = 'custom-select-option';
+      if (option.selected) optionEl.classList.add('selected');
+      optionEl.textContent = option.text;
+      
+      optionEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.originalSelect.selectedIndex = index;
+        // Trigger native change event
+        this.originalSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        this.render();
+        this.close();
+      });
+      
+      this.optionsContainer.appendChild(optionEl);
+    });
+  }
+  
+  setupEvents() {
+    this.trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggle();
+    });
+    
+    document.addEventListener('click', () => {
+      this.close();
+    });
+  }
+  
+  toggle() {
+    const isShowing = this.optionsContainer.classList.contains('show');
+    // Close other dropdowns
+    document.querySelectorAll('.custom-select-options.show').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.custom-select-trigger.active').forEach(el => el.classList.remove('active'));
+    
+    if (!isShowing) {
+      this.optionsContainer.classList.add('show');
+      this.trigger.classList.add('active');
+    }
+  }
+  
+  close() {
+    this.optionsContainer.classList.remove('show');
+    this.trigger.classList.remove('active');
+  }
+}
+
+// Initialize custom selects logic
+function initCustomSelects() {
+  const selectIds = [
+    'config-export-format',
+    'config-strategy',
+    'import-collection-select',
+    'create-var-collection',
+    'create-var-group'
+  ];
+  
+  selectIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.customized && window.CustomSelect) {
+      new window.CustomSelect(el);
+      el.dataset.customized = 'true';
+    }
+  });
+}

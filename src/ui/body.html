@@ -1126,7 +1126,6 @@
             <div class="import-options">
               <select id="import-collection-select" class="select-input">
                 <!-- Populated dynamically -->
-                <option value="">New Collection...</option>
               </select>
             </div>
             <button id="preview-import-btn" class="btn-primary" disabled>Preview Import</button>
@@ -1285,11 +1284,7 @@
                     type="checkbox"
                     class="toggle-input"
                     id="overwrite-existing"
-                    onchange="
-                      document.getElementById('overwrite-warning').style.display = this.checked
-                        ? 'flex'
-                        : 'none'
-                    "
+                    onchange="if(typeof handleOverwriteToggleChange === 'function') handleOverwriteToggleChange();"
                   />
                   <div class="toggle-slider"></div>
                   <span class="settings-label" style="margin-bottom: 0"
