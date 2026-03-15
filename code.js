@@ -1794,8 +1794,8 @@
         /**
          * Save GitLab settings to Figma storage
          */
-        static saveSettings(settings, shareWithTeam) {
-          return __awaiter(this, void 0, void 0, function* () {
+        static saveSettings(settings_1, shareWithTeam_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, shareWithTeam, shareTokenWithTeam = false) {
             if (!settings || typeof settings !== "object") {
               throw new Error(config_1.ERROR_MESSAGES.INVALID_SETTINGS);
             }
@@ -1804,12 +1804,19 @@
               const settingsKey = `gitlab-settings-${figmaFileId}`;
               if (!shareWithTeam) {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
+                figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+                figma.root.setPluginData(`${settingsKey}-token-shared`, "");
               } else {
                 const settingsToSave = Object.assign({}, settings);
-                if (!settings.saveToken) {
-                  delete settingsToSave.gitlabToken;
+                delete settingsToSave.gitlabToken;
+                figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
+                if (shareTokenWithTeam && settings.gitlabToken) {
+                  figma.root.setPluginData(`${settingsKey}-shared-token`, settings.gitlabToken);
+                  figma.root.setPluginData(`${settingsKey}-token-shared`, "true");
+                } else {
+                  figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+                  figma.root.setPluginData(`${settingsKey}-token-shared`, "");
                 }
-                figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
                   try {
                     if (cryptoService_1.CryptoService.isAvailable()) {
@@ -1832,15 +1839,9 @@
                       component: "GitLabService",
                       severity: "high"
                     });
-                    delete settingsToSave.gitlabToken;
                   }
                 }
               }
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
-                sharedWithTeam: shareWithTeam,
-                savedAt: settings.savedAt,
-                savedBy: settings.savedBy
-              }));
             } catch (error) {
               config_1.LoggingService.error("Error saving GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
               throw new GitLabAPIError(`Error saving GitLab settings: ${error.message || "Unknown error"}`, void 0, error);
@@ -1855,101 +1856,54 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              const documentSettings = yield this.loadDocumentSettings(settingsKey);
-              if (documentSettings)
-                return documentSettings;
-              const personalSettings = yield this.loadPersonalSettings(settingsKey);
-              if (personalSettings)
-                return personalSettings;
-              const legacySettings = yield this.loadLegacySettings();
-              if (legacySettings)
-                return legacySettings;
+              const documentSettings = figma.root.getPluginData(settingsKey);
+              if (documentSettings) {
+                try {
+                  const settings = JSON.parse(documentSettings);
+                  settings.isPersonal = false;
+                  const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+                  if (tokenShared === "true") {
+                    const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
+                    if (sharedToken) {
+                      settings.gitlabToken = sharedToken;
+                      settings.shareTokenWithTeam = true;
+                    }
+                  } else if (settings.saveToken) {
+                    const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
+                    const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+                    if (encryptedToken) {
+                      try {
+                        if (cryptoVersion === "v2" && cryptoService_1.CryptoService.isAvailable()) {
+                          settings.gitlabToken = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
+                        } else if (yield figma.clientStorage.getAsync(`${settingsKey}-key`)) {
+                          const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
+                          settings.gitlabToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                          settings._needsCryptoMigration = true;
+                        } else {
+                          settings.gitlabToken = encryptedToken;
+                          settings._needsCryptoMigration = true;
+                        }
+                      } catch (error) {
+                        errorHandler_1.ErrorHandler.handleError(error, {
+                          operation: "decrypt_token",
+                          component: "GitLabService",
+                          severity: "medium"
+                        });
+                      }
+                    }
+                  }
+                  return settings;
+                } catch (parseError) {
+                  config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
+                }
+              }
+              const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
+              if (personalSettings) {
+                return Object.assign({}, personalSettings, { isPersonal: true });
+              }
               return null;
             } catch (error) {
               config_1.LoggingService.error("Error loading GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
-              return null;
-            }
-          });
-        }
-        /**
-         * Load shared document settings with personal token
-         */
-        static loadDocumentSettings(settingsKey) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
-            if (!documentSettings)
-              return null;
-            try {
-              const settings = JSON.parse(documentSettings);
-              if (settings.saveToken && !settings.gitlabToken) {
-                const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-                const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
-                if (encryptedToken) {
-                  try {
-                    if (cryptoVersion === "v2" && cryptoService_1.CryptoService.isAvailable()) {
-                      const decryptedToken = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
-                      settings.gitlabToken = decryptedToken;
-                    } else if (yield figma.clientStorage.getAsync(`${settingsKey}-key`)) {
-                      const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
-                      const decryptedToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
-                      settings.gitlabToken = decryptedToken;
-                      settings._needsCryptoMigration = true;
-                    } else {
-                      settings.gitlabToken = encryptedToken;
-                      settings._needsCryptoMigration = true;
-                    }
-                  } catch (error) {
-                    errorHandler_1.ErrorHandler.handleError(error, {
-                      operation: "decrypt_token",
-                      component: "GitLabService",
-                      severity: "medium"
-                    });
-                  }
-                }
-              }
-              const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
-              if (metaData) {
-                try {
-                  const meta = JSON.parse(metaData);
-                  settings.isPersonal = !meta.sharedWithTeam;
-                } catch (metaParseError) {
-                  console.warn("Error parsing settings metadata:", metaParseError);
-                }
-              }
-              return settings;
-            } catch (parseError) {
-              config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
-              return null;
-            }
-          });
-        }
-        /**
-         * Load personal client storage settings
-         */
-        static loadPersonalSettings(settingsKey) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
-            if (personalSettings) {
-              return Object.assign({}, personalSettings, { isPersonal: true });
-            }
-            return null;
-          });
-        }
-        /**
-         * Load and migrate legacy settings
-         */
-        static loadLegacySettings() {
-          return __awaiter(this, void 0, void 0, function* () {
-            const legacyDocumentSettings = figma.root.getSharedPluginData("Bridgy", "gitlab-settings");
-            if (!legacyDocumentSettings)
-              return null;
-            try {
-              const settings = JSON.parse(legacyDocumentSettings);
-              yield this.saveSettings(settings, true);
-              figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
-              return settings;
-            } catch (parseError) {
-              config_1.LoggingService.error("Error parsing legacy document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
               return null;
             }
           });
@@ -1962,13 +1916,12 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+              figma.root.setPluginData(settingsKey, "");
+              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-              figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
-              yield figma.clientStorage.deleteAsync("gitlab-settings");
             } catch (error) {
               config_1.LoggingService.error("Error resetting GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
               throw new GitLabAPIError(`Error resetting GitLab settings: ${error.message || "Unknown error"}`, void 0, error);
@@ -2312,13 +2265,15 @@
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
               yield figma.clientStorage.deleteAsync(settingsKey);
-              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
+              const sharedSettings = figma.root.getPluginData(settingsKey);
               if (sharedSettings) {
                 try {
                   const settings = JSON.parse(sharedSettings);
                   settings.saveToken = false;
                   delete settings.gitlabToken;
-                  figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+                  figma.root.setPluginData(settingsKey, JSON.stringify(settings));
                 } catch (e) {
                 }
               }
@@ -2434,10 +2389,10 @@
             _needsCryptoMigration: settings._needsCryptoMigration
           };
         }
-        saveSettings(settings, shareWithTeam) {
-          return __awaiter(this, void 0, void 0, function* () {
+        saveSettings(settings_1, shareWithTeam_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, shareWithTeam, shareTokenWithTeam = false) {
             const gitlabSettings = this.toGitLabSettings(settings);
-            yield gitlabService_1.GitLabService.saveSettings(gitlabSettings, shareWithTeam);
+            yield gitlabService_1.GitLabService.saveSettings(gitlabSettings, shareWithTeam, shareTokenWithTeam);
           });
         }
         loadSettings() {
@@ -2904,8 +2859,8 @@
           const figmaFileId = figma.root.id;
           return `github-settings-${figmaFileId}`;
         }
-        saveSettings(settings, shareWithTeam) {
-          return __awaiter(this, void 0, void 0, function* () {
+        saveSettings(settings_1, shareWithTeam_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, shareWithTeam, shareTokenWithTeam = false) {
             if (!settings || typeof settings !== "object") {
               throw new Error(config_1.ERROR_MESSAGES.INVALID_SETTINGS);
             }
@@ -2913,61 +2868,47 @@
               const settingsKey = _GitHubService.getSettingsKey();
               if (!shareWithTeam) {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
+                figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+                figma.root.setPluginData(`${settingsKey}-token-shared`, "");
               } else {
                 const settingsToSave = Object.assign({}, settings);
-                if (!settings.saveToken) {
-                  delete settingsToSave.token;
+                delete settingsToSave.token;
+                figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
+                if (shareTokenWithTeam && settings.token) {
+                  figma.root.setPluginData(`${settingsKey}-shared-token`, settings.token);
+                  figma.root.setPluginData(`${settingsKey}-token-shared`, "true");
+                } else {
+                  figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+                  figma.root.setPluginData(`${settingsKey}-token-shared`, "");
                 }
-                figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.token) {
                   try {
-                    console.log("DEBUG: Starting token encryption");
                     let cryptoAvailable = false;
                     try {
-                      console.log("DEBUG: Checking CryptoService.isAvailable");
-                      console.log("DEBUG: CryptoService object:", cryptoService_1.CryptoService);
                       cryptoAvailable = cryptoService_1.CryptoService.isAvailable();
-                      console.log("DEBUG: CryptoService.isAvailable result:", cryptoAvailable);
                     } catch (cryptoError) {
                       console.warn("CryptoService.isAvailable() failed:", cryptoError);
                       cryptoAvailable = false;
                     }
                     if (cryptoAvailable) {
-                      console.log("DEBUG: Calls CryptoService.encrypt");
                       const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.token);
-                      console.log("DEBUG: CryptoService.encrypt success");
                       yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
                       yield figma.clientStorage.setAsync(`${settingsKey}-crypto`, "v2");
                     } else {
-                      console.log("DEBUG: Using fallback encryption");
-                      console.log("DEBUG: SecurityUtils object:", securityUtils_1.SecurityUtils);
-                      if (typeof securityUtils_1.SecurityUtils.generateEncryptionKey !== "function") {
-                        console.error("CRITICAL: SecurityUtils.generateEncryptionKey is not a function");
-                      }
                       const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
-                      if (typeof securityUtils_1.SecurityUtils.encryptData !== "function") {
-                        console.error("CRITICAL: SecurityUtils.encryptData is not a function");
-                      }
                       const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.token, encryptionKey);
                       yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
                       yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
                     }
                   } catch (error) {
-                    console.error("DEBUG: Caught error in encrypt_token:", error);
                     errorHandler_1.ErrorHandler.handleError(error, {
                       operation: "encrypt_token",
                       component: "GitHubService",
                       severity: "high"
                     });
-                    delete settingsToSave.token;
                   }
                 }
               }
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
-                sharedWithTeam: shareWithTeam,
-                savedAt: settings.savedAt,
-                savedBy: settings.savedBy
-              }));
             } catch (error) {
               config_1.LoggingService.error("Error saving GitHub settings", error, config_1.LoggingService.CATEGORIES.GITHUB);
               throw new baseGitService_1.GitServiceError(`Error saving GitHub settings: ${error.message || "Unknown error"}`, void 0, error);
@@ -2978,11 +2919,19 @@
           return __awaiter(this, void 0, void 0, function* () {
             try {
               const settingsKey = _GitHubService.getSettingsKey();
-              const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              const documentSettings = figma.root.getPluginData(settingsKey);
               if (documentSettings) {
                 try {
                   const settings = JSON.parse(documentSettings);
-                  if (settings.saveToken && !settings.token) {
+                  settings.isPersonal = false;
+                  const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+                  if (tokenShared === "true") {
+                    const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
+                    if (sharedToken) {
+                      settings.token = sharedToken;
+                      settings.shareTokenWithTeam = true;
+                    }
+                  } else if (settings.saveToken) {
                     const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
                     const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
                     if (encryptedToken) {
@@ -3010,15 +2959,6 @@
                       }
                     }
                   }
-                  const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
-                  if (metaData) {
-                    try {
-                      const meta = JSON.parse(metaData);
-                      settings.isPersonal = !meta.sharedWithTeam;
-                    } catch (metaParseError) {
-                      console.warn("Error parsing settings metadata:", metaParseError);
-                    }
-                  }
                   return settings;
                 } catch (parseError) {
                   config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITHUB);
@@ -3039,8 +2979,9 @@
           return __awaiter(this, void 0, void 0, function* () {
             try {
               const settingsKey = _GitHubService.getSettingsKey();
-              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+              figma.root.setPluginData(settingsKey, "");
+              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
@@ -3362,13 +3303,15 @@
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
               yield figma.clientStorage.deleteAsync(settingsKey);
-              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
+              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
+              const sharedSettings = figma.root.getPluginData(settingsKey);
               if (sharedSettings) {
                 try {
                   const settings = JSON.parse(sharedSettings);
                   settings.saveToken = false;
                   delete settings.token;
-                  figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+                  figma.root.setPluginData(settingsKey, JSON.stringify(settings));
                 } catch (e) {
                 }
               }
@@ -8362,7 +8305,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 console.error("CRITICAL: gitService.saveSettings is not a function!", gitService);
                 throw new Error(`Internal Error: Service for ${msg.provider} is not initialized correctly.`);
               }
-              yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
+              yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false, msg.shareTokenWithTeam || false);
               figma.ui.postMessage({
                 type: "git-settings-saved",
                 success: true,

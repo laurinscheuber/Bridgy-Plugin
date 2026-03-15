@@ -7744,6 +7744,8 @@ function persistSettings(silent = false) {
     const branch = branchElement.value.trim() || 'feature/variables';
     const saveToken = saveTokenElement.checked;
     const shareTeam = shareTeamElement.checked;
+    const shareTokenElement = document.getElementById('config-share-token-team');
+    const shareTokenWithTeam = shareTeam && shareTokenElement && shareTokenElement.checked;
 
     // Enhanced validation
     // Enhanced validation
@@ -7843,6 +7845,7 @@ function persistSettings(silent = false) {
           branchName: branch,
           saveToken: saveToken,
           shareWithTeam: shareTeam,
+          shareTokenWithTeam: shareTokenWithTeam,
         },
       },
       '*',
@@ -7889,6 +7892,42 @@ function persistSettings(silent = false) {
 
 function saveConfiguration() {
   persistSettings(false);
+}
+
+/**
+ * Toggle 1 handler – show/hide the share-token section
+ */
+function handleShareTeamToggle(el) {
+  const shareTokenSection = document.getElementById('share-token-section');
+  if (!shareTokenSection) return;
+
+  if (el.checked) {
+    shareTokenSection.style.display = 'block';
+  } else {
+    // Team sharing off – reset sub-toggle as well
+    shareTokenSection.style.display = 'none';
+    const shareTokenEl = document.getElementById('config-share-token-team');
+    const shareTokenWarning = document.getElementById('share-token-warning');
+    if (shareTokenEl) shareTokenEl.checked = false;
+    if (shareTokenWarning) shareTokenWarning.style.display = 'none';
+  }
+}
+
+/**
+ * Toggle 2 handler – confirm dialog + show/hide security warning
+ */
+function handleShareTokenToggle(el) {
+  if (el.checked) {
+    const confirmed = window.confirm(
+      'Are you sure? The access token will be readable by anyone with access to this Figma file.',
+    );
+    if (!confirmed) {
+      el.checked = false;
+      return;
+    }
+  }
+  const shareTokenWarning = document.getElementById('share-token-warning');
+  if (shareTokenWarning) shareTokenWarning.style.display = el.checked ? 'block' : 'none';
 }
 
 function loadConfigurationTab() {
@@ -7947,6 +7986,16 @@ function loadConfigurationTab() {
           : true;
       }
 
+      // Restore share-token toggle
+      const shareTokenEl = document.getElementById('config-share-token-team');
+      const shareTokenSection = document.getElementById('share-token-section');
+      const shareTokenWarning = document.getElementById('share-token-warning');
+      const shareTeamOn = shareTeamElement ? shareTeamElement.checked : true;
+      const shareTokenOn = !!(window.gitSettings || window.gitlabSettings)?.shareTokenWithTeam;
+      if (shareTokenSection) shareTokenSection.style.display = shareTeamOn ? 'block' : 'none';
+      if (shareTokenEl) shareTokenEl.checked = shareTokenOn;
+      if (shareTokenWarning) shareTokenWarning.style.display = shareTokenOn ? 'block' : 'none';
+
       // Handle strategy-dependent sections
       const strategyElement = document.getElementById('config-strategy');
       if (strategyElement) {
@@ -7978,7 +8027,12 @@ function loadConfigurationTab() {
       const shareTeamElement = document.getElementById('config-share-team');
 
       if (saveTokenElement) saveTokenElement.checked = true;
-      if (shareTeamElement) shareTeamElement.checked = true;
+      if (shareTeamElement) {
+        shareTeamElement.checked = true;
+        // Show share-token section for new users (team sharing on by default)
+        const shareTokenSection = document.getElementById('share-token-section');
+        if (shareTokenSection) shareTokenSection.style.display = 'block';
+      }
     }
   } catch (error) {
     console.error('Error loading configuration:', error);
@@ -9513,7 +9567,7 @@ function showPreview(tokens, { skipScroll = false } = {}) {
               const isDuplicate = checkDuplicate(token.name);
               const overwriteCheckbox = document.getElementById('overwrite-existing');
               const overwriteActive = overwriteCheckbox ? overwriteCheckbox.checked : false;
-              
+
               let statusBadge = '';
               if (isDuplicate) {
                 if (overwriteActive) {
@@ -10309,9 +10363,9 @@ function handleImportPreview(msg) {
 // Function to render the import preview table so it can be dynamically updated on toggle
 function renderImportPreviewTable() {
   if (!currentImportPreview) return;
-  
+
   const { added, modified, unchanged, conflicts } = currentImportPreview;
-  
+
   // Check the state of the overwrite toggle
   const overwriteCheckbox = document.getElementById('overwrite-existing');
   const overwriteActive = overwriteCheckbox ? overwriteCheckbox.checked : false;
@@ -10321,14 +10375,14 @@ function renderImportPreviewTable() {
   // Update Stats with new format
   document.getElementById('preview-stat-total').querySelector('span:last-child').textContent = totalCount;
   document.getElementById('preview-stat-new').querySelector('span:last-child').textContent = added.length;
-  
+
   // Update count goes to 0 if overwrite is inactive, because they will be skipped
   document.getElementById('preview-stat-update').querySelector('span:last-child').textContent = overwriteActive ? modified.length : 0;
   document.getElementById('preview-stat-conflict').querySelector('span:last-child').textContent = conflicts.length;
 
   // Render Table
   const tbody = document.getElementById('preview-table-body');
-  if(tbody) {
+  if (tbody) {
     tbody.innerHTML = '';
 
     // Helper to get type icon
@@ -10361,7 +10415,7 @@ function renderImportPreviewTable() {
 
     const appendRow = (token, status, oldValue = null) => {
       const tr = document.createElement('tr');
-      
+
       // If it's a skip state, grey out the text slightly instead of showing a crossed out update
       const valueDisplay =
         (status === 'update' || status === 'conflict')
@@ -10379,35 +10433,35 @@ function renderImportPreviewTable() {
     };
 
     added.forEach((t) => appendRow(t, 'new'));
-    
+
     // Modified logic checks the toggle. If toggle is false, all "modified" are ignored
     modified.forEach((m) => {
       const status = overwriteActive ? 'update' : 'ignore';
       appendRow(m.token, status, m.oldValue);
     });
-    
+
     conflicts.forEach((c) => appendRow(c.token, 'conflict', c.existingValue));
     unchanged.forEach((t) => appendRow(t, 'ignore'));
   }
 }
 window.renderImportPreviewTable = renderImportPreviewTable;
 
-window.handleOverwriteToggleChange = function() {
+window.handleOverwriteToggleChange = function () {
   const checkbox = document.getElementById('overwrite-existing');
   if (!checkbox) return;
-  
+
   const warning = document.getElementById('overwrite-warning');
   if (warning) {
     warning.style.display = checkbox.checked ? 'flex' : 'none';
   }
-  
+
   // Re-render the initial parsed tokens list to update badges
   if (window.parsedTokens && window.parsedTokens.length > 0) {
     showPreview(window.parsedTokens);
   }
-  
+
   // Re-render the final preview table if it exists
-  if(typeof renderImportPreviewTable === 'function') {
+  if (typeof renderImportPreviewTable === 'function') {
     renderImportPreviewTable();
   }
 };
@@ -11375,56 +11429,56 @@ document.addEventListener('DOMContentLoaded', () => {
 window.CustomSelect = class CustomSelect {
   constructor(originalSelect) {
     this.originalSelect = originalSelect;
-    
+
     // Hide original
     this.originalSelect.style.display = 'none';
-    
+
     // Wrap the original select if it isn't already inside a relative container.
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'custom-select-wrapper';
-    
+
     // Insert wrapper before original, then move original inside
     this.originalSelect.parentNode.insertBefore(this.wrapper, this.originalSelect);
     this.wrapper.appendChild(this.originalSelect);
-    
+
     // Build trigger
     this.trigger = document.createElement('div');
     this.trigger.className = 'custom-select-trigger';
-    
+
     // Build options container
     this.optionsContainer = document.createElement('div');
     this.optionsContainer.className = 'custom-select-options';
-    
+
     this.wrapper.appendChild(this.trigger);
     this.wrapper.appendChild(this.optionsContainer);
-    
+
     this.render();
     this.setupEvents();
-    
+
     // Auto-update when options change dynamically
     this.observer = new MutationObserver(() => this.render());
     this.observer.observe(this.originalSelect, { childList: true, subtree: true });
-    
+
     // Handle programmatic value changes on original select
     this.originalSelect.addEventListener('change', () => this.updateTriggerText());
   }
-  
+
   updateTriggerText() {
     const selectedOption = this.originalSelect.options[this.originalSelect.selectedIndex];
     const text = selectedOption ? selectedOption.text : 'Select...';
     this.trigger.innerHTML = `<span>${text}</span><span class="material-symbols-outlined">expand_more</span>`;
   }
-  
+
   render() {
     this.optionsContainer.innerHTML = '';
     this.updateTriggerText();
-    
+
     Array.from(this.originalSelect.options).forEach((option, index) => {
       const optionEl = document.createElement('div');
       optionEl.className = 'custom-select-option';
       if (option.selected) optionEl.classList.add('selected');
       optionEl.textContent = option.text;
-      
+
       optionEl.addEventListener('click', (e) => {
         e.stopPropagation();
         this.originalSelect.selectedIndex = index;
@@ -11433,34 +11487,34 @@ window.CustomSelect = class CustomSelect {
         this.render();
         this.close();
       });
-      
+
       this.optionsContainer.appendChild(optionEl);
     });
   }
-  
+
   setupEvents() {
     this.trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggle();
     });
-    
+
     document.addEventListener('click', () => {
       this.close();
     });
   }
-  
+
   toggle() {
     const isShowing = this.optionsContainer.classList.contains('show');
     // Close other dropdowns
     document.querySelectorAll('.custom-select-options.show').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('.custom-select-trigger.active').forEach(el => el.classList.remove('active'));
-    
+
     if (!isShowing) {
       this.optionsContainer.classList.add('show');
       this.trigger.classList.add('active');
     }
   }
-  
+
   close() {
     this.optionsContainer.classList.remove('show');
     this.trigger.classList.remove('active');
@@ -11476,7 +11530,7 @@ function initCustomSelects() {
     'create-var-collection',
     'create-var-group'
   ];
-  
+
   selectIds.forEach(id => {
     const el = document.getElementById(id);
     if (el && !el.dataset.customized && window.CustomSelect) {

@@ -663,7 +663,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           );
         }
 
-        await gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
+        await gitService.saveSettings(gitSettings, msg.shareWithTeam || false, msg.shareTokenWithTeam || false);
 
         figma.ui.postMessage({
           type: 'git-settings-saved',
@@ -1257,7 +1257,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               } else if (variable.resolvedType === 'STRING') {
                 resolvedValue = String(varValue);
               } else {
-                 resolvedValue = String(varValue);
+                resolvedValue = String(varValue);
               }
 
               unusedVariables.push({

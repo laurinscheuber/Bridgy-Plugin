@@ -104,7 +104,7 @@ export class GitLabService {
   /**
    * Save GitLab settings to Figma storage
    */
-  static async saveSettings(settings: GitLabSettings, shareWithTeam: boolean): Promise<void> {
+  static async saveSettings(settings: GitLabSettings, shareWithTeam: boolean, shareTokenWithTeam: boolean = false): Promise<void> {
     if (!settings || typeof settings !== 'object') {
       throw new Error(ERROR_MESSAGES.INVALID_SETTINGS);
     }
@@ -116,36 +116,39 @@ export class GitLabService {
       if (!shareWithTeam) {
         // Save only to personal storage (not shared with team)
         await figma.clientStorage.setAsync(settingsKey, settings);
+        // Clear any previously shared token
+        figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+        figma.root.setPluginData(`${settingsKey}-token-shared`, '');
       } else {
-        // Save to document storage (shared with team)
+        // Save to document storage (shared with team) – always strip token
         const settingsToSave = Object.assign({}, settings);
+        delete settingsToSave.gitlabToken;
 
-        // If user didn't opt to save the token, don't store it in shared settings
-        if (!settings.saveToken) {
-          delete settingsToSave.gitlabToken;
+        figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
+
+        if (shareTokenWithTeam && settings.gitlabToken) {
+          // Write token directly to pluginData (unencrypted, user accepted the risk)
+          figma.root.setPluginData(`${settingsKey}-shared-token`, settings.gitlabToken);
+          figma.root.setPluginData(`${settingsKey}-token-shared`, 'true');
+        } else {
+          // Clear any previously shared token
+          figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+          figma.root.setPluginData(`${settingsKey}-token-shared`, '');
         }
 
-        figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settingsToSave));
-
-        // If token should be saved, encrypt it before storing
+        // Save personal encrypted token if requested
         if (settings.saveToken && settings.gitlabToken) {
           try {
             if (CryptoService.isAvailable()) {
-              // Use secure Web Crypto API encryption
               const encryptedToken = await CryptoService.encrypt(settings.gitlabToken);
               await figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-              await figma.clientStorage.setAsync(
-                `${settingsKey}-crypto`,
-                'v2', // Version marker for new encryption
-              );
+              await figma.clientStorage.setAsync(`${settingsKey}-crypto`, 'v2');
 
-              // Clean up old encryption artifacts if migration happened
               if ((settings as any)._needsCryptoMigration) {
                 await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
                 delete (settings as any)._needsCryptoMigration;
               }
             } else {
-              // Fallback to old encryption if Web Crypto not available
               const encryptionKey = SecurityUtils.generateEncryptionKey();
               const encryptedToken = SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
               await figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
@@ -157,22 +160,9 @@ export class GitLabService {
               component: 'GitLabService',
               severity: 'high',
             });
-            // Do not save token if encryption fails
-            delete settingsToSave.gitlabToken;
           }
         }
       }
-
-      // Track metadata
-      figma.root.setSharedPluginData(
-        'Bridgy',
-        `${settingsKey}-meta`,
-        JSON.stringify({
-          sharedWithTeam: shareWithTeam,
-          savedAt: settings.savedAt,
-          savedBy: settings.savedBy,
-        }),
-      );
     } catch (error: any) {
       LoggingService.error('Error saving GitLab settings', error, LoggingService.CATEGORIES.GITLAB);
       throw new GitLabAPIError(
@@ -191,122 +181,70 @@ export class GitLabService {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      // Try loading in order of priority
-      const documentSettings = await this.loadDocumentSettings(settingsKey);
-      if (documentSettings) return documentSettings;
+      // 1. Try loading shared document settings (pluginData)
+      const documentSettings = figma.root.getPluginData(settingsKey);
+      if (documentSettings) {
+        try {
+          const settings = JSON.parse(documentSettings) as GitLabSettings;
+          settings.isPersonal = false;
 
-      const personalSettings = await this.loadPersonalSettings(settingsKey);
-      if (personalSettings) return personalSettings;
+          // 2. Try shared token first
+          const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+          if (tokenShared === 'true') {
+            const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
+            if (sharedToken) {
+              settings.gitlabToken = sharedToken;
+              (settings as any).shareTokenWithTeam = true;
+            }
+          } else if (settings.saveToken) {
+            // 3. Try personal encrypted token from clientStorage
+            const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
+            const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
 
-      const legacySettings = await this.loadLegacySettings();
-      if (legacySettings) return legacySettings;
+            if (encryptedToken) {
+              try {
+                if (cryptoVersion === 'v2' && CryptoService.isAvailable()) {
+                  settings.gitlabToken = await CryptoService.decrypt(encryptedToken);
+                } else if (await figma.clientStorage.getAsync(`${settingsKey}-key`)) {
+                  const encryptionKey = await figma.clientStorage.getAsync(`${settingsKey}-key`);
+                  settings.gitlabToken = SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                  settings._needsCryptoMigration = true;
+                } else {
+                  // Very old unencrypted tokens (backward compatibility)
+                  settings.gitlabToken = encryptedToken;
+                  settings._needsCryptoMigration = true;
+                }
+              } catch (error) {
+                ErrorHandler.handleError(error as Error, {
+                  operation: 'decrypt_token',
+                  component: 'GitLabService',
+                  severity: 'medium',
+                });
+              }
+            }
+          }
+
+          return settings;
+        } catch (parseError) {
+          LoggingService.error(
+            'Error parsing document settings',
+            parseError,
+            LoggingService.CATEGORIES.GITLAB,
+          );
+        }
+      }
+
+      // 4. Fallback to personal client storage
+      const personalSettings = await figma.clientStorage.getAsync(settingsKey);
+      if (personalSettings) {
+        return Object.assign({}, personalSettings, { isPersonal: true });
+      }
 
       return null;
     } catch (error: any) {
       LoggingService.error(
         'Error loading GitLab settings',
         error,
-        LoggingService.CATEGORIES.GITLAB,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Load shared document settings with personal token
-   */
-  private static async loadDocumentSettings(settingsKey: string): Promise<GitLabSettings | null> {
-    const documentSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
-    if (!documentSettings) return null;
-
-    try {
-      const settings = JSON.parse(documentSettings);
-
-      // Try to load personal token if settings indicate it should be saved
-      if (settings.saveToken && !settings.gitlabToken) {
-        const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
-        const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
-
-        if (encryptedToken) {
-          try {
-            if (cryptoVersion === 'v2' && CryptoService.isAvailable()) {
-              // Decrypt using new Web Crypto API
-              const decryptedToken = await CryptoService.decrypt(encryptedToken);
-              settings.gitlabToken = decryptedToken;
-            } else if (await figma.clientStorage.getAsync(`${settingsKey}-key`)) {
-              // Fallback to old XOR decryption
-              const encryptionKey = await figma.clientStorage.getAsync(`${settingsKey}-key`);
-              const decryptedToken = SecurityUtils.decryptData(encryptedToken, encryptionKey);
-              settings.gitlabToken = decryptedToken;
-
-              // Migrate to new encryption on next save
-              settings._needsCryptoMigration = true;
-            } else {
-              // Very old unencrypted tokens (backward compatibility)
-              settings.gitlabToken = encryptedToken;
-              settings._needsCryptoMigration = true;
-            }
-          } catch (error) {
-            ErrorHandler.handleError(error as Error, {
-              operation: 'decrypt_token',
-              component: 'GitLabService',
-              severity: 'medium',
-            });
-          }
-        }
-      }
-
-      // Load metadata if available
-      const metaData = figma.root.getSharedPluginData('Bridgy', `${settingsKey}-meta`);
-      if (metaData) {
-        try {
-          const meta = JSON.parse(metaData);
-          settings.isPersonal = !meta.sharedWithTeam;
-        } catch (metaParseError) {
-          console.warn('Error parsing settings metadata:', metaParseError);
-        }
-      }
-
-      return settings;
-    } catch (parseError) {
-      LoggingService.error(
-        'Error parsing document settings',
-        parseError,
-        LoggingService.CATEGORIES.GITLAB,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Load personal client storage settings
-   */
-  private static async loadPersonalSettings(settingsKey: string): Promise<GitLabSettings | null> {
-    const personalSettings = await figma.clientStorage.getAsync(settingsKey);
-    if (personalSettings) {
-      return Object.assign({}, personalSettings, { isPersonal: true });
-    }
-    return null;
-  }
-
-  /**
-   * Load and migrate legacy settings
-   */
-  private static async loadLegacySettings(): Promise<GitLabSettings | null> {
-    const legacyDocumentSettings = figma.root.getSharedPluginData('Bridgy', 'gitlab-settings');
-    if (!legacyDocumentSettings) return null;
-
-    try {
-      const settings = JSON.parse(legacyDocumentSettings);
-      // Save as project-specific settings
-      await this.saveSettings(settings, true);
-      // Remove old global settings to prevent confusion
-      figma.root.setSharedPluginData('Bridgy', 'gitlab-settings', '');
-      return settings;
-    } catch (parseError) {
-      LoggingService.error(
-        'Error parsing legacy document settings',
-        parseError,
         LoggingService.CATEGORIES.GITLAB,
       );
       return null;
@@ -321,18 +259,15 @@ export class GitLabService {
       const figmaFileId = figma.root.id;
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
-      // Remove shared document storage
-      figma.root.setSharedPluginData('Bridgy', settingsKey, '');
-      figma.root.setSharedPluginData('Bridgy', `${settingsKey}-meta`, '');
+      // Remove shared document storage (pluginData)
+      figma.root.setPluginData(settingsKey, '');
+      figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+      figma.root.setPluginData(`${settingsKey}-token-shared`, '');
 
       // Remove personal client storage including encryption keys
       await figma.clientStorage.deleteAsync(settingsKey);
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-
-      // Also remove any legacy global settings (cleanup)
-      figma.root.setSharedPluginData('Bridgy', 'gitlab-settings', '');
-      await figma.clientStorage.deleteAsync('gitlab-settings');
     } catch (error: any) {
       LoggingService.error(
         'Error resetting GitLab settings',
@@ -882,22 +817,24 @@ export class GitLabService {
 
       const settingsKey = `gitlab-settings-${fileId}`;
 
-      // Clear token and encryption keys
+      // Clear personal token and encryption keys
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
-
-      // Clear personal storage
       await figma.clientStorage.deleteAsync(settingsKey);
 
-      // Update shared settings to remove saveToken flag
-      const sharedSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      // Clear shared token from pluginData
+      figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+      figma.root.setPluginData(`${settingsKey}-token-shared`, '');
+
+      // Update shared settings to clear saveToken flag
+      const sharedSettings = figma.root.getPluginData(settingsKey);
       if (sharedSettings) {
         try {
           const settings = JSON.parse(sharedSettings);
           settings.saveToken = false;
           delete settings.gitlabToken;
-          figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settings));
+          figma.root.setPluginData(settingsKey, JSON.stringify(settings));
         } catch (e) {
           // Ignore parse errors
         }

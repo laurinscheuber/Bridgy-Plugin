@@ -128,7 +128,7 @@ export class GitHubService implements BaseGitService {
     return `github-settings-${figmaFileId}`;
   }
 
-  async saveSettings(settings: GitSettings, shareWithTeam: boolean): Promise<void> {
+  async saveSettings(settings: GitSettings, shareWithTeam: boolean, shareTokenWithTeam: boolean = false): Promise<void> {
     if (!settings || typeof settings !== 'object') {
       throw new Error(ERROR_MESSAGES.INVALID_SETTINGS);
     }
@@ -139,78 +139,56 @@ export class GitHubService implements BaseGitService {
       if (!shareWithTeam) {
         // Save only to personal storage
         await figma.clientStorage.setAsync(settingsKey, settings);
+        // Clear any previously shared token
+        figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+        figma.root.setPluginData(`${settingsKey}-token-shared`, '');
       } else {
-        // Save to document storage (shared with team)
+        // Save to document storage (shared with team) – always strip token from shared config
         const settingsToSave = Object.assign({}, settings);
+        delete settingsToSave.token;
 
-        // Handle token encryption if needed
-        if (!settings.saveToken) {
-          delete settingsToSave.token;
+        figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
+
+        if (shareTokenWithTeam && settings.token) {
+          // Write token directly to pluginData (unencrypted, user accepted the risk)
+          figma.root.setPluginData(`${settingsKey}-shared-token`, settings.token);
+          figma.root.setPluginData(`${settingsKey}-token-shared`, 'true');
+        } else {
+          // Clear any previously shared token
+          figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+          figma.root.setPluginData(`${settingsKey}-token-shared`, '');
         }
 
-        figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settingsToSave));
-
-        // Encrypt and save token separately if requested
+        // Save personal encrypted token if requested
         if (settings.saveToken && settings.token) {
           try {
-            console.log('DEBUG: Starting token encryption');
             let cryptoAvailable = false;
             try {
-              console.log('DEBUG: Checking CryptoService.isAvailable');
-              console.log('DEBUG: CryptoService object:', CryptoService);
               cryptoAvailable = CryptoService.isAvailable();
-              console.log('DEBUG: CryptoService.isAvailable result:', cryptoAvailable);
             } catch (cryptoError) {
               console.warn('CryptoService.isAvailable() failed:', cryptoError);
               cryptoAvailable = false;
             }
 
             if (cryptoAvailable) {
-              console.log('DEBUG: Calls CryptoService.encrypt');
               const encryptedToken = await CryptoService.encrypt(settings.token);
-              console.log('DEBUG: CryptoService.encrypt success');
               await figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
               await figma.clientStorage.setAsync(`${settingsKey}-crypto`, 'v2');
             } else {
-              // Fallback encryption
-              console.log('DEBUG: Using fallback encryption');
-              console.log('DEBUG: SecurityUtils object:', SecurityUtils);
-
-              if (typeof SecurityUtils.generateEncryptionKey !== 'function') {
-                console.error('CRITICAL: SecurityUtils.generateEncryptionKey is not a function');
-              }
               const encryptionKey = SecurityUtils.generateEncryptionKey();
-
-              if (typeof SecurityUtils.encryptData !== 'function') {
-                console.error('CRITICAL: SecurityUtils.encryptData is not a function');
-              }
               const encryptedToken = SecurityUtils.encryptData(settings.token, encryptionKey);
-
               await figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
               await figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
             }
           } catch (error) {
-            console.error('DEBUG: Caught error in encrypt_token:', error);
             ErrorHandler.handleError(error as Error, {
               operation: 'encrypt_token',
               component: 'GitHubService',
               severity: 'high',
             });
-            delete settingsToSave.token;
           }
         }
       }
-
-      // Track metadata
-      figma.root.setSharedPluginData(
-        'Bridgy',
-        `${settingsKey}-meta`,
-        JSON.stringify({
-          sharedWithTeam: shareWithTeam,
-          savedAt: settings.savedAt,
-          savedBy: settings.savedBy,
-        }),
-      );
     } catch (error: any) {
       LoggingService.error('Error saving GitHub settings', error, LoggingService.CATEGORIES.GITHUB);
       throw new GitServiceError(
@@ -225,14 +203,23 @@ export class GitHubService implements BaseGitService {
     try {
       const settingsKey = GitHubService.getSettingsKey();
 
-      // Try loading shared document settings first
-      const documentSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      // 1. Try loading shared document settings (pluginData)
+      const documentSettings = figma.root.getPluginData(settingsKey);
       if (documentSettings) {
         try {
           const settings = JSON.parse(documentSettings) as GitSettings;
+          settings.isPersonal = false;
 
-          // Load encrypted token if needed
-          if (settings.saveToken && !settings.token) {
+          // 2. Try shared token first
+          const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+          if (tokenShared === 'true') {
+            const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
+            if (sharedToken) {
+              settings.token = sharedToken;
+              settings.shareTokenWithTeam = true;
+            }
+          } else if (settings.saveToken) {
+            // 3. Try personal encrypted token from clientStorage
             const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
             const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
 
@@ -263,17 +250,6 @@ export class GitHubService implements BaseGitService {
             }
           }
 
-          // Load metadata
-          const metaData = figma.root.getSharedPluginData('Bridgy', `${settingsKey}-meta`);
-          if (metaData) {
-            try {
-              const meta = JSON.parse(metaData);
-              settings.isPersonal = !meta.sharedWithTeam;
-            } catch (metaParseError) {
-              console.warn('Error parsing settings metadata:', metaParseError);
-            }
-          }
-
           return settings;
         } catch (parseError) {
           LoggingService.error(
@@ -284,7 +260,7 @@ export class GitHubService implements BaseGitService {
         }
       }
 
-      // Try personal storage
+      // 4. Fallback to personal clientStorage
       const personalSettings = await figma.clientStorage.getAsync(settingsKey);
       if (personalSettings) {
         return Object.assign({}, personalSettings, { isPersonal: true });
@@ -305,9 +281,10 @@ export class GitHubService implements BaseGitService {
     try {
       const settingsKey = GitHubService.getSettingsKey();
 
-      // Remove shared document storage
-      figma.root.setSharedPluginData('Bridgy', settingsKey, '');
-      figma.root.setSharedPluginData('Bridgy', `${settingsKey}-meta`, '');
+      // Remove shared document storage (pluginData)
+      figma.root.setPluginData(settingsKey, '');
+      figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+      figma.root.setPluginData(`${settingsKey}-token-shared`, '');
 
       // Remove personal client storage
       await figma.clientStorage.deleteAsync(settingsKey);
@@ -764,22 +741,24 @@ export class GitHubService implements BaseGitService {
     try {
       const settingsKey = GitHubService.getSettingsKey();
 
-      // Clear token and encryption keys
+      // Clear personal token and encryption keys
       await figma.clientStorage.deleteAsync(`${settingsKey}-token`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
       await figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
-
-      // Clear personal storage
       await figma.clientStorage.deleteAsync(settingsKey);
 
-      // Update shared settings to remove saveToken flag
-      const sharedSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      // Clear shared token from pluginData
+      figma.root.setPluginData(`${settingsKey}-shared-token`, '');
+      figma.root.setPluginData(`${settingsKey}-token-shared`, '');
+
+      // Update shared settings to clear saveToken flag
+      const sharedSettings = figma.root.getPluginData(settingsKey);
       if (sharedSettings) {
         try {
           const settings = JSON.parse(sharedSettings) as GitSettings;
           settings.saveToken = false;
           delete settings.token;
-          figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settings));
+          figma.root.setPluginData(settingsKey, JSON.stringify(settings));
         } catch (e) {
           // Ignore parse errors
         }

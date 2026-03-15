@@ -9,7 +9,7 @@ export interface BaseGitService {
   /**
    * Save settings to Figma storage
    */
-  saveSettings(settings: GitSettings, shareWithTeam: boolean): Promise<void>;
+  saveSettings(settings: GitSettings, shareWithTeam: boolean, shareTokenWithTeam?: boolean): Promise<void>;
 
   /**
    * Load settings from Figma storage

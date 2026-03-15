@@ -145,6 +145,8 @@ export const setupE2EEnvironment = () => {
       children: mockComponents,
       setSharedPluginData: vi.fn(),
       getSharedPluginData: vi.fn(() => null),
+      setPluginData: vi.fn(),
+      getPluginData: vi.fn(() => ''),
       findAll: vi.fn((predicate?: (node: any) => boolean) => {
         if (!predicate) return mockComponents;
         return mockComponents.filter(predicate);

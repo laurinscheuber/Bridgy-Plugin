@@ -52,9 +52,9 @@ export class GitLabServiceAdapter implements BaseGitService {
     };
   }
 
-  async saveSettings(settings: GitSettings, shareWithTeam: boolean): Promise<void> {
+  async saveSettings(settings: GitSettings, shareWithTeam: boolean, shareTokenWithTeam: boolean = false): Promise<void> {
     const gitlabSettings = this.toGitLabSettings(settings);
-    await GitLabService.saveSettings(gitlabSettings, shareWithTeam);
+    await GitLabService.saveSettings(gitlabSettings, shareWithTeam, shareTokenWithTeam);
   }
 
   async loadSettings(): Promise<GitSettings | null> {

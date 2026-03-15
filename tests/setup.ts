@@ -17,6 +17,8 @@ const mockFigma = {
     children: [],
     setSharedPluginData: vi.fn(),
     getSharedPluginData: vi.fn(() => null),
+    setPluginData: vi.fn(),
+    getPluginData: vi.fn(() => ''),
   },
   clientStorage: {
     getAsync: vi.fn(() => Promise.resolve(null)),

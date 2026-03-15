@@ -88,6 +88,7 @@ export interface PluginMessage {
   cssData?: string;
   testContent?: string;
   shareWithTeam?: boolean;
+  shareTokenWithTeam?: boolean;
   saveToken?: boolean;
   generateAllVariants?: boolean;
   shouldDownload?: boolean;
