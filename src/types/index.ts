@@ -101,6 +101,13 @@ export interface PluginMessage {
   provider?: 'gitlab' | 'github';
   baseUrl?: string;
   token?: string;
+  savedAt?: string;
+  savedBy?: string;
+  isPersonal?: boolean;
+  // Security fields
+  encryptedConfig?: any;
+  passwordVerifier?: string;
+  password?: string;
   // External URL opening
   url?: string;
   // Token import

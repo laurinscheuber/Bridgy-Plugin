@@ -8065,6 +8065,30 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
       function loadSavedGitSettings() {
         return __awaiter(this, void 0, void 0, function* () {
           try {
+            const sharingEnabled = figma.root.getSharedPluginData("bridgy", "sharingEnabled");
+            if (sharingEnabled === "true") {
+              const encryptedConfigRaw = figma.root.getSharedPluginData("bridgy", "encryptedConfig");
+              const passwordVerifier = figma.root.getSharedPluginData("bridgy", "passwordVerifier");
+              if (encryptedConfigRaw && passwordVerifier) {
+                const cachedPassword = yield figma.clientStorage.getAsync("bridgy_team_password");
+                if (cachedPassword) {
+                  figma.ui.postMessage({
+                    type: "password-locked",
+                    encryptedConfig: JSON.parse(encryptedConfigRaw),
+                    passwordVerifier,
+                    cachedPassword
+                  });
+                } else {
+                  figma.ui.postMessage({
+                    type: "password-locked",
+                    encryptedConfig: JSON.parse(encryptedConfigRaw),
+                    passwordVerifier
+                  });
+                }
+                return;
+              }
+            }
+            figma.ui.postMessage({ type: "config-ready" });
             const gitService = yield gitServiceFactory_1.GitServiceFactory.getServiceFromSettings();
             if (gitService) {
               const settings = yield gitService.loadSettings();
@@ -8085,6 +8109,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
             }
           } catch (error) {
             console.error("Error loading Git settings:", error);
+            figma.ui.postMessage({ type: "config-ready" });
           }
         });
       }
@@ -8255,6 +8280,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         });
       }
       figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
+        var _a;
         try {
           switch (msg.type) {
             case "export-css":
@@ -8343,7 +8369,46 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 });
               }
               break;
+            case "save-encrypted-git-settings":
+              figma.root.setSharedPluginData("bridgy", "sharingEnabled", "true");
+              figma.root.setSharedPluginData("bridgy", "encryptedConfig", JSON.stringify(msg.encryptedConfig));
+              figma.root.setSharedPluginData("bridgy", "passwordVerifier", msg.passwordVerifier);
+              figma.root.setSharedPluginData("bridgy", "git_settings", "");
+              figma.root.setSharedPluginData("bridgy", "gitlab_settings", "");
+              figma.ui.postMessage({
+                type: "git-settings-saved",
+                success: true,
+                sharedWithTeam: true,
+                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+                savedBy: ((_a = figma.currentUser) === null || _a === void 0 ? void 0 : _a.name) || "Unknown user"
+              });
+              break;
+            case "cache-team-password":
+              yield figma.clientStorage.setAsync("bridgy_team_password", msg.password);
+              break;
+            case "apply-decrypted-settings":
+              figma.ui.postMessage({
+                type: "git-settings-loaded",
+                settings: {
+                  provider: msg.provider,
+                  baseUrl: msg.baseUrl,
+                  projectId: msg.projectId,
+                  token: msg.token,
+                  filePath: msg.filePath,
+                  strategy: msg.strategy,
+                  branchName: msg.branchName,
+                  exportFormat: msg.exportFormat,
+                  saveToken: msg.saveToken,
+                  savedAt: msg.savedAt,
+                  savedBy: msg.savedBy,
+                  isPersonal: false
+                }
+              });
+              break;
             case "save-git-settings":
+              figma.root.setSharedPluginData("bridgy", "sharingEnabled", "false");
+              figma.root.setSharedPluginData("bridgy", "encryptedConfig", "");
+              figma.root.setSharedPluginData("bridgy", "passwordVerifier", "");
               const gitService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
               const gitSettings = {
                 provider: msg.provider || "gitlab",

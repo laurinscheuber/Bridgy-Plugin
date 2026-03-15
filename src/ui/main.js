@@ -17,7 +17,6 @@ class SecurityUtils {
           match.includes('toggleComponentSet(') ||
           match.includes('toggleStyles(') ||
           match.includes('scrollToGroupById(') ||
-          match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
           match.includes('deleteUnusedVariable(') ||
           match.includes('deleteStyle(') ||
@@ -60,7 +59,6 @@ class SecurityUtils {
           match.includes('toggleComponentSet(') ||
           match.includes('toggleStyles(') ||
           match.includes('scrollToGroupById(') ||
-          match.includes('generateTest(') ||
           match.includes('deleteVariable(') ||
           match.includes('deleteUnusedVariable(') ||
           match.includes('deleteStyle(') ||
@@ -237,6 +235,145 @@ class SecurityUtils {
     } catch {
       return false;
     }
+  }
+
+  static arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  static base64ToUint8Array(base64) {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  // --- Web Crypto API Methods (Secure Team Config Sharing) ---
+
+  /**
+   * Derives a 256-bit AES-GCM key from a password.
+   */
+  static async deriveKey(password, salt) {
+    const subtle = (crypto.subtle || crypto.webkitSubtle);
+    if (!subtle) {
+      return null;
+    }
+    const enc = new TextEncoder();
+    const keyMaterial = await subtle.importKey(
+      "raw",
+      enc.encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits", "deriveKey"]
+    );
+    return subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256"
+      },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  static async encryptConfig(configString, password) {
+    const subtle = (crypto.subtle || crypto.webkitSubtle);
+    if (!subtle) {
+      // Fallback to basic obfuscation if SubtleCrypto is unavailable
+      const ciphertext = this.encryptData(configString, password);
+      return {
+        ciphertext: ciphertext,
+        iv: "fallback",
+        salt: btoa("fallback"),
+        method: "xor"
+      };
+    }
+
+    const enc = new TextEncoder();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await this.deriveKey(password, salt);
+
+    const encrypted = await subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      enc.encode(configString)
+    );
+
+    return {
+      ciphertext: this.arrayBufferToBase64(encrypted),
+      iv: this.arrayBufferToBase64(iv),
+      salt: this.arrayBufferToBase64(salt),
+      method: "subtle"
+    };
+  }
+
+  static async decryptConfig(encryptedData, password) {
+    const { ciphertext, iv, salt, method } = encryptedData;
+
+    if (method === "xor" || iv === "fallback") {
+      return this.decryptData(ciphertext, password);
+    }
+
+    const subtle = (crypto.subtle || crypto.webkitSubtle);
+    if (!subtle) {
+      throw new Error("Encrypted with Web Crypto but it is not available in this environment");
+    }
+
+    const key = await this.deriveKey(password, this.base64ToUint8Array(salt));
+
+    const decrypted = await subtle.decrypt(
+      { name: "AES-GCM", iv: this.base64ToUint8Array(iv) },
+      key,
+      this.base64ToUint8Array(ciphertext)
+    );
+    return new TextDecoder().decode(decrypted);
+  }
+
+  static async hashPassword(password, salt) {
+    const subtle = (crypto.subtle || crypto.webkitSubtle);
+    if (!subtle) {
+      // Very simple hash fallback for verifier
+      let h = 0;
+      const str = password + btoa(String.fromCharCode(...salt));
+      for (let i = 0; i < str.length; i++) {
+        h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+      }
+      return btoa(h.toString());
+    }
+
+    const enc = new TextEncoder();
+    const keyMaterial = await subtle.importKey(
+      "raw",
+      enc.encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits"]
+    );
+    const hashBuffer = await subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256"
+      },
+      keyMaterial,
+      256
+    );
+    return this.arrayBufferToBase64(hashBuffer);
   }
 
   /**
@@ -1744,29 +1881,54 @@ window.onmessage = (event) => {
       console.warn('Commit button not found in DOM during message handling');
     }
 
-    if (message.type === 'gitlab-settings-loaded') {
+    if (message.type === 'gitlab-settings-loaded' || message.type === 'git-settings-loaded') {
       updatePluginLoadingProgress(loadingSteps[1], 25);
-      window.gitlabSettings = message.settings;
+
+      const pwdGate = document.getElementById('password-gate-container');
+      const mainApp = document.getElementById('main-app');
+      if (pwdGate) pwdGate.style.setProperty('display', 'none', 'important');
+      if (mainApp) mainApp.style.setProperty('display', 'block', 'important');
+
+      if (message.type === 'gitlab-settings-loaded') {
+        window.gitlabSettings = message.settings;
+      } else {
+        window.gitSettings = message.settings;
+        const s = message.settings;
+        window.gitlabSettings = Object.assign({}, s, {
+          gitlabUrl: s.gitlabUrl || s.baseUrl,
+          gitlabToken: s.gitlabToken || s.token,
+        });
+      }
+
       window.gitlabSettingsLoaded = true;
       loadConfigurationTab();
       updateRepositoryLink();
       updateCommitButtonStates();
       checkAndShowUserGuide();
-    } else if (message.type === 'git-settings-loaded') {
-      updatePluginLoadingProgress(loadingSteps[1], 25);
-      window.gitSettings = message.settings;
-      // Backward compatibility: map GitSettings field names to GitLabSettings field names
-      // so that commit and other legacy code paths can access settings.gitlabUrl / settings.gitlabToken
-      const s = message.settings;
-      window.gitlabSettings = Object.assign({}, s, {
-        gitlabUrl: s.gitlabUrl || s.baseUrl,
-        gitlabToken: s.gitlabToken || s.token,
-      });
-      window.gitlabSettingsLoaded = true;
-      loadConfigurationTab();
-      updateRepositoryLink();
-      updateCommitButtonStates();
-      checkAndShowUserGuide();
+    } else if (message.type === 'password-locked') {
+      // Save verifier for checking
+      window.passwordVerifierForGate = message.passwordVerifier;
+      window.encryptedConfigForGate = message.encryptedConfig;
+
+      if (message.cachedPassword) {
+        // Auto-unlock with cached password
+        const pwdInput = document.getElementById('team-password-input');
+        const unlockBtn = document.getElementById('unlock-plugin-btn');
+        if (pwdInput && unlockBtn) {
+          pwdInput.value = message.cachedPassword;
+          unlockBtn.click();
+        }
+      } else {
+        const mainApp = document.getElementById('main-app');
+        const pwdGate = document.getElementById('password-gate-container');
+        if (mainApp) mainApp.style.setProperty('display', 'none', 'important');
+        if (pwdGate) pwdGate.style.setProperty('display', 'flex', 'important');
+      }
+    } else if (message.type === 'password-unlocked' || message.type === 'config-ready') {
+      const mainApp = document.getElementById('main-app');
+      const pwdGate = document.getElementById('password-gate-container');
+      if (pwdGate) pwdGate.style.setProperty('display', 'none', 'important');
+      if (mainApp) mainApp.style.setProperty('display', 'block', 'important');
     } else if (message.type === 'pages-list') {
       window.MultiPageSelector.handlePagesList(message.pages, message.currentPageId);
     } else if (message.type === 'gitlab-settings-saved' || message.type === 'git-settings-saved') {
@@ -4743,7 +4905,7 @@ function renderComponents(data) {
       const action = actionBtn.getAttribute('data-action');
       if (componentId && componentName) {
         const isCommit = action === 'commit';
-        generateTest(componentId, componentName, actionBtn, true, isCommit);
+        // generateTest is deprecated/removed
       }
       return;
     }
@@ -7687,7 +7849,7 @@ function selectBranch(branchName) {
 }
 
 // Helper to persist settings with optional silence
-function persistSettings(silent = false) {
+async function persistSettings(silent = false) {
   try {
     // Get provider first
     const provider = document.getElementById('config-provider').value;
@@ -7829,24 +7991,66 @@ function persistSettings(silent = false) {
       savedBy: 'Current user',
     };
 
-    parent.postMessage(
-      {
-        pluginMessage: {
-          type: 'save-git-settings',
-          provider: provider,
-          baseUrl: baseUrl,
-          projectId: projectId,
-          filePath: filePath,
-          exportFormat: exportFormat,
-          token: token,
-          strategy: strategy,
-          branchName: branch,
-          saveToken: saveToken,
-          shareWithTeam: shareTeam,
+    const configToSave = {
+      provider: provider,
+      baseUrl: baseUrl,
+      projectId: projectId,
+      filePath: filePath,
+      exportFormat: exportFormat,
+      token: token,
+      strategy: strategy,
+      branchName: branch,
+      saveToken: saveToken,
+      shareWithTeam: shareTeam,
+    };
+
+    if (shareTeam) {
+      const passwordInput = document.getElementById('config-team-password');
+      const confirmInput = document.getElementById('config-team-password-confirm');
+      const errorDiv = document.getElementById('team-password-error');
+
+      if (errorDiv) errorDiv.style.display = 'none';
+      if (!passwordInput.value || passwordInput.value.length < 8) {
+        if (!silent) showError('Validation Error', 'Team password must be at least 8 characters.');
+        return;
+      }
+      if (passwordInput.value !== confirmInput.value) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Passwords do not match';
+          errorDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      try {
+        const encryptedData = await SecurityUtils.encryptConfig(JSON.stringify(configToSave), passwordInput.value);
+        const saltArray = SecurityUtils.base64ToUint8Array(encryptedData.salt);
+        const passwordVerifier = await SecurityUtils.hashPassword(passwordInput.value, saltArray);
+
+        parent.postMessage({
+          pluginMessage: {
+            type: 'save-encrypted-git-settings',
+            encryptedConfig: encryptedData,
+            passwordVerifier: passwordVerifier,
+            sharingEnabled: "true"
+          }
+        }, '*');
+      } catch (e) {
+        console.error('Encryption Error:', e);
+        if (!silent) showError('Encryption Error', 'Failed to encrypt the configuration: ' + (e.message || 'Unknown error'));
+        return;
+      }
+    } else {
+      parent.postMessage(
+        {
+          pluginMessage: {
+            type: 'save-git-settings',
+            ...configToSave
+          },
         },
-      },
-      '*',
-    );
+        '*',
+      );
+    }
 
     // Common updates
     displayConfigMetadata();
@@ -7887,8 +8091,8 @@ function persistSettings(silent = false) {
   }
 }
 
-function saveConfiguration() {
-  persistSettings(false);
+async function saveConfiguration() {
+  await persistSettings(false);
 }
 
 function loadConfigurationTab() {
@@ -7944,7 +8148,20 @@ function loadConfigurationTab() {
       if (shareTeamElement) {
         shareTeamElement.checked = window.gitlabSettings.hasOwnProperty('isPersonal')
           ? !window.gitlabSettings.isPersonal
-          : true;
+          : false;
+
+        const passwordConfig = document.getElementById('team-password-config');
+        if (passwordConfig) {
+          passwordConfig.style.display = shareTeamElement.checked ? 'block' : 'none';
+        }
+
+        // Add event listener to toggle password field visibility
+        shareTeamElement.addEventListener('change', function (e) {
+          const pwdSection = document.getElementById('team-password-config');
+          if (pwdSection) {
+            pwdSection.style.display = e.target.checked ? 'block' : 'none';
+          }
+        });
       }
 
       // Handle strategy-dependent sections
@@ -7978,7 +8195,20 @@ function loadConfigurationTab() {
       const shareTeamElement = document.getElementById('config-share-team');
 
       if (saveTokenElement) saveTokenElement.checked = true;
-      if (shareTeamElement) shareTeamElement.checked = true;
+      if (shareTeamElement) {
+        shareTeamElement.checked = false;
+        const passwordConfig = document.getElementById('team-password-config');
+        if (passwordConfig) {
+          passwordConfig.style.display = 'none';
+        }
+
+        shareTeamElement.addEventListener('change', function (e) {
+          const pwdSection = document.getElementById('team-password-config');
+          if (pwdSection) {
+            pwdSection.style.display = e.target.checked ? 'block' : 'none';
+          }
+        });
+      }
     }
   } catch (error) {
     console.error('Error loading configuration:', error);
@@ -9513,7 +9743,7 @@ function showPreview(tokens, { skipScroll = false } = {}) {
               const isDuplicate = checkDuplicate(token.name);
               const overwriteCheckbox = document.getElementById('overwrite-existing');
               const overwriteActive = overwriteCheckbox ? overwriteCheckbox.checked : false;
-              
+
               let statusBadge = '';
               if (isDuplicate) {
                 if (overwriteActive) {
@@ -10127,7 +10357,6 @@ window.closeUserGuide = closeUserGuide;
 window.toggleSubgroup = toggleSubgroup;
 // toggleComponentSet and toggleStyles are already assigned to window where defined
 window.scrollToGroupById = scrollToGroupById;
-window.generateTest = generateTest;
 window.toggleVariablesList = toggleVariablesList;
 window.expandAllGroups = expandAllGroups;
 window.collapseAllGroups = collapseAllGroups;
@@ -10309,9 +10538,9 @@ function handleImportPreview(msg) {
 // Function to render the import preview table so it can be dynamically updated on toggle
 function renderImportPreviewTable() {
   if (!currentImportPreview) return;
-  
+
   const { added, modified, unchanged, conflicts } = currentImportPreview;
-  
+
   // Check the state of the overwrite toggle
   const overwriteCheckbox = document.getElementById('overwrite-existing');
   const overwriteActive = overwriteCheckbox ? overwriteCheckbox.checked : false;
@@ -10321,14 +10550,14 @@ function renderImportPreviewTable() {
   // Update Stats with new format
   document.getElementById('preview-stat-total').querySelector('span:last-child').textContent = totalCount;
   document.getElementById('preview-stat-new').querySelector('span:last-child').textContent = added.length;
-  
+
   // Update count goes to 0 if overwrite is inactive, because they will be skipped
   document.getElementById('preview-stat-update').querySelector('span:last-child').textContent = overwriteActive ? modified.length : 0;
   document.getElementById('preview-stat-conflict').querySelector('span:last-child').textContent = conflicts.length;
 
   // Render Table
   const tbody = document.getElementById('preview-table-body');
-  if(tbody) {
+  if (tbody) {
     tbody.innerHTML = '';
 
     // Helper to get type icon
@@ -10361,7 +10590,7 @@ function renderImportPreviewTable() {
 
     const appendRow = (token, status, oldValue = null) => {
       const tr = document.createElement('tr');
-      
+
       // If it's a skip state, grey out the text slightly instead of showing a crossed out update
       const valueDisplay =
         (status === 'update' || status === 'conflict')
@@ -10379,35 +10608,35 @@ function renderImportPreviewTable() {
     };
 
     added.forEach((t) => appendRow(t, 'new'));
-    
+
     // Modified logic checks the toggle. If toggle is false, all "modified" are ignored
     modified.forEach((m) => {
       const status = overwriteActive ? 'update' : 'ignore';
       appendRow(m.token, status, m.oldValue);
     });
-    
+
     conflicts.forEach((c) => appendRow(c.token, 'conflict', c.existingValue));
     unchanged.forEach((t) => appendRow(t, 'ignore'));
   }
 }
 window.renderImportPreviewTable = renderImportPreviewTable;
 
-window.handleOverwriteToggleChange = function() {
+window.handleOverwriteToggleChange = function () {
   const checkbox = document.getElementById('overwrite-existing');
   if (!checkbox) return;
-  
+
   const warning = document.getElementById('overwrite-warning');
   if (warning) {
     warning.style.display = checkbox.checked ? 'flex' : 'none';
   }
-  
+
   // Re-render the initial parsed tokens list to update badges
   if (window.parsedTokens && window.parsedTokens.length > 0) {
     showPreview(window.parsedTokens);
   }
-  
+
   // Re-render the final preview table if it exists
-  if(typeof renderImportPreviewTable === 'function') {
+  if (typeof renderImportPreviewTable === 'function') {
     renderImportPreviewTable();
   }
 };
@@ -11375,56 +11604,56 @@ document.addEventListener('DOMContentLoaded', () => {
 window.CustomSelect = class CustomSelect {
   constructor(originalSelect) {
     this.originalSelect = originalSelect;
-    
+
     // Hide original
     this.originalSelect.style.display = 'none';
-    
+
     // Wrap the original select if it isn't already inside a relative container.
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'custom-select-wrapper';
-    
+
     // Insert wrapper before original, then move original inside
     this.originalSelect.parentNode.insertBefore(this.wrapper, this.originalSelect);
     this.wrapper.appendChild(this.originalSelect);
-    
+
     // Build trigger
     this.trigger = document.createElement('div');
     this.trigger.className = 'custom-select-trigger';
-    
+
     // Build options container
     this.optionsContainer = document.createElement('div');
     this.optionsContainer.className = 'custom-select-options';
-    
+
     this.wrapper.appendChild(this.trigger);
     this.wrapper.appendChild(this.optionsContainer);
-    
+
     this.render();
     this.setupEvents();
-    
+
     // Auto-update when options change dynamically
     this.observer = new MutationObserver(() => this.render());
     this.observer.observe(this.originalSelect, { childList: true, subtree: true });
-    
+
     // Handle programmatic value changes on original select
     this.originalSelect.addEventListener('change', () => this.updateTriggerText());
   }
-  
+
   updateTriggerText() {
     const selectedOption = this.originalSelect.options[this.originalSelect.selectedIndex];
     const text = selectedOption ? selectedOption.text : 'Select...';
     this.trigger.innerHTML = `<span>${text}</span><span class="material-symbols-outlined">expand_more</span>`;
   }
-  
+
   render() {
     this.optionsContainer.innerHTML = '';
     this.updateTriggerText();
-    
+
     Array.from(this.originalSelect.options).forEach((option, index) => {
       const optionEl = document.createElement('div');
       optionEl.className = 'custom-select-option';
       if (option.selected) optionEl.classList.add('selected');
       optionEl.textContent = option.text;
-      
+
       optionEl.addEventListener('click', (e) => {
         e.stopPropagation();
         this.originalSelect.selectedIndex = index;
@@ -11433,34 +11662,34 @@ window.CustomSelect = class CustomSelect {
         this.render();
         this.close();
       });
-      
+
       this.optionsContainer.appendChild(optionEl);
     });
   }
-  
+
   setupEvents() {
     this.trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggle();
     });
-    
+
     document.addEventListener('click', () => {
       this.close();
     });
   }
-  
+
   toggle() {
     const isShowing = this.optionsContainer.classList.contains('show');
     // Close other dropdowns
     document.querySelectorAll('.custom-select-options.show').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('.custom-select-trigger.active').forEach(el => el.classList.remove('active'));
-    
+
     if (!isShowing) {
       this.optionsContainer.classList.add('show');
       this.trigger.classList.add('active');
     }
   }
-  
+
   close() {
     this.optionsContainer.classList.remove('show');
     this.trigger.classList.remove('active');
@@ -11476,7 +11705,7 @@ function initCustomSelects() {
     'create-var-collection',
     'create-var-group'
   ];
-  
+
   selectIds.forEach(id => {
     const el = document.getElementById(id);
     if (el && !el.dataset.customized && window.CustomSelect) {
@@ -11485,3 +11714,70 @@ function initCustomSelects() {
     }
   });
 }
+
+// --- End of Script ---
+
+document.addEventListener('DOMContentLoaded', () => {
+  const unlockBtn = document.getElementById('unlock-plugin-btn');
+  if (unlockBtn) {
+    unlockBtn.addEventListener('click', async () => {
+      const pwdInput = document.getElementById('team-password-input').value;
+      const errorDiv = document.getElementById('password-gate-error');
+
+      if (!pwdInput) {
+        errorDiv.textContent = 'Please enter a password';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      unlockBtn.disabled = true;
+      unlockBtn.textContent = 'Decrypting...';
+
+      try {
+        const verifier = window.passwordVerifierForGate;
+        const encryptedData = window.encryptedConfigForGate;
+        const saltArray = SecurityUtils.base64ToUint8Array(encryptedData.salt);
+        const hash = await SecurityUtils.hashPassword(pwdInput, saltArray);
+
+        if (hash !== verifier) {
+          errorDiv.textContent = 'Incorrect password';
+          errorDiv.style.display = 'block';
+          unlockBtn.disabled = false;
+          unlockBtn.textContent = 'Unlock Plugin';
+          return;
+        }
+
+        // Decrypt the config
+        const decryptedStr = await SecurityUtils.decryptConfig(encryptedData, pwdInput);
+        const configParams = JSON.parse(decryptedStr);
+
+        // Hide gate, show app
+        document.getElementById('password-gate-container').style.setProperty('display', 'none', 'important');
+        document.getElementById('main-app').style.setProperty('display', 'block', 'important');
+
+        // Send message to plugin to cache the successful password
+        parent.postMessage({
+          pluginMessage: {
+            type: 'cache-team-password',
+            password: pwdInput
+          }
+        }, '*');
+
+        // Inject config
+        parent.postMessage({
+          pluginMessage: {
+            type: 'apply-decrypted-settings',
+            ...configParams
+          }
+        }, '*');
+
+      } catch (e) {
+        console.error(e);
+        errorDiv.textContent = 'Failed to decrypt configuration';
+        errorDiv.style.display = 'block';
+        unlockBtn.disabled = false;
+        unlockBtn.textContent = 'Unlock Plugin';
+      }
+    });
+  }
+});

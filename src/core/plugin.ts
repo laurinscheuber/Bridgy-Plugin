@@ -265,6 +265,37 @@ async function collectDocumentData() {
 // Load saved Git settings if available
 async function loadSavedGitSettings() {
   try {
+    // Check for Secure Shared Configuration
+    const sharingEnabled = figma.root.getSharedPluginData('bridgy', 'sharingEnabled');
+    if (sharingEnabled === 'true') {
+      const encryptedConfigRaw = figma.root.getSharedPluginData('bridgy', 'encryptedConfig');
+      const passwordVerifier = figma.root.getSharedPluginData('bridgy', 'passwordVerifier');
+
+      if (encryptedConfigRaw && passwordVerifier) {
+        // We have an encrypted config. Check if password is cached.
+        const cachedPassword = await figma.clientStorage.getAsync('bridgy_team_password');
+
+        if (cachedPassword) {
+          figma.ui.postMessage({
+            type: 'password-locked',
+            encryptedConfig: JSON.parse(encryptedConfigRaw),
+            passwordVerifier: passwordVerifier,
+            cachedPassword: cachedPassword
+          });
+        } else {
+          figma.ui.postMessage({
+            type: 'password-locked',
+            encryptedConfig: JSON.parse(encryptedConfigRaw),
+            passwordVerifier: passwordVerifier
+          });
+        }
+        return; // Stop here, wait for UI to decrypt
+      }
+    }
+
+    // If we reach here, no shared config was found or it was invalid
+    figma.ui.postMessage({ type: 'config-ready' });
+
     // Try new format first
     const gitService = await GitServiceFactory.getServiceFromSettings();
     if (gitService) {
@@ -288,7 +319,7 @@ async function loadSavedGitSettings() {
     }
   } catch (error) {
     console.error('Error loading Git settings:', error);
-    // Silently fail - we'll just prompt the user for settings
+    figma.ui.postMessage({ type: 'config-ready' }); // Ensure UI shows even on error
   }
 }
 
@@ -638,7 +669,55 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         }
         break;
 
+      case 'save-encrypted-git-settings':
+        figma.root.setSharedPluginData('bridgy', 'sharingEnabled', 'true');
+        figma.root.setSharedPluginData('bridgy', 'encryptedConfig', JSON.stringify(msg.encryptedConfig));
+        figma.root.setSharedPluginData('bridgy', 'passwordVerifier', msg.passwordVerifier);
+
+        // Clear unencrypted data to ensure security
+        figma.root.setSharedPluginData('bridgy', 'git_settings', '');
+        figma.root.setSharedPluginData('bridgy', 'gitlab_settings', '');
+
+        figma.ui.postMessage({
+          type: 'git-settings-saved',
+          success: true,
+          sharedWithTeam: true,
+          savedAt: new Date().toISOString(),
+          savedBy: figma.currentUser?.name || 'Unknown user',
+        });
+        break;
+
+      case 'cache-team-password':
+        await figma.clientStorage.setAsync('bridgy_team_password', msg.password);
+        break;
+
+      case 'apply-decrypted-settings':
+        // The UI decrypted the settings and is sending them back to us
+        figma.ui.postMessage({
+          type: 'git-settings-loaded',
+          settings: {
+            provider: msg.provider,
+            baseUrl: msg.baseUrl,
+            projectId: msg.projectId,
+            token: msg.token,
+            filePath: msg.filePath,
+            strategy: msg.strategy,
+            branchName: msg.branchName,
+            exportFormat: msg.exportFormat,
+            saveToken: msg.saveToken,
+            savedAt: msg.savedAt,
+            savedBy: msg.savedBy,
+            isPersonal: false
+          }
+        });
+        break;
+
       case 'save-git-settings':
+        // Disable secure sharing when saving normal settings
+        figma.root.setSharedPluginData('bridgy', 'sharingEnabled', 'false');
+        figma.root.setSharedPluginData('bridgy', 'encryptedConfig', '');
+        figma.root.setSharedPluginData('bridgy', 'passwordVerifier', '');
+
         const gitService = GitServiceFactory.getService(msg.provider || 'gitlab');
 
         const gitSettings: GitSettings = {
@@ -1257,7 +1336,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               } else if (variable.resolvedType === 'STRING') {
                 resolvedValue = String(varValue);
               } else {
-                 resolvedValue = String(varValue);
+                resolvedValue = String(varValue);
               }
 
               unusedVariables.push({
