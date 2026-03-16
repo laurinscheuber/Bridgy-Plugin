@@ -143,10 +143,10 @@ export class GitHubService implements BaseGitService {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);
 
-        // Handle token encryption if needed
-        if (!settings.saveToken) {
-          delete settingsToSave.token;
-        }
+        // CRITICAL DATA SECURITY: Access tokens must never be mapped to PluginData.
+        // Even when 'Share configuration with team' is active, the token belongs exclusively 
+        // in encrypted figma.clientStorage (which handles personal persistence).
+        delete settingsToSave.token;
 
         figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
 
@@ -300,7 +300,7 @@ export class GitHubService implements BaseGitService {
     }
   }
 
-  async resetSettings(): Promise<void> {
+  static async resetSettings(): Promise<void> {
     try {
       const settingsKey = GitHubService.getSettingsKey();
 
@@ -325,6 +325,10 @@ export class GitHubService implements BaseGitService {
         error,
       );
     }
+  }
+
+  async resetSettings(): Promise<void> {
+    return GitHubService.resetSettings();
   }
 
   async validateCredentials(settings: GitSettings): Promise<boolean> {

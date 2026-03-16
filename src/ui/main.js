@@ -7187,6 +7187,8 @@ function closeResetConfirmation() {
 function confirmReset() {
   // Clear local settings
   window.gitlabSettings = null;
+  window.githubSettings = null;
+  window.gitSettings = null;
   updateRepositoryLink();
 
   // Send reset command to backend
@@ -7200,6 +7202,11 @@ function confirmReset() {
   );
 
   // Clear all form fields
+  const providerInput = document.getElementById('config-provider');
+  const activeProvider = providerInput ? providerInput.value : 'gitlab';
+  
+  document.getElementById('config-gitlab-url').value = '';
+  document.getElementById('config-github-url').value = '';
   document.getElementById('config-project-id').value = '';
   document.getElementById('config-file-path').value = 'src/variables.css';
   document.getElementById('config-export-format').value = 'css';
@@ -7207,6 +7214,9 @@ function confirmReset() {
   document.getElementById('config-strategy').value = 'merge-request';
   document.getElementById('config-branch').value = 'feature/variables';
   document.getElementById('config-share-team').checked = true;
+  
+  // Call selectProvider to ensure UI resets correctly visually
+  selectProvider(activeProvider);
 
   // Hide metadata
   document.getElementById('config-metadata').style.display = 'none';
@@ -8008,32 +8018,28 @@ function loadConfigurationTab(forceProvider = null) {
 function displayConfigMetadata() {
   const metadataElement = document.getElementById('config-metadata');
   const metadataTextElement = document.getElementById('config-metadata-text');
+  
+  const settings = window.gitSettings || window.gitlabSettings;
 
-  if (window.gitlabSettings && (window.gitlabSettings.savedAt || window.gitlabSettings.savedBy)) {
+  if (settings && (settings.savedAt || settings.savedBy)) {
     metadataElement.style.display = 'block';
 
     let metadataText = '';
 
-    if (window.gitlabSettings.savedAt) {
-      const savedDate = new Date(window.gitlabSettings.savedAt);
+    if (settings.savedAt) {
+      const savedDate = new Date(settings.savedAt);
       const formattedDate = savedDate.toLocaleDateString();
       const formattedTime = savedDate.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       });
-      metadataText += `Last saved: ${formattedDate} at ${formattedTime}`;
+      metadataText += `Last saved on ${formattedDate} at ${formattedTime}`;
     }
 
-    if (window.gitlabSettings.savedBy) {
-      metadataText += window.gitlabSettings.savedAt
-        ? ` by ${window.gitlabSettings.savedBy}`
-        : `Saved by: ${window.gitlabSettings.savedBy}`;
-    }
-
-    if (window.gitlabSettings.isPersonal) {
-      metadataText += ' (Personal settings)';
-    } else {
-      metadataText += ' (Shared with team)';
+    if (settings.savedBy) {
+      if (metadataText) metadataText += ' • ';
+      // Adjust based on object scope context if needed
+      metadataText += `Saved by ${settings.savedBy}`;
     }
 
     metadataTextElement.textContent = metadataText;

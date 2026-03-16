@@ -1806,9 +1806,7 @@
                 yield figma.clientStorage.setAsync(settingsKey, settings);
               } else {
                 const settingsToSave = Object.assign({}, settings);
-                if (!settings.saveToken) {
-                  delete settingsToSave.gitlabToken;
-                }
+                delete settingsToSave.gitlabToken;
                 figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
                   try {
@@ -2358,218 +2356,6 @@
     }
   });
 
-  // dist/services/gitLabServiceAdapter.js
-  var require_gitLabServiceAdapter = __commonJS({
-    "dist/services/gitLabServiceAdapter.js"(exports) {
-      "use strict";
-      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
-        function adopt(value) {
-          return value instanceof P ? value : new P(function(resolve) {
-            resolve(value);
-          });
-        }
-        return new (P || (P = Promise))(function(resolve, reject) {
-          function fulfilled(value) {
-            try {
-              step(generator.next(value));
-            } catch (e) {
-              reject(e);
-            }
-          }
-          function rejected(value) {
-            try {
-              step(generator["throw"](value));
-            } catch (e) {
-              reject(e);
-            }
-          }
-          function step(result) {
-            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
-          }
-          step((generator = generator.apply(thisArg, _arguments || [])).next());
-        });
-      };
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.GitLabServiceAdapter = void 0;
-      var gitlabService_1 = require_gitlabService();
-      var GitLabServiceAdapter = class {
-        /**
-         * Convert GitSettings to GitLabSettings
-         */
-        toGitLabSettings(settings) {
-          return {
-            gitlabUrl: settings.baseUrl,
-            projectId: settings.projectId,
-            gitlabToken: settings.token,
-            filePath: settings.filePath,
-            strategy: settings.strategy,
-            branchName: settings.branchName,
-            exportFormat: settings.exportFormat,
-            saveToken: settings.saveToken,
-            savedAt: settings.savedAt,
-            savedBy: settings.savedBy,
-            isPersonal: settings.isPersonal,
-            _needsCryptoMigration: settings._needsCryptoMigration
-          };
-        }
-        /**
-         * Convert GitLabSettings to GitSettings
-         */
-        fromGitLabSettings(settings) {
-          if (!settings)
-            return null;
-          return {
-            provider: "gitlab",
-            baseUrl: settings.gitlabUrl,
-            projectId: settings.projectId,
-            token: settings.gitlabToken,
-            filePath: settings.filePath,
-            strategy: settings.strategy,
-            branchName: settings.branchName,
-            exportFormat: settings.exportFormat,
-            saveToken: settings.saveToken,
-            savedAt: settings.savedAt,
-            savedBy: settings.savedBy,
-            isPersonal: settings.isPersonal,
-            _needsCryptoMigration: settings._needsCryptoMigration
-          };
-        }
-        saveSettings(settings, shareWithTeam) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            yield gitlabService_1.GitLabService.saveSettings(gitlabSettings, shareWithTeam);
-          });
-        }
-        loadSettings() {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = yield gitlabService_1.GitLabService.loadSettings();
-            return this.fromGitLabSettings(gitlabSettings);
-          });
-        }
-        resetSettings() {
-          return __awaiter(this, void 0, void 0, function* () {
-            yield gitlabService_1.GitLabService.resetSettings();
-          });
-        }
-        validateCredentials(settings) {
-          return __awaiter(this, void 0, void 0, function* () {
-            try {
-              yield this.getProject(settings);
-              return true;
-            } catch (error) {
-              return false;
-            }
-          });
-        }
-        getProject(settings) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const projectData = yield gitlabService_1.GitLabService.fetchProjectInfo(settings.projectId, settings.token, gitlabSettings);
-            return {
-              id: projectData.id,
-              name: projectData.name,
-              defaultBranch: projectData.default_branch,
-              webUrl: projectData.web_url
-            };
-          });
-        }
-        listRepositories(settings) {
-          return __awaiter(this, void 0, void 0, function* () {
-            throw new Error("List repositories not yet implemented for GitLab");
-          });
-        }
-        createBranch(settings, branchName, baseBranch) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            yield gitlabService_1.GitLabService.createFeatureBranch(settings.projectId, settings.token, branchName, baseBranch, gitlabSettings);
-          });
-        }
-        getFile(settings, filePath, branch) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const result = yield gitlabService_1.GitLabService.prepareFileCommit(settings.projectId, settings.token, filePath, branch, gitlabSettings);
-            if (!result.fileData)
-              return null;
-            return {
-              fileName: result.fileData.file_name,
-              filePath: result.fileData.file_path,
-              size: result.fileData.size,
-              encoding: result.fileData.encoding,
-              content: result.fileData.content,
-              lastCommitId: result.fileData.last_commit_id
-            };
-          });
-        }
-        commitFile(settings, commitMessage, filePath, content, branch) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const { fileData, action } = yield gitlabService_1.GitLabService.prepareFileCommit(settings.projectId, settings.token, filePath, branch, gitlabSettings);
-            const commit = yield gitlabService_1.GitLabService.createCommit(settings.projectId, settings.token, branch, commitMessage, filePath, content, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id, gitlabSettings);
-            return {
-              id: commit.id,
-              title: commit.title,
-              message: commit.message,
-              webUrl: commit.web_url
-            };
-          });
-        }
-        createPullRequest(settings_1, sourceBranch_1, targetBranch_1, title_1, description_1) {
-          return __awaiter(this, arguments, void 0, function* (settings, sourceBranch, targetBranch, title, description, isDraft = false) {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const mr = yield gitlabService_1.GitLabService.createMergeRequest(settings.projectId, settings.token, sourceBranch, targetBranch, title, description, isDraft, gitlabSettings);
-            return {
-              id: mr.id,
-              title: mr.title,
-              description: mr.description,
-              state: mr.state === "opened" ? "open" : mr.state,
-              webUrl: mr.web_url,
-              sourceBranch: mr.source_branch,
-              targetBranch: mr.target_branch,
-              draft: isDraft
-            };
-          });
-        }
-        findExistingPullRequest(settings, sourceBranch) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const mr = yield gitlabService_1.GitLabService.findExistingMergeRequest(settings.projectId, settings.token, sourceBranch, gitlabSettings);
-            if (!mr)
-              return null;
-            return {
-              id: mr.id,
-              title: mr.title,
-              description: mr.description,
-              state: mr.state === "opened" ? "open" : mr.state,
-              webUrl: mr.web_url,
-              sourceBranch: mr.source_branch,
-              targetBranch: mr.target_branch
-            };
-          });
-        }
-        commitWorkflow(settings, commitMessage, filePath, cssData, branchName) {
-          return __awaiter(this, void 0, void 0, function* () {
-            const gitlabSettings = this.toGitLabSettings(settings);
-            const result = yield gitlabService_1.GitLabService.commitToGitLab(gitlabSettings, commitMessage, filePath, cssData, branchName);
-            return {
-              pullRequestUrl: result.mergeRequestUrl
-            };
-          });
-        }
-        clearAllTokens() {
-          return __awaiter(this, void 0, void 0, function* () {
-            yield gitlabService_1.GitLabService.clearAllTokens();
-          });
-        }
-        getTokenInfo() {
-          return __awaiter(this, void 0, void 0, function* () {
-            return yield gitlabService_1.GitLabService.getTokenInfo();
-          });
-        }
-      };
-      exports.GitLabServiceAdapter = GitLabServiceAdapter;
-    }
-  });
-
   // dist/services/baseGitService.js
   var require_baseGitService = __commonJS({
     "dist/services/baseGitService.js"(exports) {
@@ -2915,9 +2701,7 @@
                 yield figma.clientStorage.setAsync(settingsKey, settings);
               } else {
                 const settingsToSave = Object.assign({}, settings);
-                if (!settings.saveToken) {
-                  delete settingsToSave.token;
-                }
+                delete settingsToSave.token;
                 figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.token) {
                   try {
@@ -3035,7 +2819,7 @@
             }
           });
         }
-        resetSettings() {
+        static resetSettings() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
               const settingsKey = _GitHubService.getSettingsKey();
@@ -3049,6 +2833,11 @@
               config_1.LoggingService.error("Error resetting GitHub settings", error, config_1.LoggingService.CATEGORIES.GITHUB);
               throw new baseGitService_1.GitServiceError(`Error resetting GitHub settings: ${error.message || "Unknown error"}`, void 0, error);
             }
+          });
+        }
+        resetSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            return _GitHubService.resetSettings();
           });
         }
         validateCredentials(settings) {
@@ -3493,6 +3282,218 @@
       exports.GitHubService = GitHubService;
       GitHubService.DEFAULT_HEADERS = config_1.API_CONFIG.DEFAULT_HEADERS;
       GitHubService.API_VERSION = "application/vnd.github.v3+json";
+    }
+  });
+
+  // dist/services/gitLabServiceAdapter.js
+  var require_gitLabServiceAdapter = __commonJS({
+    "dist/services/gitLabServiceAdapter.js"(exports) {
+      "use strict";
+      var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
+        function adopt(value) {
+          return value instanceof P ? value : new P(function(resolve) {
+            resolve(value);
+          });
+        }
+        return new (P || (P = Promise))(function(resolve, reject) {
+          function fulfilled(value) {
+            try {
+              step(generator.next(value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function rejected(value) {
+            try {
+              step(generator["throw"](value));
+            } catch (e) {
+              reject(e);
+            }
+          }
+          function step(result) {
+            result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+          }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+      };
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.GitLabServiceAdapter = void 0;
+      var gitlabService_1 = require_gitlabService();
+      var GitLabServiceAdapter = class {
+        /**
+         * Convert GitSettings to GitLabSettings
+         */
+        toGitLabSettings(settings) {
+          return {
+            gitlabUrl: settings.baseUrl,
+            projectId: settings.projectId,
+            gitlabToken: settings.token,
+            filePath: settings.filePath,
+            strategy: settings.strategy,
+            branchName: settings.branchName,
+            exportFormat: settings.exportFormat,
+            saveToken: settings.saveToken,
+            savedAt: settings.savedAt,
+            savedBy: settings.savedBy,
+            isPersonal: settings.isPersonal,
+            _needsCryptoMigration: settings._needsCryptoMigration
+          };
+        }
+        /**
+         * Convert GitLabSettings to GitSettings
+         */
+        fromGitLabSettings(settings) {
+          if (!settings)
+            return null;
+          return {
+            provider: "gitlab",
+            baseUrl: settings.gitlabUrl,
+            projectId: settings.projectId,
+            token: settings.gitlabToken,
+            filePath: settings.filePath,
+            strategy: settings.strategy,
+            branchName: settings.branchName,
+            exportFormat: settings.exportFormat,
+            saveToken: settings.saveToken,
+            savedAt: settings.savedAt,
+            savedBy: settings.savedBy,
+            isPersonal: settings.isPersonal,
+            _needsCryptoMigration: settings._needsCryptoMigration
+          };
+        }
+        saveSettings(settings, shareWithTeam) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            yield gitlabService_1.GitLabService.saveSettings(gitlabSettings, shareWithTeam);
+          });
+        }
+        loadSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = yield gitlabService_1.GitLabService.loadSettings();
+            return this.fromGitLabSettings(gitlabSettings);
+          });
+        }
+        resetSettings() {
+          return __awaiter(this, void 0, void 0, function* () {
+            yield gitlabService_1.GitLabService.resetSettings();
+          });
+        }
+        validateCredentials(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            try {
+              yield this.getProject(settings);
+              return true;
+            } catch (error) {
+              return false;
+            }
+          });
+        }
+        getProject(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const projectData = yield gitlabService_1.GitLabService.fetchProjectInfo(settings.projectId, settings.token, gitlabSettings);
+            return {
+              id: projectData.id,
+              name: projectData.name,
+              defaultBranch: projectData.default_branch,
+              webUrl: projectData.web_url
+            };
+          });
+        }
+        listRepositories(settings) {
+          return __awaiter(this, void 0, void 0, function* () {
+            throw new Error("List repositories not yet implemented for GitLab");
+          });
+        }
+        createBranch(settings, branchName, baseBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            yield gitlabService_1.GitLabService.createFeatureBranch(settings.projectId, settings.token, branchName, baseBranch, gitlabSettings);
+          });
+        }
+        getFile(settings, filePath, branch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const result = yield gitlabService_1.GitLabService.prepareFileCommit(settings.projectId, settings.token, filePath, branch, gitlabSettings);
+            if (!result.fileData)
+              return null;
+            return {
+              fileName: result.fileData.file_name,
+              filePath: result.fileData.file_path,
+              size: result.fileData.size,
+              encoding: result.fileData.encoding,
+              content: result.fileData.content,
+              lastCommitId: result.fileData.last_commit_id
+            };
+          });
+        }
+        commitFile(settings, commitMessage, filePath, content, branch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const { fileData, action } = yield gitlabService_1.GitLabService.prepareFileCommit(settings.projectId, settings.token, filePath, branch, gitlabSettings);
+            const commit = yield gitlabService_1.GitLabService.createCommit(settings.projectId, settings.token, branch, commitMessage, filePath, content, action, fileData === null || fileData === void 0 ? void 0 : fileData.last_commit_id, gitlabSettings);
+            return {
+              id: commit.id,
+              title: commit.title,
+              message: commit.message,
+              webUrl: commit.web_url
+            };
+          });
+        }
+        createPullRequest(settings_1, sourceBranch_1, targetBranch_1, title_1, description_1) {
+          return __awaiter(this, arguments, void 0, function* (settings, sourceBranch, targetBranch, title, description, isDraft = false) {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const mr = yield gitlabService_1.GitLabService.createMergeRequest(settings.projectId, settings.token, sourceBranch, targetBranch, title, description, isDraft, gitlabSettings);
+            return {
+              id: mr.id,
+              title: mr.title,
+              description: mr.description,
+              state: mr.state === "opened" ? "open" : mr.state,
+              webUrl: mr.web_url,
+              sourceBranch: mr.source_branch,
+              targetBranch: mr.target_branch,
+              draft: isDraft
+            };
+          });
+        }
+        findExistingPullRequest(settings, sourceBranch) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const mr = yield gitlabService_1.GitLabService.findExistingMergeRequest(settings.projectId, settings.token, sourceBranch, gitlabSettings);
+            if (!mr)
+              return null;
+            return {
+              id: mr.id,
+              title: mr.title,
+              description: mr.description,
+              state: mr.state === "opened" ? "open" : mr.state,
+              webUrl: mr.web_url,
+              sourceBranch: mr.source_branch,
+              targetBranch: mr.target_branch
+            };
+          });
+        }
+        commitWorkflow(settings, commitMessage, filePath, cssData, branchName) {
+          return __awaiter(this, void 0, void 0, function* () {
+            const gitlabSettings = this.toGitLabSettings(settings);
+            const result = yield gitlabService_1.GitLabService.commitToGitLab(gitlabSettings, commitMessage, filePath, cssData, branchName);
+            return {
+              pullRequestUrl: result.mergeRequestUrl
+            };
+          });
+        }
+        clearAllTokens() {
+          return __awaiter(this, void 0, void 0, function* () {
+            yield gitlabService_1.GitLabService.clearAllTokens();
+          });
+        }
+        getTokenInfo() {
+          return __awaiter(this, void 0, void 0, function* () {
+            return yield gitlabService_1.GitLabService.getTokenInfo();
+          });
+        }
+      };
+      exports.GitLabServiceAdapter = GitLabServiceAdapter;
     }
   });
 
@@ -7853,6 +7854,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
       };
       Object.defineProperty(exports, "__esModule", { value: true });
       var gitlabService_1 = require_gitlabService();
+      var githubService_1 = require_githubService();
       var gitServiceFactory_1 = require_gitServiceFactory();
       var cssExportService_1 = require_cssExportService();
       var componentService_1 = require_componentService();
@@ -9056,6 +9058,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
               break;
             case "reset-gitlab-settings":
               yield gitlabService_1.GitLabService.resetSettings();
+              yield githubService_1.GitHubService.resetSettings();
               figma.ui.postMessage({
                 type: "gitlab-settings-reset",
                 success: true

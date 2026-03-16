@@ -1,6 +1,7 @@
 import { PluginMessage, GitLabSettings } from '../types';
 import { GitSettings } from '../types/git';
 import { GitLabService } from '../services/gitlabService';
+import { GitHubService } from '../services/githubService';
 import { GitServiceFactory } from '../services/gitServiceFactory';
 import { CSSExportService } from '../services/cssExportService';
 import { ComponentService } from '../services/componentService';
@@ -1582,6 +1583,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
       case 'reset-gitlab-settings':
         await GitLabService.resetSettings();
+        await GitHubService.resetSettings();
         figma.ui.postMessage({
           type: 'gitlab-settings-reset',
           success: true,
