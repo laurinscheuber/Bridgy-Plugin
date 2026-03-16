@@ -7330,7 +7330,9 @@ function onProviderChange() {
     if (projectIdLabel) projectIdLabel.textContent = 'Repository';
     if (projectIdInput) projectIdInput.placeholder = 'e.g. owner/repository';
     if (browseButton) browseButton.style.display = 'block'; // GitHub supports repo browse
-    if (browseBranchesButton) browseBranchesButton.style.display = 'block'; // GitHub supports branch browse
+    if (browseBranchesButton) {
+      browseBranchesButton.style.display = tokenInput && tokenInput.value.trim() ? 'block' : 'none';
+    }
     if (tokenLabel) tokenLabel.textContent = 'GitHub Access Token';
     if (tokenInput) tokenInput.placeholder = 'Enter your GitHub token';
 

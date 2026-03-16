@@ -563,6 +563,7 @@
                 id="config-token"
                 style="width: 100%"
                 placeholder="Enter Personal/Project Access Token"
+                oninput="onProviderChange()"
               />
               <div class="settings-helper" id="token-help">Recommended: Use a personal/project access token.</div>
             </div>
@@ -624,10 +625,11 @@
                   style="flex: 1"
                 />
                 <button
+                  id="browse-branches-button"
                   onclick="browseBranches()"
                   class="compact-action-btn"
                   title="Browse Branches"
-                  style="width: auto; padding: 0 10px"
+                  style="width: auto; padding: 0 10px; display: none;"
                 >
                   <span class="material-symbols-outlined" style="font-size: 16px">list</span>
                 </button>
