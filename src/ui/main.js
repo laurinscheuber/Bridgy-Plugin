@@ -7288,15 +7288,9 @@ function onProviderChange() {
     if (gitlabUrlGroup) gitlabUrlGroup.style.display = 'block';
     if (githubUrlGroup) githubUrlGroup.style.display = 'none';
     if (projectIdLabel) projectIdLabel.textContent = 'Project ID';
-    // Help text might be static in new UI? Let's keep dynamic for now
-    // projectIdInput.placeholder updated in selectProvider? No, here.
     if (projectIdInput) projectIdInput.placeholder = 'e.g. 24267 or namespace/project';
     if (browseButton) browseButton.style.display = 'none';
-
-    if (browseBranchesButton) browseBranchesButton.style.display = 'block'; // GitLab supports browsing too if implemented? Original code said 'none' for GitLab browse branches?
-    // Checking original code: browseBranchesButton.style.display = 'none' for GitLab.
-    // Wait, standard GitLab supports browsing branches? The original plugin might not have implemented it.
-    // Let's stick to original behavior:
+    // GitLab: never show branch browse button
     if (browseBranchesButton) browseBranchesButton.style.display = 'none';
 
     if (tokenLabel) tokenLabel.textContent = 'Project Access Token';
@@ -7306,8 +7300,12 @@ function onProviderChange() {
     if (githubUrlGroup) githubUrlGroup.style.display = 'block';
     if (projectIdLabel) projectIdLabel.textContent = 'Repository';
     if (projectIdInput) projectIdInput.placeholder = 'e.g. owner/repository';
-    if (browseButton) browseButton.style.display = 'block'; // GitHub supports repo browse
-    if (browseBranchesButton) browseBranchesButton.style.display = 'block'; // GitHub supports branch browse
+    if (browseButton) browseButton.style.display = 'block';
+    // GitHub: show branch browse button only when a token is entered
+    if (browseBranchesButton) {
+      const hasToken = tokenInput && tokenInput.value.trim().length > 0;
+      browseBranchesButton.style.display = hasToken ? 'inline-flex' : 'none';
+    }
     if (tokenLabel) tokenLabel.textContent = 'GitHub Access Token';
     if (tokenInput) tokenInput.placeholder = 'Enter your GitHub token';
 
@@ -7329,8 +7327,50 @@ function updateRepoFieldVisibility() {
   } else {
     repoGroup.style.display = 'block';
   }
+
+  // Update branch browse button visibility
+  updateBranchButtonVisibility();
 }
 window.updateRepoFieldVisibility = updateRepoFieldVisibility;
+
+// Show/hide the branch browse button: GitHub only + token required
+function updateBranchButtonVisibility() {
+  const provider = (document.getElementById('config-provider') || {}).value || 'gitlab';
+  const token = (document.getElementById('config-token') || {}).value || '';
+  const browseBranchesBtn = document.getElementById('browse-branches-button');
+  if (!browseBranchesBtn) return;
+
+  if (provider === 'github' && token.trim().length > 0) {
+    browseBranchesBtn.style.display = 'inline-flex';
+  } else {
+    browseBranchesBtn.style.display = 'none';
+  }
+}
+window.updateBranchButtonVisibility = updateBranchButtonVisibility;
+
+// Wire up token input to update visibility on change
+(function setupTokenInputListener() {
+  // Use MutationObserver to catch when the input appears in the DOM
+  const observer = new MutationObserver(function () {
+    const tokenInput = document.getElementById('config-token');
+    if (tokenInput && !tokenInput._branchListenerAdded) {
+      tokenInput._branchListenerAdded = true;
+      tokenInput.addEventListener('input', function () {
+        updateRepoFieldVisibility();
+      });
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Also try immediately
+  const tokenInput = document.getElementById('config-token');
+  if (tokenInput && !tokenInput._branchListenerAdded) {
+    tokenInput._branchListenerAdded = true;
+    tokenInput.addEventListener('input', function () {
+      updateRepoFieldVisibility();
+    });
+  }
+})();
 
 // Repository browser functions
 let cachedRepositories = [];
@@ -7994,15 +8034,15 @@ function loadConfigurationTab() {
       const shareTeamElement = document.getElementById('config-share-team');
 
       if (saveTokenElement) {
-        saveTokenElement.checked = window.gitlabSettings.hasOwnProperty('saveToken')
-          ? window.gitlabSettings.saveToken
+        saveTokenElement.checked = (settings && settings.hasOwnProperty('saveToken'))
+          ? settings.saveToken
           : true;
       }
 
       if (shareTeamElement) {
-        shareTeamElement.checked = window.gitlabSettings?.hasOwnProperty('isPersonal')
-          ? !window.gitlabSettings.isPersonal
-          : (window.gitSettings?.hasOwnProperty('isPersonal') ? !window.gitSettings.isPersonal : true);
+        shareTeamElement.checked = (settings && settings.hasOwnProperty('isPersonal'))
+          ? !settings.isPersonal
+          : true;
       }
 
       // Restore share-token toggle

@@ -535,8 +535,8 @@
               <label class="settings-label" for="config-branch">CSS Variables Branch</label>
               <div style="display: flex; gap: 8px">
                 <input type="text" id="config-branch" placeholder="feature/design-tokens" style="flex: 1" />
-                <button onclick="browseBranches()" class="compact-action-btn" title="Browse Branches"
-                  style="width: auto; padding: 0 10px">
+                <button id="browse-branches-button" onclick="browseBranches()" class="compact-action-btn" title="Browse Branches"
+                  style="width: auto; padding: 0 10px; display: none">
                   <span class="material-symbols-outlined" style="font-size: 16px">list</span>
                 </button>
               </div>
