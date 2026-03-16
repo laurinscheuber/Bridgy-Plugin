@@ -230,8 +230,16 @@ export class GitHubService implements BaseGitService {
         try {
           const settings = JSON.parse(documentSettings) as GitSettings;
 
+          // CRITICAL SECURITY FIX: Never trust tokens from shared documents.
+          // Older versions of the plugin may have saved the token in plain text.
+          if (settings.token) {
+            delete settings.token;
+            // Clean up the document for everyone by rewriting it safely
+            figma.root.setPluginData(settingsKey, JSON.stringify(settings));
+          }
+
           // Load encrypted token if needed
-          if (settings.saveToken && !settings.token) {
+          if (settings.saveToken) {
             const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
             const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
 

@@ -1879,7 +1879,12 @@
               return null;
             try {
               const settings = JSON.parse(documentSettings);
-              if (settings.saveToken && !settings.gitlabToken) {
+              if (settings.gitlabToken || settings.token) {
+                delete settings.gitlabToken;
+                delete settings.token;
+                figma.root.setPluginData(settingsKey, JSON.stringify(settings));
+              }
+              if (settings.saveToken) {
                 const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
                 const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
                 if (encryptedToken) {
@@ -2766,7 +2771,11 @@
               if (documentSettings) {
                 try {
                   const settings = JSON.parse(documentSettings);
-                  if (settings.saveToken && !settings.token) {
+                  if (settings.token) {
+                    delete settings.token;
+                    figma.root.setPluginData(settingsKey, JSON.stringify(settings));
+                  }
+                  if (settings.saveToken) {
                     const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
                     const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
                     if (encryptedToken) {

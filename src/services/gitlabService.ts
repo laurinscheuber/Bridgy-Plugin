@@ -221,8 +221,17 @@ export class GitLabService {
     try {
       const settings = JSON.parse(documentSettings);
 
+      // CRITICAL SECURITY FIX: Never trust tokens from shared documents.
+      // Older versions of the plugin may have saved the token in plain text.
+      if (settings.gitlabToken || settings.token) {
+        delete settings.gitlabToken;
+        delete settings.token;
+        // Clean up the document for everyone by rewriting it safely
+        figma.root.setPluginData(settingsKey, JSON.stringify(settings));
+      }
+
       // Try to load personal token if settings indicate it should be saved
-      if (settings.saveToken && !settings.gitlabToken) {
+      if (settings.saveToken) {
         const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
         const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);
 
