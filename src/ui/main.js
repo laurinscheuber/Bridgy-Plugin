@@ -7313,7 +7313,24 @@ function onProviderChange() {
 
     if (tokenHelp) tokenHelp.textContent = 'Recommended: Use a personal/project access token.';
   }
+
+  updateRepoFieldVisibility();
 }
+
+// Show/hide the repository field based on provider and token state
+function updateRepoFieldVisibility() {
+  const provider = (document.getElementById('config-provider') || {}).value || 'gitlab';
+  const token = (document.getElementById('config-token') || {}).value || '';
+  const repoGroup = document.getElementById('project-id-group');
+  if (!repoGroup) return;
+
+  if (provider === 'github' && !token.trim()) {
+    repoGroup.style.display = 'none';
+  } else {
+    repoGroup.style.display = 'block';
+  }
+}
+window.updateRepoFieldVisibility = updateRepoFieldVisibility;
 
 // Repository browser functions
 let cachedRepositories = [];
@@ -7810,6 +7827,7 @@ function persistSettings(silent = false) {
       strategy: strategy,
       branchName: branch,
       saveToken: saveToken,
+      shareTokenWithTeam: shareTokenWithTeam,
       isPersonal: !shareTeam,
       savedAt: new Date().toISOString(),
       savedBy: 'Current user',
@@ -7826,6 +7844,7 @@ function persistSettings(silent = false) {
       strategy: strategy,
       branchName: branch,
       saveToken: saveToken,
+      shareTokenWithTeam: shareTokenWithTeam,
       isPersonal: !shareTeam,
       savedAt: new Date().toISOString(),
       savedBy: 'Current user',
@@ -7981,9 +8000,9 @@ function loadConfigurationTab() {
       }
 
       if (shareTeamElement) {
-        shareTeamElement.checked = window.gitlabSettings.hasOwnProperty('isPersonal')
+        shareTeamElement.checked = window.gitlabSettings?.hasOwnProperty('isPersonal')
           ? !window.gitlabSettings.isPersonal
-          : true;
+          : (window.gitSettings?.hasOwnProperty('isPersonal') ? !window.gitSettings.isPersonal : true);
       }
 
       // Restore share-token toggle
@@ -7991,7 +8010,10 @@ function loadConfigurationTab() {
       const shareTokenSection = document.getElementById('share-token-section');
       const shareTokenWarning = document.getElementById('share-token-warning');
       const shareTeamOn = shareTeamElement ? shareTeamElement.checked : true;
-      const shareTokenOn = !!(window.gitSettings || window.gitlabSettings)?.shareTokenWithTeam;
+
+      // Robustly check both settings objects for the shareTokenWithTeam property
+      const shareTokenOn = !!(window.gitSettings?.shareTokenWithTeam || window.gitlabSettings?.shareTokenWithTeam);
+
       if (shareTokenSection) shareTokenSection.style.display = shareTeamOn ? 'block' : 'none';
       if (shareTokenEl) shareTokenEl.checked = shareTokenOn;
       if (shareTokenWarning) shareTokenWarning.style.display = shareTokenOn ? 'block' : 'none';
@@ -8010,6 +8032,7 @@ function loadConfigurationTab() {
       displayConfigMetadata();
       updateExportButtonText();
       updateRepositoryLink();
+      updateRepoFieldVisibility();
 
       // Trigger visual update (card selection + accordion logic)
       setTimeout(() => {

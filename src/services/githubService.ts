@@ -141,11 +141,12 @@ export class GitHubService implements BaseGitService {
         await figma.clientStorage.setAsync(settingsKey, settings);
         // Clear any previously shared token
         figma.root.setPluginData(`${settingsKey}-shared-token`, '');
-        figma.root.setPluginData(`${settingsKey}-token-shared`, '');
+        figma.root.setPluginData(`${settingsKey}-token-shared`, 'false');
       } else {
         // Save to document storage (shared with team) – always strip token from shared config
         const settingsToSave = Object.assign({}, settings);
         delete settingsToSave.token;
+        settingsToSave.shareTokenWithTeam = shareTokenWithTeam;
 
         figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
 
@@ -156,7 +157,7 @@ export class GitHubService implements BaseGitService {
         } else {
           // Clear any previously shared token
           figma.root.setPluginData(`${settingsKey}-shared-token`, '');
-          figma.root.setPluginData(`${settingsKey}-token-shared`, '');
+          figma.root.setPluginData(`${settingsKey}-token-shared`, 'false');
         }
 
         // Save personal encrypted token if requested
@@ -210,15 +211,21 @@ export class GitHubService implements BaseGitService {
           const settings = JSON.parse(documentSettings) as GitSettings;
           settings.isPersonal = false;
 
-          // 2. Try shared token first
+          // 2. Try shared token logic
           const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+          console.log('[DEBUG] GitHubService.loadSettings: JSON shareTokenWithTeam =', settings.shareTokenWithTeam, ', token-shared flag =', tokenShared);
+
           if (tokenShared === 'true') {
             const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
             if (sharedToken) {
               settings.token = sharedToken;
-              settings.shareTokenWithTeam = true;
             }
-          } else if (settings.saveToken) {
+          }
+
+          // Ensure shareTokenWithTeam is a boolean and preserve JSON value
+          settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
+
+          if (!settings.shareTokenWithTeam && settings.saveToken) {
             // 3. Try personal encrypted token from clientStorage
             const encryptedToken = await figma.clientStorage.getAsync(`${settingsKey}-token`);
             const cryptoVersion = await figma.clientStorage.getAsync(`${settingsKey}-crypto`);

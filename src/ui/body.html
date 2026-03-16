@@ -455,8 +455,17 @@
               </div>
             </div>
 
-            <!-- Project ID -->
+            <!-- Auth Token -->
             <div class="settings-input-group">
+              <label class="settings-label" for="config-token" id="token-label">Access Token</label>
+              <input type="password" id="config-token" style="width: 100%"
+                placeholder="Enter Personal/Project Access Token"
+                oninput="updateRepoFieldVisibility()" />
+              <div class="settings-helper" id="token-help">Recommended: Use a personal/project access token.</div>
+            </div>
+
+            <!-- Project ID -->
+            <div class="settings-input-group" id="project-id-group">
               <label class="settings-label" for="config-project-id" id="project-id-label">Project ID /
                 Repository</label>
               <div style="display: flex; gap: 8px">
@@ -473,14 +482,6 @@
                   Open
                 </a>
               </div>
-            </div>
-
-            <!-- Auth Token -->
-            <div class="settings-input-group">
-              <label class="settings-label" for="config-token" id="token-label">Access Token</label>
-              <input type="password" id="config-token" style="width: 100%"
-                placeholder="Enter Personal/Project Access Token" />
-              <div class="settings-helper" id="token-help">Recommended: Use a personal/project access token.</div>
             </div>
           </div>
         </div>

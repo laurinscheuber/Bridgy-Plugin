@@ -651,6 +651,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           branchName: msg.branchName || 'feature/variables',
           exportFormat: msg.exportFormat || 'css',
           saveToken: msg.saveToken || false,
+          shareTokenWithTeam: msg.shareTokenWithTeam || false,
           savedAt: new Date().toISOString(),
           savedBy:
             figma.currentUser && figma.currentUser.name ? figma.currentUser.name : 'Unknown user',
@@ -663,6 +664,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           );
         }
 
+        console.log('[DEBUG] save-git-settings: msg.shareTokenWithTeam =', msg.shareTokenWithTeam);
         await gitService.saveSettings(gitSettings, msg.shareWithTeam || false, msg.shareTokenWithTeam || false);
 
         figma.ui.postMessage({

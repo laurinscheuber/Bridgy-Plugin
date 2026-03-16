@@ -1805,17 +1805,18 @@
               if (!shareWithTeam) {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
                 figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                figma.root.setPluginData(`${settingsKey}-token-shared`, "");
+                figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
               } else {
                 const settingsToSave = Object.assign({}, settings);
                 delete settingsToSave.gitlabToken;
+                settingsToSave.shareTokenWithTeam = shareTokenWithTeam;
                 figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (shareTokenWithTeam && settings.gitlabToken) {
                   figma.root.setPluginData(`${settingsKey}-shared-token`, settings.gitlabToken);
                   figma.root.setPluginData(`${settingsKey}-token-shared`, "true");
                 } else {
                   figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                  figma.root.setPluginData(`${settingsKey}-token-shared`, "");
+                  figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
                 }
                 if (settings.saveToken && settings.gitlabToken) {
                   try {
@@ -1862,13 +1863,15 @@
                   const settings = JSON.parse(documentSettings);
                   settings.isPersonal = false;
                   const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+                  console.log("[DEBUG] GitLabService.loadSettings: JSON shareTokenWithTeam =", settings.shareTokenWithTeam, ", token-shared flag =", tokenShared);
                   if (tokenShared === "true") {
                     const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
                     if (sharedToken) {
                       settings.gitlabToken = sharedToken;
-                      settings.shareTokenWithTeam = true;
                     }
-                  } else if (settings.saveToken) {
+                  }
+                  settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
+                  if (!settings.shareTokenWithTeam && settings.saveToken) {
                     const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
                     const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
                     if (encryptedToken) {
@@ -2364,6 +2367,7 @@
             savedAt: settings.savedAt,
             savedBy: settings.savedBy,
             isPersonal: settings.isPersonal,
+            shareTokenWithTeam: settings.shareTokenWithTeam,
             _needsCryptoMigration: settings._needsCryptoMigration
           };
         }
@@ -2386,6 +2390,7 @@
             savedAt: settings.savedAt,
             savedBy: settings.savedBy,
             isPersonal: settings.isPersonal,
+            shareTokenWithTeam: settings.shareTokenWithTeam,
             _needsCryptoMigration: settings._needsCryptoMigration
           };
         }
@@ -2869,17 +2874,18 @@
               if (!shareWithTeam) {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
                 figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                figma.root.setPluginData(`${settingsKey}-token-shared`, "");
+                figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
               } else {
                 const settingsToSave = Object.assign({}, settings);
                 delete settingsToSave.token;
+                settingsToSave.shareTokenWithTeam = shareTokenWithTeam;
                 figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (shareTokenWithTeam && settings.token) {
                   figma.root.setPluginData(`${settingsKey}-shared-token`, settings.token);
                   figma.root.setPluginData(`${settingsKey}-token-shared`, "true");
                 } else {
                   figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                  figma.root.setPluginData(`${settingsKey}-token-shared`, "");
+                  figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
                 }
                 if (settings.saveToken && settings.token) {
                   try {
@@ -2925,13 +2931,15 @@
                   const settings = JSON.parse(documentSettings);
                   settings.isPersonal = false;
                   const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
+                  console.log("[DEBUG] GitHubService.loadSettings: JSON shareTokenWithTeam =", settings.shareTokenWithTeam, ", token-shared flag =", tokenShared);
                   if (tokenShared === "true") {
                     const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
                     if (sharedToken) {
                       settings.token = sharedToken;
-                      settings.shareTokenWithTeam = true;
                     }
-                  } else if (settings.saveToken) {
+                  }
+                  settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
+                  if (!settings.shareTokenWithTeam && settings.saveToken) {
                     const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
                     const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
                     if (encryptedToken) {
@@ -8298,6 +8306,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 branchName: msg.branchName || "feature/variables",
                 exportFormat: msg.exportFormat || "css",
                 saveToken: msg.saveToken || false,
+                shareTokenWithTeam: msg.shareTokenWithTeam || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
               };
@@ -8305,6 +8314,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 console.error("CRITICAL: gitService.saveSettings is not a function!", gitService);
                 throw new Error(`Internal Error: Service for ${msg.provider} is not initialized correctly.`);
               }
+              console.log("[DEBUG] save-git-settings: msg.shareTokenWithTeam =", msg.shareTokenWithTeam);
               yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false, msg.shareTokenWithTeam || false);
               figma.ui.postMessage({
                 type: "git-settings-saved",
