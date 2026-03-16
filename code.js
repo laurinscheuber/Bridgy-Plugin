@@ -1804,6 +1804,11 @@
               const settingsKey = `gitlab-settings-${figmaFileId}`;
               if (!shareWithTeam) {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
+                try {
+                  figma.root.setPluginData(settingsKey, "");
+                } catch (clearError) {
+                  console.warn("Silent fail clearing gitlab doc settings:", clearError);
+                }
               } else {
                 const settingsToSave = Object.assign({}, settings);
                 delete settingsToSave.gitlabToken;
@@ -2704,6 +2709,11 @@
               const settingsKey = _GitHubService.getSettingsKey();
               if (!shareWithTeam) {
                 yield figma.clientStorage.setAsync(settingsKey, settings);
+                try {
+                  figma.root.setPluginData(settingsKey, "");
+                } catch (clearError) {
+                  console.warn("Silent fail clearing github doc settings:", clearError);
+                }
               } else {
                 const settingsToSave = Object.assign({}, settings);
                 delete settingsToSave.token;

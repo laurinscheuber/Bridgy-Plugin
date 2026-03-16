@@ -116,6 +116,15 @@ export class GitLabService {
       if (!shareWithTeam) {
         // Save only to personal storage (not shared with team)
         await figma.clientStorage.setAsync(settingsKey, settings);
+        
+        // CRITICAL DATA FIX: We must clear the document storage when 'Share with team' is off.
+        // Otherwise, `loadSettings` will endlessly retrieve the stale document settings 
+        // that were left behind, and totally ignore these incoming personal settings.
+        try {
+          figma.root.setPluginData(settingsKey, '');
+        } catch (clearError) {
+          console.warn('Silent fail clearing gitlab doc settings:', clearError);
+        }
       } else {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);

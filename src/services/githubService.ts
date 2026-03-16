@@ -139,6 +139,15 @@ export class GitHubService implements BaseGitService {
       if (!shareWithTeam) {
         // Save only to personal storage
         await figma.clientStorage.setAsync(settingsKey, settings);
+        
+        // CRITICAL DATA FIX: We must clear the document storage when 'Share with team' is off.
+        // Otherwise, `loadSettings` will endlessly retrieve the stale document settings 
+        // that were left behind, and totally ignore these incoming personal settings.
+        try {
+          figma.root.setPluginData(settingsKey, '');
+        } catch (clearError) {
+          console.warn('Silent fail clearing github doc settings:', clearError);
+        }
       } else {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);
