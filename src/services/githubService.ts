@@ -148,7 +148,7 @@ export class GitHubService implements BaseGitService {
           delete settingsToSave.token;
         }
 
-        figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settingsToSave));
+        figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
 
         // Encrypt and save token separately if requested
         if (settings.saveToken && settings.token) {
@@ -202,8 +202,7 @@ export class GitHubService implements BaseGitService {
       }
 
       // Track metadata
-      figma.root.setSharedPluginData(
-        'Bridgy',
+      figma.root.setPluginData(
         `${settingsKey}-meta`,
         JSON.stringify({
           sharedWithTeam: shareWithTeam,
@@ -226,7 +225,7 @@ export class GitHubService implements BaseGitService {
       const settingsKey = GitHubService.getSettingsKey();
 
       // Try loading shared document settings first
-      const documentSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      const documentSettings = figma.root.getPluginData(settingsKey);
       if (documentSettings) {
         try {
           const settings = JSON.parse(documentSettings) as GitSettings;
@@ -264,7 +263,7 @@ export class GitHubService implements BaseGitService {
           }
 
           // Load metadata
-          const metaData = figma.root.getSharedPluginData('Bridgy', `${settingsKey}-meta`);
+          const metaData = figma.root.getPluginData(`${settingsKey}-meta`);
           if (metaData) {
             try {
               const meta = JSON.parse(metaData);
@@ -306,8 +305,8 @@ export class GitHubService implements BaseGitService {
       const settingsKey = GitHubService.getSettingsKey();
 
       // Remove shared document storage
-      figma.root.setSharedPluginData('Bridgy', settingsKey, '');
-      figma.root.setSharedPluginData('Bridgy', `${settingsKey}-meta`, '');
+      figma.root.setPluginData(settingsKey, '');
+      figma.root.setPluginData(`${settingsKey}-meta`, '');
 
       // Remove personal client storage
       await figma.clientStorage.deleteAsync(settingsKey);
@@ -773,13 +772,13 @@ export class GitHubService implements BaseGitService {
       await figma.clientStorage.deleteAsync(settingsKey);
 
       // Update shared settings to remove saveToken flag
-      const sharedSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      const sharedSettings = figma.root.getPluginData(settingsKey);
       if (sharedSettings) {
         try {
           const settings = JSON.parse(sharedSettings) as GitSettings;
           settings.saveToken = false;
           delete settings.token;
-          figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settings));
+          figma.root.setPluginData(settingsKey, JSON.stringify(settings));
         } catch (e) {
           // Ignore parse errors
         }

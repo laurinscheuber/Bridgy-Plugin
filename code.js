@@ -1809,7 +1809,7 @@
                 if (!settings.saveToken) {
                   delete settingsToSave.gitlabToken;
                 }
-                figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
+                figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
                   try {
                     if (cryptoService_1.CryptoService.isAvailable()) {
@@ -1836,7 +1836,7 @@
                   }
                 }
               }
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
+              figma.root.setPluginData(`${settingsKey}-meta`, JSON.stringify({
                 sharedWithTeam: shareWithTeam,
                 savedAt: settings.savedAt,
                 savedBy: settings.savedBy
@@ -1876,7 +1876,7 @@
          */
         static loadDocumentSettings(settingsKey) {
           return __awaiter(this, void 0, void 0, function* () {
-            const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+            const documentSettings = figma.root.getPluginData(settingsKey);
             if (!documentSettings)
               return null;
             try {
@@ -1907,7 +1907,7 @@
                   }
                 }
               }
-              const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
+              const metaData = figma.root.getPluginData(`${settingsKey}-meta`);
               if (metaData) {
                 try {
                   const meta = JSON.parse(metaData);
@@ -1940,13 +1940,13 @@
          */
         static loadLegacySettings() {
           return __awaiter(this, void 0, void 0, function* () {
-            const legacyDocumentSettings = figma.root.getSharedPluginData("Bridgy", "gitlab-settings");
+            const legacyDocumentSettings = figma.root.getPluginData("gitlab-settings");
             if (!legacyDocumentSettings)
               return null;
             try {
               const settings = JSON.parse(legacyDocumentSettings);
               yield this.saveSettings(settings, true);
-              figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
+              figma.root.setPluginData("gitlab-settings", "");
               return settings;
             } catch (parseError) {
               config_1.LoggingService.error("Error parsing legacy document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
@@ -1962,12 +1962,12 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `gitlab-settings-${figmaFileId}`;
-              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+              figma.root.setPluginData(settingsKey, "");
+              figma.root.setPluginData(`${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-              figma.root.setSharedPluginData("Bridgy", "gitlab-settings", "");
+              figma.root.setPluginData("gitlab-settings", "");
               yield figma.clientStorage.deleteAsync("gitlab-settings");
             } catch (error) {
               config_1.LoggingService.error("Error resetting GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
@@ -2312,13 +2312,13 @@
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
               yield figma.clientStorage.deleteAsync(settingsKey);
-              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              const sharedSettings = figma.root.getPluginData(settingsKey);
               if (sharedSettings) {
                 try {
                   const settings = JSON.parse(sharedSettings);
                   settings.saveToken = false;
                   delete settings.gitlabToken;
-                  figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+                  figma.root.setPluginData(settingsKey, JSON.stringify(settings));
                 } catch (e) {
                 }
               }
@@ -2918,7 +2918,7 @@
                 if (!settings.saveToken) {
                   delete settingsToSave.token;
                 }
-                figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settingsToSave));
+                figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.token) {
                   try {
                     console.log("DEBUG: Starting token encryption");
@@ -2963,7 +2963,7 @@
                   }
                 }
               }
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
+              figma.root.setPluginData(`${settingsKey}-meta`, JSON.stringify({
                 sharedWithTeam: shareWithTeam,
                 savedAt: settings.savedAt,
                 savedBy: settings.savedBy
@@ -2978,7 +2978,7 @@
           return __awaiter(this, void 0, void 0, function* () {
             try {
               const settingsKey = _GitHubService.getSettingsKey();
-              const documentSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              const documentSettings = figma.root.getPluginData(settingsKey);
               if (documentSettings) {
                 try {
                   const settings = JSON.parse(documentSettings);
@@ -3010,7 +3010,7 @@
                       }
                     }
                   }
-                  const metaData = figma.root.getSharedPluginData("Bridgy", `${settingsKey}-meta`);
+                  const metaData = figma.root.getPluginData(`${settingsKey}-meta`);
                   if (metaData) {
                     try {
                       const meta = JSON.parse(metaData);
@@ -3039,8 +3039,8 @@
           return __awaiter(this, void 0, void 0, function* () {
             try {
               const settingsKey = _GitHubService.getSettingsKey();
-              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+              figma.root.setPluginData(settingsKey, "");
+              figma.root.setPluginData(`${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
@@ -3362,13 +3362,13 @@
               yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
               yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
               yield figma.clientStorage.deleteAsync(settingsKey);
-              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              const sharedSettings = figma.root.getPluginData(settingsKey);
               if (sharedSettings) {
                 try {
                   const settings = JSON.parse(sharedSettings);
                   settings.saveToken = false;
                   delete settings.token;
-                  figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(settings));
+                  figma.root.setPluginData(settingsKey, JSON.stringify(settings));
                 } catch (e) {
                 }
               }
@@ -3814,8 +3814,8 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `unit-settings-${figmaFileId}`;
-              figma.root.setSharedPluginData("Bridgy", settingsKey, JSON.stringify(this.unitSettings));
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, JSON.stringify({
+              figma.root.setPluginData(settingsKey, JSON.stringify(this.unitSettings));
+              figma.root.setPluginData(`${settingsKey}-meta`, JSON.stringify({
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
               }));
@@ -3831,7 +3831,7 @@
             try {
               const figmaFileId = figma.root.id;
               const settingsKey = `unit-settings-${figmaFileId}`;
-              const sharedSettings = figma.root.getSharedPluginData("Bridgy", settingsKey);
+              const sharedSettings = figma.root.getPluginData(settingsKey);
               if (sharedSettings) {
                 try {
                   this.unitSettings = JSON.parse(sharedSettings);
@@ -3862,8 +3862,8 @@
                 collections: {},
                 groups: {}
               };
-              figma.root.setSharedPluginData("Bridgy", settingsKey, "");
-              figma.root.setSharedPluginData("Bridgy", `${settingsKey}-meta`, "");
+              figma.root.setPluginData(settingsKey, "");
+              figma.root.setPluginData(`${settingsKey}-meta`, "");
               yield figma.clientStorage.deleteAsync(settingsKey);
             } catch (error) {
               config_1.LoggingService.error("Error resetting unit settings", error, config_1.LoggingService.CATEGORIES.UNITS);

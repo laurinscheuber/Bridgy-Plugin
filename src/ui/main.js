@@ -7206,7 +7206,6 @@ function confirmReset() {
   document.getElementById('config-token').value = '';
   document.getElementById('config-strategy').value = 'merge-request';
   document.getElementById('config-branch').value = 'feature/variables';
-  document.getElementById('config-save-token').checked = true;
   document.getElementById('config-share-team').checked = true;
 
   // Hide metadata
@@ -7742,13 +7741,11 @@ function persistSettings(silent = false) {
 
     const strategyElement = document.getElementById('config-strategy');
     const branchElement = document.getElementById('config-branch');
-    const saveTokenElement = document.getElementById('config-save-token');
     const shareTeamElement = document.getElementById('config-share-team');
 
     if (
       !strategyElement ||
       !branchElement ||
-      !saveTokenElement ||
       !shareTeamElement
     ) {
       throw new Error('Configuration form elements not found');
@@ -7756,7 +7753,7 @@ function persistSettings(silent = false) {
 
     const strategy = strategyElement.value;
     const branch = branchElement.value.trim() || 'feature/variables';
-    const saveToken = saveTokenElement.checked;
+    const saveToken = true;
     const shareTeam = shareTeamElement.checked;
 
     // Enhanced validation
@@ -7961,14 +7958,7 @@ function loadConfigurationTab(forceProvider = null) {
       }
 
       // Handle checkboxes
-      const saveTokenElement = document.getElementById('config-save-token');
       const shareTeamElement = document.getElementById('config-share-team');
-
-      if (saveTokenElement) {
-        saveTokenElement.checked = settings.hasOwnProperty('saveToken')
-          ? settings.saveToken
-          : true;
-      }
 
       if (shareTeamElement) {
         shareTeamElement.checked = settings.hasOwnProperty('isPersonal')
@@ -8002,10 +7992,8 @@ function loadConfigurationTab(forceProvider = null) {
     } else {
       // No settings found, set defaults
       // Set defaults for new users
-      const saveTokenElement = document.getElementById('config-save-token');
       const shareTeamElement = document.getElementById('config-share-team');
 
-      if (saveTokenElement) saveTokenElement.checked = true;
       if (shareTeamElement) shareTeamElement.checked = true;
     }
   } catch (error) {

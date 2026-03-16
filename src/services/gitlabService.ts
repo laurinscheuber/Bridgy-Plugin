@@ -125,7 +125,7 @@ export class GitLabService {
           delete settingsToSave.gitlabToken;
         }
 
-        figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settingsToSave));
+        figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
 
         // If token should be saved, encrypt it before storing
         if (settings.saveToken && settings.gitlabToken) {
@@ -164,8 +164,7 @@ export class GitLabService {
       }
 
       // Track metadata
-      figma.root.setSharedPluginData(
-        'Bridgy',
+      figma.root.setPluginData(
         `${settingsKey}-meta`,
         JSON.stringify({
           sharedWithTeam: shareWithTeam,
@@ -216,7 +215,7 @@ export class GitLabService {
    * Load shared document settings with personal token
    */
   private static async loadDocumentSettings(settingsKey: string): Promise<GitLabSettings | null> {
-    const documentSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+    const documentSettings = figma.root.getPluginData(settingsKey);
     if (!documentSettings) return null;
 
     try {
@@ -257,7 +256,7 @@ export class GitLabService {
       }
 
       // Load metadata if available
-      const metaData = figma.root.getSharedPluginData('Bridgy', `${settingsKey}-meta`);
+      const metaData = figma.root.getPluginData(`${settingsKey}-meta`);
       if (metaData) {
         try {
           const meta = JSON.parse(metaData);
@@ -293,7 +292,7 @@ export class GitLabService {
    * Load and migrate legacy settings
    */
   private static async loadLegacySettings(): Promise<GitLabSettings | null> {
-    const legacyDocumentSettings = figma.root.getSharedPluginData('Bridgy', 'gitlab-settings');
+    const legacyDocumentSettings = figma.root.getPluginData('gitlab-settings');
     if (!legacyDocumentSettings) return null;
 
     try {
@@ -301,7 +300,7 @@ export class GitLabService {
       // Save as project-specific settings
       await this.saveSettings(settings, true);
       // Remove old global settings to prevent confusion
-      figma.root.setSharedPluginData('Bridgy', 'gitlab-settings', '');
+      figma.root.setPluginData('gitlab-settings', '');
       return settings;
     } catch (parseError) {
       LoggingService.error(
@@ -322,8 +321,8 @@ export class GitLabService {
       const settingsKey = `gitlab-settings-${figmaFileId}`;
 
       // Remove shared document storage
-      figma.root.setSharedPluginData('Bridgy', settingsKey, '');
-      figma.root.setSharedPluginData('Bridgy', `${settingsKey}-meta`, '');
+      figma.root.setPluginData(settingsKey, '');
+      figma.root.setPluginData(`${settingsKey}-meta`, '');
 
       // Remove personal client storage including encryption keys
       await figma.clientStorage.deleteAsync(settingsKey);
@@ -331,7 +330,7 @@ export class GitLabService {
       await figma.clientStorage.deleteAsync(`${settingsKey}-key`);
 
       // Also remove any legacy global settings (cleanup)
-      figma.root.setSharedPluginData('Bridgy', 'gitlab-settings', '');
+      figma.root.setPluginData('gitlab-settings', '');
       await figma.clientStorage.deleteAsync('gitlab-settings');
     } catch (error: any) {
       LoggingService.error(
@@ -891,13 +890,13 @@ export class GitLabService {
       await figma.clientStorage.deleteAsync(settingsKey);
 
       // Update shared settings to remove saveToken flag
-      const sharedSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      const sharedSettings = figma.root.getPluginData(settingsKey);
       if (sharedSettings) {
         try {
           const settings = JSON.parse(sharedSettings);
           settings.saveToken = false;
           delete settings.gitlabToken;
-          figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(settings));
+          figma.root.setPluginData(settingsKey, JSON.stringify(settings));
         } catch (e) {
           // Ignore parse errors
         }

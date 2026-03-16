@@ -277,11 +277,10 @@ export class UnitsService {
       const settingsKey = `unit-settings-${figmaFileId}`;
 
       // Save to shared document storage so all team members can access
-      figma.root.setSharedPluginData('Bridgy', settingsKey, JSON.stringify(this.unitSettings));
+      figma.root.setPluginData(settingsKey, JSON.stringify(this.unitSettings));
 
       // Track metadata
-      figma.root.setSharedPluginData(
-        'Bridgy',
+      figma.root.setPluginData(
         `${settingsKey}-meta`,
         JSON.stringify({
           savedAt: new Date().toISOString(),
@@ -302,7 +301,7 @@ export class UnitsService {
       const settingsKey = `unit-settings-${figmaFileId}`;
 
       // Try to load from shared document storage first
-      const sharedSettings = figma.root.getSharedPluginData('Bridgy', settingsKey);
+      const sharedSettings = figma.root.getPluginData(settingsKey);
 
       if (sharedSettings) {
         try {
@@ -346,8 +345,8 @@ export class UnitsService {
       };
 
       // Remove shared document storage
-      figma.root.setSharedPluginData('Bridgy', settingsKey, '');
-      figma.root.setSharedPluginData('Bridgy', `${settingsKey}-meta`, '');
+      figma.root.setPluginData(settingsKey, '');
+      figma.root.setPluginData(`${settingsKey}-meta`, '');
 
       // Remove personal client storage (cleanup)
       await figma.clientStorage.deleteAsync(settingsKey);
