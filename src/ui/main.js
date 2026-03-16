@@ -1568,7 +1568,7 @@ window.saveUnitsSettings = function () {
   );
 };
 
-window.resetUnitsSettings = function () {
+window.resetUnitsSettings = async function () {
   // Get current smart defaults to show in confirmation
   const defaultsInfo = [];
   const dropdowns = document.querySelectorAll('.unit-dropdown');
@@ -1586,7 +1586,7 @@ window.resetUnitsSettings = function () {
 
   const message = `Are you sure you want to reset all unit settings to smart defaults?\n\nThis will apply these defaults:\n${defaultsInfo.slice(0, 5).join('\n')}${defaultsInfo.length > 5 ? `\n... and ${defaultsInfo.length - 5} more` : ''}`;
 
-  if (confirm(message)) {
+  if (await UIUtils.showConfirmModal('Reset Units', message, 'warning')) {
     dropdowns.forEach((dropdown) => {
       dropdown.value = '';
     });
@@ -4335,56 +4335,48 @@ function findVariableById(id) {
   return null;
 }
 
-function deleteVariable(variableId, variableName) {
-  if (confirm(`Are you sure you want to delete the variable "${variableName}"?`)) {
+async function deleteVariable(variableId, variableName) {
+  if (await UIUtils.showConfirmModal('Delete Variable', `Are you sure you want to delete the variable "${variableName}"?`, 'delete')) {
     // Send message to plugin to delete the variable from Figma
-    parent.postMessage(
-      {
-        pluginMessage: {
-          type: 'delete-variable',
-          variableId: variableId,
-        },
+    parent.postMessage({
+      pluginMessage: {
+        type: 'delete-variable',
+        variableId: variableId,
       },
-      '*',
-    );
+    }, '*');
 
     // Show loading feedback
     const button = document.querySelector(`[onclick*="${variableId}"]`);
     if (button) {
-      button.innerHTML =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
       button.style.cursor = 'not-allowed';
     }
   }
 }
 
-function deleteStyle(styleId, styleName, styleType) {
-  if (confirm(`Are you sure you want to delete the style "${styleName}"?`)) {
+async function deleteStyle(styleId, styleName, styleType) {
+  if (await UIUtils.showConfirmModal('Delete Style', `Are you sure you want to delete the style "${styleName}"?`, 'delete')) {
     // Send message to plugin to delete the style from Figma
-    parent.postMessage(
-      {
-        pluginMessage: {
-          type: 'delete-style',
-          styleId: styleId,
-          styleType: styleType,
-        },
+    parent.postMessage({
+      pluginMessage: {
+        type: 'delete-style',
+        styleId: styleId,
+        styleType: styleType,
       },
-      '*',
-    );
+    }, '*');
 
     // Show loading feedback
     const button = document.querySelector(`[onclick*="${styleId}"]`);
     if (button) {
-      button.innerHTML =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
+      button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
       button.style.cursor = 'not-allowed';
     }
   }
 }
 
-function deleteComponent(componentId, componentName, componentType = 'component', parentId = null) {
+async function deleteComponent(componentId, componentName, componentType = 'component', parentId = null) {
   let confirmMessage = '';
   let deleteType = componentType;
 
@@ -4396,7 +4388,7 @@ function deleteComponent(componentId, componentName, componentType = 'component'
     confirmMessage = `Are you sure you want to delete the component "${componentName}"?\n\nThis action cannot be undone.`;
   }
 
-  if (confirm(confirmMessage)) {
+  if (await UIUtils.showConfirmModal('Delete Component', confirmMessage, 'delete')) {
     // Send message to plugin to delete the component from Figma
     parent.postMessage(
       {
@@ -4440,20 +4432,17 @@ function focusOnComponent(componentId) {
   );
 }
 
-function deleteUnusedVariable(variableId, variableName) {
+async function deleteUnusedVariable(variableId, variableName) {
   const confirmMessage = `Are you sure you want to delete the variable "${variableName}"?\n\nThis action cannot be undone.`;
 
-  if (confirm(confirmMessage)) {
+  if (await UIUtils.showConfirmModal('Delete Variable', confirmMessage, 'delete')) {
     // Send message to plugin to delete the variable from Figma
-    parent.postMessage(
-      {
-        pluginMessage: {
-          type: 'delete-variable',
-          variableId: variableId,
-        },
+    parent.postMessage({
+      pluginMessage: {
+        type: 'delete-variable',
+        variableId: variableId,
       },
-      '*',
-    );
+    }, '*');
 
     // Show loading feedback
     const button = document.querySelector(`button[data-variable-id="${variableId}"]`);
@@ -4491,13 +4480,13 @@ function deleteUnusedVariable(variableId, variableName) {
   }
 }
 
-function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
+async function deleteAllUnusedVariants(componentId, componentName, variantIdsString) {
   const variantIds = variantIdsString.split(',');
   const variantCount = variantIds.length;
 
   const confirmMessage = `Are you sure you want to delete all ${variantCount} unused variants from "${componentName}"?\n\nThis will remove:\n${variantIds.length} unused variants\n\nThe component set and used variants will remain.\n\nThis action cannot be undone.`;
 
-  if (confirm(confirmMessage)) {
+  if (await UIUtils.showConfirmModal('Delete Variants', confirmMessage, 'delete')) {
     // Send message to plugin to delete all unused variants
     parent.postMessage(
       {
@@ -6973,7 +6962,6 @@ window.updateTailwindActionButtonsState = function (itemId, isStandalone) {
       replaceBtn.style.opacity = '1';
       replaceBtn.style.pointerEvents = 'auto';
     } else {
-      replaceBtn.disabled = true;
       replaceBtn.style.opacity = '0.5';
       replaceBtn.style.pointerEvents = 'none';
     }
@@ -6981,10 +6969,10 @@ window.updateTailwindActionButtonsState = function (itemId, isStandalone) {
 };
 
 // Apply Tailwind namespace action
-window.applyTailwindNamespace = function (currentGroupName, itemId, variableCount, action, variableId) {
+window.applyTailwindNamespace = async function (currentGroupName, itemId, variableCount, action, variableId) {
   const select = document.getElementById(`${itemId}-ns`);
   if (!select || !select.value) {
-    alert('Please select a namespace first.');
+    UIUtils.showAlertModal('Namespace Required', 'Please select a namespace first.', 'warning');
     return;
   }
 
@@ -7014,7 +7002,7 @@ window.applyTailwindNamespace = function (currentGroupName, itemId, variableCoun
     message = `This will replace the "${currentGroupName}" group with the "${newNamespace}" namespace.\n\nExample: "${exampleBefore}" → "${exampleAfter}"\n\nThis action will affect ${variableCount} variable(s).\n\nContinue?`;
   }
 
-  if (!confirm(message)) {
+  if (!(await UIUtils.showConfirmModal('Apply Namespace', message, 'warning'))) {
     return;
   }
 
@@ -8961,7 +8949,7 @@ function initializeVariableImportTab() {
 // Test function to verify JavaScript is working
 window.testFunction = function () {
   console.log('Test function called successfully!');
-  alert('Test function works!');
+  UIUtils.showAlertModal('Test Success', 'Test function works!', 'check_circle');
 };
 
 // Variable Import helper functions
@@ -9900,7 +9888,7 @@ window.simulateImport = function () {
       collectionName =
         existingCollectionSelect.options[existingCollectionSelect.selectedIndex].text;
     } else {
-      alert('Please select an existing collection or enable "Create new collection"');
+      UIUtils.showAlertModal('Configuration Required', 'Please select an existing collection or enable "Create new collection"', 'warning');
       return;
     }
   }
@@ -9930,7 +9918,7 @@ window.simulateImport = function () {
   const selectedTokens = [...selectedVariables, ...selectedStyles];
 
   if (selectedTokens.length === 0) {
-    alert('Please select at least one variable or style to import.');
+    UIUtils.showAlertModal('Selection Required', 'Please select at least one variable or style to import.', 'warning');
     return;
   }
 
