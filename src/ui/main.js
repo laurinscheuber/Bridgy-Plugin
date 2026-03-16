@@ -10147,6 +10147,9 @@ function showImportComplete(result = {}) {
           </div>
         `;
 }
+
+let currentImportPreview = null;
+
 function resetImportView() {
   console.log('[UI] Resetting import view');
   try {
@@ -10358,8 +10361,6 @@ window.browseBranches = browseBranches;
 window.closeRepositoryBrowser = closeRepositoryBrowser;
 window.closeBranchBrowser = closeBranchBrowser;
 // ===== VARIABLE IMPORT FEATURE =====
-
-let currentImportPreview = null;
 
 function initializeImportTab() {
   console.log('Initializing Import Tab');
