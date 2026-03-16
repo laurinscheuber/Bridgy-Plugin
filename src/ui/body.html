@@ -656,6 +656,19 @@
               >
             </label>
 
+            <!-- Share Token Toggle -->
+            <label class="toggle-switch" style="margin-top: 12px;">
+              <input type="checkbox" id="config-share-token" class="toggle-input" />
+              <div class="toggle-slider"></div>
+              <span style="font-size: 13px; color: rgba(255, 255, 255, 0.9)"
+                >Share access token with team</span
+              >
+            </label>
+            <div id="share-token-warning" style="display: none; color: #ff6b6b; font-size: 11px; margin-top: 4px; padding-left: 42px; line-height: 1.3;">
+              <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle; margin-right: 2px;">warning</span>
+              Warning: The access token will be saved in cleartext and is fully readable by anyone with access to this Figma file.
+            </div>
+
             <!-- Config Metadata -->
             <div
               id="config-metadata"
@@ -1471,6 +1484,24 @@
     <div class="modal-footer modal-footer-seamless">
       <button onclick="closeCreateVariableModal()" class="btn-secondary-glass">Cancel</button>
       <button onclick="submitCreateVariable()" class="btn-primary-gradient">Create Variable</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share Token Confirmation Modal -->
+<div class="modal-overlay" id="share-token-modal" style="display: none; align-items: center; justify-content: center; z-index: 10000;">
+  <div class="modal-dialog" style="max-width: 320px; padding: 24px; text-align: center;">
+    <div style="color: #ff6b6b; margin-bottom: 16px;">
+      <span class="material-symbols-outlined" style="font-size: 48px;">warning</span>
+    </div>
+    <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">Are you sure?</h3>
+    <p style="font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 24px; line-height: 1.5;">
+      Sharing your access token will save it <strong style="color: #ff6b6b;">unencrypted in cleartext</strong> to this shared Figma file. Anyone with access to this file will be able to read and use your token.<br/><br/>
+      Are you completely sure you want to enable this?
+    </p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="cancel-share-token-btn" class="btn-secondary-glass" style="flex: 1;">Cancel</button>
+      <button id="confirm-share-token-btn" class="btn-primary-gradient" style="flex: 1; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">Yes, share it</button>
     </div>
   </div>
 </div>

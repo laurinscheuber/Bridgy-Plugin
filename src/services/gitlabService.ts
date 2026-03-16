@@ -129,10 +129,11 @@ export class GitLabService {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);
 
-        // CRITICAL DATA SECURITY: Access tokens must never be mapped to PluginData.
-        // Even when 'Share configuration with team' is active, the token belongs exclusively 
-        // in encrypted figma.clientStorage (which handles personal persistence).
-        delete settingsToSave.gitlabToken;
+        // CRITICAL DATA SECURITY: Access tokens must never be mapped to PluginData
+        // UNLESS the user explicitly opts-in via shareTokenWithTeam.
+        if (!settings.shareTokenWithTeam) {
+          delete settingsToSave.gitlabToken;
+        }
 
         figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
 
@@ -230,9 +231,10 @@ export class GitLabService {
     try {
       const settings = JSON.parse(documentSettings);
 
-      // CRITICAL SECURITY FIX: Never trust tokens from shared documents.
+      // CRITICAL SECURITY FIX: Never trust tokens from shared documents
+      // unless the user explicitly intended to share them.
       // Older versions of the plugin may have saved the token in plain text.
-      if (settings.gitlabToken || settings.token) {
+      if ((settings.gitlabToken || settings.token) && !settings.shareTokenWithTeam) {
         delete settings.gitlabToken;
         delete settings.token;
         // Clean up the document for everyone by rewriting it safely

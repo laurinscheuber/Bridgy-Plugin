@@ -1811,7 +1811,9 @@
                 }
               } else {
                 const settingsToSave = Object.assign({}, settings);
-                delete settingsToSave.gitlabToken;
+                if (!settings.shareTokenWithTeam) {
+                  delete settingsToSave.gitlabToken;
+                }
                 figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.gitlabToken) {
                   try {
@@ -1884,7 +1886,7 @@
               return null;
             try {
               const settings = JSON.parse(documentSettings);
-              if (settings.gitlabToken || settings.token) {
+              if ((settings.gitlabToken || settings.token) && !settings.shareTokenWithTeam) {
                 delete settings.gitlabToken;
                 delete settings.token;
                 figma.root.setPluginData(settingsKey, JSON.stringify(settings));
@@ -2716,7 +2718,9 @@
                 }
               } else {
                 const settingsToSave = Object.assign({}, settings);
-                delete settingsToSave.token;
+                if (!settings.shareTokenWithTeam) {
+                  delete settingsToSave.token;
+                }
                 figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
                 if (settings.saveToken && settings.token) {
                   try {
@@ -2781,7 +2785,7 @@
               if (documentSettings) {
                 try {
                   const settings = JSON.parse(documentSettings);
-                  if (settings.token) {
+                  if (settings.token && !settings.shareTokenWithTeam) {
                     delete settings.token;
                     figma.root.setPluginData(settingsKey, JSON.stringify(settings));
                   }
@@ -8380,6 +8384,7 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
                 branchName: msg.branchName || "feature/variables",
                 exportFormat: msg.exportFormat || "css",
                 saveToken: msg.saveToken || false,
+                shareTokenWithTeam: msg.shareTokenWithTeam || false,
                 savedAt: (/* @__PURE__ */ new Date()).toISOString(),
                 savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
               };

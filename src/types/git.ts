@@ -17,6 +17,7 @@ export interface GitSettings {
   savedAt: string;
   savedBy: string;
   isPersonal?: boolean;
+  shareTokenWithTeam?: boolean;
   _needsCryptoMigration?: boolean;
 }
 

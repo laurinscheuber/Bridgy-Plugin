@@ -750,6 +750,38 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // Initialize Share Token Modal Logic
+  const shareTokenCheckbox = document.getElementById('config-share-token');
+  const shareTokenModal = document.getElementById('share-token-modal');
+  const confirmShareBtn = document.getElementById('confirm-share-token-btn');
+  const cancelShareBtn = document.getElementById('cancel-share-token-btn');
+  const shareTokenWarning = document.getElementById('share-token-warning');
+
+  if (shareTokenCheckbox && shareTokenModal && confirmShareBtn && cancelShareBtn && shareTokenWarning) {
+    shareTokenCheckbox.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        shareTokenModal.style.display = 'flex';
+        e.target.checked = false; // Revert visually
+      } else {
+        shareTokenWarning.style.display = 'none';
+        persistSettings(true);
+      }
+    });
+
+    confirmShareBtn.addEventListener('click', () => {
+      shareTokenCheckbox.checked = true;
+      shareTokenWarning.style.display = 'block';
+      shareTokenModal.style.display = 'none';
+      persistSettings(true);
+    });
+
+    cancelShareBtn.addEventListener('click', () => {
+      shareTokenCheckbox.checked = false;
+      shareTokenWarning.style.display = 'none';
+      shareTokenModal.style.display = 'none';
+    });
+  }
 });
 
 // ===== SEARCH FEATURES =====
@@ -7768,6 +7800,9 @@ function persistSettings(silent = false) {
     const saveToken = true;
     const shareTeam = shareTeamElement.checked;
 
+    const shareTokenElement = document.getElementById('config-share-token');
+    const shareTokenWithTeam = shareTokenElement ? shareTokenElement.checked : false;
+
     // Enhanced validation
     // Enhanced validation
     // Only validate if values are provided
@@ -7832,6 +7867,7 @@ function persistSettings(silent = false) {
       branchName: branch,
       saveToken: saveToken,
       isPersonal: !shareTeam,
+      shareTokenWithTeam: shareTokenWithTeam,
       savedAt: new Date().toISOString(),
       savedBy: 'Current user',
     };
@@ -7861,6 +7897,7 @@ function persistSettings(silent = false) {
           branchName: branch,
           saveToken: saveToken,
           shareWithTeam: shareTeam,
+          shareTokenWithTeam: shareTokenWithTeam,
         },
       },
       '*',
@@ -7971,11 +8008,18 @@ function loadConfigurationTab(forceProvider = null) {
 
       // Handle checkboxes
       const shareTeamElement = document.getElementById('config-share-team');
+      const shareTokenElement = document.getElementById('config-share-token');
+      const shareTokenWarning = document.getElementById('share-token-warning');
 
       if (shareTeamElement) {
         shareTeamElement.checked = settings.hasOwnProperty('isPersonal')
           ? !settings.isPersonal
           : true;
+      }
+      
+      if (shareTokenElement && shareTokenWarning) {
+        shareTokenElement.checked = settings.shareTokenWithTeam || false;
+        shareTokenWarning.style.display = settings.shareTokenWithTeam ? 'block' : 'none';
       }
 
       // Handle strategy-dependent sections

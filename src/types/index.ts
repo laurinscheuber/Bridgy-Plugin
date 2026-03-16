@@ -57,6 +57,7 @@ export interface GitLabSettings {
   savedAt: string;
   savedBy: string;
   isPersonal?: boolean;
+  shareTokenWithTeam?: boolean;
   _needsCryptoMigration?: boolean; // Internal flag for token encryption migration
 }
 
@@ -88,6 +89,7 @@ export interface PluginMessage {
   cssData?: string;
   testContent?: string;
   shareWithTeam?: boolean;
+  shareTokenWithTeam?: boolean;
   saveToken?: boolean;
   generateAllVariants?: boolean;
   shouldDownload?: boolean;

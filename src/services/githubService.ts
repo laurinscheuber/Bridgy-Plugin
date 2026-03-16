@@ -152,10 +152,11 @@ export class GitHubService implements BaseGitService {
         // Save to document storage (shared with team)
         const settingsToSave = Object.assign({}, settings);
 
-        // CRITICAL DATA SECURITY: Access tokens must never be mapped to PluginData.
-        // Even when 'Share configuration with team' is active, the token belongs exclusively 
-        // in encrypted figma.clientStorage (which handles personal persistence).
-        delete settingsToSave.token;
+        // CRITICAL DATA SECURITY: Access tokens must never be mapped to PluginData
+        // UNLESS the user explicitly opts-in via shareTokenWithTeam.
+        if (!settings.shareTokenWithTeam) {
+          delete settingsToSave.token;
+        }
 
         figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
 
@@ -239,9 +240,10 @@ export class GitHubService implements BaseGitService {
         try {
           const settings = JSON.parse(documentSettings) as GitSettings;
 
-          // CRITICAL SECURITY FIX: Never trust tokens from shared documents.
+          // CRITICAL SECURITY FIX: Never trust tokens from shared documents
+          // unless the user explicitly intended to share them.
           // Older versions of the plugin may have saved the token in plain text.
-          if (settings.token) {
+          if (settings.token && !settings.shareTokenWithTeam) {
             delete settings.token;
             // Clean up the document for everyone by rewriting it safely
             figma.root.setPluginData(settingsKey, JSON.stringify(settings));
