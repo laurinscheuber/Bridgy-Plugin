@@ -178,17 +178,31 @@ export class TailwindV4Service {
           modes?: { [modeName: string]: string } | null;
         }>;
       };
+      modeNames?: string[];
     }>,
   ): string {
     const lines: string[] = [];
 
-    // Start with @theme directive for the default mode
+    lines.push('@import "tailwindcss";');
+
+    // Check if any variables have multiple modes
+    const allModeNames = this.getAllModeNames(collections);
+    const hasMultipleModes = allModeNames.length > 1;
+
+    // 1. Map variants to data-theme if multiple modes exist
+    if (hasMultipleModes) {
+      
+      allModeNames.slice(1).forEach((modeName) => {
+        const variantName = modeName.toLowerCase();
+        lines.push(`@custom-variant ${variantName} (&:where([data-theme=${modeName}], [data-theme=${modeName}] *));`);
+      });
+    }
+
+    // 2. Register Tokens (Default Mode)
     lines.push('@theme {');
 
     // Process each collection for default mode
     for (const collection of collections) {
-      lines.push(`  /* Collection: ${collection.name} */`);
-
       // Process grouped variables (these have valid namespaces)
       const sortedGroupNames = Object.keys(collection.groups).sort();
       for (const groupName of sortedGroupNames) {
@@ -197,33 +211,35 @@ export class TailwindV4Service {
 
         if (variables.length === 0) continue;
 
-        lines.push(`\n  /* ${groupName} */`);
-
         for (const variable of variables) {
           const varName = this.formatTailwindVariableName(variable.originalName);
           lines.push(`  --${namespace}-${varName}: ${variable.value};`);
         }
+        lines.push(''); // Empty line between groups
       }
 
-      // Standalone variables (if any) - these would be invalid in strict TW v4
-      // but we'll include them with a warning comment
+      // Standalone variables (if any)
       if (collection.variables.length > 0) {
-        lines.push(`\n  /* WARNING: Variables without namespace - not standard Tailwind v4 */`);
         for (const variable of collection.variables) {
           lines.push(`  --${variable.name}: ${variable.value};`);
         }
+        lines.push(''); // Empty line after standalone
       }
     }
 
+    // Remove the last empty line if it exists to cleanly close the block
+    if (lines[lines.length - 1] === '') {
+      lines.pop();
+    }
     lines.push('}');
 
-    // Check if any variables have multiple modes
-    const allModeNames = this.getAllModeNames(collections);
-
-    // Generate [data-theme="..."] selectors for additional modes
-    if (allModeNames.length > 1) {
-      allModeNames.slice(1).forEach((modeName) => {
-        lines.push(`\n[data-theme="${modeName}"] {`);
+    // 3. Override token values per theme inside @layer theme
+    if (hasMultipleModes) {
+      lines.push('@layer theme {');
+      
+      allModeNames.slice(1).forEach((modeName, index) => {
+        if (index > 0) lines.push(''); // Empty line between modes
+        lines.push(`  [data-theme="${modeName}"] {`);
 
         // Process each collection for this specific mode
         for (const collection of collections) {
@@ -235,15 +251,13 @@ export class TailwindV4Service {
 
             if (variables.length === 0) continue;
 
-            // Only add variables that have values for this mode
             const modeSpecificVars = variables.filter((v) => v.modes && v.modes[modeName]);
             if (modeSpecificVars.length === 0) continue;
 
-            lines.push('');
             for (const variable of modeSpecificVars) {
               const varName = this.formatTailwindVariableName(variable.originalName);
               const modeValue = variable.modes![modeName];
-              lines.push(`  --${namespace}-${varName}: ${modeValue};`);
+              lines.push(`    --${namespace}-${varName}: ${modeValue};`);
             }
           }
 
@@ -252,51 +266,54 @@ export class TailwindV4Service {
             (v) => v.modes && v.modes[modeName],
           );
           if (modeSpecificStandaloneVars.length > 0) {
-            lines.push('');
             for (const variable of modeSpecificStandaloneVars) {
               const modeValue = variable.modes![modeName];
-              lines.push(`  --${variable.name}: ${modeValue};`);
+              lines.push(`    --${variable.name}: ${modeValue};`);
             }
           }
         }
-
-        lines.push('}');
+        lines.push('  }');
       });
+      
+      lines.push('}');
     }
 
     return lines.join('\n');
   }
 
-  /**
-   * Get all unique mode names from collections
-   */
   private static getAllModeNames(
     collections: Array<{
       variables: Array<{ modes?: { [modeName: string]: string } | null }>;
       groups: {
         [groupName: string]: Array<{ modes?: { [modeName: string]: string } | null }>;
       };
+      modeNames?: string[];
     }>,
   ): string[] {
     const modeNames = new Set<string>();
 
     collections.forEach((collection) => {
-      collection.variables.forEach((variable) => {
-        if (variable.modes) {
-          Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
-        }
-      });
-
-      Object.keys(collection.groups).forEach((groupKey) => {
-        collection.groups[groupKey].forEach((variable) => {
+      if (collection.modeNames) {
+        collection.modeNames.forEach((modeName) => modeNames.add(modeName));
+      } else {
+        collection.variables.forEach((variable) => {
           if (variable.modes) {
             Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
           }
         });
-      });
+
+        Object.keys(collection.groups).forEach((groupKey) => {
+          collection.groups[groupKey].forEach((variable) => {
+            if (variable.modes) {
+              Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
+            }
+          });
+        });
+      }
     });
 
-    return Array.from(modeNames).sort();
+    // We do NOT use .sort() here so it preserves the original Figma mode order.
+    return Array.from(modeNames);
   }
 
   /**

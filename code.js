@@ -4059,36 +4059,46 @@
          */
         static buildTailwindV4CSS(collections) {
           const lines = [];
+          lines.push('@import "tailwindcss";');
+          const allModeNames = this.getAllModeNames(collections);
+          const hasMultipleModes = allModeNames.length > 1;
+          if (hasMultipleModes) {
+            allModeNames.slice(1).forEach((modeName) => {
+              const variantName = modeName.toLowerCase();
+              lines.push(`@custom-variant ${variantName} (&:where([data-theme=${modeName}], [data-theme=${modeName}] *));`);
+            });
+          }
           lines.push("@theme {");
           for (const collection of collections) {
-            lines.push(`  /* Collection: ${collection.name} */`);
             const sortedGroupNames = Object.keys(collection.groups).sort();
             for (const groupName of sortedGroupNames) {
               const namespace = groupName.toLowerCase();
               const variables = collection.groups[groupName];
               if (variables.length === 0)
                 continue;
-              lines.push(`
-  /* ${groupName} */`);
               for (const variable of variables) {
                 const varName = this.formatTailwindVariableName(variable.originalName);
                 lines.push(`  --${namespace}-${varName}: ${variable.value};`);
               }
+              lines.push("");
             }
             if (collection.variables.length > 0) {
-              lines.push(`
-  /* WARNING: Variables without namespace - not standard Tailwind v4 */`);
               for (const variable of collection.variables) {
                 lines.push(`  --${variable.name}: ${variable.value};`);
               }
+              lines.push("");
             }
           }
+          if (lines[lines.length - 1] === "") {
+            lines.pop();
+          }
           lines.push("}");
-          const allModeNames = this.getAllModeNames(collections);
-          if (allModeNames.length > 1) {
-            allModeNames.slice(1).forEach((modeName) => {
-              lines.push(`
-[data-theme="${modeName}"] {`);
+          if (hasMultipleModes) {
+            lines.push("@layer theme {");
+            allModeNames.slice(1).forEach((modeName, index) => {
+              if (index > 0)
+                lines.push("");
+              lines.push(`  [data-theme="${modeName}"] {`);
               for (const collection of collections) {
                 const sortedGroupNames = Object.keys(collection.groups).sort();
                 for (const groupName of sortedGroupNames) {
@@ -4099,47 +4109,47 @@
                   const modeSpecificVars = variables.filter((v) => v.modes && v.modes[modeName]);
                   if (modeSpecificVars.length === 0)
                     continue;
-                  lines.push("");
                   for (const variable of modeSpecificVars) {
                     const varName = this.formatTailwindVariableName(variable.originalName);
                     const modeValue = variable.modes[modeName];
-                    lines.push(`  --${namespace}-${varName}: ${modeValue};`);
+                    lines.push(`    --${namespace}-${varName}: ${modeValue};`);
                   }
                 }
                 const modeSpecificStandaloneVars = collection.variables.filter((v) => v.modes && v.modes[modeName]);
                 if (modeSpecificStandaloneVars.length > 0) {
-                  lines.push("");
                   for (const variable of modeSpecificStandaloneVars) {
                     const modeValue = variable.modes[modeName];
-                    lines.push(`  --${variable.name}: ${modeValue};`);
+                    lines.push(`    --${variable.name}: ${modeValue};`);
                   }
                 }
               }
-              lines.push("}");
+              lines.push("  }");
             });
+            lines.push("}");
           }
           return lines.join("\n");
         }
-        /**
-         * Get all unique mode names from collections
-         */
         static getAllModeNames(collections) {
           const modeNames = /* @__PURE__ */ new Set();
           collections.forEach((collection) => {
-            collection.variables.forEach((variable) => {
-              if (variable.modes) {
-                Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
-              }
-            });
-            Object.keys(collection.groups).forEach((groupKey) => {
-              collection.groups[groupKey].forEach((variable) => {
+            if (collection.modeNames) {
+              collection.modeNames.forEach((modeName) => modeNames.add(modeName));
+            } else {
+              collection.variables.forEach((variable) => {
                 if (variable.modes) {
                   Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
                 }
               });
-            });
+              Object.keys(collection.groups).forEach((groupKey) => {
+                collection.groups[groupKey].forEach((variable) => {
+                  if (variable.modes) {
+                    Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
+                  }
+                });
+              });
+            }
           });
-          return Array.from(modeNames).sort();
+          return Array.from(modeNames);
         }
         /**
          * Get a user-friendly list of valid namespaces
@@ -4244,9 +4254,6 @@
               if (collections && collections.length > 0) {
                 css += this.buildExportContent(collections, format);
               }
-              if (format !== "tailwind-v4") {
-                css += yield this.buildStylesContent(format);
-              }
               if (!css) {
                 throw new Error("No variables or styles found to export.");
               }
@@ -4345,7 +4352,8 @@
             const result = {
               name: collection.name,
               variables,
-              groups
+              groups,
+              modeNames: collection.modes.map((m) => m.name)
             };
             this.collectionCache.set(cacheKey, result);
             return result;
@@ -4453,26 +4461,26 @@
           }
           const contentParts = [];
           const hasMultiModeVariables = collections.some((collection) => collection.variables.some((variable) => variable.modes !== null) || Object.keys(collection.groups).some((groupKey) => collection.groups[groupKey].some((variable) => variable.modes !== null)));
-          if (format === "css") {
-            contentParts.push(":root {");
+          if (format === "scss") {
             collections.forEach((collection) => {
-              contentParts.push(this.buildCollectionContent(collection, format, false));
+              contentParts.push(this.buildCollectionContent(collection, format, false, null, true));
             });
-            contentParts.push("}");
-            if (hasMultiModeVariables) {
-              const allModeNames = this.getAllModeNames(collections);
-              allModeNames.slice(1).forEach((modeName) => {
-                contentParts.push(`
+            contentParts.push("");
+          }
+          contentParts.push(":root {");
+          collections.forEach((collection) => {
+            contentParts.push(this.buildCollectionContent(collection, format, false));
+          });
+          contentParts.push("}");
+          if (hasMultiModeVariables) {
+            const allModeNames = this.getAllModeNames(collections);
+            allModeNames.slice(1).forEach((modeName) => {
+              contentParts.push(`
 [data-theme="${modeName}"] {`);
-                collections.forEach((collection) => {
-                  contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
-                });
-                contentParts.push("}");
+              collections.forEach((collection) => {
+                contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
               });
-            }
-          } else {
-            collections.forEach((collection) => {
-              contentParts.push(this.buildCollectionContent(collection, format, false));
+              contentParts.push("}");
             });
           }
           return contentParts.join("\n");
@@ -4653,29 +4661,26 @@ ${commentPrefix} Grids${commentSuffix}`);
         /**
          * Build content for a single collection
          */
-        static buildCollectionContent(collection, format, isThemeSpecific = false, themeName = null) {
+        static buildCollectionContent(collection, format, isThemeSpecific = false, themeName = null, isScssGlobal = false) {
           const parts = [];
           const commentPrefix = format === "scss" ? "//" : "  /*";
           const commentSuffix = format === "scss" ? "" : " */";
           if (!isThemeSpecific) {
-            parts.push(`
-${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
+            parts.push("");
           }
           collection.variables.forEach((variable) => {
-            const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+            const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName, isScssGlobal);
             if (declaration && declaration.trim()) {
               parts.push(declaration);
             }
           });
           const sortedGroupNames = Object.keys(collection.groups).sort();
           sortedGroupNames.forEach((groupName) => {
-            const displayName = this.formatGroupDisplayName(groupName);
             if (!isThemeSpecific) {
-              parts.push(`
-${commentPrefix} ${displayName}${commentSuffix}`);
+              parts.push("");
             }
             collection.groups[groupName].forEach((variable) => {
-              const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName);
+              const declaration = this.formatVariableDeclaration(variable, format, isThemeSpecific, themeName, isScssGlobal);
               if (declaration && declaration.trim()) {
                 parts.push(declaration);
               }
@@ -4686,15 +4691,18 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         /**
          * Format a variable declaration for the given format
          */
-        static formatVariableDeclaration(variable, format, isThemeSpecific = false, themeName = null) {
+        static formatVariableDeclaration(variable, format, isThemeSpecific = false, themeName = null, isScssGlobal = false) {
           let value = variable.value;
           if (isThemeSpecific && variable.modes && themeName && variable.modes[themeName]) {
             value = variable.modes[themeName];
           } else if (isThemeSpecific && (!variable.modes || !variable.modes[themeName])) {
             return "";
           }
-          if (format === "scss") {
+          if (isScssGlobal) {
             return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
+          }
+          if (format === "scss" && !isThemeSpecific) {
+            return `  ${CSS_VARIABLE_PREFIX}${variable.name}: #{${SCSS_VARIABLE_PREFIX}${variable.name}};`;
           }
           return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
         }
@@ -4710,20 +4718,24 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
         static getAllModeNames(collections) {
           const modeNames = /* @__PURE__ */ new Set();
           collections.forEach((collection) => {
-            collection.variables.forEach((variable) => {
-              if (variable.modes) {
-                Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
-              }
-            });
-            Object.keys(collection.groups).forEach((groupKey) => {
-              collection.groups[groupKey].forEach((variable) => {
+            if (collection.modeNames) {
+              collection.modeNames.forEach((modeName) => modeNames.add(modeName));
+            } else {
+              collection.variables.forEach((variable) => {
                 if (variable.modes) {
                   Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
                 }
               });
-            });
+              Object.keys(collection.groups).forEach((groupKey) => {
+                collection.groups[groupKey].forEach((variable) => {
+                  if (variable.modes) {
+                    Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
+                  }
+                });
+              });
+            }
           });
-          return Array.from(modeNames).sort();
+          return Array.from(modeNames);
         }
         /**
          * Populate the variable cache for alias resolution

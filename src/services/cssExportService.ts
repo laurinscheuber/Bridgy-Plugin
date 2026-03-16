@@ -24,6 +24,7 @@ interface FormattedCollection {
   name: string;
   variables: CSSVariable[];
   groups: GroupedVariables;
+  modeNames?: string[];
 }
 
 export type CSSFormat = 'css' | 'scss' | 'tailwind-v4';
@@ -62,10 +63,12 @@ export class CSSExportService {
         }
 
         // Export Styles (Text, Paint, Effect, Grid)
+        // DISABLED: As per user request, styles are no longer exported with variables
+        /*
         if (format !== 'tailwind-v4') {
-          // Skip styles for tailwind-v4 for now or implement later
           css += await this.buildStylesContent(format);
         }
+        */
 
         if (!css) {
           throw new Error('No variables or styles found to export.');
@@ -185,6 +188,7 @@ export class CSSExportService {
       name: collection.name,
       variables,
       groups,
+      modeNames: collection.modes.map((m: any) => m.name),
     };
 
     this.collectionCache.set(cacheKey, result);
@@ -322,28 +326,31 @@ export class CSSExportService {
         ),
     );
 
-    if (format === 'css') {
-      contentParts.push(':root {');
+    if (format === 'scss') {
       collections.forEach((collection) => {
-        contentParts.push(this.buildCollectionContent(collection, format, false));
+        contentParts.push(this.buildCollectionContent(collection, format, false, null, true));
       });
-      contentParts.push('}');
+      contentParts.push('');
+    }
 
-      // If there are multi-mode variables, generate data-theme selectors
-      if (hasMultiModeVariables) {
-        const allModeNames = this.getAllModeNames(collections);
-        allModeNames.slice(1).forEach((modeName) => {
-          contentParts.push(`\n[data-theme="${modeName}"] {`);
-          collections.forEach((collection) => {
-            contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
-          });
-          contentParts.push('}');
+    // Wrap the default base modes in :root { } for both CSS and SCSS so that CSS variables are correctly scoped.
+    contentParts.push(':root {');
+    
+    collections.forEach((collection) => {
+      contentParts.push(this.buildCollectionContent(collection, format, false));
+    });
+    
+    contentParts.push('}');
+
+    // If there are multi-mode variables, generate data-theme selectors
+    if (hasMultiModeVariables) {
+      const allModeNames = this.getAllModeNames(collections);
+      allModeNames.slice(1).forEach((modeName) => {
+        contentParts.push(`\n[data-theme="${modeName}"] {`);
+        collections.forEach((collection) => {
+          contentParts.push(this.buildCollectionContent(collection, format, true, modeName));
         });
-      }
-    } else {
-      // SCSS format - keep original behavior for now
-      collections.forEach((collection) => {
-        contentParts.push(this.buildCollectionContent(collection, format, false));
+        contentParts.push('}');
       });
     }
 
@@ -578,6 +585,7 @@ export class CSSExportService {
     format: CSSFormat,
     isThemeSpecific: boolean = false,
     themeName: string | null = null,
+    isScssGlobal: boolean = false,
   ): string {
     const parts: string[] = [];
     const commentPrefix = format === 'scss' ? '//' : '  /*';
@@ -585,7 +593,7 @@ export class CSSExportService {
 
     // Collection header
     if (!isThemeSpecific) {
-      parts.push(`\n${commentPrefix} ===== ${collection.name.toUpperCase()} =====${commentSuffix}`);
+      parts.push('');
     }
 
     // Standalone variables
@@ -595,6 +603,7 @@ export class CSSExportService {
         format,
         isThemeSpecific,
         themeName,
+        isScssGlobal,
       );
       if (declaration && declaration.trim()) {
         parts.push(declaration);
@@ -604,9 +613,8 @@ export class CSSExportService {
     // Grouped variables
     const sortedGroupNames = Object.keys(collection.groups).sort();
     sortedGroupNames.forEach((groupName) => {
-      const displayName = this.formatGroupDisplayName(groupName);
       if (!isThemeSpecific) {
-        parts.push(`\n${commentPrefix} ${displayName}${commentSuffix}`);
+        parts.push('');
       }
 
       collection.groups[groupName].forEach((variable) => {
@@ -615,6 +623,7 @@ export class CSSExportService {
           format,
           isThemeSpecific,
           themeName,
+          isScssGlobal,
         );
         if (declaration && declaration.trim()) {
           parts.push(declaration);
@@ -633,6 +642,7 @@ export class CSSExportService {
     format: CSSFormat,
     isThemeSpecific: boolean = false,
     themeName: string | null = null,
+    isScssGlobal: boolean = false,
   ): string {
     let value = variable.value;
 
@@ -644,9 +654,17 @@ export class CSSExportService {
       return '';
     }
 
-    if (format === 'scss') {
+    if (isScssGlobal) {
       return `${SCSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
     }
+
+    if (format === 'scss' && !isThemeSpecific) {
+      return `  ${CSS_VARIABLE_PREFIX}${variable.name}: #{${SCSS_VARIABLE_PREFIX}${variable.name}};`;
+    }
+
+    // Use native CSS variables (--) for all formats to support dynamic runtime theming
+    // Only use SCSS variables ($) if explicitly building for an older static configuration
+    // (For this plugin's multi-mode architecture, CSS variables are always preferred).
     return `  ${CSS_VARIABLE_PREFIX}${variable.name}: ${value};`;
   }
 
@@ -664,22 +682,28 @@ export class CSSExportService {
     const modeNames = new Set<string>();
 
     collections.forEach((collection) => {
-      collection.variables.forEach((variable) => {
-        if (variable.modes) {
-          Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
-        }
-      });
-
-      Object.keys(collection.groups).forEach((groupKey) => {
-        collection.groups[groupKey].forEach((variable) => {
+      if (collection.modeNames) {
+        collection.modeNames.forEach((modeName) => modeNames.add(modeName));
+      } else {
+        collection.variables.forEach((variable) => {
           if (variable.modes) {
             Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
           }
         });
-      });
+
+        Object.keys(collection.groups).forEach((groupKey) => {
+          collection.groups[groupKey].forEach((variable) => {
+            if (variable.modes) {
+              Object.keys(variable.modes).forEach((modeName) => modeNames.add(modeName));
+            }
+          });
+        });
+      }
     });
 
-    return Array.from(modeNames).sort();
+    // We do NOT use .sort() here so it preserves the original Figma mode order.
+    // The first mode added to the Set will be the default mode (from the first collection).
+    return Array.from(modeNames);
   }
 
   /**

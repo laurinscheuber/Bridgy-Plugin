@@ -5014,7 +5014,9 @@ if (exportCssButton) {
   exportCssButton.addEventListener('click', () => {
     try {
       // Default to CSS format if no settings configured
-      const exportFormat = window.gitlabSettings?.exportFormat || 'css';
+      // Fallback: 1) UI dropdown 2) gitlabSettings 3) gitSettings
+      const uiFormat = document.getElementById('config-export-format')?.value;
+      const exportFormat = uiFormat || window.gitlabSettings?.exportFormat || window.gitSettings?.exportFormat || 'css';
 
       // Validate export format
       if (!['css', 'scss', 'tailwind-v4'].includes(exportFormat.toLowerCase())) {
@@ -5436,7 +5438,8 @@ function runQualityAnalysis() {
 
   const selectedIds = window.MultiPageSelector ? window.MultiPageSelector.getSelectedIds() : [];
   const pageIds = selectedIds.length > 0 ? selectedIds : null;
-  const exportFormat = window.gitlabSettings ? window.gitlabSettings.exportFormat : 'css';
+  const uiFormat = document.getElementById('config-export-format')?.value;
+  const exportFormat = uiFormat || window.gitlabSettings?.exportFormat || window.gitSettings?.exportFormat || 'css';
 
   // Trigger backend analyses
   // Changed from SMART_SCAN to ALL for document-wide consistency
