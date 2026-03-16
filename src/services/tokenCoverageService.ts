@@ -597,6 +597,7 @@ export class TokenCoverageService {
 
     let validTailwindNames = 0;
     const tailwindValidation: any = {
+      isValid: true, // Will be updated below
       valid: [],
       invalid: [],
       totalInvalid: 0,
@@ -673,6 +674,7 @@ export class TokenCoverageService {
     tailwindValidation.totalVariables = totalVarsToCheck;
     tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
     tailwindValidation.readinessScore = tailwindScore;
+    tailwindValidation.isValid = tailwindValidation.invalid.length === 0 && tailwindValidation.invalidGroups.length === 0;
 
 
     // 5. Layout Hygiene Score (15%)

@@ -6066,6 +6066,8 @@ ${commentPrefix} Grids${commentSuffix}`);
             };
             let validTailwindNames = 0;
             const tailwindValidation = {
+              isValid: true,
+              // Will be updated below
               valid: [],
               invalid: [],
               totalInvalid: 0,
@@ -6128,6 +6130,7 @@ ${commentPrefix} Grids${commentSuffix}`);
             tailwindValidation.totalVariables = totalVarsToCheck;
             tailwindValidation.totalInvalid = tailwindValidation.invalid.length;
             tailwindValidation.readinessScore = tailwindScore;
+            tailwindValidation.isValid = tailwindValidation.invalid.length === 0 && tailwindValidation.invalidGroups.length === 0;
             const totalContainerNodes = instanceCount + frameCount;
             const layoutHygieneScore = totalContainerNodes === 0 ? 100 : Math.round(autoLayoutCount / totalContainerNodes * 100);
             const isTailwindV4 = exportFormat === "tailwind-v4";

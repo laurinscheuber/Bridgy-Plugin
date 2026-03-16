@@ -8341,7 +8341,7 @@ function updateApplyButtonState(count) {
 }
 
 // Function to commit to GitLab
-function commitToGitLab() {
+async function commitToGitLab() {
   const button = document.getElementById('commit-submit-button');
 
   try {
@@ -8364,8 +8364,10 @@ function commitToGitLab() {
       !window.tailwindV4Validation.isValid
     ) {
       const count = window.tailwindV4Validation.totalInvalid || window.tailwindV4Validation.invalidGroups?.length || 0;
-      const confirmed = confirm(
-        `${count} variable${count === 1 ? ' is' : 's are'} not compatible with Tailwind v4 format.\n\nIncompatible variables may cause issues in the generated code. Please coordinate with your developer before committing.\n\nDo you want to commit anyway?`
+      const confirmed = await UIUtils.showConfirmModal(
+        'Tailwind v4 Compatibility',
+        `${count} variable${count === 1 ? ' is' : 's are'} not compatible with Tailwind v4 format.\n\nIncompatible variables may cause issues in the generated code. Please coordinate with your developer before committing.\n\nDo you want to commit anyway?`,
+        'danger'
       );
       if (!confirmed) return;
     }
