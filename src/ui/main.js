@@ -1754,15 +1754,25 @@ window.onmessage = (event) => {
       checkAndShowUserGuide();
     } else if (message.type === 'git-settings-loaded') {
       updatePluginLoadingProgress(loadingSteps[1], 25);
-      window.gitSettings = message.settings;
-      // Backward compatibility: map GitSettings field names to GitLabSettings field names
-      // so that commit and other legacy code paths can access settings.gitlabUrl / settings.gitlabToken
-      const s = message.settings;
-      window.gitlabSettings = Object.assign({}, s, {
-        gitlabUrl: s.gitlabUrl || s.baseUrl,
-        gitlabToken: s.gitlabToken || s.token,
-      });
+      
+      // Store both providers' settings
+      window.gitlabSettings = message.gitlabSettings;
+      window.githubSettings = message.githubSettings;
+      
+      // Keep legacy window.gitSettings matching the active provider for backward compatibility
+      // with other parts of the code if needed
+      if (message.activeProvider === 'github') {
+        window.gitSettings = message.githubSettings;
+      } else {
+        window.gitSettings = message.gitlabSettings;
+      }
+
       window.gitlabSettingsLoaded = true;
+
+      // Ensure the configuration tab displays the correct active provider
+      selectProvider(message.activeProvider || 'gitlab');
+      
+      // loadConfigurationTab is now responsible for populating inputs based on the selected provider
       loadConfigurationTab();
       updateRepositoryLink();
       updateCommitButtonStates();
@@ -7212,7 +7222,8 @@ function confirmReset() {
 // Function to check if user guide should auto-open
 function checkAndShowUserGuide() {
   // Show guide if no project ID is configured (first-time user)
-  if (!window.gitlabSettings || !window.gitlabSettings.projectId) {
+  const activeSettings = window.gitSettings || window.gitlabSettings;
+  if (!activeSettings || !activeSettings.projectId) {
     setTimeout(() => {
       openUserGuide();
     }, 500); // Small delay to ensure UI is loaded
@@ -7248,6 +7259,9 @@ function selectProvider(provider) {
 
   // Trigger field updates
   onProviderChange();
+
+  // Load the settings into the UI for the newly selected provider
+  loadConfigurationTab(provider);
 }
 // Expose to window for HTML onclick
 window.selectProvider = selectProvider;
@@ -7797,8 +7811,8 @@ function persistSettings(silent = false) {
       }
     }
 
-    // Store settings with provider info
-    window.gitSettings = {
+    // Store settings with provider info into the correct global object
+    const newSettings = {
       provider: provider,
       baseUrl: baseUrl || '', // Keep empty string to show in UI
       projectId: projectId,
@@ -7813,21 +7827,16 @@ function persistSettings(silent = false) {
       savedBy: 'Current user',
     };
 
-    // Keep backward compatibility - Update gitlabSettings for UI components that rely on it
-    // This ensures exportFormat changes are reflected even if provider is not gitlab
-    window.gitlabSettings = {
-      gitlabUrl: baseUrl,
-      projectId: projectId,
-      filePath: filePath,
-      exportFormat: exportFormat,
-      gitlabToken: token,
-      strategy: strategy,
-      branchName: branch,
-      saveToken: saveToken,
-      isPersonal: !shareTeam,
-      savedAt: new Date().toISOString(),
-      savedBy: 'Current user',
-    };
+    if (provider === 'github') {
+      window.githubSettings = newSettings;
+      window.gitSettings = newSettings; // Keep current provider mapped to legacy variable
+    } else {
+      window.gitlabSettings = Object.assign({}, newSettings, {
+        gitlabUrl: newSettings.baseUrl,
+        gitlabToken: newSettings.token
+      });
+      window.gitSettings = window.gitlabSettings;
+    }
 
     parent.postMessage(
       {
@@ -7891,14 +7900,34 @@ function saveConfiguration() {
   persistSettings(false);
 }
 
-function loadConfigurationTab() {
+function loadConfigurationTab(forceProvider = null) {
   try {
-    const settings = window.gitSettings || window.gitlabSettings;
+    // Determine the provider to load natively (from argument or UI state)
+    let provider = forceProvider;
+    if (!provider) {
+      const providerInput = document.getElementById('config-provider');
+      provider = providerInput ? providerInput.value : 'gitlab';
+    }
+
+    // Pick the correct settings blob
+    let settings = provider === 'github' ? window.githubSettings : window.gitlabSettings;
+    
+    // If we're forcing a provider and there are NO settings for it, 
+    // clear out the inputs (except for some defaults).
+    if (!settings) {
+      settings = { provider: provider };
+    }
+
+    // Ensure the visual tab matches the provider being loaded
+    const providerInput = document.getElementById('config-provider');
+    if (providerInput && providerInput.value !== provider) {
+      providerInput.value = provider;
+      document.querySelectorAll('.provider-card').forEach((card) => card.classList.remove('selected'));
+      const card = document.getElementById(`card-${provider}`);
+      if (card) card.classList.add('selected');
+    }
 
     if (settings) {
-      // Determine provider
-      const provider = settings.provider || 'gitlab';
-
       // Validate all elements exist before setting values
       const elements = {
         'config-project-id': settings.projectId || '',
@@ -7936,14 +7965,14 @@ function loadConfigurationTab() {
       const shareTeamElement = document.getElementById('config-share-team');
 
       if (saveTokenElement) {
-        saveTokenElement.checked = window.gitlabSettings.hasOwnProperty('saveToken')
-          ? window.gitlabSettings.saveToken
+        saveTokenElement.checked = settings.hasOwnProperty('saveToken')
+          ? settings.saveToken
           : true;
       }
 
       if (shareTeamElement) {
-        shareTeamElement.checked = window.gitlabSettings.hasOwnProperty('isPersonal')
-          ? !window.gitlabSettings.isPersonal
+        shareTeamElement.checked = settings.hasOwnProperty('isPersonal')
+          ? !settings.isPersonal
           : true;
       }
 
@@ -7964,8 +7993,7 @@ function loadConfigurationTab() {
 
       // Trigger visual update (card selection + accordion logic)
       setTimeout(() => {
-        selectProvider(provider);
-        if (!settings.token) {
+        if (!settings.token && !settings.gitlabToken) {
           toggleAccordion('section-connection');
         } else {
           toggleAccordion('section-connection');
@@ -8170,10 +8198,14 @@ function commitToGitLab() {
       return;
     }
 
+    // Build the settings dynamically based on active UI provider selection
+    const providerInput = document.getElementById('config-provider');
+    const provider = providerInput ? providerInput.value : 'gitlab';
+    const settings = provider === 'github' ? window.githubSettings : window.gitlabSettings;
+
     // Tailwind v4 compatibility confirmation
-    const commitSettings = window.gitlabSettings || window.gitSettings;
     if (
-      commitSettings?.exportFormat === 'tailwind-v4' &&
+      settings?.exportFormat === 'tailwind-v4' &&
       window.tailwindV4Validation &&
       !window.tailwindV4Validation.isValid
     ) {
@@ -8194,7 +8226,6 @@ function commitToGitLab() {
           `);
 
     // Comprehensive settings validation
-    const settings = window.gitlabSettings || window.gitSettings;
     if (!settings) {
       throw new Error(
         'Settings not configured. Please configure your settings in the Config tab first.',
@@ -8205,8 +8236,7 @@ function commitToGitLab() {
       throw new Error('Project/Repository ID is required. Please configure your settings.');
     }
 
-    // Determine provider and validated token
-    const provider = settings.provider || 'gitlab';
+    // Determine validated token
     let token = settings.token;
 
     if (provider === 'gitlab') {
@@ -8254,8 +8284,9 @@ function commitToGitLab() {
   }
 
   try {
-    const settings = window.gitlabSettings || window.gitSettings;
-    const provider = settings.provider || 'gitlab';
+    const providerInput = document.getElementById('config-provider');
+    const provider = providerInput ? providerInput.value : 'gitlab';
+    const settings = provider === 'github' ? window.githubSettings : window.gitlabSettings;
     const projectId = settings.projectId;
     const token = settings.token || settings.gitlabToken;
     const filePath = settings.filePath || 'src/variables.css';

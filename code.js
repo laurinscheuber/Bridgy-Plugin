@@ -8065,24 +8065,28 @@ ${commentPrefix} ${displayName}${commentSuffix}`);
       function loadSavedGitSettings() {
         return __awaiter(this, void 0, void 0, function* () {
           try {
-            const gitService = yield gitServiceFactory_1.GitServiceFactory.getServiceFromSettings();
-            if (gitService) {
-              const settings = yield gitService.loadSettings();
-              if (settings) {
-                figma.ui.postMessage({
-                  type: "git-settings-loaded",
-                  settings
-                });
-                return;
+            const gitlabService = gitServiceFactory_1.GitServiceFactory.getService("gitlab");
+            const githubService = gitServiceFactory_1.GitServiceFactory.getService("github");
+            const [gitlabSettings, githubSettings] = yield Promise.all([
+              gitlabService.loadSettings(),
+              githubService.loadSettings()
+            ]);
+            let activeProvider = "gitlab";
+            if (gitlabSettings && githubSettings) {
+              const gitlabTime = gitlabSettings.savedAt ? new Date(gitlabSettings.savedAt).getTime() : 0;
+              const githubTime = githubSettings.savedAt ? new Date(githubSettings.savedAt).getTime() : 0;
+              if (githubTime > gitlabTime) {
+                activeProvider = "github";
               }
+            } else if (githubSettings) {
+              activeProvider = "github";
             }
-            const gitlabSettings = yield gitlabService_1.GitLabService.loadSettings();
-            if (gitlabSettings) {
-              figma.ui.postMessage({
-                type: "gitlab-settings-loaded",
-                settings: gitlabSettings
-              });
-            }
+            figma.ui.postMessage({
+              type: "git-settings-loaded",
+              gitlabSettings: gitlabSettings || null,
+              githubSettings: githubSettings || null,
+              activeProvider
+            });
           } catch (error) {
             console.error("Error loading Git settings:", error);
           }

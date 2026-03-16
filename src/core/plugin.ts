@@ -265,27 +265,32 @@ async function collectDocumentData() {
 // Load saved Git settings if available
 async function loadSavedGitSettings() {
   try {
-    // Try new format first
-    const gitService = await GitServiceFactory.getServiceFromSettings();
-    if (gitService) {
-      const settings = await gitService.loadSettings();
-      if (settings) {
-        figma.ui.postMessage({
-          type: 'git-settings-loaded',
-          settings: settings,
-        });
-        return;
+    const gitlabService = GitServiceFactory.getService('gitlab');
+    const githubService = GitServiceFactory.getService('github');
+
+    const [gitlabSettings, githubSettings] = await Promise.all([
+      gitlabService.loadSettings(),
+      githubService.loadSettings()
+    ]);
+
+    let activeProvider = 'gitlab';
+    if (gitlabSettings && githubSettings) {
+      const gitlabTime = gitlabSettings.savedAt ? new Date(gitlabSettings.savedAt).getTime() : 0;
+      const githubTime = githubSettings.savedAt ? new Date(githubSettings.savedAt).getTime() : 0;
+      if (githubTime > gitlabTime) {
+        activeProvider = 'github';
       }
+    } else if (githubSettings) {
+      activeProvider = 'github';
     }
 
-    // Fallback to old GitLab settings for backward compatibility
-    const gitlabSettings = await GitLabService.loadSettings();
-    if (gitlabSettings) {
-      figma.ui.postMessage({
-        type: 'gitlab-settings-loaded',
-        settings: gitlabSettings,
-      });
-    }
+    figma.ui.postMessage({
+      type: 'git-settings-loaded',
+      gitlabSettings: gitlabSettings || null,
+      githubSettings: githubSettings || null,
+      activeProvider: activeProvider
+    });
+
   } catch (error) {
     console.error('Error loading Git settings:', error);
     // Silently fail - we'll just prompt the user for settings
