@@ -761,7 +761,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (shareTokenCheckbox && shareTokenModal && confirmShareBtn && cancelShareBtn && shareTokenWarning) {
     shareTokenCheckbox.addEventListener('change', (e) => {
       if (e.target.checked) {
-        shareTokenModal.style.display = 'flex';
+        shareTokenModal.style.display = 'block';
         e.target.checked = false; // Revert visually
       } else {
         shareTokenWarning.style.display = 'none';
