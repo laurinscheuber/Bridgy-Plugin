@@ -3359,6 +3359,7 @@
             savedAt: settings.savedAt,
             savedBy: settings.savedBy,
             isPersonal: settings.isPersonal,
+            shareTokenWithTeam: settings.shareTokenWithTeam,
             _needsCryptoMigration: settings._needsCryptoMigration
           };
         }
@@ -3381,6 +3382,7 @@
             savedAt: settings.savedAt,
             savedBy: settings.savedBy,
             isPersonal: settings.isPersonal,
+            shareTokenWithTeam: settings.shareTokenWithTeam,
             _needsCryptoMigration: settings._needsCryptoMigration
           };
         }

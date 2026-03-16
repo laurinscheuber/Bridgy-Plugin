@@ -657,6 +657,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           branchName: msg.branchName || 'feature/variables',
           exportFormat: msg.exportFormat || 'css',
           saveToken: msg.saveToken || false,
+          shareTokenWithTeam: msg.shareTokenWithTeam || false,
           savedAt: new Date().toISOString(),
           savedBy:
             figma.currentUser && figma.currentUser.name ? figma.currentUser.name : 'Unknown user',

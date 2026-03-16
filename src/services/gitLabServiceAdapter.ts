@@ -25,6 +25,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       savedAt: settings.savedAt,
       savedBy: settings.savedBy,
       isPersonal: settings.isPersonal,
+      shareTokenWithTeam: settings.shareTokenWithTeam,
       _needsCryptoMigration: settings._needsCryptoMigration,
     };
   }
@@ -48,6 +49,7 @@ export class GitLabServiceAdapter implements BaseGitService {
       savedAt: settings.savedAt,
       savedBy: settings.savedBy,
       isPersonal: settings.isPersonal,
+      shareTokenWithTeam: settings.shareTokenWithTeam,
       _needsCryptoMigration: settings._needsCryptoMigration,
     };
   }
