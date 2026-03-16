@@ -1792,6 +1792,30 @@
           return (0, config_1.buildGitLabWebUrlSync)(settings.gitlabUrl);
         }
         /**
+         * Generate pluginData key (document-bound, key is per-document anyway)
+         */
+        static getPluginDataKey() {
+          return `gitlab-settings-${figma.root.id}`;
+        }
+        /**
+         * Generate clientStorage key (global store → must include fileKey for per-document isolation)
+         */
+        static getClientStorageKey() {
+          try {
+            if (figma.fileKey) {
+              return `gitlab-settings-${figma.fileKey}`;
+            }
+          } catch (_e) {
+          }
+          return `gitlab-settings-${figma.root.id}`;
+        }
+        /**
+         * Legacy clientStorage key (for migration)
+         */
+        static getLegacyClientStorageKey() {
+          return `gitlab-settings-${figma.root.id}`;
+        }
+        /**
          * Save GitLab settings to Figma storage
          */
         static saveSettings(settings_1, shareWithTeam_1) {
@@ -1800,47 +1824,49 @@
               throw new Error(config_1.ERROR_MESSAGES.INVALID_SETTINGS);
             }
             try {
-              const figmaFileId = figma.root.id;
-              const settingsKey = `gitlab-settings-${figmaFileId}`;
+              const pluginKey = this.getPluginDataKey();
+              const clientKey = this.getClientStorageKey();
               if (!shareWithTeam) {
-                yield figma.clientStorage.setAsync(settingsKey, settings);
-                figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
+                const personalSettings = Object.assign({}, settings);
+                delete personalSettings.gitlabToken;
+                yield figma.clientStorage.setAsync(clientKey, personalSettings);
+                figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+                figma.root.setPluginData(`${pluginKey}-token-shared`, "false");
               } else {
                 const settingsToSave = Object.assign({}, settings);
                 delete settingsToSave.gitlabToken;
                 settingsToSave.shareTokenWithTeam = shareTokenWithTeam;
-                figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
+                figma.root.setPluginData(pluginKey, JSON.stringify(settingsToSave));
                 if (shareTokenWithTeam && settings.gitlabToken) {
-                  figma.root.setPluginData(`${settingsKey}-shared-token`, settings.gitlabToken);
-                  figma.root.setPluginData(`${settingsKey}-token-shared`, "true");
+                  figma.root.setPluginData(`${pluginKey}-shared-token`, settings.gitlabToken);
+                  figma.root.setPluginData(`${pluginKey}-token-shared`, "true");
                 } else {
-                  figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                  figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
+                  figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+                  figma.root.setPluginData(`${pluginKey}-token-shared`, "false");
                 }
-                if (settings.saveToken && settings.gitlabToken) {
-                  try {
-                    if (cryptoService_1.CryptoService.isAvailable()) {
-                      const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.gitlabToken);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-crypto`, "v2");
-                      if (settings._needsCryptoMigration) {
-                        yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-                        delete settings._needsCryptoMigration;
-                      }
-                    } else {
-                      const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
-                      const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
+              }
+              if (settings.saveToken && settings.gitlabToken) {
+                try {
+                  if (cryptoService_1.CryptoService.isAvailable()) {
+                    const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.gitlabToken);
+                    yield figma.clientStorage.setAsync(`${clientKey}-token`, encryptedToken);
+                    yield figma.clientStorage.setAsync(`${clientKey}-crypto`, "v2");
+                    if (settings._needsCryptoMigration) {
+                      yield figma.clientStorage.deleteAsync(`${clientKey}-key`);
+                      delete settings._needsCryptoMigration;
                     }
-                  } catch (error) {
-                    errorHandler_1.ErrorHandler.handleError(error, {
-                      operation: "encrypt_token",
-                      component: "GitLabService",
-                      severity: "high"
-                    });
+                  } else {
+                    const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
+                    const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.gitlabToken, encryptionKey);
+                    yield figma.clientStorage.setAsync(`${clientKey}-token`, encryptedToken);
+                    yield figma.clientStorage.setAsync(`${clientKey}-key`, encryptionKey);
                   }
+                } catch (error) {
+                  errorHandler_1.ErrorHandler.handleError(error, {
+                    operation: "encrypt_token",
+                    component: "GitLabService",
+                    severity: "high"
+                  });
                 }
               }
             } catch (error) {
@@ -1855,54 +1881,71 @@
         static loadSettings() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
-              const figmaFileId = figma.root.id;
-              const settingsKey = `gitlab-settings-${figmaFileId}`;
-              const documentSettings = figma.root.getPluginData(settingsKey);
+              const pluginKey = this.getPluginDataKey();
+              const clientKey = this.getClientStorageKey();
+              const legacyClientKey = this.getLegacyClientStorageKey();
+              const loadPersonalToken = (settings) => __awaiter(this, void 0, void 0, function* () {
+                for (const key of [clientKey, legacyClientKey]) {
+                  if (key === legacyClientKey && key === clientKey)
+                    continue;
+                  const encryptedToken = yield figma.clientStorage.getAsync(`${key}-token`);
+                  if (!encryptedToken)
+                    continue;
+                  const cryptoVersion = yield figma.clientStorage.getAsync(`${key}-crypto`);
+                  try {
+                    if (cryptoVersion === "v2" && cryptoService_1.CryptoService.isAvailable()) {
+                      settings.gitlabToken = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
+                    } else if (yield figma.clientStorage.getAsync(`${key}-key`)) {
+                      const encryptionKey = yield figma.clientStorage.getAsync(`${key}-key`);
+                      settings.gitlabToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                      settings._needsCryptoMigration = true;
+                    } else {
+                      settings.gitlabToken = encryptedToken;
+                      settings._needsCryptoMigration = true;
+                    }
+                  } catch (error) {
+                    errorHandler_1.ErrorHandler.handleError(error, {
+                      operation: "decrypt_token",
+                      component: "GitLabService",
+                      severity: "medium"
+                    });
+                  }
+                  if (settings.gitlabToken)
+                    return;
+                }
+              });
+              const documentSettings = figma.root.getPluginData(pluginKey);
               if (documentSettings) {
                 try {
                   const settings = JSON.parse(documentSettings);
                   settings.isPersonal = false;
-                  const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
-                  console.log("[DEBUG] GitLabService.loadSettings: JSON shareTokenWithTeam =", settings.shareTokenWithTeam, ", token-shared flag =", tokenShared);
-                  if (tokenShared === "true") {
-                    const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
+                  settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
+                  const tokenShared = figma.root.getPluginData(`${pluginKey}-token-shared`);
+                  if (settings.shareTokenWithTeam && tokenShared === "true") {
+                    const sharedToken = figma.root.getPluginData(`${pluginKey}-shared-token`);
                     if (sharedToken) {
                       settings.gitlabToken = sharedToken;
                     }
                   }
-                  settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
-                  if (!settings.shareTokenWithTeam && settings.saveToken) {
-                    const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-                    const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
-                    if (encryptedToken) {
-                      try {
-                        if (cryptoVersion === "v2" && cryptoService_1.CryptoService.isAvailable()) {
-                          settings.gitlabToken = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
-                        } else if (yield figma.clientStorage.getAsync(`${settingsKey}-key`)) {
-                          const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
-                          settings.gitlabToken = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
-                          settings._needsCryptoMigration = true;
-                        } else {
-                          settings.gitlabToken = encryptedToken;
-                          settings._needsCryptoMigration = true;
-                        }
-                      } catch (error) {
-                        errorHandler_1.ErrorHandler.handleError(error, {
-                          operation: "decrypt_token",
-                          component: "GitLabService",
-                          severity: "medium"
-                        });
-                      }
-                    }
+                  if (!settings.gitlabToken && settings.saveToken) {
+                    yield loadPersonalToken(settings);
                   }
                   return settings;
                 } catch (parseError) {
                   config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITLAB);
                 }
               }
-              const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
-              if (personalSettings) {
-                return Object.assign({}, personalSettings, { isPersonal: true });
+              for (const key of [clientKey, legacyClientKey]) {
+                if (key === legacyClientKey && key === clientKey)
+                  continue;
+                const personalSettings = yield figma.clientStorage.getAsync(key);
+                if (personalSettings) {
+                  const settings = Object.assign({}, personalSettings, { isPersonal: true });
+                  if (settings.saveToken) {
+                    yield loadPersonalToken(settings);
+                  }
+                  return settings;
+                }
               }
               return null;
             } catch (error) {
@@ -1917,14 +1960,18 @@
         static resetSettings() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
-              const figmaFileId = figma.root.id;
-              const settingsKey = `gitlab-settings-${figmaFileId}`;
-              figma.root.setPluginData(settingsKey, "");
-              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
-              yield figma.clientStorage.deleteAsync(settingsKey);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
+              const pluginKey = this.getPluginDataKey();
+              const clientKey = this.getClientStorageKey();
+              const legacyClientKey = this.getLegacyClientStorageKey();
+              figma.root.setPluginData(pluginKey, "");
+              figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+              figma.root.setPluginData(`${pluginKey}-token-shared`, "");
+              for (const key of [clientKey, legacyClientKey]) {
+                yield figma.clientStorage.deleteAsync(key);
+                yield figma.clientStorage.deleteAsync(`${key}-token`);
+                yield figma.clientStorage.deleteAsync(`${key}-key`);
+                yield figma.clientStorage.deleteAsync(`${key}-crypto`);
+              }
             } catch (error) {
               config_1.LoggingService.error("Error resetting GitLab settings", error, config_1.LoggingService.CATEGORIES.GITLAB);
               throw new GitLabAPIError(`Error resetting GitLab settings: ${error.message || "Unknown error"}`, void 0, error);
@@ -2258,25 +2305,27 @@
          */
         static clearAllTokens() {
           return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             try {
-              const fileId = (_a = figma.root) === null || _a === void 0 ? void 0 : _a.id;
-              if (!fileId)
+              if (!figma.root)
                 return;
-              const settingsKey = `gitlab-settings-${fileId}`;
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
-              yield figma.clientStorage.deleteAsync(settingsKey);
-              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
-              const sharedSettings = figma.root.getPluginData(settingsKey);
+              const pluginKey = this.getPluginDataKey();
+              const clientKey = this.getClientStorageKey();
+              const legacyClientKey = this.getLegacyClientStorageKey();
+              for (const key of [clientKey, legacyClientKey]) {
+                yield figma.clientStorage.deleteAsync(`${key}-token`);
+                yield figma.clientStorage.deleteAsync(`${key}-key`);
+                yield figma.clientStorage.deleteAsync(`${key}-crypto`);
+                yield figma.clientStorage.deleteAsync(key);
+              }
+              figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+              figma.root.setPluginData(`${pluginKey}-token-shared`, "");
+              const sharedSettings = figma.root.getPluginData(pluginKey);
               if (sharedSettings) {
                 try {
                   const settings = JSON.parse(sharedSettings);
                   settings.saveToken = false;
                   delete settings.gitlabToken;
-                  figma.root.setPluginData(settingsKey, JSON.stringify(settings));
+                  figma.root.setPluginData(pluginKey, JSON.stringify(settings));
                 } catch (e) {
                 }
               }
@@ -2295,14 +2344,12 @@
          */
         static getTokenInfo() {
           return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            const fileId = (_a = figma.root) === null || _a === void 0 ? void 0 : _a.id;
-            if (!fileId) {
+            if (!figma.root) {
               return { encrypted: false, version: "none", hasToken: false };
             }
-            const settingsKey = `gitlab-settings-${fileId}`;
-            const token = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-            const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+            const clientKey = this.getClientStorageKey();
+            const token = yield figma.clientStorage.getAsync(`${clientKey}-token`);
+            const cryptoVersion = yield figma.clientStorage.getAsync(`${clientKey}-crypto`);
             return {
               hasToken: !!token,
               encrypted: !!token,
@@ -2858,11 +2905,28 @@
           return { owner: parts[0], repo: parts[1] };
         }
         /**
-         * Generate storage key for settings
+         * Generate storage key for pluginData (document-bound, key is per-document anyway)
          */
-        static getSettingsKey() {
-          const figmaFileId = figma.root.id;
-          return `github-settings-${figmaFileId}`;
+        static getPluginDataKey() {
+          return `github-settings-${figma.root.id}`;
+        }
+        /**
+         * Generate storage key for clientStorage (global store → must include fileKey for per-document isolation)
+         */
+        static getClientStorageKey() {
+          try {
+            if (figma.fileKey) {
+              return `github-settings-${figma.fileKey}`;
+            }
+          } catch (_e) {
+          }
+          return `github-settings-${figma.root.id}`;
+        }
+        /**
+         * Legacy key used before fileKey-based isolation (for migration)
+         */
+        static getLegacyClientStorageKey() {
+          return `github-settings-${figma.root.id}`;
         }
         saveSettings(settings_1, shareWithTeam_1) {
           return __awaiter(this, arguments, void 0, function* (settings, shareWithTeam, shareTokenWithTeam = false) {
@@ -2870,49 +2934,52 @@
               throw new Error(config_1.ERROR_MESSAGES.INVALID_SETTINGS);
             }
             try {
-              const settingsKey = _GitHubService.getSettingsKey();
+              const pluginKey = _GitHubService.getPluginDataKey();
+              const clientKey = _GitHubService.getClientStorageKey();
               if (!shareWithTeam) {
-                yield figma.clientStorage.setAsync(settingsKey, settings);
-                figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
+                const personalSettings = Object.assign({}, settings);
+                delete personalSettings.token;
+                yield figma.clientStorage.setAsync(clientKey, personalSettings);
+                figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+                figma.root.setPluginData(`${pluginKey}-token-shared`, "false");
               } else {
                 const settingsToSave = Object.assign({}, settings);
                 delete settingsToSave.token;
                 settingsToSave.shareTokenWithTeam = shareTokenWithTeam;
-                figma.root.setPluginData(settingsKey, JSON.stringify(settingsToSave));
+                figma.root.setPluginData(pluginKey, JSON.stringify(settingsToSave));
                 if (shareTokenWithTeam && settings.token) {
-                  figma.root.setPluginData(`${settingsKey}-shared-token`, settings.token);
-                  figma.root.setPluginData(`${settingsKey}-token-shared`, "true");
+                  figma.root.setPluginData(`${pluginKey}-shared-token`, settings.token);
+                  figma.root.setPluginData(`${pluginKey}-token-shared`, "true");
                 } else {
-                  figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-                  figma.root.setPluginData(`${settingsKey}-token-shared`, "false");
+                  figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+                  figma.root.setPluginData(`${pluginKey}-token-shared`, "false");
                 }
-                if (settings.saveToken && settings.token) {
+              }
+              if (settings.saveToken && settings.token) {
+                try {
+                  let cryptoAvailable = false;
                   try {
-                    let cryptoAvailable = false;
-                    try {
-                      cryptoAvailable = cryptoService_1.CryptoService.isAvailable();
-                    } catch (cryptoError) {
-                      console.warn("CryptoService.isAvailable() failed:", cryptoError);
-                      cryptoAvailable = false;
-                    }
-                    if (cryptoAvailable) {
-                      const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.token);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-crypto`, "v2");
-                    } else {
-                      const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
-                      const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.token, encryptionKey);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-token`, encryptedToken);
-                      yield figma.clientStorage.setAsync(`${settingsKey}-key`, encryptionKey);
-                    }
-                  } catch (error) {
-                    errorHandler_1.ErrorHandler.handleError(error, {
-                      operation: "encrypt_token",
-                      component: "GitHubService",
-                      severity: "high"
-                    });
+                    cryptoAvailable = cryptoService_1.CryptoService.isAvailable();
+                  } catch (cryptoError) {
+                    console.warn("CryptoService.isAvailable() failed:", cryptoError);
+                    cryptoAvailable = false;
                   }
+                  if (cryptoAvailable) {
+                    const encryptedToken = yield cryptoService_1.CryptoService.encrypt(settings.token);
+                    yield figma.clientStorage.setAsync(`${clientKey}-token`, encryptedToken);
+                    yield figma.clientStorage.setAsync(`${clientKey}-crypto`, "v2");
+                  } else {
+                    const encryptionKey = securityUtils_1.SecurityUtils.generateEncryptionKey();
+                    const encryptedToken = securityUtils_1.SecurityUtils.encryptData(settings.token, encryptionKey);
+                    yield figma.clientStorage.setAsync(`${clientKey}-token`, encryptedToken);
+                    yield figma.clientStorage.setAsync(`${clientKey}-key`, encryptionKey);
+                  }
+                } catch (error) {
+                  errorHandler_1.ErrorHandler.handleError(error, {
+                    operation: "encrypt_token",
+                    component: "GitHubService",
+                    severity: "high"
+                  });
                 }
               }
             } catch (error) {
@@ -2924,57 +2991,75 @@
         loadSettings() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
-              const settingsKey = _GitHubService.getSettingsKey();
-              const documentSettings = figma.root.getPluginData(settingsKey);
+              const pluginKey = _GitHubService.getPluginDataKey();
+              const clientKey = _GitHubService.getClientStorageKey();
+              const legacyClientKey = _GitHubService.getLegacyClientStorageKey();
+              const loadPersonalToken = (settings) => __awaiter(this, void 0, void 0, function* () {
+                for (const key of [clientKey, legacyClientKey]) {
+                  if (key === legacyClientKey && key === clientKey)
+                    continue;
+                  const encryptedToken = yield figma.clientStorage.getAsync(`${key}-token`);
+                  if (!encryptedToken)
+                    continue;
+                  const cryptoVersion = yield figma.clientStorage.getAsync(`${key}-crypto`);
+                  try {
+                    let cryptoAvailable = false;
+                    try {
+                      cryptoAvailable = cryptoService_1.CryptoService.isAvailable();
+                    } catch (cryptoError) {
+                      console.warn("CryptoService.isAvailable() failed during decrypt:", cryptoError);
+                      cryptoAvailable = false;
+                    }
+                    if (cryptoVersion === "v2" && cryptoAvailable) {
+                      settings.token = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
+                    } else if (yield figma.clientStorage.getAsync(`${key}-key`)) {
+                      const encryptionKey = yield figma.clientStorage.getAsync(`${key}-key`);
+                      settings.token = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
+                      settings._needsCryptoMigration = true;
+                    }
+                  } catch (error) {
+                    errorHandler_1.ErrorHandler.handleError(error, {
+                      operation: "decrypt_token",
+                      component: "GitHubService",
+                      severity: "medium"
+                    });
+                  }
+                  if (settings.token)
+                    return;
+                }
+              });
+              const documentSettings = figma.root.getPluginData(pluginKey);
               if (documentSettings) {
                 try {
                   const settings = JSON.parse(documentSettings);
                   settings.isPersonal = false;
-                  const tokenShared = figma.root.getPluginData(`${settingsKey}-token-shared`);
-                  console.log("[DEBUG] GitHubService.loadSettings: JSON shareTokenWithTeam =", settings.shareTokenWithTeam, ", token-shared flag =", tokenShared);
-                  if (tokenShared === "true") {
-                    const sharedToken = figma.root.getPluginData(`${settingsKey}-shared-token`);
+                  settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
+                  const tokenShared = figma.root.getPluginData(`${pluginKey}-token-shared`);
+                  if (settings.shareTokenWithTeam && tokenShared === "true") {
+                    const sharedToken = figma.root.getPluginData(`${pluginKey}-shared-token`);
                     if (sharedToken) {
                       settings.token = sharedToken;
                     }
                   }
-                  settings.shareTokenWithTeam = !!settings.shareTokenWithTeam;
-                  if (!settings.shareTokenWithTeam && settings.saveToken) {
-                    const encryptedToken = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-                    const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
-                    if (encryptedToken) {
-                      try {
-                        let cryptoAvailable = false;
-                        try {
-                          cryptoAvailable = cryptoService_1.CryptoService.isAvailable();
-                        } catch (cryptoError) {
-                          console.warn("CryptoService.isAvailable() failed during decrypt:", cryptoError);
-                          cryptoAvailable = false;
-                        }
-                        if (cryptoVersion === "v2" && cryptoAvailable) {
-                          settings.token = yield cryptoService_1.CryptoService.decrypt(encryptedToken);
-                        } else if (yield figma.clientStorage.getAsync(`${settingsKey}-key`)) {
-                          const encryptionKey = yield figma.clientStorage.getAsync(`${settingsKey}-key`);
-                          settings.token = securityUtils_1.SecurityUtils.decryptData(encryptedToken, encryptionKey);
-                          settings._needsCryptoMigration = true;
-                        }
-                      } catch (error) {
-                        errorHandler_1.ErrorHandler.handleError(error, {
-                          operation: "decrypt_token",
-                          component: "GitHubService",
-                          severity: "medium"
-                        });
-                      }
-                    }
+                  if (!settings.token && settings.saveToken) {
+                    yield loadPersonalToken(settings);
                   }
                   return settings;
                 } catch (parseError) {
                   config_1.LoggingService.error("Error parsing document settings", parseError, config_1.LoggingService.CATEGORIES.GITHUB);
                 }
               }
-              const personalSettings = yield figma.clientStorage.getAsync(settingsKey);
-              if (personalSettings) {
-                return Object.assign({}, personalSettings, { isPersonal: true });
+              for (const key of [clientKey, legacyClientKey]) {
+                if (key === legacyClientKey && key === clientKey)
+                  continue;
+                const personalSettings = yield figma.clientStorage.getAsync(key);
+                if (personalSettings) {
+                  const settings = Object.assign({}, personalSettings, { isPersonal: true });
+                  if (settings.saveToken) {
+                    yield loadPersonalToken(settings);
+                  }
+                  return settings;
+                }
               }
               return null;
             } catch (error) {
@@ -2986,14 +3071,18 @@
         resetSettings() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
-              const settingsKey = _GitHubService.getSettingsKey();
-              figma.root.setPluginData(settingsKey, "");
-              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
-              yield figma.clientStorage.deleteAsync(settingsKey);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
+              const pluginKey = _GitHubService.getPluginDataKey();
+              const clientKey = _GitHubService.getClientStorageKey();
+              const legacyClientKey = _GitHubService.getLegacyClientStorageKey();
+              figma.root.setPluginData(pluginKey, "");
+              figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+              figma.root.setPluginData(`${pluginKey}-token-shared`, "");
+              for (const key of [clientKey, legacyClientKey]) {
+                yield figma.clientStorage.deleteAsync(key);
+                yield figma.clientStorage.deleteAsync(`${key}-token`);
+                yield figma.clientStorage.deleteAsync(`${key}-key`);
+                yield figma.clientStorage.deleteAsync(`${key}-crypto`);
+              }
             } catch (error) {
               config_1.LoggingService.error("Error resetting GitHub settings", error, config_1.LoggingService.CATEGORIES.GITHUB);
               throw new baseGitService_1.GitServiceError(`Error resetting GitHub settings: ${error.message || "Unknown error"}`, void 0, error);
@@ -3306,20 +3395,24 @@
         clearAllTokens() {
           return __awaiter(this, void 0, void 0, function* () {
             try {
-              const settingsKey = _GitHubService.getSettingsKey();
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-token`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-key`);
-              yield figma.clientStorage.deleteAsync(`${settingsKey}-crypto`);
-              yield figma.clientStorage.deleteAsync(settingsKey);
-              figma.root.setPluginData(`${settingsKey}-shared-token`, "");
-              figma.root.setPluginData(`${settingsKey}-token-shared`, "");
-              const sharedSettings = figma.root.getPluginData(settingsKey);
+              const pluginKey = _GitHubService.getPluginDataKey();
+              const clientKey = _GitHubService.getClientStorageKey();
+              const legacyClientKey = _GitHubService.getLegacyClientStorageKey();
+              for (const key of [clientKey, legacyClientKey]) {
+                yield figma.clientStorage.deleteAsync(`${key}-token`);
+                yield figma.clientStorage.deleteAsync(`${key}-key`);
+                yield figma.clientStorage.deleteAsync(`${key}-crypto`);
+                yield figma.clientStorage.deleteAsync(key);
+              }
+              figma.root.setPluginData(`${pluginKey}-shared-token`, "");
+              figma.root.setPluginData(`${pluginKey}-token-shared`, "");
+              const sharedSettings = figma.root.getPluginData(pluginKey);
               if (sharedSettings) {
                 try {
                   const settings = JSON.parse(sharedSettings);
                   settings.saveToken = false;
                   delete settings.token;
-                  figma.root.setPluginData(settingsKey, JSON.stringify(settings));
+                  figma.root.setPluginData(pluginKey, JSON.stringify(settings));
                 } catch (e) {
                 }
               }
@@ -3335,9 +3428,9 @@
         }
         getTokenInfo() {
           return __awaiter(this, void 0, void 0, function* () {
-            const settingsKey = _GitHubService.getSettingsKey();
-            const token = yield figma.clientStorage.getAsync(`${settingsKey}-token`);
-            const cryptoVersion = yield figma.clientStorage.getAsync(`${settingsKey}-crypto`);
+            const clientKey = _GitHubService.getClientStorageKey();
+            const token = yield figma.clientStorage.getAsync(`${clientKey}-token`);
+            const cryptoVersion = yield figma.clientStorage.getAsync(`${clientKey}-crypto`);
             return {
               hasToken: !!token,
               encrypted: !!token,
