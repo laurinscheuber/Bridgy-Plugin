@@ -1,3 +1,73 @@
+// ===== UI UTILITIES IMPORT =====
+window.UIUtils = {
+  showAlertModal: function(title, message) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('generic-alert-modal');
+      document.getElementById('generic-alert-title').innerText = title;
+      document.getElementById('generic-alert-message').innerText = message;
+      
+      const okBtn = document.getElementById('generic-alert-ok-btn');
+      
+      const cleanup = () => {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', onOk);
+      };
+      
+      const onOk = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      okBtn.addEventListener('click', onOk);
+      modal.style.display = 'block';
+    });
+  },
+  
+  showConfirmModal: function(title, message, type = 'warning') {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('generic-confirm-modal');
+      document.getElementById('generic-confirm-title').innerText = title;
+      document.getElementById('generic-confirm-message').innerText = message;
+      
+      const icon = document.getElementById('generic-confirm-icon');
+      if (type === 'delete') {
+        icon.innerText = 'delete_forever';
+        icon.parentElement.style.color = '#ef4444'; // Red
+      } else if (type === 'danger') {
+        icon.innerText = 'warning';
+        icon.parentElement.style.color = '#ef4444'; // Red
+      } else {
+        icon.innerText = 'help';
+        icon.parentElement.style.color = 'var(--warning-400)'; // Orange/Yellow
+      }
+
+      const okBtn = document.getElementById('generic-confirm-ok-btn');
+      const cancelBtn = document.getElementById('generic-confirm-cancel-btn');
+      
+      const cleanup = () => {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+      };
+      
+      const onOk = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      const onCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      
+      modal.style.display = 'block';
+    });
+  }
+};
+
 // ===== SECURITY UTILITIES IMPORT =====
 // Import SecurityUtils and ErrorHandler for secure HTML handling
 class SecurityUtils {
@@ -336,8 +406,16 @@ class UIHelper {
             `;
   }
 
-  static renderEmptyState(message) {
-    return `<div class="no-items">${message}</div>`;
+  static renderEmptyState(title, subtitle, icon = 'category') {
+    return `
+      <div class="empty-state-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; color: rgba(255, 255, 255, 0.5);">
+        <div class="empty-state-icon" style="background: rgba(255, 255, 255, 0.05); border-radius: 50%; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span class="material-symbols-outlined" style="font-size: 32px; color: rgba(255, 255, 255, 0.6);">${icon}</span>
+        </div>
+        <h3 class="empty-state-title" style="margin: 0 0 8px 0; font-size: 15px; font-weight: 500; color: rgba(255, 255, 255, 0.9);">${title}</h3>
+        <p class="empty-state-description" style="margin: 0; font-size: 13px; line-height: 1.5; max-width: 250px;">${subtitle}</p>
+      </div>
+    `;
   }
 
   static createSkeletonLoader() {
@@ -753,33 +831,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize Share Token Modal Logic
   const shareTokenCheckbox = document.getElementById('config-share-token');
-  const shareTokenModal = document.getElementById('share-token-modal');
-  const confirmShareBtn = document.getElementById('confirm-share-token-btn');
-  const cancelShareBtn = document.getElementById('cancel-share-token-btn');
   const shareTokenWarning = document.getElementById('share-token-warning');
 
-  if (shareTokenCheckbox && shareTokenModal && confirmShareBtn && cancelShareBtn && shareTokenWarning) {
-    shareTokenCheckbox.addEventListener('change', (e) => {
+  if (shareTokenCheckbox && shareTokenWarning) {
+    shareTokenCheckbox.addEventListener('change', async (e) => {
+      // If turning ON
       if (e.target.checked) {
-        shareTokenModal.style.display = 'block';
-        e.target.checked = false; // Revert visually
+        e.target.checked = false; // Revert visually immediately
+        
+        const confirmed = await window.UIUtils.showConfirmModal(
+          'Share Access Token', 
+          'Are you completely sure you want to enable this? The access token will be saved in cleartext and is fully readable by anyone with access to this Figma file.',
+          'danger'
+        );
+        
+        if (confirmed) {
+          shareTokenCheckbox.checked = true;
+          shareTokenWarning.style.display = 'block';
+          persistSettings(true);
+        }
       } else {
+        // If turning OFF
         shareTokenWarning.style.display = 'none';
         persistSettings(true);
       }
-    });
-
-    confirmShareBtn.addEventListener('click', () => {
-      shareTokenCheckbox.checked = true;
-      shareTokenWarning.style.display = 'block';
-      shareTokenModal.style.display = 'none';
-      persistSettings(true);
-    });
-
-    cancelShareBtn.addEventListener('click', () => {
-      shareTokenCheckbox.checked = false;
-      shareTokenWarning.style.display = 'none';
-      shareTokenModal.style.display = 'none';
     });
   }
 });
@@ -2021,6 +2096,17 @@ window.onmessage = (event) => {
         'Variable Deleted',
         `Variable "${message.variableName}" deleted successfully`,
       );
+
+      // Fade out the deleted variable row
+      // The ID is generated as: var-{sanitizedName}
+      const sanitizedId = message.variableName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+      const rowElement = document.getElementById(`var-${sanitizedId}`);
+      if (rowElement) {
+        rowElement.classList.add('quality-fade-out');
+        rowElement.style.opacity = '0';
+        rowElement.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => rowElement.remove(), 300);
+      }
     } else if (message.type === 'style-deleted') {
       // Handle successful style deletion
       console.log(`Style deleted successfully: ${message.styleName}`);
@@ -2814,15 +2900,24 @@ window.onmessage = (event) => {
       }
 
       // Update data references
-      if (message.variables) window.variablesData = message.variables;
-      if (message.styles) window.stylesData = message.styles;
-      if (message.components) window.componentsData = message.components;
+      if (message.variables) variablesData = message.variables;
+      if (message.styles) stylesData = message.styles;
+      if (message.components) componentsData = message.components;
 
       // Render variables (and styles are called within)
       try {
+        renderVariables(variablesData, stylesData);
+      } catch (err) {
+        console.error('Error rendering refreshed data:', err);
+      }
+    } else if (message.type === 'data-refreshed') {
+      // Silent data refresh success
+      if (message.variables) variablesData = message.variables;
+      if (message.styles) stylesData = message.styles;
+      if (message.components) componentsData = message.components;
 
-        renderVariables(window.variablesData);
-
+      try {
+        renderVariables(variablesData, stylesData);
       } catch (err) {
         console.error('[DEBUG] renderVariables crashed:', err);
       }
@@ -3299,11 +3394,14 @@ function renderVariables(data, stylesData = null) {
     (stylesData.gridStyles && stylesData.gridStyles.length > 0)
   );
 
-  if (data.length === 0 && !hasStyles) {
+  if (totalVariables === 0 && !hasStyles) {
     container.innerHTML = '';
     const noItemsDiv = document.createElement('div');
-    noItemsDiv.className = 'no-items';
-    noItemsDiv.textContent = 'No variables or styles found.';
+    noItemsDiv.innerHTML = UIHelper.renderEmptyState(
+      'No variables or styles found',
+      'Variables and styles defined in this file will appear here.',
+      'data_object'
+    );
     container.appendChild(noItemsDiv);
     return;
   }
@@ -3415,6 +3513,7 @@ function renderVariables(data, stylesData = null) {
     // Show a single combined warning if there are any issues
     const hasAnyIssues = tailwindIssues.length > 0 || validationIssues.length > 0;
     if (hasAnyIssues) {
+      /*
       warningHtml += `
                     <div class="validation-alert validation-alert-warning" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);">
                       <div style="display: flex; align-items: center; gap: 12px;">
@@ -3428,6 +3527,7 @@ function renderVariables(data, stylesData = null) {
                       </button>
                     </div>
                   `;
+      */
     }
 
     warningContainer.innerHTML = warningHtml;
@@ -4634,7 +4734,11 @@ function renderComponents(data) {
       document
         .createRange()
         .createContextualFragment(
-          UIHelper.renderEmptyState('No components found in this document.'),
+          UIHelper.renderEmptyState(
+            'No local components found',
+            'Components defined in this file will appear here.',
+            'category'
+          ),
         ),
     );
     return;
@@ -6033,8 +6137,8 @@ function renderUnusedVariablesContent(result) {
 
         // Right side: Delete button
         '<div style="display: flex; align-items: center; gap: 4px;">' +
-        '<button class="icon-btn-delete" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'' + rowId + '\')" title="Delete variable" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4); transition: color 0.15s ease;" onmouseover="this.style.color=\'#f87171\'" onmouseout="this.style.color=\'rgba(255,255,255,0.4)\'">' +
-        '<span class="material-symbols-outlined" style="font-size: 16px;">delete</span>' +
+        '<button class="icon-button delete-btn" onclick="deleteUnusedVariableNew(\'' + variable.id + '\', \'' + displayName + '\', \'' + rowId + '\')" title="Delete variable">' +
+        '<span class="material-symbols-outlined">delete</span>' +
         '</button>' +
         '</div>' +
         '</div></div>';
@@ -6107,13 +6211,18 @@ function renderUnusedComponentsContent(result) {
     if (hasVariants) {
       const groupId = 'uc-' + idx;
       const variantIds = component.unusedVariants.map(v => v.id).join(',');
+      const unusedVariantsCount = component.unusedVariants.length;
 
       html += '<div class="quality-accordion" id="' + groupId + '" data-component-id="' + component.id + '" style="margin-bottom: 4px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02);">' +
         '<div class="quality-accordion-header" onclick="toggleQualityAccordion(\'' + groupId + '\')">' +
         '<span class="material-symbols-outlined quality-accordion-chevron" style="font-size: 18px;">chevron_right</span>' +
         '<span class="quality-accordion-title" style="text-transform: none; letter-spacing: normal; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500;">' + displayName + '</span>' +
-        '<span class="quality-variant-badge">' + component.unusedVariantCount + '/' + component.totalVariants + '</span>' +
-        '<button class="quality-delete-btn" onclick="event.stopPropagation(); deleteAllUnusedVariants(\'' + component.id + '\', \'' + displayName + '\', \'' + variantIds + '\')" title="Delete all unused variants" style="background: transparent; border: none; box-shadow: none; padding: 4px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>' +
+        '<span class="quality-variant-badge">' + unusedVariantsCount + '/' + component.totalVariants + '</span>' +
+        // Delete all unused variants button (only if more than 1)
+        (unusedVariantsCount > 1 ?
+        '<button class="icon-button delete-btn" onclick="event.stopPropagation(); deleteAllUnusedVariants(\'' + component.id + '\', \'' + displayName + '\', \'' + variantIds + '\')" title="Delete all unused variants">' +
+        '<span class="material-symbols-outlined">delete</span>' +
+        '</button>' : '') +
         '</div>' +
         '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none; margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);">' +
         '<div class="quality-variant-list" style="display: flex; flex-direction: column; gap: 0;">';
@@ -6127,7 +6236,9 @@ function renderUnusedComponentsContent(result) {
           '</div>' +
           '<div class="quality-row-actions" style="display: flex; gap: 4px; align-items: center;">' +
           '<button class="icon-btn-focus" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
-          '<button class="icon-btn-delete" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+          '<button class="icon-button delete-btn" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant">' +
+          '<span class="material-symbols-outlined">delete</span>' +
+          '</button>' +
           '</div></div></div>';
       });
 
@@ -6140,7 +6251,9 @@ function renderUnusedComponentsContent(result) {
         '</div>' +
         '<div class="quality-row-actions" style="display: flex; gap: 4px; align-items: center;">' +
         '<button class="icon-btn-focus" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
-        '<button class="icon-btn-delete" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">delete</span></button>' +
+        '<button class="icon-button delete-btn" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component">' +
+        '<span class="material-symbols-outlined">delete</span>' +
+        '</button>' +
         '</div></div></div>';
     }
   });
@@ -6231,7 +6344,17 @@ function renderTailwindContent(validation) {
   container.innerHTML = html;
 }
 
-window.deleteUnusedVariableNew = function (variableId, variableName, rowId) {
+window.deleteUnusedVariableNew = async function (variableId, variableName, rowId) {
+  const isConfirmed = await UIUtils.showConfirmModal(
+    'Delete Variable',
+    `Are you sure you want to delete the variable "${variableName}"? This action cannot be undone.`,
+    'delete'
+  );
+
+  if (!isConfirmed) {
+    return;
+  }
+
   parent.postMessage({ pluginMessage: { type: 'delete-variable', variableId, variableName } }, '*');
 
   const row = document.getElementById(rowId);
@@ -6422,13 +6545,11 @@ function renderStats(statsData, filteredData = null) {
 
   // 2. Render Table or Empty State to Bottom Container
   if (!statsData || statsData.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📊</div>
-        <div class="empty-text">No local components found in this file</div>
-        <div class="empty-subtext">Components defined in this file will appear here</div>
-      </div>
-    `;
+    container.innerHTML = UIHelper.renderEmptyState(
+      'No components found',
+      'Local components created in this file will appear here.',
+      'dataset'
+    );
     return;
   }
 
@@ -7349,7 +7470,9 @@ function onProviderChange() {
     if (githubUrlGroup) githubUrlGroup.style.display = 'block';
     if (projectIdLabel) projectIdLabel.textContent = 'Repository';
     if (projectIdInput) projectIdInput.placeholder = 'e.g. owner/repository';
-    if (browseButton) browseButton.style.display = 'block'; // GitHub supports repo browse
+    if (browseButton) {
+      browseButton.style.display = tokenInput && tokenInput.value.trim() ? 'block' : 'none';
+    }
     if (browseBranchesButton) {
       browseBranchesButton.style.display = tokenInput && tokenInput.value.trim() ? 'block' : 'none';
     }
