@@ -20,9 +20,8 @@
       <div class="header-title">
         <h1>Bridgy</h1>
         <div
-          class="beta-badge"
+          class="beta-badge cursor-pointer"
           onclick="toggleFeedback()"
-          style="cursor: pointer"
           data-tooltip="Click to show feedback"
         >
           BETA
@@ -67,12 +66,12 @@
   </header>
 
   <!-- Toggleable Feedback Section -->
-  <div id="feedback-section" class="feedback-section" style="display: none">
+  <div id="feedback-section" class="feedback-section hidden">
     <div class="feedback-header">
       <div class="feedback-title">
         Welcome to Bridgy BETA!
       </div>
-      <div style="display: flex; align-items: center; gap: var(--space-2)">
+      <div class="flex-center-gap-2">
         <a href="https://bridgy-plugin.com/" target="_blank" class="feedback-website-link">
           Visit our website
         </a>
@@ -133,7 +132,7 @@
         </div>
 
         <div id="variable-search-wrapper" class="search-wrapper-collapsible">
-          <div class="search-input-wrapper" style="flex: 1">
+          <div class="search-input-wrapper flex-1">
             <input
               type="text"
               class="search-input"
@@ -145,7 +144,7 @@
               id="clear-variable-search"
               onclick="clearSearch('variable-search')"
             >
-              <span class="material-symbols-outlined" style="font-size: 16px">close</span>
+              <span class="material-symbols-outlined icon-size-sm">close</span>
             </button>
           </div>
         </div>
@@ -172,18 +171,9 @@
       </div>
 
       <!-- Tab Header -->
-      <div class="tab-header" style="margin-bottom: var(--space-2)">
-        <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px">
-          <h2
-            style="
-              color: rgba(255, 255, 255, 0.9);
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              font-size: 1.2rem;
-              margin: 0;
-            "
-          >
+      <div class="tab-header tab-header-spacing">
+        <div class="flex-baseline-row">
+          <h2 class="tab-header-title">
             Variables
           </h2>
           <div id="variables-summary" class="header-summary">
@@ -237,7 +227,7 @@
           <div class="quality-dropdown-cell">
             <!-- Page Selection Dropdown -->
             <div id="quality-page-selector-container" class="quality-page-selector">
-              <div style="font-size: 11px; opacity: 0.5;">Checking Pages...</div>
+              <div class="guide-page-label">Checking Pages...</div>
             </div>
           </div>
         </div>
@@ -259,7 +249,7 @@
               <span class="cat-percent" id="pct-missing-variables">0%</span>
             </div>
           </div>
-          <div class="quality-category-body" id="body-missing-variables" style="display: none;">
+          <div class="quality-category-body hidden" id="body-missing-variables">
             <div id="missing-variables-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -280,7 +270,7 @@
               <span class="cat-percent" id="pct-unused-variables">0%</span>
             </div>
           </div>
-          <div class="quality-category-body" id="body-unused-variables" style="display: none;">
+          <div class="quality-category-body hidden" id="body-unused-variables">
             <div id="unused-variables-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -301,7 +291,7 @@
               <span class="cat-percent" id="pct-unused-components">0%</span>
             </div>
           </div>
-          <div class="quality-category-body" id="body-unused-components" style="display: none;">
+          <div class="quality-category-body hidden" id="body-unused-components">
             <div id="unused-components-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -309,7 +299,7 @@
         </div>
 
         <!-- 4. Tailwind Incompatible Variables (conditional) -->
-        <div id="quality-cat-tailwind" class="quality-category-section" style="display: none;">
+        <div id="quality-cat-tailwind" class="quality-category-section hidden">
           <div class="quality-category-header" onclick="toggleQualitySection('quality-cat-tailwind')">
             <span class="material-symbols-outlined quality-category-chevron">chevron_right</span>
             <h3 class="quality-category-title" data-tooltip="Variables that need Tailwind v4 compatible namespaces.">Tailwind Incompatible Variables</h3>
@@ -322,7 +312,7 @@
               <span class="cat-percent" id="pct-tailwind">0%</span>
             </div>
           </div>
-          <div class="quality-category-body" id="body-tailwind" style="display: none;">
+          <div class="quality-category-body hidden" id="body-tailwind">
             <div id="tailwind-content">
               <div class="quality-loading"><div class="quality-loading-spinner"></div><span>Analyzing...</span></div>
             </div>
@@ -335,40 +325,31 @@
   <div class="tab-content" id="stats-content">
     <div class="content-padding">
       <!-- Tab Header -->
-      <div class="tab-header" style="margin-bottom: var(--space-2)">
-        <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px">
-          <h2
-            style="
-              color: rgba(255, 255, 255, 0.9);
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              font-size: 1.2rem;
-              margin: 0;
-            "
-          >
+      <div class="tab-header tab-header-spacing">
+        <div class="flex-baseline-row">
+          <h2 class="tab-header-title">
             Components
           </h2>
         </div>
-        <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin: 0">
+        <p class="tab-subtitle">
           Overview of all components and their usage frequency in the current document.
         </p>
       </div>
 
-      <div id="stats-summary-container" style="margin-bottom: 24px;">
+      <div id="stats-summary-container" class="section-spacing-md">
         <!-- Summary cards will be injected here -->
       </div>
 
-      <div class="toolbar" style="margin-bottom: 24px;">
+      <div class="toolbar section-spacing-md">
         <div class="toolbar-group">
           <!-- Multi-page Selector -->
-          <div id="stats-page-selector-container" style="display: flex; align-items: center; gap: 8px;">
+          <div id="stats-page-selector-container" class="stats-page-selector">
             <!-- Will be injected by JS -->
           </div>
         </div>
 
-        <div id="stats-search-wrapper" class="search-wrapper-collapsible" style="display: flex; flex: 1; justify-content: flex-end;">
-          <div class="search-input-wrapper" style="max-width: 200px;">
+        <div id="stats-search-wrapper" class="search-wrapper-collapsible stats-search-active">
+          <div class="search-input-wrapper search-input-narrow">
             <input
               type="text"
               class="search-input"
@@ -380,7 +361,7 @@
               id="clear-stats-search"
               onclick="clearSearch('stats-search')"
             >
-              <span class="material-symbols-outlined" style="font-size: 16px">close</span>
+              <span class="material-symbols-outlined icon-size-sm">close</span>
             </button>
           </div>
         </div>
@@ -444,7 +425,7 @@
 </div>
 
 <!-- Settings Modal -->
-<div id="settings-modal" class="modal" style="display: none">
+<div id="settings-modal" class="modal">
   <div class="modal-content">
     <button class="close-modal" onclick="closeSettingsModal()">
       <span class="material-symbols-outlined">close</span>
@@ -457,25 +438,25 @@
       <!-- New UX: 1. Provider Selection -->
       <div class="provider-cards">
         <div class="provider-card" id="card-gitlab" onclick="selectProvider('gitlab')">
-          <div class="provider-icon" style="color: #fc6d26">
+          <div class="provider-icon color-gitlab">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
               <path
                 d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .41.26l2.47 7.6h8.6l2.47-7.6a.43.43 0 0 1 .41-.26.42.42 0 0 1 .11.02l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.94z"
               />
             </svg>
           </div>
-          <div style="font-weight: 600; color: #fff">GitLab</div>
+          <div class="provider-name">GitLab</div>
         </div>
 
         <div class="provider-card" id="card-github" onclick="selectProvider('github')">
-          <div class="provider-icon" style="color: #fff">
+          <div class="provider-icon color-white">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
               <path
                 d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"
               />
             </svg>
           </div>
-          <div style="font-weight: 600; color: #fff">GitHub</div>
+          <div class="provider-name">GitHub</div>
         </div>
       </div>
 
@@ -507,7 +488,7 @@
             </div>
 
             <!-- GitHub URL -->
-            <div class="settings-input-group" id="github-url-group" style="display: none">
+            <div class="settings-input-group hidden" id="github-url-group">
               <label class="settings-label" for="config-github-url">GitHub Enterprise URL</label>
               <input
                 type="text"
@@ -524,32 +505,30 @@
               <label class="settings-label" for="config-project-id" id="project-id-label"
                 >Project ID / Repository</label
               >
-              <div style="display: flex; gap: 8px">
+              <div class="input-with-action">
                 <input
                   type="text"
                   id="config-project-id"
-                  style="flex: 1"
+                  class="flex-1"
                   placeholder="e.g. 24267 or owner/repo"
                 />
                 <button
                   id="browse-repos-button"
                   onclick="browseRepositories()"
-                  class="compact-action-btn"
+                  class="compact-action-btn import-toolbar-btn-auto"
                   title="Browse Repositories"
-                  style="width: auto; padding: 0 12px; gap: 4px"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 16px">search</span>
+                  <span class="material-symbols-outlined icon-size-sm">search</span>
                   Browse
                 </button>
                 <a
                   id="settings-repo-link"
-                  class="compact-action-btn"
+                  class="compact-action-btn hidden import-toolbar-btn-auto"
                   href="#"
                   target="_blank"
-                  style="display: none; width: auto; padding: 0 12px; gap: 4px; text-decoration: none; color: inherit;"
                   title="Open Repository"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 16px">open_in_new</span>
+                  <span class="material-symbols-outlined icon-size-sm">open_in_new</span>
                   Open
                 </a>
               </div>
@@ -561,7 +540,7 @@
               <input
                 type="password"
                 id="config-token"
-                style="width: 100%"
+                class="w-full"
                 placeholder="Enter Personal/Project Access Token"
                 oninput="onProviderChange()"
               />
@@ -600,7 +579,7 @@
           <div class="accordion-content">
             <div class="settings-input-group">
               <label class="settings-label" for="config-export-format">Export Format</label>
-              <select id="config-export-format" style="width: 100%">
+              <select id="config-export-format" class="w-full">
                 <option value="css">CSS Variables (Standard)</option>
                 <option value="scss">SCSS Variables</option>
                 <option value="tailwind-v4">Tailwind v4 (@theme)</option>
@@ -609,7 +588,7 @@
 
             <div class="settings-input-group">
               <label class="settings-label" for="config-strategy">Commit Strategy</label>
-              <select id="config-strategy" style="width: 100%">
+              <select id="config-strategy" class="w-full">
                 <option value="merge-request" selected>Create Merge Request / Pull Request</option>
                 <option value="direct">Commit Directly to Branch</option>
               </select>
@@ -617,21 +596,20 @@
 
             <div class="settings-input-group" id="config-branch-section">
               <label class="settings-label" for="config-branch">CSS Variables Branch</label>
-              <div style="display: flex; gap: 8px">
+              <div class="input-with-action">
                 <input
                   type="text"
                   id="config-branch"
                   placeholder="feature/design-tokens"
-                  style="flex: 1"
+                  class="flex-1"
                 />
                 <button
                   id="browse-branches-button"
                   onclick="browseBranches()"
-                  class="compact-action-btn"
+                  class="compact-action-btn hidden import-toolbar-btn-auto"
                   title="Browse Branches"
-                  style="width: auto; padding: 0 10px; display: none;"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 16px">list</span>
+                  <span class="material-symbols-outlined icon-size-sm">list</span>
                 </button>
               </div>
             </div>          </div>
@@ -651,39 +629,31 @@
             <label class="toggle-switch">
               <input type="checkbox" id="config-share-team" class="toggle-input" checked />
               <div class="toggle-slider"></div>
-              <span style="font-size: 13px; color: rgba(255, 255, 255, 0.9)"
+              <span class="toggle-label-text"
                 >Share configuration with team</span
               >
             </label>
 
             <!-- Share Token Toggle -->
-            <label class="toggle-switch" style="margin-top: 12px;">
+            <label class="toggle-switch toggle-switch-spaced">
               <input type="checkbox" id="config-share-token" class="toggle-input" />
               <div class="toggle-slider"></div>
-              <span style="font-size: 13px; color: rgba(255, 255, 255, 0.9)"
+              <span class="toggle-label-text"
                 >Share access token with team</span
               >
             </label>
-            <div id="share-token-warning" style="display: none; color: #ff6b6b; font-size: 11px; margin-top: 4px; padding-left: 42px; line-height: 1.3;">
-              <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle; margin-right: 2px;">warning</span>
+            <div id="share-token-warning" class="share-token-warning hidden">
+              <span class="material-symbols-outlined warning-icon-inline">warning</span>
               Warning: The access token will be saved in cleartext and is fully readable by anyone with access to this Figma file.
             </div>
 
             <!-- Config Metadata -->
             <div
               id="config-metadata"
-              style="
-                margin-top: 16px;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 11px;
-                color: rgba(255, 255, 255, 0.6);
-                display: none;
-              "
+              class="config-metadata hidden"
             >
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span class="material-symbols-outlined" style="font-size: 14px">history</span>
+              <div class="config-metadata-row">
+                <span class="material-symbols-outlined icon-size-14">history</span>
                 <span id="config-metadata-text">Last saved: Never</span>
               </div>
             </div>
@@ -694,61 +664,38 @@
       <!-- Feedback Section - ALWAYS VISIBLE (Outside Accordion) -->
       <div
         id="settings-feedback-section"
-        style="
-          border-top: 1px solid rgba(139, 92, 246, 0.2);
-          padding-top: var(--space-4);
-          margin-top: var(--space-4);
-        "
+        class="settings-feedback-section"
       >
-        <h4 style="margin-bottom: var(--space-2)">Feedback & Support</h4>
-        <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-bottom: var(--space-3)">
+        <h4 class="settings-feedback-title">Feedback & Support</h4>
+        <p class="settings-feedback-desc">
           We're actively improving Bridgy based on your feedback!
         </p>
-        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap">
+        <div class="settings-feedback-buttons">
           <button
             class="feedback-button"
             onclick="openGitHubFeedback('bug')"
-            style="flex: 1; min-width: 100px"
           >
             <span>Report Bug</span>
           </button>
           <button
             class="feedback-button"
             onclick="openGitHubFeedback('feature')"
-            style="flex: 1; min-width: 100px"
           >
             <span>Request Feature</span>
           </button>
           <button
             class="feedback-button"
             onclick="openGitHubFeedback('general')"
-            style="flex: 1; min-width: 100px"
           >
             <span>General Feedback</span>
           </button>
         </div>
 
         <!-- User Guide and Website Links -->
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: var(--space-3);
-          "
-        >
+        <div class="settings-feedback-links">
           <button
             onclick="openUserGuide()"
-            style="
-              background: transparent;
-              border: 1px solid rgba(139, 92, 246, 0.3);
-              color: #a78bfa;
-              padding: 6px 12px;
-              border-radius: 20px;
-              font-size: 11px;
-              cursor: pointer;
-              box-shadow: none !important;
-            "
+            class="btn-guide-link"
           >
             Open User Guide
           </button>
@@ -756,38 +703,20 @@
           <a
             href="https://bridgy-plugin.com/"
             target="_blank"
-            style="
-              display: inline-flex;
-              align-items: center;
-              gap: 4px;
-              color: #c4b5fd;
-              font-size: 13px;
-              text-decoration: none;
-            "
+            class="website-link"
           >
             Visit Website
-            <span class="material-symbols-outlined" style="font-size: 14px">open_in_new</span>
+            <span class="material-symbols-outlined icon-size-14">open_in_new</span>
           </a>
         </div>
       </div>
     </div>
     <div
-      class="modal-footer"
-      style="display: flex; justify-content: space-between; align-items: center"
+      class="modal-footer flex-spread"
     >
       <button
         onclick="showResetConfirmation()"
-        style="
-          background: #dc3545;
-          color: white;
-          border: none;
-          padding: 8px 12px;
-          border-radius: var(--radius-lg);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        "
+        class="btn-danger"
         title="Reset all configuration"
       >
         <svg
@@ -816,8 +745,8 @@
 </div>
 
 <!-- User Guide Modal -->
-<div id="user-guide-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 800px;">
+<div id="user-guide-modal" class="modal">
+  <div class="modal-content modal-size-xl">
     <button class="close-modal" onclick="closeUserGuide()">
       <span class="material-symbols-outlined">close</span>
     </button>
@@ -825,30 +754,30 @@
       <h3>User Guide</h3>
     </div>
     
-    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+    <div class="modal-body scrollable-xl">
       
       <!-- 1. Quality Score Exact UI Demo -->
-      <h4 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-        <span class="material-symbols-outlined" style="font-size: 20px; color: #10b981">speed</span>
+      <h4 class="guide-section-title">
+        <span class="material-symbols-outlined icon-size-md color-success">speed</span>
         Understanding the Design System Quality-Score (DSQ-Score)
       </h4>
-      <p style="margin: 0 0 24px; color: rgba(255, 255, 255, 0.7); font-size: 14px; line-height: 1.5;">
+      <p class="guide-section-desc">
         The Design System Quality-Score measures how thoroughly your vectors rely on your Design System variables instead of hard-coded values.
       </p>
       
       <!-- Fake UI Replica Container -->
-      <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin-bottom: 40px;">
-        <div class="quality-header-new" style="margin: 0; pointer-events: none;">
+      <div class="guide-demo-container">
+        <div class="quality-header-new guide-demo-header">
           <div class="quality-score-layout-grid">
             <!-- Top Left: Circular Score -->
             <div class="quality-gauge-cell">
               <div class="quality-score-gauge">
                 <div class="quality-score-ring">
                   <!-- Static 73% SVG -->
-                  <svg width="150" height="150" viewBox="0 0 150 150" style="display: block;">
+                  <svg width="150" height="150" viewBox="0 0 150 150" class="svg-block">
                     <circle cx="75" cy="75" r="58" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" />
-                    <circle cx="75" cy="75" r="58" fill="none" stroke="#eab308" stroke-width="10" stroke-linecap="round" stroke-dasharray="364.42" stroke-dashoffset="98.39" transform="rotate(-90 75 75)" style="opacity: 1;" />
-                    <text x="75" y="75" text-anchor="middle" dominant-baseline="central" style="fill: #eab308; font-size: 32px; font-weight: 800; font-family: 'SF Mono', 'JetBrains Mono', monospace;">73</text>
+                    <circle cx="75" cy="75" r="58" fill="none" stroke="#eab308" stroke-width="10" stroke-linecap="round" stroke-dasharray="364.42" stroke-dashoffset="98.39" transform="rotate(-90 75 75)" />
+                    <text x="75" y="75" text-anchor="middle" dominant-baseline="central" class="score-circle-text">73</text>
                   </svg>
                 </div>
               </div>
@@ -857,25 +786,25 @@
             <!-- Top Right: Legend -->
             <div class="quality-legend-cell">
               <div class="quality-score-legend">
-                <div class="legend-item" style="color: rgba(255,255,255,0.8);"><span class="legend-dot legend-critical" style="background: #ef4444;"></span> 0 - 49 (Emerging)</div>
-                <div class="legend-item" style="color: rgba(255,255,255,0.8);"><span class="legend-dot legend-average" style="background: #eab308;"></span> 50 - 89 (Established)</div>
-                <div class="legend-item" style="color: rgba(255,255,255,0.8);"><span class="legend-dot legend-optimal" style="background: #22c55e;"></span> 90 - 100 (Mature)</div>
+                <div class="legend-item guide-legend-text"><span class="legend-dot legend-critical"></span> 0 - 49 (Emerging)</div>
+                <div class="legend-item guide-legend-text"><span class="legend-dot legend-average"></span> 50 - 89 (Established)</div>
+                <div class="legend-item guide-legend-text"><span class="legend-dot legend-optimal"></span> 90 - 100 (Mature)</div>
               </div>
             </div>
 
             <!-- Bottom Left: Title & Stats Text -->
             <div class="quality-label-cell">
               <div class="quality-score-label">
-                <div class="quality-score-label-sub" style="color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">Design System</div>
-                <div class="quality-score-label-main" style="font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 4px;">Quality Score</div>
-                <div class="quality-score-label-stats" style="color: rgba(255,255,255,0.6); font-size: 12px;">1106 nodes • 2397 issues</div>
+                <div class="quality-score-label-sub guide-score-sub">Design System</div>
+                <div class="quality-score-label-main guide-score-main">Quality Score</div>
+                <div class="quality-score-label-stats guide-score-stats">1106 nodes • 2397 issues</div>
               </div>
             </div>
 
             <!-- Bottom Right: Dropdown Simulation -->
             <div class="quality-dropdown-cell">
-              <div class="quality-page-selector" style="opacity: 0.8; font-size: 13px;">
-                <span style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">All Pages</span>
+              <div class="quality-page-selector guide-page-selector">
+                <span class="guide-page-label">All Pages</span>
                 <span class="material-symbols-outlined dropdown-icon">expand_more</span>
               </div>
             </div>
@@ -884,59 +813,59 @@
       </div>
 
       <!-- 2. Visual Collaboration Workflow -->
-      <h4 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-        <span class="material-symbols-outlined" style="font-size: 20px; color: #60a5fa">account_tree</span>
+      <h4 class="guide-section-title">
+        <span class="material-symbols-outlined icon-size-md color-blue-400">account_tree</span>
         Optimal Collaboration Workflow
       </h4>
-      <p style="margin: 0 0 24px; color: rgba(255, 255, 255, 0.7); font-size: 14px; line-height: 1.5;">
+      <p class="guide-section-desc">
         Bridgy automates the handoff overhead. Follow this cycle to maintain absolute parity between Figma and the App.
       </p>
 
-      <div class="workflow-visual-container" style="display: flex; align-items: stretch; gap: 12px; margin-bottom: 32px; text-align: center;">
-        
+      <div class="workflow-visual-container flex-center-justify">
+
         <!-- Step 1 -->
-        <div style="flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px 12px; position: relative;">
-          <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(59, 130, 246, 0.3);">
-            <span class="material-symbols-outlined" style="color: #60a5fa; font-size: 20px;">brush</span>
+        <div class="workflow-step">
+          <div class="workflow-step-icon workflow-step-icon--blue">
+            <span class="material-symbols-outlined icon-size-md color-blue-400">brush</span>
           </div>
-          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">1. Designer Setup</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+          <h5 class="workflow-step-title">1. Designer Setup</h5>
+          <p class="workflow-step-desc">
             Designer erstellt Variablen und Components in Figma.
           </p>
-          <span class="material-symbols-outlined" style="position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); z-index: 1; font-size: 20px;">arrow_forward</span>
+          <span class="material-symbols-outlined workflow-arrow">arrow_forward</span>
         </div>
 
         <!-- Step 2 -->
-        <div style="flex: 1; background: rgba(234, 179, 8, 0.05); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 12px; padding: 20px 12px; position: relative;">
-          <div style="width: 40px; height: 40px; background: rgba(234, 179, 8, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(234, 179, 8, 0.3);">
-            <span class="material-symbols-outlined" style="color: #facc15; font-size: 20px;">speed</span>
+        <div class="workflow-step workflow-step--yellow">
+          <div class="workflow-step-icon workflow-step-icon--yellow">
+            <span class="material-symbols-outlined icon-size-md color-yellow-400">speed</span>
           </div>
-          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">2. Improve DSQ-Score</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+          <h5 class="workflow-step-title">2. Improve DSQ-Score</h5>
+          <p class="workflow-step-desc">
             Designer verbessert DSQ-Score mittels Bridgy.
           </p>
-          <span class="material-symbols-outlined" style="position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); z-index: 1; font-size: 20px;">arrow_forward</span>
+          <span class="material-symbols-outlined workflow-arrow">arrow_forward</span>
         </div>
 
         <!-- Step 3 -->
-        <div style="flex: 1; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 20px 12px; position: relative; box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);">
-          <div style="width: 40px; height: 40px; background: rgba(139, 92, 246, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(139, 92, 246, 0.5);">
-            <span class="material-symbols-outlined" style="color: #c4b5fd; font-size: 20px;">mediation</span>
+        <div class="workflow-step workflow-step--purple">
+          <div class="workflow-step-icon workflow-step-icon--purple">
+            <span class="material-symbols-outlined icon-size-md color-purple-light">mediation</span>
           </div>
-          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">3. Bridgy Sync</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+          <h5 class="workflow-step-title">3. Bridgy Sync</h5>
+          <p class="workflow-step-desc">
             Designer committed Tokens als CSS/SCSS/Tailwind in guter Qualität direkt als MR in das Projekt.
           </p>
-          <span class="material-symbols-outlined" style="position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); z-index: 1; font-size: 20px;">arrow_forward</span>
+          <span class="material-symbols-outlined workflow-arrow">arrow_forward</span>
         </div>
 
         <!-- Step 4 -->
-        <div style="flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px 12px;">
-          <div style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
-            <span class="material-symbols-outlined" style="color: #10b981; font-size: 20px;">code</span>
+        <div class="workflow-step">
+          <div class="workflow-step-icon workflow-step-icon--green">
+            <span class="material-symbols-outlined icon-size-md color-success">code</span>
           </div>
-          <h5 style="margin: 0 0 8px; font-size: 13px; color: #fff;">4. Developer Review</h5>
-          <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">
+          <h5 class="workflow-step-title">4. Developer Review</h5>
+          <p class="workflow-step-desc">
             Entwickler merged das nach einem finalen Review.
           </p>
         </div>
@@ -944,35 +873,35 @@
       </div>
 
       <!-- General Strategy Tip -->
-      <details class="guide-accordion" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;">
-        <summary style="padding: 16px; cursor: pointer; font-weight: 500; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; list-style: none;">
-          <span class="material-symbols-outlined" style="font-size: 18px; color: #f472b6">settings_suggest</span>
+      <details class="guide-accordion">
+        <summary>
+          <span class="material-symbols-outlined icon-size-18 color-pink">settings_suggest</span>
           Commit vs. Merge Request Strategies
-          <span class="material-symbols-outlined" style="margin-left: auto; font-size: 20px;">expand_more</span>
+          <span class="material-symbols-outlined guide-accordion-chevron">expand_more</span>
         </summary>
-        <div style="padding: 0 16px 16px 16px; font-size: 13px; color: rgba(255, 255, 255, 0.8); line-height: 1.6; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px;">
-          <p style="margin: 0 0 8px 0;"><strong>Merge Requests (Recommended)</strong>: Committing edits will generate a new branch and MR automatically. Safe for collaboration.</p>
-          <p style="margin: 0;"><strong>Direct Commits</strong>: Instantly overwrites tracked files on the target branch. Faster for mature component libraries.</p>
+        <div class="guide-accordion-body">
+          <p><strong>Merge Requests (Recommended)</strong>: Committing edits will generate a new branch and MR automatically. Safe for collaboration.</p>
+          <p><strong>Direct Commits</strong>: Instantly overwrites tracked files on the target branch. Faster for mature component libraries.</p>
         </div>
       </details>
       
     </div>
     
-    <div class="modal-footer" style="padding: 16px 24px; text-align: right; background: var(--bg-card); border-top: 1px solid rgba(255, 255, 255, 0.05); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
-      <button onclick="closeUserGuide()" class="btn-primary-gradient" style="padding: 8px 24px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px; border: none; color: white;">Got It!</button>
+    <div class="modal-footer guide-modal-footer">
+      <button onclick="closeUserGuide()" class="btn-primary-gradient btn-got-it">Got It!</button>
     </div>
     
   </div>
 </div>
 
 <!-- Reset Confirmation Modal -->
-<div id="reset-confirmation-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 500px">
+<div id="reset-confirmation-modal" class="modal">
+  <div class="modal-content modal-size-sm">
     <button class="close-modal" onclick="closeResetConfirmation()">
       <span class="material-symbols-outlined">close</span>
     </button>
     <div class="modal-header">
-      <h3 style="color: #dc3545; display: flex; align-items: center; gap: 10px">
+      <h3 class="reset-header-title">
         <svg
           width="24"
           height="24"
@@ -989,35 +918,25 @@
       </h3>
     </div>
     <div class="modal-body">
-      <div
-        style="
-          background: rgba(251, 191, 36, 0.1);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(251, 191, 36, 0.3);
-          border-radius: 15px;
-          padding: 16px;
-          margin-bottom: 20px;
-          box-shadow: 0 8px 32px rgba(251, 191, 36, 0.1);
-        "
-      >
-        <p style="margin: 0; color: #fbbf24; font-weight: 500">
+      <div class="reset-warning-box">
+        <p class="reset-warning-text">
           ⚠️ Warning: This action cannot be undone!
         </p>
       </div>
 
-      <p style="margin-bottom: 16px; line-height: 1.5">
+      <p class="reset-body-text">
         This will permanently delete
         <strong>all configuration data</strong> for this Figma project, including:
       </p>
 
-      <ul style="margin: 0 0 20px 20px; line-height: 1.6; color: rgba(255, 255, 255, 0.85)">
+      <ul class="reset-list">
         <li>GitLab Project ID and access token</li>
         <li>File path and branch settings</li>
         <li>Strategy preferences (commit vs merge request)</li>
         <li>All saved metadata (who saved, when)</li>
       </ul>
 
-      <p style="margin: 0; color: rgba(255, 255, 255, 0.8); font-style: italic">
+      <p class="reset-note">
         After reset, you'll need to reconfigure everything from scratch.
       </p>
     </div>
@@ -1025,15 +944,7 @@
       <button onclick="closeResetConfirmation()">Cancel</button>
       <button
         onclick="confirmReset()"
-        style="
-          background: #dc3545;
-          color: white;
-          border: none;
-          padding: 10px 16px;
-          border-radius: var(--radius-lg);
-          cursor: pointer;
-          font-weight: 500;
-        "
+        class="btn-danger-confirm"
       >
         Yes, Reset Everything
       </button>
@@ -1042,8 +953,8 @@
 </div>
 
 <!-- Repository Browser Modal -->
-<div id="repository-browser-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 600px">
+<div id="repository-browser-modal" class="modal">
+  <div class="modal-content modal-size-md">
     <button class="close-modal" onclick="closeRepositoryBrowser()">
       <span class="material-symbols-outlined">close</span>
     </button>
@@ -1051,17 +962,16 @@
       <h3>Select Repository</h3>
     </div>
     <div class="modal-body">
-      <div class="search-container" style="margin-bottom: 16px">
+      <div class="search-container search-container-spaced">
         <input
           type="text"
           id="repo-search"
-          class="search-input"
+          class="search-input w-full"
           placeholder="Search repositories..."
           onkeyup="filterRepositories()"
-          style="width: 100%"
         />
       </div>
-      <div id="repo-list-container" style="max-height: 400px; overflow-y: auto">
+      <div id="repo-list-container" class="scrollable-lg">
         <div class="content-loading">
           <div class="content-loading-spinner"></div>
           <div class="content-loading-text">Loading repositories...</div>
@@ -1072,8 +982,8 @@
 </div>
 
 <!-- Branch Browser Modal -->
-<div id="branch-browser-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 500px">
+<div id="branch-browser-modal" class="modal">
+  <div class="modal-content modal-size-sm">
     <button class="close-modal" onclick="closeBranchBrowser()">
       <span class="material-symbols-outlined">close</span>
     </button>
@@ -1081,17 +991,16 @@
       <h3>Select Branch</h3>
     </div>
     <div class="modal-body">
-      <div class="search-container" style="margin-bottom: 16px">
+      <div class="search-container search-container-spaced">
         <input
           type="text"
           id="branch-search"
-          class="search-input"
+          class="search-input w-full"
           placeholder="Search branches..."
           onkeyup="filterBranches()"
-          style="width: 100%"
         />
       </div>
-      <div id="branch-list-container" style="max-height: 300px; overflow-y: auto">
+      <div id="branch-list-container" class="scrollable-md">
         <div class="content-loading">
           <div class="content-loading-spinner"></div>
           <div class="content-loading-text">Loading branches...</div>
@@ -1102,13 +1011,13 @@
 </div>
 
 <!-- Success message (hidden by default) -->
-<div id="success-message" class="success-message" style="display: none">
+<div id="success-message" class="success-message hidden">
   <p>Successfully committed to GitLab repository!</p>
 </div>
 
 <!-- Import Variables Modal -->
-<div id="import-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 800px">
+<div id="import-modal" class="modal">
+  <div class="modal-content modal-size-xl">
     <button class="close-modal" onclick="closeImportModal()">
       <span class="material-symbols-outlined">close</span>
     </button>
@@ -1142,10 +1051,9 @@
           <!-- Preview Section (Hidden by default) -->
           <div id="import-preview-section" class="import-preview-section hidden">
             <div class="preview-header">
-              <h4 style="display: flex; align-items: center; gap: 8px">
+              <h4 class="flex-center-gap-2">
                 <span
-                  class="material-symbols-outlined"
-                  style="font-size: 18px; color: var(--purple-light)"
+                  class="material-symbols-outlined icon-size-18 color-purple-light"
                   >preview</span
                 >
                 Import Preview
@@ -1153,135 +1061,85 @@
               <div class="preview-stats">
                 <span
                   id="preview-stat-total"
-                  class="badge"
-                  style="display: flex; align-items: center; gap: 4px"
+                  class="badge badge-with-icon"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 14px">functions</span>
+                  <span class="material-symbols-outlined icon-size-14">functions</span>
                   <span>0</span>
                 </span>
                 <span
                   id="preview-stat-new"
-                  class="badge badge-success"
-                  style="display: flex; align-items: center; gap: 4px"
+                  class="badge badge-success badge-with-icon"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 14px">add_circle</span>
+                  <span class="material-symbols-outlined icon-size-14">add_circle</span>
                   <span>0</span>
                 </span>
                 <span
                   id="preview-stat-update"
-                  class="badge badge-warning"
-                  style="display: flex; align-items: center; gap: 4px"
+                  class="badge badge-warning badge-with-icon"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 14px">sync</span>
+                  <span class="material-symbols-outlined icon-size-14">sync</span>
                   <span>0</span>
                 </span>
                 <span
                   id="preview-stat-conflict"
-                  class="badge badge-danger"
-                  style="display: flex; align-items: center; gap: 4px"
+                  class="badge badge-danger badge-with-icon"
                 >
-                  <span class="material-symbols-outlined" style="font-size: 14px">warning</span>
+                  <span class="material-symbols-outlined icon-size-14">warning</span>
                   <span>0</span>
                 </span>
               </div>
             </div>
 
             <div
-              class="preview-toolbar"
-              style="
-                display: flex;
-                gap: 2px;
-                margin-bottom: 12px;
-                padding: 8px;
-                background: rgba(0, 0, 0, 0.2);
-                border-radius: var(--radius-md);
-                align-items: center;
-              "
+              class="preview-toolbar preview-toolbar-bar"
             >
               <button
-                class="compact-action-btn"
+                class="compact-action-btn import-toolbar-btn"
                 id="select-all-import"
                 data-tooltip="Select All"
-                style="
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 32px;
-                  height: 32px;
-                  padding: 0;
-                "
               >
-                <span class="material-symbols-outlined" style="font-size: 18px">select_all</span>
+                <span class="material-symbols-outlined icon-size-18">select_all</span>
               </button>
               <button
-                class="compact-action-btn"
+                class="compact-action-btn import-toolbar-btn"
                 id="deselect-all-import"
                 data-tooltip="Deselect All"
-                style="
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 32px;
-                  height: 32px;
-                  padding: 0;
-                "
               >
-                <span class="material-symbols-outlined" style="font-size: 18px">deselect</span>
+                <span class="material-symbols-outlined icon-size-18">deselect</span>
               </button>
-              <div
-                style="border-left: 1px solid rgba(255, 255, 255, 0.1); height: 16px; margin: 0 4px"
-              ></div>
+              <div class="toolbar-divider"></div>
               <button
-                class="compact-action-btn"
+                class="compact-action-btn import-toolbar-btn-auto"
                 id="expand-all-import"
                 data-tooltip="Expand All Groups"
-                style="width: 32px; height: 32px; justify-content: center"
               >
-                <span class="material-symbols-outlined" style="font-size: 18px">unfold_more</span>
+                <span class="material-symbols-outlined icon-size-18">unfold_more</span>
               </button>
               <button
-                class="compact-action-btn"
+                class="compact-action-btn import-toolbar-btn-auto"
                 id="collapse-all-import"
                 data-tooltip="Collapse All Groups"
-                style="width: 32px; height: 32px; justify-content: center"
               >
-                <span class="material-symbols-outlined" style="font-size: 18px">unfold_less</span>
+                <span class="material-symbols-outlined icon-size-18">unfold_less</span>
               </button>
             </div>
 
             <div
-              class="import-settings"
-              style="
-                margin-bottom: 16px;
-                background: rgba(255, 255, 255, 0.03);
-                padding: 12px;
-                border-radius: var(--radius-md);
-                border: 1px solid rgba(255, 255, 255, 0.05);
-              "
+              class="import-settings import-settings-box"
             >
-              <h5
-                style="
-                  margin: 0 0 12px 0;
-                  font-size: 11px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                  opacity: 0.6;
-                  font-weight: 600;
-                "
-              >
+              <h5 class="import-settings-heading">
                 Settings
               </h5>
 
-              <div style="display: flex; flex-direction: column; gap: 8px">
+              <div class="flex-col-gap-2">
                 <label class="toggle-switch">
                   <input type="checkbox" class="toggle-input" id="organize-by-categories" checked />
                   <div class="toggle-slider"></div>
-                  <span class="settings-label" style="margin-bottom: 0"
+                  <span class="settings-label settings-label-inline"
                     >Organize by categories</span
                   >
                   <span
-                    class="material-symbols-outlined"
-                    style="font-size: 14px; opacity: 0.4; cursor: help"
+                    class="material-symbols-outlined help-icon-muted"
                     data-tooltip="Group variables into categories based on their names (e.g. 'color/primary' -> 'color' group)"
                     >help</span
                   >
@@ -1295,12 +1153,11 @@
                     onchange="if(typeof handleOverwriteToggleChange === 'function') handleOverwriteToggleChange();"
                   />
                   <div class="toggle-slider"></div>
-                  <span class="settings-label" style="margin-bottom: 0"
+                  <span class="settings-label settings-label-inline"
                     >Overwrite existing variables</span
                   >
                   <span
-                    class="material-symbols-outlined"
-                    style="font-size: 14px; opacity: 0.4; cursor: help"
+                    class="material-symbols-outlined help-icon-muted"
                     data-tooltip="If checked, existing variables with the same name will be overwritten."
                     >help</span
                   >
@@ -1309,21 +1166,9 @@
 
               <div
                 id="overwrite-warning"
-                class="info-banner warning"
-                style="
-                  margin-top: 12px;
-                  display: none;
-                  font-size: 11px;
-                  padding: 8px 12px;
-                  border-radius: 6px;
-                  background: rgba(234, 179, 8, 0.1);
-                  color: #facc15;
-                  align-items: flex-start;
-                  gap: 8px;
-                  line-height: 1.4;
-                "
+                class="info-banner warning overwrite-warning hidden"
               >
-                <span class="material-symbols-outlined" style="font-size: 16px">warning</span>
+                <span class="material-symbols-outlined icon-size-sm">warning</span>
                 <span
                   >Existing variables with the exact same name will be updated with new
                   values.</span
@@ -1331,14 +1176,14 @@
               </div>
             </div>
 
-            <div class="preview-table-container" style="max-height: 250px">
+            <div class="preview-table-container scrollable-sm">
               <table class="preview-table">
                 <thead>
                   <tr>
-                    <th style="width: 40%">Variable</th>
-                    <th style="width: 15%">Type</th>
-                    <th style="width: 30%">Value</th>
-                    <th style="width: 15%">Status</th>
+                    <th class="col-variable">Variable</th>
+                    <th class="col-type">Type</th>
+                    <th class="col-value">Value</th>
+                    <th class="col-status">Status</th>
                   </tr>
                 </thead>
                 <tbody id="preview-table-body">
@@ -1347,14 +1192,13 @@
               </table>
             </div>
 
-            <div class="import-confirmation-actions" style="margin-top: 12px">
+            <div class="import-confirmation-actions import-confirmation-spaced">
               <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
               <button
                 id="confirm-import-btn"
-                class="btn-primary"
-                style="display: flex; align-items: center; gap: 6px"
+                class="btn-primary btn-with-icon"
               >
-                <span class="material-symbols-outlined" style="font-size: 18px">upload</span>
+                <span class="material-symbols-outlined icon-size-18">upload</span>
                 Import Variables
               </button>
             </div>
@@ -1366,8 +1210,8 @@
 </div>
 
 <!-- Units Configuration Modal -->
-<div id="units-modal" class="modal" style="display: none">
-  <div class="modal-content" style="max-width: 700px">
+<div id="units-modal" class="modal">
+  <div class="modal-content modal-size-lg">
     <button class="close-modal" onclick="closeUnitsModal()">
       <span class="material-symbols-outlined">close</span>
     </button>
@@ -1375,14 +1219,14 @@
       <h3>Variable Units Settings</h3>
     </div>
     <div class="modal-body">
-      <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 16px">
+      <p class="units-modal-desc">
         Configure units for numeric variables. Collections override defaults, groups override
         collections.
       </p>
-      <div style="display: flex; gap: 10px; margin-bottom: 16px">
+      <div class="units-modal-actions">
         <button
           id="reset-units-button-modal"
-          style="background-color: #f44336"
+          class="btn-danger-red"
           onclick="window.resetUnitsSettings()"
         >
           Reset to Smart Defaults
@@ -1399,7 +1243,7 @@
 </div>
 
 <!-- Error message (hidden by default) -->
-<div id="error-message" class="error-message" style="display: none">
+<div id="error-message" class="error-message hidden">
   <p>
     <strong>Error committing to GitLab:</strong>
     <span id="error-details"></span>
@@ -1421,7 +1265,7 @@
         Create a new variable for value:
         <strong
           id="create-var-value-display"
-          style="color: var(--purple-light); font-family: monospace"
+          class="create-var-value"
         ></strong>
       </p>
 
@@ -1440,7 +1284,7 @@
           id="create-var-new-collection"
           placeholder="New Collection Name"
           class="input-field"
-          style="display: none; margin-top: 4px;"
+          class="input-hidden-toggle hidden"
         />
         <div class="settings-helper">Select target collection</div>
       </div>
@@ -1459,9 +1303,8 @@
         <input
           type="text"
           id="create-var-new-group"
-          class="input-field"
+          class="input-field input-hidden-toggle hidden"
           placeholder="New Group Name (e.g. colors/primary)"
-          style="display: none; margin-top: 4px;"
         />
         <div class="settings-helper">Select existing group or create new</div>
       </div>
@@ -1476,7 +1319,7 @@
               oninput="this.value = this.value.replace(/\./g, '-')"
               class="input-variable-name"
             />
-        <div class="settings-helper" style="margin-top: 8px;">Final variable name (will be combined with group)</div>
+        <div class="settings-helper settings-helper-spaced">Final variable name (will be combined with group)</div>
       </div>
 
       <input type="hidden" id="create-var-issue-id" />
@@ -1491,34 +1334,34 @@
 
 
 <!-- Generic Alert Modal -->
-<div class="modal" id="generic-alert-modal" style="display: none; z-index: 10000;">
-  <div class="modal-content" style="max-width: 360px; padding: 32px; text-align: center; margin: 20vh auto;">
-    <div style="color: var(--warning-400); margin-bottom: 16px;">
-      <span class="material-symbols-outlined" style="font-size: 48px;" id="generic-alert-icon">info</span>
+<div class="modal modal-dialog" id="generic-alert-modal">
+  <div class="modal-content modal-dialog-content">
+    <div class="modal-dialog-icon">
+      <span class="material-symbols-outlined icon-size-jumbo" id="generic-alert-icon">info</span>
     </div>
-    <h3 id="generic-alert-title" style="margin-top: 0; margin-bottom: 12px; color: white;">Alert</h3>
-    <p id="generic-alert-message" style="font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 24px; line-height: 1.5;">
+    <h3 id="generic-alert-title" class="modal-dialog-title">Alert</h3>
+    <p id="generic-alert-message" class="modal-dialog-message">
       Message goes here.
     </p>
-    <div style="display: flex; gap: 12px; justify-content: center;">
-      <button id="generic-alert-ok-btn" class="btn-primary-gradient" style="flex: 1;">OK</button>
+    <div class="modal-dialog-actions">
+      <button id="generic-alert-ok-btn" class="btn-primary-gradient flex-1">OK</button>
     </div>
   </div>
 </div>
 
 <!-- Generic Confirm Modal -->
-<div class="modal" id="generic-confirm-modal" style="display: none; z-index: 10000;">
-  <div class="modal-content" style="max-width: 360px; padding: 32px; text-align: center; margin: 20vh auto;">
-    <div style="color: var(--warning-400); margin-bottom: 16px;">
-      <span class="material-symbols-outlined" style="font-size: 48px;" id="generic-confirm-icon">help</span>
+<div class="modal modal-dialog" id="generic-confirm-modal">
+  <div class="modal-content modal-dialog-content">
+    <div class="modal-dialog-icon">
+      <span class="material-symbols-outlined icon-size-jumbo" id="generic-confirm-icon">help</span>
     </div>
-    <h3 id="generic-confirm-title" style="margin-top: 0; margin-bottom: 12px; color: white;">Confirm</h3>
-    <p id="generic-confirm-message" style="font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 24px; line-height: 1.5;">
+    <h3 id="generic-confirm-title" class="modal-dialog-title">Confirm</h3>
+    <p id="generic-confirm-message" class="modal-dialog-message">
       Message goes here.
     </p>
-    <div style="display: flex; gap: 12px; justify-content: center;">
-      <button id="generic-confirm-cancel-btn" class="btn-secondary-glass" style="flex: 1;">Cancel</button>
-      <button id="generic-confirm-ok-btn" class="btn-primary-gradient" style="flex: 1;">Confirm</button>
+    <div class="modal-dialog-actions">
+      <button id="generic-confirm-cancel-btn" class="btn-secondary-glass flex-1">Cancel</button>
+      <button id="generic-confirm-ok-btn" class="btn-primary-gradient flex-1">Confirm</button>
     </div>
   </div>
 </div>
