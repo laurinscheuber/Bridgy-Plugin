@@ -153,7 +153,7 @@
 
   /* ---- Button Design Tokens ---- */
   /* Single source of truth — all variants reference these */
-  --btn-radius: var(--radius-button);   /* 0.625rem / 10px */
+  --btn-radius: var(--radius-modal);   /* unified larger radius */
   --btn-padding-sm: 5px 12px;
   --btn-padding-md: 8px 16px;
   --btn-padding-lg: 10px 24px;
@@ -4481,11 +4481,12 @@ input[type='password']:focus {
 .btn-secondary {
   background: transparent;
   color: var(--neutral-300);
-  border: 1px solid var(--glass-white-20);
+  border: 1px solid transparent;
 }
 
 .btn-secondary:hover:not(:disabled):not(.btn--loading) {
-  border-color: var(--glass-white-40);
+  background: var(--glass-white-10);
+  border-color: transparent;
   color: var(--neutral-0);
 }
 
@@ -5882,7 +5883,7 @@ input[type='checkbox']:indeterminate {
 }
 
 .icon-btn-focus:hover {
-  color: #a78bfa !important;
+  color: #8b5cf6 !important;
   background: transparent !important;
 }
 
