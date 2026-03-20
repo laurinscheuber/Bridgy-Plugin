@@ -153,7 +153,7 @@
 
   /* ---- Button Design Tokens ---- */
   /* Single source of truth — all variants reference these */
-  --btn-radius: var(--radius-modal);   /* unified larger radius */
+  --btn-radius: var(--radius-button);   /* 10px - unifies all buttons to a less extreme radius */
   --btn-padding-sm: 5px 12px;
   --btn-padding-md: 8px 16px;
   --btn-padding-lg: 10px 24px;
@@ -2959,7 +2959,7 @@ button {
   background: transparent;
   color: var(--neutral-0);
   border: 1px solid transparent;
-  border-radius: var(--radius-modal);
+  border-radius: var(--btn-radius);
   font-weight: var(--font-semibold);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
