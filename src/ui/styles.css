@@ -1878,7 +1878,7 @@ tr:last-child td {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-2);
   /* Added padding for background */
-  background: transparent;
+  background: #171717;
   border-bottom: none;
   border-radius: 0;
   margin-bottom: var(--space-4);
