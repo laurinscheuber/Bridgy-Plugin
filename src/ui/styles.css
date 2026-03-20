@@ -1791,7 +1791,7 @@ tr:last-child td {
   gap: 12px;
   padding: 8px 12px;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   border: 1px solid transparent;
   margin-bottom: 0;
   border-radius: 0;
@@ -1800,8 +1800,8 @@ tr:last-child td {
 }
 
 .subgroup-header:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: transparent;
 }
 
 .subgroup-title {
@@ -2060,8 +2060,8 @@ tr:last-child td {
   height: auto !important;
   padding: 0 8px !important;
   /* Removed vertical padding, kept horizontal */
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 6px;
   /* Slightly smaller radius for compact look */
   margin-bottom: 1px !important;
@@ -2184,8 +2184,8 @@ tr:last-child td {
 .component-set-header,
 .child-header {
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 8px;
   margin-bottom: 4px;
   display: flex;
@@ -2194,8 +2194,8 @@ tr:last-child td {
 }
 
 .quality-issue-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 8px;
   margin-bottom: 4px;
   display: block;
@@ -2207,8 +2207,8 @@ tr:last-child td {
 .component-item:hover,
 .child-header:hover,
 .quality-issue-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 /* Dark styled Component Set Header (matching stats) */
@@ -2217,16 +2217,16 @@ tr:last-child td {
   border-radius: 8px;
   margin-bottom: 4px;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border: 1px solid transparent;
   position: relative;
   z-index: 2;
   transition: var(--transition-fast);
 }
 
 .component-set-header:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 /* Identify this as a trigger for expansion logic if needed, but styling first */
@@ -2956,9 +2956,9 @@ tr:last-child td {
 /* ===== MODERN BUTTON SYSTEM ===== */
 button {
   padding: var(--space-3) var(--space-4);
-  background: linear-gradient(135deg, var(--purple-medium) 0%, var(--purple-bright) 100%);
+  background: transparent;
   color: var(--neutral-0);
-  border: 1px solid var(--glass-white-heavy);
+  border: 1px solid transparent;
   border-radius: var(--radius-modal);
   font-weight: var(--font-semibold);
   cursor: pointer;
@@ -2970,25 +2970,22 @@ button {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  box-shadow: 0 8px 25px var(--glass-purple-medium);
+  box-shadow: none;
   position: relative;
-  backdrop-filter: var(--blur-medium);
 }
 
 button:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
-  box-shadow: 0 12px 35px var(--glass-purple-heavy);
-  transform: translateY(-1px);
-  border-color: var(--glass-white-30);
+  background: var(--glass-white-10);
+  box-shadow: none;
+  border-color: transparent;
 }
 
 button:active {
-  transform: translateY(0);
-  box-shadow: 0 6px 20px var(--glass-purple-medium);
+  box-shadow: none;
 }
 
 button:disabled {
-  background: var(--glass-white-medium);
+  background: transparent;
   color: var(--glass-white-50);
   cursor: not-allowed;
   box-shadow: none;
@@ -4535,25 +4532,22 @@ input[type='password']:focus {
 /* -- Gradient (purple gradient with glow) -- */
 .btn-primary.btn--gradient {
   background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-500) 100%);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
   border: none;
 }
 
 .btn-primary.btn--gradient:hover:not(:disabled):not(.btn--loading) {
   background: linear-gradient(135deg, var(--primary-500) 0%, var(--purple-deepest) 100%);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.5);
-  transform: translateY(-1px);
 }
 
 /* -- Ghost (glass-morphism surface, for toolbar & action buttons) -- */
 .btn-secondary.btn--ghost {
-  background: var(--glass-white-medium);
-  border-color: var(--glass-white-heavy);
+  background: transparent;
+  border-color: transparent;
   color: var(--glass-white-90);
 }
 
 .btn-secondary.btn--ghost:hover:not(:disabled):not(.btn--loading) {
-  background: var(--glass-white-heavy);
+  background: var(--glass-white-10);
   color: var(--neutral-0);
 }
 
@@ -4568,17 +4562,15 @@ input[type='password']:focus {
 }
 
 .btn-secondary.btn--icon {
-  background: var(--glass-white-medium);
-  border: 1px solid var(--glass-white-heavy);
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--glass-white-80);
 }
 
 .btn-secondary.btn--icon:hover:not(:disabled) {
-  background: var(--glass-white-heavy);
+  background: var(--glass-white-10);
   color: var(--neutral-0);
-  border-color: var(--glass-white-30);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-dark);
+  border-color: transparent;
 }
 
 .btn-secondary.btn--icon .material-symbols-outlined {
