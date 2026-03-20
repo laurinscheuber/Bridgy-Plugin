@@ -7462,7 +7462,8 @@ body.edit-mode .quality-header {
   -webkit-backdrop-filter: blur(10px);
 }
 
-.custom-select-trigger:hover, .custom-select-trigger.active {
+.custom-select-trigger:hover,
+.custom-select-trigger.active {
   background: var(--glass-white-medium);
   border-color: var(--glass-purple-medium);
 }
@@ -7848,7 +7849,8 @@ body.edit-mode .quality-header {
 }
 
 .btn-compact-auto {
-  width: auto;
+  width: auto !important;
+  min-width: 32px;
   padding: 0 12px;
   gap: 4px;
 }
