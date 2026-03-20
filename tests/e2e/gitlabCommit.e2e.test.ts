@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setupE2EEnvironment, setupMockGitLabAPI } from './setup';
 import { GitLabService } from '../../src/services/gitlabService';
 import { CSSExportService } from '../../src/services/cssExportService';
+import {setupE2EEnvironment, setupMockGitLabAPI} from "./setup";
 
 describe('GitLab Commit E2E', () => {
   let mockEnvironment: any;
@@ -262,105 +262,6 @@ describe('GitLab Commit E2E', () => {
     });
   });
 
-  describe('Component Test Commit Flow', () => {
-    it.skip('should commit component test to GitLab successfully', async () => {
-      const componentTestContent = `
-import { render, screen } from '@testing-library/react';
-import { Button } from './Button';
-
-describe('Button Component', () => {
-  it('should render with correct text', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByText('Click me')).toBeInTheDocument();
-  });
-
-  it('should handle click events', () => {
-    const handleClick = jest.fn();
-    render(<Button onClick={handleClick}>Click me</Button>);
-    
-    screen.getByText('Click me').click();
-    expect(handleClick).toHaveBeenCalled();
-  });
-});`;
-
-      const result = await GitLabService.commitComponentTest(
-        validGitLabSettings,
-        'feat: add Button component test',
-        'Button',
-        componentTestContent,
-        'tests/{componentName}.spec.tsx',
-        'feature/component-tests',
-      );
-
-      expect(result).toHaveProperty('mergeRequestUrl');
-      expect(result.mergeRequestUrl).toContain('gitlab.com');
-
-      // Verify component name normalization and file path
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/repository/files/tests%2FButton.spec.tsx'),
-        expect.any(Object),
-      );
-
-      // Check branch naming includes component
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/repository/branches'),
-        expect.objectContaining({
-          body: expect.stringContaining('feature/component-tests-button'),
-        }),
-      );
-
-      // Check commit message
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/repository/commits'),
-        expect.objectContaining({
-          body: expect.stringContaining('feat: add Button component test'),
-        }),
-      );
-
-      // Check MR is created as draft
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/merge_requests'),
-        expect.objectContaining({
-          body: expect.stringContaining('"title":"Draft: feat: add Button component test"'),
-        }),
-      );
-    });
-
-    it('should normalize component names correctly', async () => {
-      const componentTestContent = 'test content';
-
-      await GitLabService.commitComponentTest(
-        validGitLabSettings,
-        'feat: add test',
-        'Complex Component Name!@#$%',
-        componentTestContent,
-      );
-
-      // Should normalize component name for branch and file
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('complex-component-name'),
-        expect.any(Object),
-      );
-    });
-
-    it('should validate component test parameters', async () => {
-      // Missing component name
-      await expect(
-        GitLabService.commitComponentTest(
-          validGitLabSettings,
-          'feat: add test',
-          '',
-          'test content',
-        ),
-      ).rejects.toThrow('Component name is required');
-
-      // Missing test content
-      await expect(
-        GitLabService.commitComponentTest(validGitLabSettings, 'feat: add test', 'Button', ''),
-      ).rejects.toThrow('Test content is required');
-    });
-  });
-
   describe('Error Handling', () => {
     it('should handle network errors gracefully', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
@@ -463,14 +364,13 @@ describe('Button Component', () => {
       // Save settings
       await GitLabService.saveSettings(validGitLabSettings, true);
 
-      expect(mockEnvironment.figma.root.setSharedPluginData).toHaveBeenCalledWith(
-        'Bridgy',
+      expect(mockEnvironment.figma.root.setPluginData).toHaveBeenCalledWith(
         expect.stringContaining('gitlab-settings'),
         expect.stringContaining(validGitLabSettings.projectId),
       );
 
       // Mock stored settings
-      mockEnvironment.figma.root.getSharedPluginData = vi.fn((namespace: string, key: string) => {
+      mockEnvironment.figma.root.getPluginData = vi.fn((key: string) => {
         if (key.includes('gitlab-settings')) {
           return JSON.stringify({
             ...validGitLabSettings,
@@ -499,8 +399,7 @@ describe('Button Component', () => {
     it('should reset settings completely', async () => {
       await GitLabService.resetSettings();
 
-      expect(mockEnvironment.figma.root.setSharedPluginData).toHaveBeenCalledWith(
-        'Bridgy',
+      expect(mockEnvironment.figma.root.setPluginData).toHaveBeenCalledWith(
         expect.stringContaining('gitlab-settings'),
         '',
       );

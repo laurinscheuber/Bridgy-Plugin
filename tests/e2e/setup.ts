@@ -143,6 +143,8 @@ export const setupE2EEnvironment = () => {
       id: 'e2e-test-file-456',
       name: 'E2E Test File',
       children: mockComponents,
+      setPluginData: vi.fn(),
+      getPluginData: vi.fn(() => null),
       setSharedPluginData: vi.fn(),
       getSharedPluginData: vi.fn(() => null),
       findAll: vi.fn((predicate?: (node: any) => boolean) => {

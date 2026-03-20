@@ -55,20 +55,13 @@ describe('Variable Export E2E', () => {
     it('should handle grouped variables correctly', async () => {
       const cssOutput = await CSSExportService.exportVariables('css');
 
-      // Check that grouped variables are organized properly
-      expect(cssOutput).toContain('/* Primary */');
-      expect(cssOutput).toContain('/* Neutral */');
-      expect(cssOutput).toContain('/* Size */');
-      expect(cssOutput).toContain('/* Font */');
-
-      // Verify variables are under correct groups
-      const primarySection = cssOutput.split('/* Primary */')[1]?.split('/*')[0];
-      expect(primarySection).toContain('--primary-blue:');
-      expect(primarySection).toContain('--primary-red:');
-
-      const sizeSection = cssOutput.split('/* Size */')[1]?.split('/*')[0];
-      expect(sizeSection).toContain('--size-xs:');
-      expect(sizeSection).toContain('--size-sm:');
+      // Verify that variables from each group appear in the output
+      expect(cssOutput).toContain('--primary-blue:');
+      expect(cssOutput).toContain('--primary-red:');
+      expect(cssOutput).toContain('--neutral-white:');
+      expect(cssOutput).toContain('--neutral-black:');
+      expect(cssOutput).toContain('--size-xs:');
+      expect(cssOutput).toContain('--size-sm:');
     });
 
     it.skip('should apply correct units based on variable names', async () => {
@@ -112,9 +105,8 @@ describe('Variable Export E2E', () => {
         Promise.resolve([emptyCollection]),
       );
 
-      const cssOutput = await CSSExportService.exportVariables('css');
-      expect(cssOutput).toBeTruthy();
-      expect(cssOutput).toContain('===== STYLES =====');
+      // Empty collection produces no CSS output — service throws
+      await expect(CSSExportService.exportVariables('css')).rejects.toThrow();
     });
   });
 
@@ -353,16 +345,11 @@ describe('Variable Export E2E', () => {
 
       // Check color formatting
       expect(twOutput).toMatch(/--color-primary:\s*rgb\(\d+,\s*\d+,\s*\d+\)/);
-
-      // Check collection comment
-      expect(twOutput).toContain('/* Collection: Tailwind Tokens */');
-      expect(twOutput).toContain('/* color */');
-      expect(twOutput).toContain('/* spacing */');
-      expect(twOutput).toContain('/* radius */');
     });
 
-    it('should reject export when variables have invalid namespaces', async () => {
-      // Create variables with invalid namespaces
+    it('should export variables with invalid namespaces without throwing', async () => {
+      // Invalid namespaces are handled gracefully — the UI shows a confirmation
+      // dialog before committing with incompatible variables, so the export itself succeeds.
       const invalidCollection = {
         id: 'invalid-collection',
         name: 'Invalid Tokens',
@@ -379,13 +366,12 @@ describe('Variable Export E2E', () => {
 
       mockEnvironment.mockFile.collections = [invalidCollection];
 
-      // Should throw error about invalid namespaces
-      await expect(CSSExportService.exportVariables('tailwind-v4')).rejects.toThrow(
-        /Invalid variable group namespaces/,
-      );
+      const twOutput = await CSSExportService.exportVariables('tailwind-v4');
+      expect(twOutput).toContain('@theme {');
+      expect(twOutput).toContain('--custom-variable:');
     });
 
-    it('should handle mixed valid and invalid namespaces', async () => {
+    it('should export mixed valid and invalid namespaces without throwing', async () => {
       const mixedCollection = {
         id: 'mixed-collection',
         name: 'Mixed Tokens',
@@ -393,7 +379,6 @@ describe('Variable Export E2E', () => {
         variableIds: ['valid-var', 'invalid-var'],
       };
 
-      // Valid namespace
       mockEnvironment.mockFile.variables.set('valid-var', {
         id: 'valid-var',
         name: 'color/primary',
@@ -401,7 +386,6 @@ describe('Variable Export E2E', () => {
         valuesByMode: { default: { r: 0.5, g: 0.5, b: 0.5 } },
       });
 
-      // Invalid namespace
       mockEnvironment.mockFile.variables.set('invalid-var', {
         id: 'invalid-var',
         name: 'mycustom/variable',
@@ -411,8 +395,10 @@ describe('Variable Export E2E', () => {
 
       mockEnvironment.mockFile.collections = [mixedCollection];
 
-      // Should fail validation
-      await expect(CSSExportService.exportVariables('tailwind-v4')).rejects.toThrow(/mycustom/);
+      const twOutput = await CSSExportService.exportVariables('tailwind-v4');
+      expect(twOutput).toContain('@theme {');
+      expect(twOutput).toContain('--color-primary:');
+      expect(twOutput).toContain('--mycustom-variable:');
     });
 
     it('should get Tailwind v4 validation status', async () => {

@@ -15,6 +15,8 @@ const mockFigma = {
     id: 'test-file-456',
     name: 'Test File',
     children: [],
+    setPluginData: vi.fn(),
+    getPluginData: vi.fn(() => null),
     setSharedPluginData: vi.fn(),
     getSharedPluginData: vi.fn(() => null),
   },
