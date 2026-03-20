@@ -7441,6 +7441,10 @@ body.edit-mode .quality-header {
   max-width: 200px;
 }
 
+.search-input-narrow .search-input {
+  font-size: var(--text-xs);
+}
+
 /* Reset Modal Warning Box */
 .reset-warning-box {
   background: rgba(251, 191, 36, 0.1);
