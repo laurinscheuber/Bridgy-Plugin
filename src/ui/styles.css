@@ -7431,7 +7431,7 @@ body.edit-mode .quality-header {
 }
 
 /* Stats Search Wrapper Override */
-.stats-search-active {
+.search-wrapper-collapsible.stats-search-active {
   display: flex;
   flex: 1;
   justify-content: flex-end;
@@ -7439,6 +7439,8 @@ body.edit-mode .quality-header {
 
 .search-input-narrow {
   max-width: 200px;
+  width: 100%;
+  margin-left: auto;
 }
 
 .search-input-narrow .search-input {
