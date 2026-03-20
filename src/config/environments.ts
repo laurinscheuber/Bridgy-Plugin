@@ -205,8 +205,6 @@ export class EnvironmentManager {
     const envs = environments || ENVIRONMENTS;
     const domains = new Set<string>();
 
-    // Add CDN for JSZip
-    domains.add('https://cdnjs.cloudflare.com');
 
     // Add all environment domains
     for (const key in envs) {

@@ -2135,10 +2135,7 @@ window.onmessage = (event) => {
         }
         renderVariables(variablesData, stylesData); // Restore variables display
       }
-    } else if (message.type === 'angular-export-data') {
-      // Trigger ZIP download with component data based on selected language
-      const language = message.language || 'angular';
-      downloadComponentsZip(message.files, language);
+
     } else if (message.type === 'collections-loaded') {
       // Handle existing collections data
       const collections = message.collections || [];
@@ -5078,62 +5075,7 @@ function updateExportButtonText() {
   exportButton.innerHTML = `<span class="material-symbols-outlined">download</span><span class="toolbar-btn-text">Download</span>`;
 }
 
-function downloadComponentsZip(files, language) {
-  if (!files || files.length === 0) {
-    showError('Export Failed', 'No components available to export');
-    return;
-  }
 
-  const zip = new JSZip();
-  files.forEach((component) => {
-    const folder = zip.folder(component.kebabName);
-    const folderName = component.kebabName;
-
-    if (language === 'angular') {
-      folder.file(`${folderName}.component.html`, component.angularHtml);
-      folder.file(`${folderName}.component.ts`, component.angularTs);
-      folder.file(
-        `${folderName}.component.scss`,
-        `// Styles for ${component.name}\n.${folderName} {\n  // Add your styles here\n}`,
-      );
-    } else if (language === 'typescript') {
-      folder.file(`${folderName}.component.ts`, component.angularTs);
-    } else if (language === 'javascript') {
-      const jsCode = component.angularTs
-        .replace(/: [A-Za-z<>[\]]+/g, '')
-        .replace(/interface [^}]+}/g, '');
-      folder.file(`${folderName}.component.js`, jsCode);
-    }
-  });
-
-  // Generate and download the ZIP
-  zip
-    .generateAsync({ type: 'blob' })
-    .then((content) => {
-      try {
-        const url = URL.createObjectURL(content);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `figma-components-${language}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        showSuccess(
-          'Download Complete',
-          `Components exported successfully as ${language.toUpperCase()} files.`,
-        );
-      } catch (error) {
-        console.error('Error downloading ZIP file:', error);
-        showError('Download Failed', 'Failed to download the exported files. Please try again.');
-      }
-    })
-    .catch((error) => {
-      console.error('Error generating ZIP file:', error);
-      showError('Export Failed', 'Failed to generate the export files. Please try again.');
-    });
-}
 
 // Search functionality
 const variableSearchElement = document.getElementById('variable-search');
@@ -11487,8 +11429,6 @@ function applyTokenToSelection(issueId, property, category) {
   // -----------------------------
 
   // Disable button during operation
-  // const applyBtn is defined above
-
   // Track this button for success feedback handler
   window.lastApplyButtonId = `${issueId}-apply-btn`;
 

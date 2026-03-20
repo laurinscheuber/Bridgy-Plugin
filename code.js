@@ -203,7 +203,6 @@
         static generateManifestDomains(environments) {
           const envs = environments || exports.ENVIRONMENTS;
           const domains = /* @__PURE__ */ new Set();
-          domains.add("https://cdnjs.cloudflare.com");
           for (const key in envs) {
             const config = envs[key];
             if (config.gitlabBaseUrl) {
@@ -9735,7 +9734,6 @@ ${commentPrefix} Grids${commentSuffix}`);
             case "import-tokens":
               yield handleImportTokens(msg);
               break;
-            // Old inline logic removed in favor of VariableImportService
             case "refresh-data":
               yield handleRefreshData();
               break;

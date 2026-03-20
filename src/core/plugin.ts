@@ -2201,8 +2201,6 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await handleImportTokens(msg);
         break;
 
-      // Old inline logic removed in favor of VariableImportService
-
       case 'refresh-data':
         await handleRefreshData();
         break;
