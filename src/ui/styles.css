@@ -31,15 +31,22 @@
 
   /* Semantic Colors */
   --success-50: #f0fdf4;
+  --success-100: #dcfce7;
+  --success-200: #bbf7d0;
   --success-400: #4ade80;
   --success-500: #22c55e;
   --success-600: #16a34a;
   --success-700: #15803d;
   --warning-50: #fefce8;
+  --warning-100: #fef9c3;
+  --warning-200: #fef08a;
+  --warning-300: #fde047;
   --warning-500: #eab308;
   --warning-600: #ca8a04;
   --warning-700: #a16207;
   --error-50: #fef2f2;
+  --error-100: #fee2e2;
+  --error-200: #fecaca;
   --error-500: #ef4444;
   --error-400: #f87171;
   /* Consolidated: #ff6b6b → #f87171 (sub-pixel diff, standardized to Tailwind red-400) */
@@ -68,6 +75,7 @@
 
   /* Glass Colors - White (ascending opacity) */
   --glass-white-light: rgba(255, 255, 255, 0.03);
+  --glass-white-05: rgba(255, 255, 255, 0.05);
   --glass-white-medium: rgba(255, 255, 255, 0.05);
   --glass-white-heavy: rgba(255, 255, 255, 0.08);
   --glass-white-10: rgba(255, 255, 255, 0.1);
@@ -91,6 +99,7 @@
   --glass-purple-30: rgba(139, 92, 246, 0.3);
   --glass-purple-40: rgba(139, 92, 246, 0.4);
   --glass-purple-50: rgba(139, 92, 246, 0.5);
+  --glass-purple-intense: rgba(139, 92, 246, 0.65);
 
   /* Glass Colors - Dark (ascending opacity) */
   --glass-dark-light: rgba(0, 0, 0, 0.2);
@@ -100,6 +109,9 @@
   --glass-dark-30: rgba(0, 0, 0, 0.3);
   --glass-dark-50: rgba(0, 0, 0, 0.5);
   --glass-dark-85: rgba(0, 0, 0, 0.85);
+
+  /* Glass Border — subtle white rim used on glass-morphism cards */
+  --glass-border: rgba(255, 255, 255, 0.1);
 
   /* Opacity Levels */
   --opacity-overlay-light: 0.05;
@@ -135,7 +147,22 @@
   --commit-color: var(--orange-500);
   --commit-hover: var(--orange-600);
 
+  /* Card & Highlight */
+  --bg-card: var(--glass-white-medium);
+  --highlight: var(--glass-purple-medium);
+
+  /* ---- Button Design Tokens ---- */
+  /* Single source of truth — all variants reference these */
+  --btn-radius: var(--radius-button);   /* 0.625rem / 10px */
+  --btn-padding-sm: 5px 12px;
+  --btn-padding-md: 8px 16px;
+  --btn-padding-lg: 10px 24px;
+  --btn-font-sm: 11px;
+  --btn-font-md: 13px;
+  --btn-font-lg: var(--text-sm);        /* 0.875rem / 14px */
+
   /* Semantic Aliases */
+  --info-400: var(--primary-400);
   --info-500: var(--primary-600);
   --warning-400: var(--warning-500);
 
@@ -181,6 +208,11 @@
   --padding-card: var(--space-4);
   --padding-modal: var(--space-8);
   --padding-container: var(--space-6) var(--space-5);
+
+  /* Text Hierarchy */
+  --text-primary: var(--neutral-0);
+  --text-secondary: var(--glass-white-70);
+  --text-tertiary: var(--glass-white-40);
 
   /* Typography */
   --text-xs: 0.75rem;
@@ -1174,32 +1206,7 @@ h4 {
   border-bottom: 1px solid var(--glass-white-10);
 }
 
-.compact-action-btn {
-  background: var(--glass-white-medium);
-  border: 1px solid var(--glass-white-10);
-  color: var(--glass-white-70);
-  padding: 0;
-  font-size: var(--text-xs);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  box-shadow: none;
-}
-
-.compact-action-btn:hover {
-  background: var(--glass-purple-light);
-  border-color: var(--glass-purple-heavy);
-  color: var(--neutral-0);
-}
-
-.compact-action-btn .material-symbols-outlined {
-  font-size: 18px;
-}
+/* .compact-action-btn → consolidated into .btn-secondary.btn--icon */
 
 /* Removed old collection-name styles */
 
@@ -2110,24 +2117,7 @@ tr:last-child td {
   border-color: transparent !important;
 }
 
-/* ===== ICON ONLY BUTTON OVERRIDES ===== */
-.btn-icon-only {
-  width: 28px !important;
-  min-width: 28px !important;
-  height: 24px !important;
-  /* Match others */
-  padding: 0 !important;
-  justify-content: center !important;
-  background: var(--glass-white-medium) !important;
-  border: 1px solid var(--glass-white-heavy) !important;
-  color: var(--glass-white-90) !important;
-  box-shadow: none !important;
-  border-radius: 4px !important;
-}
-
-.btn-icon-only .material-symbols-outlined {
-  font-size: 16px !important;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Focus Button Specifics to match Action Buttons */
 .nav-icon.node-focus-btn {
@@ -2404,33 +2394,7 @@ tr:last-child td {
   display: none;
 }
 
-/* ===== ICON ONLY BUTTON OVERRIDES ===== */
-.btn-icon-only {
-  width: 32px !important;
-  min-width: 32px !important;
-  height: 28px !important;
-  /* Match others */
-  padding: 0 !important;
-  justify-content: center !important;
-  background: var(--glass-white-medium) !important;
-  border: 1px solid var(--glass-white-heavy) !important;
-  color: var(--glass-white-90) !important;
-  box-shadow: none !important;
-}
-
-.btn-icon-only:hover {
-  width: 32px !important;
-  /* Prevent expansion if class present */
-  background: var(--glass-white-heavy) !important;
-  color: var(--neutral-0) !important;
-  border-color: var(--glass-white-30) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-}
-
-.btn-icon-only .action-btn-label {
-  display: none !important;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Focus Button Specifics to match Action Buttons */
 .nav-icon.node-focus-btn {
@@ -2873,127 +2837,11 @@ tr:last-child td {
   min-width: 0;
 }
 
-/* ===== COMPACT ACTIONS (STRICT SQUARE) ===== */
-.icon-btn-square {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--glass-white-80);
-  cursor: pointer;
-  padding: 0;
-  /* No padding for strict centering */
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  height: 32px;
-  width: 32px;
-  /* Fixed square */
-  min-width: 32px;
-  backdrop-filter: var(--blur-medium);
-  position: relative;
-  z-index: 1;
-  box-shadow: none !important;
-}
+/* .icon-btn-square / .icon-btn-wide → consolidated into .btn-secondary.btn--icon  */
+/* .primary-action-btn             → consolidated into .btn-secondary.btn--ghost   */
+/* .btn-gradient-primary           → consolidated into .btn-primary.btn--gradient  */
 
-.icon-btn-square:hover {
-  background: var(--glass-white-heavy);
-  color: var(--neutral-0);
-  border-color: var(--glass-white-30);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-/* ===== WIDE ACTION BUTTONS (RECTANGULAR) ===== */
-.icon-btn-wide {
-  background: var(--glass-white-medium);
-  border: 1px solid var(--glass-white-heavy);
-  color: var(--glass-white-80);
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  height: 32px;
-  width: 48px;
-  /* Wider target as requested */
-  backdrop-filter: var(--blur-medium);
-  position: relative;
-  z-index: 1;
-  box-shadow: none !important;
-}
-
-.icon-btn-wide:hover {
-  background: var(--glass-white-heavy);
-  color: var(--neutral-0);
-  border-color: var(--glass-white-30);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-/* ===== PRIMARY ACTIONS (TEXT ALWAYS VISIBLE) ===== */
-.primary-action-btn {
-  background: var(--glass-white-medium);
-  border: 1px solid var(--glass-white-heavy);
-  color: var(--glass-white-90);
-  cursor: pointer;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  height: 32px;
-  width: auto;
-  backdrop-filter: var(--blur-medium);
-  font-size: var(--text-xs);
-  font-weight: var(--font-semibold);
-  box-shadow: none;
-}
-
-.btn-gradient-primary {
-  background: linear-gradient(135deg,
-      var(--primary-600),
-      var(--purple-medium),
-      var(--purple-bright));
-  color: var(--neutral-0);
-  border: none;
-  box-shadow: 0 4px 15px var(--glass-purple-heavy);
-}
-
-.btn-gradient-primary:hover {
-  background: linear-gradient(135deg,
-      var(--primary-600),
-      var(--purple-medium),
-      var(--purple-bright));
-  /* Keep gradient on hover */
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px var(--glass-purple-heavy);
-  filter: brightness(1.1);
-  color: var(--neutral-0);
-  border: none;
-}
-
-.primary-action-btn:hover {
-  background: var(--glass-white-heavy);
-  color: var(--neutral-0);
-  border-color: var(--glass-white-30);
-  transform: translateY(-1px);
-  box-shadow: none;
-}
-
-.primary-action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-  pointer-events: none;
-}
+/* .primary-action-btn:disabled → handled by .btn-primary:disabled / .btn-secondary:disabled base rules */
 
 /* Legacy / Expanding classes deprecated but kept if referenced elsewhere */
 
@@ -3029,12 +2877,7 @@ tr:last-child td {
   z-index: 10;
 }
 
-/* Disable disabled button interactions */
-.compact-action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
+/* .compact-action-btn:disabled → handled by .btn-secondary:disabled base rule */
 
 .modal-notification-title {
   font-weight: var(--font-semibold);
@@ -4267,14 +4110,7 @@ input[type='password']:focus {
   margin-top: var(--space-4);
 }
 
-.btn-large {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
+/* → consolidated into BUTTON SYSTEM */
 
 .import-progress {
   margin: var(--space-4) 0;
@@ -4383,8 +4219,7 @@ input[type='password']:focus {
 /* Variable Import styles are included inline below */
 /* Fix for Import Button Icon */
 .import-actions .btn svg,
-.btn-primary svg,
-.btn-large svg {
+.btn-primary svg {
   display: inline-block;
   vertical-align: middle;
   margin-right: var(--space-2);
@@ -4599,40 +4434,198 @@ input[type='password']:focus {
   gap: var(--space-3);
 }
 
+/* =====================================================
+   BUTTON SYSTEM
+   Two base classes: .btn-primary  .btn-secondary
+   Apply modifiers for variants, sizes, and states.
+   Usage:  class="btn-primary btn--danger btn--sm"
+           class="btn-secondary btn--ghost btn--icon"
+   ===================================================== */
+
+/* ---- Shared structural foundation ---- */
+.btn-primary,
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--btn-padding-md);
+  font-size: var(--btn-font-md);
+  font-weight: var(--font-medium);
+  border-radius: var(--btn-radius);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-decoration: none;
+  border: none;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-primary[disabled],
+.btn-secondary[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ---- Base: btn-primary — solid purple ---- */
 .btn-primary {
   background: var(--primary-500);
   color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-weight: var(--font-medium);
-  transition: all 0.2s;
 }
 
-.btn-primary:hover:not(:disabled) {
+.btn-primary:hover:not(:disabled):not(.btn--loading) {
   background: var(--primary-600);
 }
 
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
+/* ---- Base: btn-secondary — ghost / outline ---- */
 .btn-secondary {
   background: transparent;
   color: var(--neutral-300);
   border: 1px solid var(--glass-white-20);
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  box-shadow: none;
-  background-image: none;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled):not(.btn--loading) {
   border-color: var(--glass-white-40);
   color: var(--neutral-0);
+}
+
+/* ====== SIZE MODIFIERS ====== */
+
+.btn--sm {
+  padding: var(--btn-padding-sm);
+  font-size: var(--btn-font-sm);
+}
+
+.btn--lg {
+  padding: var(--btn-padding-lg);
+  font-size: var(--btn-font-lg);
+}
+
+/* ====== VARIANT MODIFIERS (color overrides only) ====== */
+
+/* -- Danger (red) -- */
+.btn-primary.btn--danger,
+.btn-secondary.btn--danger {
+  background: var(--error-600);
+  color: white;
+  border: none;
+}
+
+.btn-primary.btn--danger:hover:not(:disabled):not(.btn--loading),
+.btn-secondary.btn--danger:hover:not(:disabled):not(.btn--loading) {
+  background: var(--error-700);
+}
+
+/* -- Success (green) -- */
+.btn-primary.btn--success,
+.btn-secondary.btn--success {
+  background: var(--success-600);
+  color: white;
+  border: none;
+}
+
+.btn-primary.btn--success:hover:not(:disabled):not(.btn--loading),
+.btn-secondary.btn--success:hover:not(:disabled):not(.btn--loading) {
+  background: var(--success-500);
+}
+
+/* -- Gradient (purple gradient with glow) -- */
+.btn-primary.btn--gradient {
+  background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-500) 100%);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+  border: none;
+}
+
+.btn-primary.btn--gradient:hover:not(:disabled):not(.btn--loading) {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--purple-deepest) 100%);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.5);
+  transform: translateY(-1px);
+}
+
+/* -- Ghost (glass-morphism surface, for toolbar & action buttons) -- */
+.btn-secondary.btn--ghost {
+  background: var(--glass-white-medium);
+  border-color: var(--glass-white-heavy);
+  color: var(--glass-white-90);
+}
+
+.btn-secondary.btn--ghost:hover:not(:disabled):not(.btn--loading) {
+  background: var(--glass-white-heavy);
+  color: var(--neutral-0);
+}
+
+/* -- Icon (square 32×32, icon-only, no label) -- */
+.btn-primary.btn--icon,
+.btn-secondary.btn--icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  gap: 0;
+}
+
+.btn-secondary.btn--icon {
+  background: var(--glass-white-medium);
+  border: 1px solid var(--glass-white-heavy);
+  color: var(--glass-white-80);
+}
+
+.btn-secondary.btn--icon:hover:not(:disabled) {
+  background: var(--glass-white-heavy);
+  color: var(--neutral-0);
+  border-color: var(--glass-white-30);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-dark);
+}
+
+.btn-secondary.btn--icon .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* ====== LAYOUT MODIFIERS ====== */
+
+.btn--full {
+  width: 100%;
+}
+
+/* ====== STATE MODIFIERS ====== */
+
+/* Loading — spinner overlay; set / removed by JS */
+.btn--loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn--loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Applied — temporary green feedback; set / removed by JS */
+.btn--applied {
+  background: var(--success-600) !important;
+  color: white !important;
+  pointer-events: none;
+  border-color: var(--success-500) !important;
+}
+
+/* Spinning — for refresh / async icon buttons */
+.btn--spinning .material-symbols-outlined {
+  animation: spin 1s linear infinite;
 }
 
 /* Material Symbols Outlined - Default Sizing */
@@ -5095,38 +5088,8 @@ input[type='password']:focus {
   /* Ensure text is white */
 }
 
-/* Inline Feedback States */
-.btn-loading {
-  position: relative;
-  color: transparent !important;
-  pointer-events: none;
-}
-
-.btn-loading::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;
-  margin-top: -7px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 0.8s linear infinite;
-}
-
-.btn-success {
-  background: var(--success-600) !important;
-  color: white !important;
-  pointer-events: none;
-  border-color: var(--success-500) !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
+/* .btn-loading → consolidated into .btn--loading (defined in BUTTON SYSTEM above) */
+/* .btn-success  → consolidated into .btn--applied (defined in BUTTON SYSTEM above) */
 
 .guide-item.completed .guide-status {
   background: rgba(34, 197, 94, 0.2);
@@ -5674,38 +5637,8 @@ input[type='password']:focus {
 }
 
 
-.secondary-action-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  background: transparent;
-  border: 1px solid var(--purple-bright);
-  color: var(--glass-white-90)
-}
-
-.secondary-action-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-  background: transparent;
-}
-
-.token-fix-apply-btn,
-.secondary-action-btn {
-  transition: all 0.2s ease;
-}
-
-.token-fix-apply-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-}
-
-.token-fix-apply-btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
-}
+/* .secondary-action-btn → consolidated into .btn-secondary.btn--sm  */
+/* .token-fix-apply-btn  → consolidated into .btn-primary.btn--sm.btn--gradient */
 
 .occurrence-checkbox {
   accent-color: #8b5cf6;
@@ -5937,13 +5870,37 @@ input[type='checkbox']:indeterminate {
   /* Reduced vertical padding */
 }
 
-/* Icon Button Hover States for Quality Items */
+/* Icon Button Base Styles for Quality Items */
+.icon-btn-focus {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.icon-btn-focus .material-symbols-outlined {
+  font-size: 14px;
+}
+
 .icon-btn-focus:hover {
   color: #a78bfa !important;
 }
 
 .icon-btn-delete:hover {
   color: #ef4444 !important;
+}
+
+/* Bin icon size — consistent 16px across all quality accordions and variables tab */
+.delete-btn .material-symbols-outlined {
+  font-size: 16px;
+  font-weight: 300;
 }
 
 /* Stats Tab Styles */
@@ -6101,36 +6058,8 @@ input[type='checkbox']:indeterminate {
   gap: var(--space-2);
 }
 
-.btn-secondary-glass {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--neutral-300);
-  padding: 10px 24px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.btn-secondary-glass:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--neutral-0);
-}
-
-.btn-primary-gradient {
-  background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-500) 100%);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
-  border: none;
-  padding: 10px 24px;
-  color: white;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.btn-primary-gradient:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.5);
-}
+/* .btn-secondary-glass  → consolidated into .btn-secondary.btn--ghost    */
+/* .btn-primary-gradient → consolidated into .btn-primary.btn--gradient   */
 
 /* Issue Cards (for Main.js generation) */
 .issue-body {
@@ -6167,25 +6096,7 @@ input[type='checkbox']:indeterminate {
   text-transform: uppercase;
 }
 
-.btn-create-variable {
-  width: 100%;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 12px;
-  background: var(--primary-500);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.btn-create-variable:hover {
-  background: var(--primary-600);
-}
+/* .btn-create-variable → consolidated into .btn-primary.btn--sm.btn--full */
 
 .fix-actions-row {
   display: flex;
@@ -6204,24 +6115,7 @@ input[type='checkbox']:indeterminate {
   cursor: pointer;
 }
 
-.btn-apply-fix {
-  padding: 5px 12px;
-  background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-500) 100%);
-  border: none;
-  border-radius: 4px;
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: var(--transition-fast);
-}
-
-.btn-apply-fix:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-}
+/* .btn-apply-fix → consolidated into .btn-primary.btn--sm.btn--gradient */
 
 .nodes-list-header {
   display: flex;
@@ -6289,16 +6183,9 @@ input[type='checkbox']:indeterminate {
   justify-content: space-between;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  color: white;
   font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   min-width: 140px;
 }
 
@@ -6436,40 +6323,7 @@ input[type='checkbox']:indeterminate {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.multi-page-footer-btn {
-  flex: 1;
-  padding: 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.multi-page-footer-btn.cancel {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.multi-page-footer-btn.cancel:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-}
-
-.multi-page-footer-btn.apply {
-  background: #8b5cf6;
-  color: white;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-}
-
-.multi-page-footer-btn.apply:hover {
-  background: #7c3aed;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
-}
+/* → consolidated into BUTTON SYSTEM */
 
 .page-scope-badge {
   font-size: 9px;
@@ -6558,15 +6412,12 @@ body.edit-mode .header {
 
 #finish-improving-btn {
   background: var(--success-600);
-  border: 1px solid var(--success-500);
+  border-color: var(--success-500);
   color: white;
-  transition: all 0.2s ease;
 }
 
 #finish-improving-btn:hover {
   background: var(--success-500);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 #finish-improving-btn:active {
@@ -6633,33 +6484,7 @@ body.edit-mode .quality-header {
   justify-content: center;
 }
 
-/* Finish Button Styles */
-.finish-btn {
-  background: var(--success-600);
-  border: 1px solid var(--success-500);
-  padding: 6px 16px;
-  height: 32px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
-}
-
-.finish-btn:hover {
-  background: var(--success-500);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
-}
-
-.finish-btn:active {
-  transform: translateY(0);
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* --- Celebration Overlay --- */
 .celebration-overlay {
@@ -6796,11 +6621,7 @@ body.edit-mode .quality-header {
   color: var(--glass-white-60);
 }
 
-.celebration-close-btn {
-  width: 100%;
-  padding: 12px;
-  font-size: 14px;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* =========================================
    NEW QUALITY TAB STYLES
@@ -6860,29 +6681,7 @@ body.edit-mode .quality-header {
   gap: 8px;
 }
 
-.quality-refresh-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.quality-refresh-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.quality-refresh-btn.spinning .material-symbols-outlined {
-  animation: spin 0.8s linear infinite;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 @keyframes spin {
   from {
@@ -7215,45 +7014,7 @@ body.edit-mode .quality-header {
   flex-shrink: 0;
 }
 
-/* --- Delete Button --- */
-.quality-delete-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.quality-delete-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-}
-
-/* --- Focus Button --- */
-.quality-focus-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.quality-focus-btn:hover {
-  background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* --- Component Variant List --- */
 .quality-variant-list {
@@ -7313,40 +7074,7 @@ body.edit-mode .quality-header {
   cursor: pointer;
 }
 
-/* --- Tailwind Action Buttons --- */
-.quality-tw-btn {
-  padding: 3px 8px;
-  border: none;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.15s ease;
-}
-
-.quality-tw-btn.primary {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: white;
-}
-
-.quality-tw-btn.secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.quality-tw-btn:disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.quality-tw-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* ===== FIX DROPDOWN CLIPPING ===== */
 .quality-issue-card {
@@ -7795,16 +7523,7 @@ body.edit-mode .quality-header {
   margin-top: var(--space-3);
 }
 
-/* Guide / Website Link Buttons */
-.btn-guide-link {
-  background: transparent;
-  border: 1px solid var(--glass-purple-30);
-  color: var(--purple-muted);
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  font-size: 11px;
-  cursor: pointer;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 .website-link {
   display: inline-flex;
@@ -7815,32 +7534,7 @@ body.edit-mode .quality-header {
   text-decoration: none;
 }
 
-/* Danger / Reset Buttons */
-.btn-danger {
-  background: var(--error-600);
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-danger-confirm {
-  background: var(--error-600);
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  font-weight: var(--font-medium);
-}
-
-.btn-danger-red {
-  background-color: var(--error-500);
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Settings Input Row with Side Button */
 .input-with-action {
@@ -7848,18 +7542,7 @@ body.edit-mode .quality-header {
   gap: 8px;
 }
 
-.btn-compact-auto {
-  width: auto !important;
-  min-width: 32px;
-  padding: 0 12px;
-  gap: 4px;
-}
-
-.btn-compact-browse {
-  width: auto;
-  padding: 0 10px;
-  display: none;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Settings Repo Link (inline button-like anchor) */
 .settings-repo-link {
@@ -8201,15 +7884,7 @@ body.edit-mode .quality-header {
   border-bottom-right-radius: var(--radius-card);
 }
 
-.btn-got-it {
-  padding: 8px 24px;
-  font-size: 13px;
-  font-weight: var(--font-semibold);
-  cursor: pointer;
-  border-radius: 8px;
-  border: none;
-  color: white;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Import Preview Toolbar */
 .preview-toolbar-bar {
@@ -8222,21 +7897,7 @@ body.edit-mode .quality-header {
   align-items: center;
 }
 
-/* Import Toolbar Icon Buttons (square icon-only) */
-.import-toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-}
-
-.import-toolbar-btn-auto {
-  width: 32px;
-  height: 32px;
-  justify-content: center;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Toolbar Divider */
 .toolbar-divider {
@@ -8301,12 +7962,7 @@ body.edit-mode .quality-header {
   margin-top: 12px;
 }
 
-/* Import Confirm Button Layout */
-.btn-with-icon {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+/* → consolidated into BUTTON SYSTEM */
 
 /* Units Modal Description */
 .units-modal-desc {

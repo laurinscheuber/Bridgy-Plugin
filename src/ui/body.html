@@ -28,14 +28,14 @@
           data-tooltip="Refresh variables and components">
           <span class="material-symbols-outlined">refresh</span>
         </button>
-        <button id="units-icon-btn" onclick="openUnitsModal()" class="icon-btn-square"
+        <button id="units-icon-btn" onclick="openUnitsModal()" class="btn-secondary btn--icon"
           data-tooltip="Units Configuration">
           <span class="material-symbols-outlined">straighten</span>
         </button>
-        <button id="help-icon-btn" onclick="openUserGuide()" class="icon-btn-square" data-tooltip="User Guide">
+        <button id="help-icon-btn" onclick="openUserGuide()" class="btn-secondary btn--icon" data-tooltip="User Guide">
           <span class="material-symbols-outlined">help</span>
         </button>
-        <button id="settings-icon-btn" onclick="openSettingsModal()" class="icon-btn-square" data-tooltip="Settings">
+        <button id="settings-icon-btn" onclick="openSettingsModal()" class="btn-secondary btn--icon" data-tooltip="Settings">
           <span class="material-symbols-outlined">settings</span>
         </button>
         <!-- Repo button moved to settings -->
@@ -85,15 +85,15 @@
 
       <div class="toolbar">
         <div class="toolbar-group">
-          <button id="export-css-button" class="primary-action-btn" disabled title="Download CSS">
+          <button id="export-css-button" class="btn-secondary btn--ghost" disabled title="Download CSS">
             <span class="material-symbols-outlined">download</span>
             <span class="toolbar-btn-text">Download</span>
           </button>
-          <button id="commit-repo-button" class="primary-action-btn" disabled title="Commit to repository">
+          <button id="commit-repo-button" class="btn-secondary btn--ghost" disabled title="Commit to repository">
             <span class="material-symbols-outlined">commit</span>
             <span class="toolbar-btn-text">Commit</span>
           </button>
-          <button id="import-icon-button" class="primary-action-btn" onclick="openImportModal()"
+          <button id="import-icon-button" class="btn-secondary btn--ghost" onclick="openImportModal()"
             title="Import variables">
             <span class="material-symbols-outlined">input</span>
             <span class="toolbar-btn-text">Import</span>
@@ -110,14 +110,14 @@
         </div>
 
         <div class="toolbar-group">
-          <button class="icon-btn-square" onclick="toggleSearchBar('variable-search-wrapper')"
+          <button class="btn-secondary btn--icon" onclick="toggleSearchBar('variable-search-wrapper')"
             data-tooltip="Search variables">
             <span class="material-symbols-outlined">search</span>
           </button>
-          <button class="icon-btn-square" onclick="expandAllVariables()" data-tooltip="Expand all">
+          <button class="btn-secondary btn--icon" onclick="expandAllVariables()" data-tooltip="Expand all">
             <span class="material-symbols-outlined">unfold_more</span>
           </button>
-          <button class="icon-btn-square" onclick="collapseAllVariables()" data-tooltip="Collapse all">
+          <button class="btn-secondary btn--icon" onclick="collapseAllVariables()" data-tooltip="Collapse all">
             <span class="material-symbols-outlined">unfold_less</span>
           </button>
         </div>
@@ -326,7 +326,7 @@
         </div>
 
         <div class="toolbar-group">
-          <button class="icon-btn-square" onclick="toggleSearchBar('stats-search-wrapper')"
+          <button class="btn-secondary btn--icon" onclick="toggleSearchBar('stats-search-wrapper')"
             data-tooltip="Search components">
             <span class="material-symbols-outlined">search</span>
           </button>
@@ -360,7 +360,7 @@
 
       <div class="form-group">
         <label for="commit-message">Change Message</label>
-        <textarea id="commit-message" rows="4" placeholder="Optional: Describe the changes"></textarea>
+        <textarea id="commit-message" rows="4" placeholder="Describe the changes"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -446,11 +446,11 @@
               <div class="input-with-action">
                 <input type="text" id="config-project-id" class="flex-1" placeholder="e.g. 24267 or owner/repo" />
                 <button id="browse-repos-button" onclick="browseRepositories()"
-                  class="compact-action-btn btn-compact-auto" title="Browse Repositories">
+                  class="btn-secondary btn--icon" title="Browse Repositories">
                   <span class="material-symbols-outlined icon-size-sm">search</span>
                   Browse
                 </button>
-                <a id="settings-repo-link" class="compact-action-btn hidden btn-compact-auto" href="#" target="_blank"
+                <a id="settings-repo-link" class="btn-secondary btn--icon hidden" href="#" target="_blank"
                   title="Open Repository">
                   <span class="material-symbols-outlined icon-size-sm">open_in_new</span>
                   Open
@@ -518,7 +518,7 @@
               <div class="input-with-action">
                 <input type="text" id="config-branch" placeholder="feature/design-tokens" class="flex-1" />
                 <button id="browse-branches-button" onclick="browseBranches()"
-                  class="compact-action-btn hidden import-toolbar-btn-auto" title="Browse Branches">
+                  class="btn-secondary btn--icon hidden" title="Browse Branches">
                   <span class="material-symbols-outlined icon-size-sm">list</span>
                 </button>
               </div>
@@ -586,7 +586,7 @@
 
         <!-- User Guide and Website Links -->
         <div class="settings-feedback-links">
-          <button onclick="openUserGuide()" class="btn-guide-link">
+          <button onclick="openUserGuide()" class="btn-secondary btn--sm">
             Open User Guide
           </button>
 
@@ -598,7 +598,7 @@
       </div>
     </div>
     <div class="modal-footer flex-spread">
-      <button onclick="showResetConfirmation()" class="btn-danger" title="Reset all configuration">
+      <button onclick="showResetConfirmation()" class="btn-primary btn--danger" title="Reset all configuration">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3,6 5,6 21,6"></polyline>
           <path d="M19,6V20A2,2 0 0,1 17,20H7A2,2 0 0,1 5,20V6M8,6V4A2,2 0 0,1 10,4H14A2,2 0 0,1 16,4V6"></path>
@@ -609,7 +609,7 @@
       </button>
       <div>
 
-        <button onclick="saveConfiguration()" class="btn-primary-gradient">Save Configuration</button>
+        <button onclick="saveConfiguration()" class="btn-primary btn--gradient">Save Configuration</button>
       </div>
     </div>
   </div>
@@ -767,7 +767,7 @@
     </div>
 
     <div class="modal-footer guide-modal-footer">
-      <button onclick="closeUserGuide()" class="btn-primary-gradient btn-got-it">Got It!</button>
+      <button onclick="closeUserGuide()" class="btn-primary btn--gradient">Got It!</button>
     </div>
 
   </div>
@@ -814,7 +814,7 @@
     </div>
     <div class="modal-footer">
       <button onclick="closeResetConfirmation()">Cancel</button>
-      <button onclick="confirmReset()" class="btn-danger-confirm">
+      <button onclick="confirmReset()" class="btn-primary btn--danger">
         Yes, Reset Everything
       </button>
     </div>
@@ -933,19 +933,19 @@
             </div>
 
             <div class="preview-toolbar preview-toolbar-bar">
-              <button class="compact-action-btn import-toolbar-btn" id="select-all-import" data-tooltip="Select All">
+              <button class="btn-secondary btn--icon" id="select-all-import" data-tooltip="Select All">
                 <span class="material-symbols-outlined icon-size-18">select_all</span>
               </button>
-              <button class="compact-action-btn import-toolbar-btn" id="deselect-all-import"
+              <button class="btn-secondary btn--icon" id="deselect-all-import"
                 data-tooltip="Deselect All">
                 <span class="material-symbols-outlined icon-size-18">deselect</span>
               </button>
               <div class="toolbar-divider"></div>
-              <button class="compact-action-btn import-toolbar-btn-auto" id="expand-all-import"
+              <button class="btn-secondary btn--icon" id="expand-all-import"
                 data-tooltip="Expand All Groups">
                 <span class="material-symbols-outlined icon-size-18">unfold_more</span>
               </button>
-              <button class="compact-action-btn import-toolbar-btn-auto" id="collapse-all-import"
+              <button class="btn-secondary btn--icon" id="collapse-all-import"
                 data-tooltip="Collapse All Groups">
                 <span class="material-symbols-outlined icon-size-18">unfold_less</span>
               </button>
@@ -1000,7 +1000,7 @@
 
             <div class="import-confirmation-actions import-confirmation-spaced">
               <button id="cancel-import-btn" class="btn-secondary">Cancel</button>
-              <button id="confirm-import-btn" class="btn-primary btn-with-icon">
+              <button id="confirm-import-btn" class="btn-primary">
                 <span class="material-symbols-outlined icon-size-18">upload</span>
                 Import Variables
               </button>
@@ -1027,10 +1027,10 @@
         collections.
       </p>
       <div class="units-modal-actions">
-        <button id="reset-units-button-modal" class="btn-danger-red" onclick="window.resetUnitsSettings()">
+        <button id="reset-units-button-modal" class="btn-primary btn--danger" onclick="window.resetUnitsSettings()">
           Reset to Smart Defaults
         </button>
-        <button id="save-units-button-modal" disabled onclick="saveUnitsAndCloseModal()">
+        <button id="save-units-button-modal" class="btn-primary" disabled onclick="saveUnitsAndCloseModal()">
           Save Unit Settings
         </button>
       </div>
@@ -1099,8 +1099,8 @@
       <input type="hidden" id="create-var-issue-id" />
     </div>
     <div class="modal-footer modal-footer-seamless">
-      <button onclick="closeCreateVariableModal()" class="btn-secondary-glass">Cancel</button>
-      <button onclick="submitCreateVariable()" class="btn-primary-gradient">Create Variable</button>
+      <button onclick="closeCreateVariableModal()" class="btn-secondary btn--ghost">Cancel</button>
+      <button onclick="submitCreateVariable()" class="btn-primary btn--gradient">Create Variable</button>
     </div>
   </div>
 </div>
@@ -1118,7 +1118,7 @@
       Message goes here.
     </p>
     <div class="modal-dialog-actions">
-      <button id="generic-alert-ok-btn" class="btn-primary-gradient flex-1">OK</button>
+      <button id="generic-alert-ok-btn" class="btn-primary btn--gradient flex-1">OK</button>
     </div>
   </div>
 </div>
@@ -1134,8 +1134,8 @@
       Message goes here.
     </p>
     <div class="modal-dialog-actions">
-      <button id="generic-confirm-cancel-btn" class="btn-secondary-glass flex-1">Cancel</button>
-      <button id="generic-confirm-ok-btn" class="btn-primary-gradient flex-1">Confirm</button>
+      <button id="generic-confirm-cancel-btn" class="btn-secondary btn--ghost flex-1">Cancel</button>
+      <button id="generic-confirm-ok-btn" class="btn-primary btn--gradient flex-1">Confirm</button>
     </div>
   </div>
 </div>

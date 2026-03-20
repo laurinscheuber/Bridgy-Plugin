@@ -394,7 +394,7 @@ class UIHelper {
   }
 
   static createActionBtn(icon, title, dataAttrs = {}, wide = false) {
-    const btnClass = wide ? 'icon-btn-wide' : 'compact-action-btn'; // Legacy support or new wide style
+    const btnClass = wide ? 'btn-secondary btn--icon' : 'btn-secondary btn--icon'; // btn-secondary btn--icon for all sizes
     const attributes = Object.entries(dataAttrs)
       .map(([k, v]) => `${k}="${v}"`)
       .join(' ');
@@ -733,7 +733,7 @@ window.MultiPageSelector = {
 
     const html = `
       <div class="page-selector-wrapper">
-        <div class="page-selector-btn" onclick="MultiPageSelector.toggle()">
+        <div class="btn-secondary page-selector-btn" onclick="MultiPageSelector.toggle()">
           <span style="font-weight: 600;">${label}</span>
           <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">${this.isOpen ? 'expand_less' : 'expand_more'}</span>
         </div>
@@ -768,9 +768,9 @@ window.MultiPageSelector = {
           </div>
 
           <div class="page-selector-footer">
-            <button class="multi-page-footer-btn cancel" onclick="MultiPageSelector.cancelSelection()">Cancel</button>
-            <button class="multi-page-footer-btn apply" 
-                    ${this.pendingPageIds.size === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''} 
+            <button class="btn-secondary" onclick="MultiPageSelector.cancelSelection()">Cancel</button>
+            <button class="btn-primary"
+                    ${this.pendingPageIds.size === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
                     onclick="MultiPageSelector.applySelection()">Apply</button>
           </div>
         </div>
@@ -2204,7 +2204,7 @@ window.onmessage = (event) => {
               const targetValue = card.dataset.value || '';
 
               // Remove the "Create New Variable" button container
-              const createBtn = body.querySelector('.btn-create-variable');
+              const createBtn = body.querySelector('[data-action="create-variable"]');
               const createBtnContainer = createBtn ? createBtn.parentElement : null;
 
               const fixHtml =
@@ -2223,7 +2223,7 @@ window.onmessage = (event) => {
                 '<div class="custom-select-option create-new" onclick="selectCustomOption(\'' + issueId +
                 '\', \'create-new\', \'+ Create new variable...\', \'\')">+ Create new variable...</div>' +
                 '</div></div>' +
-                '<button id="' + issueId + '-apply-btn" class="token-fix-apply-btn btn-apply-fix"' +
+                '<button id="' + issueId + '-apply-btn" class="btn-primary btn--sm btn--gradient" data-action="apply-fix"' +
                 ' onclick="applyTokenToSelection(\'' + issueId + '\', \'' + SecurityUtils.escapeHTML(property) +
                 '\', \'' + SecurityUtils.escapeHTML(category) + '\')"' +
                 ' data-target-value="' + SecurityUtils.escapeHTML(targetValue) + '" disabled>' +
@@ -3125,10 +3125,10 @@ window.onmessage = (event) => {
       if (window.lastApplyButtonId) {
         const btn = document.getElementById(window.lastApplyButtonId);
         if (btn) {
-          btn.classList.remove('btn-loading');
+          btn.classList.remove('btn--loading');
 
           if (message.success) {
-            btn.classList.add('btn-success');
+            btn.classList.add('btn--applied');
             btn.innerHTML =
               '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Applied';
 
@@ -3294,8 +3294,8 @@ window.onmessage = (event) => {
           // Reset after delay
           setTimeout(() => {
             // Only reset visual state, logic state is handled by updateApplyButtonState
-            if (message.success && btn.classList.contains('btn-success')) {
-              btn.classList.remove('btn-success');
+            if (message.success && btn.classList.contains('btn--applied')) {
+              btn.classList.remove('btn--applied');
               btn.innerHTML =
                 '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
               updateIssueApplyButtonState(window.lastApplyButtonId.replace('-apply-btn', ''));
@@ -4764,14 +4764,14 @@ function renderComponents(data) {
         'data-component-id': component.id,
         'data-component-name': component.name,
         'data-action': 'generate',
-        class: 'generate-all-variants-button btn-icon-only',
+        class: 'generate-all-variants-button btn-secondary btn--icon',
         'data-tooltip': 'Generate variants',
       })}
                     ${UIHelper.createActionBtn('commit', '', {
         'data-component-id': component.id,
         'data-component-name': component.name,
         'data-action': 'commit',
-        class: 'commit-all-variants-button btn-icon-only',
+        class: 'commit-all-variants-button btn-secondary btn--icon',
         'data-tooltip': 'Commit variants',
       })}
                     ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
@@ -5449,7 +5449,7 @@ function runQualityAnalysis() {
 
 window.refreshQualityAnalysis = function () {
   const btn = document.getElementById('quality-refresh-btn');
-  if (btn) btn.classList.add('spinning');
+  if (btn) btn.classList.add('btn--spinning');
 
   window.qualityScanPerformed = false;
 
@@ -5470,7 +5470,7 @@ window.refreshQualityAnalysis = function () {
 
   // Remove spinning after 5s safety net
   setTimeout(() => {
-    if (btn) btn.classList.remove('spinning');
+    if (btn) btn.classList.remove('btn--spinning');
   }, 5000);
 };
 
@@ -5694,7 +5694,7 @@ function handleTokenCoverageResult(result) {
   }
 
   const btn = document.getElementById('quality-refresh-btn');
-  if (btn) btn.classList.remove('spinning');
+  if (btn) btn.classList.remove('btn--spinning');
 }
 
 function handleComponentHygieneResult(result) {
@@ -5962,7 +5962,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
 
   if (exactMatches.length === 0 && nearMatches.length === 0) {
     html += '<div style="margin-bottom: 8px;">' +
-      '<button onclick="handleCreateNewVariable(\'' + issueId + '\')" class="btn-create-variable">' +
+      '<button onclick="handleCreateNewVariable(\'' + issueId + '\')" class="btn-primary btn--sm btn--full" data-action="create-variable">' +
       '<span class="material-symbols-outlined" style="font-size: 16px;">add_circle</span> Create New Variable' +
       '</button></div>';
   } else {
@@ -6006,7 +6006,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
     }
 
     html += '</div></div>';
-    html += '<button id="' + issueId + '-apply-btn" class="token-fix-apply-btn btn-apply-fix" onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-original-onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-target-value="' + SecurityUtils.escapeHTML(val) + '" disabled>' +
+    html += '<button id="' + issueId + '-apply-btn" class="btn-primary btn--sm btn--gradient" data-action="apply-fix" onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-original-onclick="applyTokenToSelection(\'' + issueId + '\', \'' + issue.property + '\', \'' + category + '\')" data-target-value="' + SecurityUtils.escapeHTML(val) + '" disabled>' +
       '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply</button>';
     html += '</div>';
   }
@@ -6053,7 +6053,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
         '<span style="flex-shrink: 0; display: flex; align-items: center; opacity: 0.6;">' + leafIconSvg + '</span>' +
         '<span style="font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + SecurityUtils.escapeHTML(inst.name) + '</span>' +
         '</div>' +
-        '<button class="quality-focus-btn" onclick="window.focusOnNode(\'' + inst.id + '\')" title="Focus on layer"><span class="material-symbols-outlined" style="font-size: 16px;">filter_center_focus</span></button></div>';
+        '<button class="icon-btn-focus" onclick="window.focusOnNode(\'' + inst.id + '\')" title="Focus on layer"><span class="material-symbols-outlined">filter_center_focus</span></button></div>';
     });
 
     html += '</div></div>';
@@ -6235,7 +6235,7 @@ function renderUnusedComponentsContent(result) {
           '<span class="quality-variant-name" title="' + variantName + '" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.7);">' + variantName + '</span>' +
           '</div>' +
           '<div class="quality-row-actions" style="display: flex; gap: 4px; align-items: center;">' +
-          '<button class="icon-btn-focus" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
+          '<button class="icon-btn-focus" onclick="event.stopPropagation(); focusOnComponent(\'' + variant.id + '\')" title="Focus"><span class="material-symbols-outlined">filter_center_focus</span></button>' +
           '<button class="icon-button delete-btn" onclick="event.stopPropagation(); deleteComponent(\'' + variant.id + '\', \'' + variantName + '\', \'variant\', \'' + component.id + '\')" title="Delete variant">' +
           '<span class="material-symbols-outlined">delete</span>' +
           '</button>' +
@@ -6250,7 +6250,7 @@ function renderUnusedComponentsContent(result) {
         '<span class="quality-row-name" style="font-weight: 600; color: rgba(255,255,255,0.9); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + displayName + '</span>' +
         '</div>' +
         '<div class="quality-row-actions" style="display: flex; gap: 4px; align-items: center;">' +
-        '<button class="icon-btn-focus" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus" style="background: transparent; border: none; box-shadow: none; padding: 0; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; cursor: pointer; color: rgba(255, 255, 255, 0.4);"><span class="material-symbols-outlined" style="font-size: 14px;">filter_center_focus</span></button>' +
+        '<button class="icon-btn-focus" onclick="focusOnComponent(\'' + component.id + '\')" title="Focus"><span class="material-symbols-outlined">filter_center_focus</span></button>' +
         '<button class="icon-button delete-btn" onclick="deleteComponent(\'' + component.id + '\', \'' + displayName + '\', \'component\')" title="Delete component">' +
         '<span class="material-symbols-outlined">delete</span>' +
         '</button>' +
@@ -6306,9 +6306,9 @@ function renderTailwindContent(validation) {
         '<div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">' +
         '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', false)">' +
         '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(group.name) + '</select>' +
-        '<button id="' + itemId + '-replace-btn" class="quality-tw-btn secondary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'replace\', null)" disabled title="Replace prefix">' +
+        '<button id="' + itemId + '-replace-btn" class="btn-secondary btn--sm" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'replace\', null)" disabled title="Replace prefix">' +
         '<span class="material-symbols-outlined" style="font-size: 14px;">find_replace</span> Replace</button>' +
-        '<button id="' + itemId + '-add-prefix-btn" class="quality-tw-btn primary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'add-prefix\', null)" disabled title="Add prefix">' +
+        '<button id="' + itemId + '-add-prefix-btn" class="btn-primary btn--sm" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(group.name) + '\', \'' + itemId + '\', ' + group.variableCount + ', \'add-prefix\', null)" disabled title="Add prefix">' +
         '<span class="material-symbols-outlined" style="font-size: 14px;">add</span> Add Prefix</button>' +
         '</div></div>';
     });
@@ -6333,7 +6333,7 @@ function renderTailwindContent(validation) {
         '<div style="display: flex; gap: 6px; align-items: center;">' +
         '<select id="' + itemId + '-ns" class="quality-namespace-select" onchange="updateTailwindActionButtonsState(\'' + itemId + '\', true)">' +
         '<option value="">Select namespace...</option>' + getTailwindNamespaceOptions(variable.name) + '</select>' +
-        '<button id="' + itemId + '-add-prefix-btn" class="quality-tw-btn primary" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(variable.name) + '\', \'' + itemId + '\', 1, \'add-prefix\', \'' + variable.variableId + '\')" disabled>' +
+        '<button id="' + itemId + '-add-prefix-btn" class="btn-primary btn--sm" onclick="applyTailwindNamespace(\'' + SecurityUtils.escapeHTML(variable.name) + '\', \'' + itemId + '\', 1, \'add-prefix\', \'' + variable.variableId + '\')" disabled>' +
         '<span class="material-symbols-outlined" style="font-size: 14px;">add</span> Add prefix</button>' +
         '</div></div>';
     });
@@ -7045,7 +7045,7 @@ window.submitCreateVariable = function () {
   } else {
     // Case A: only "Create New" button exists — show loading state on it
     const card = document.getElementById(`${issueId}-card`);
-    const createBtn = card && card.querySelector('.btn-create-variable');
+    const createBtn = card && card.querySelector('[data-action="create-variable"]');
     if (createBtn) {
       createBtn.textContent = `Creating ${fullVariableName}...`;
       createBtn.disabled = true;
@@ -9609,20 +9609,20 @@ function showPreview(tokens, { skipScroll = false } = {}) {
             <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
               <!-- Left: Selection Actions -->
               <div style="display: flex; gap: 4px;">
-                <button class="compact-action-btn" onclick="selectAllVariables(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="selectAllVariables(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">select_all</span>
                 </button>
-                <button class="compact-action-btn" onclick="selectAllVariables(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="selectAllVariables(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">deselect</span>
                 </button>
               </div>
 
               <!-- Right: View Actions -->
               <div style="display: flex; gap: 4px;">
-                <button class="compact-action-btn" onclick="expandAllImportGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="expandAllImportGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">unfold_more</span>
                 </button>
-                <button class="compact-action-btn" onclick="collapseAllImportGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="collapseAllImportGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">unfold_less</span>
                 </button>
               </div>
@@ -9745,20 +9745,20 @@ function showPreview(tokens, { skipScroll = false } = {}) {
             <div class="toolbar" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
               <!-- Left: Selection Actions -->
               <div style="display: flex; gap: 4px;">
-                <button class="compact-action-btn" onclick="selectAllStyles(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="selectAllStyles(true)" data-tooltip="Select All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">select_all</span>
                 </button>
-                <button class="compact-action-btn" onclick="selectAllStyles(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="selectAllStyles(false)" data-tooltip="Deselect All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">deselect</span>
                 </button>
               </div>
 
               <!-- Right: View Actions -->
               <div style="display: flex; gap: 4px;">
-                <button class="compact-action-btn" onclick="expandAllStyleGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="expandAllStyleGroups()" data-tooltip="Expand All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">unfold_more</span>
                 </button>
-                <button class="compact-action-btn" onclick="collapseAllStyleGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
+                <button class="btn-secondary btn--icon" onclick="collapseAllStyleGroups()" data-tooltip="Collapse All" style="width: 32px; height: 32px; justify-content: center; display: flex; align-items: center;">
                   <span class="material-symbols-outlined" style="font-size: 20px;">unfold_less</span>
                 </button>
               </div>
@@ -9877,7 +9877,7 @@ function showPreview(tokens, { skipScroll = false } = {}) {
           </div>
           
           <div class="import-actions">
-            <button class="btn btn-primary btn-large" onclick="simulateImport()">
+            <button class="btn btn-primary btn--lg" onclick="simulateImport()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7,10 12,15 17,10"/>
@@ -11494,7 +11494,7 @@ function applyTokenToSelection(issueId, property, category) {
 
   if (applyBtn) {
     applyBtn.disabled = true;
-    applyBtn.classList.add('btn-loading');
+    applyBtn.classList.add('btn--loading');
     applyBtn.innerHTML = ''; // Clear content for spinner
   }
 
@@ -11522,8 +11522,8 @@ function applyTokenToSelection(issueId, property, category) {
     }
 
     const btn = document.getElementById(`${issueId}-apply-btn`);
-    if (btn && btn.classList.contains('btn-loading')) {
-      btn.classList.remove('btn-loading');
+    if (btn && btn.classList.contains('btn--loading')) {
+      btn.classList.remove('btn--loading');
       btn.innerHTML =
         '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
       updateIssueApplyButtonState(issueId);
