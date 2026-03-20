@@ -41,7 +41,10 @@
   --warning-700: #a16207;
   --error-50: #fef2f2;
   --error-500: #ef4444;
+  --error-400: #f87171;
+  /* Consolidated: #ff6b6b → #f87171 (sub-pixel diff, standardized to Tailwind red-400) */
   --error-600: #dc2626;
+  /* Consolidated: #dc3545 → #dc2626 (sub-pixel diff, standardized to Tailwind red-600) */
   --error-700: #b91c1c;
 
   /* Orange/Amber Colors */
@@ -53,6 +56,15 @@
   --purple-bright: #a855f7;
   --purple-deeper: #9333ea;
   --purple-deepest: #6d28d9;
+  --purple-muted: #a78bfa;
+
+  /* Brand Colors */
+  --gitlab-orange: #fc6d26;
+
+  /* Additional Semantic Colors */
+  --blue-400: #60a5fa;
+  --pink-400: #f472b6;
+  --yellow-400: #facc15;
 
   /* Glass Colors - White (ascending opacity) */
   --glass-white-light: rgba(255, 255, 255, 0.03);
@@ -230,6 +242,12 @@
   /* 28px */
   --icon-2xl: 2rem;
   /* 32px */
+  --icon-14: 0.875rem;
+  /* 14px — between xs and sm */
+  --icon-18: 1.125rem;
+  /* 18px — between sm and md */
+  --icon-48: 3rem;
+  /* 48px — jumbo size for alert modals */
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -5991,11 +6009,6 @@ input[type='checkbox']:indeterminate {
   gap: var(--space-2);
 }
 
-/* Utility Classes */
-.hidden {
-  display: none !important;
-}
-
 /* Stats Tab Expand Button */
 .expand-btn {
   background: transparent;
@@ -7449,7 +7462,8 @@ body.edit-mode .quality-header {
   -webkit-backdrop-filter: blur(10px);
 }
 
-.custom-select-trigger:hover, .custom-select-trigger.active {
+.custom-select-trigger:hover,
+.custom-select-trigger.active {
   background: var(--glass-white-medium);
   border-color: var(--glass-purple-medium);
 }
@@ -7510,4 +7524,849 @@ body.edit-mode .quality-header {
   background: var(--glass-purple-20);
   color: var(--purple-light);
   font-weight: 500;
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+/* Layout Utilities */
+.flex-center {
+  display: flex;
+  align-items: center;
+}
+
+.flex-center-gap-2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.flex-baseline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.flex-col-gap-2 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flex-wrap-gap-2 {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.flex-spread {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-center-justify {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Icon Size Utilities */
+.icon-size-xs {
+  font-size: var(--icon-xs);
+}
+
+.icon-size-14 {
+  font-size: var(--icon-14);
+}
+
+.icon-size-sm {
+  font-size: var(--icon-sm);
+}
+
+.icon-size-18 {
+  font-size: var(--icon-18);
+}
+
+.icon-size-md {
+  font-size: var(--icon-md);
+}
+
+.icon-size-jumbo {
+  font-size: var(--icon-48);
+}
+
+/* State Utilities */
+.disabled-visual {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.text-success {
+  color: var(--success-500);
+}
+
+.text-error {
+  color: var(--error-500);
+}
+
+/* Focus Highlight (for JS-driven element highlighting) */
+.focus-highlight {
+  background-color: var(--glass-purple-20);
+  border: 2px solid var(--primary-400);
+}
+
+/* Modal Show State */
+.modal.is-visible {
+  display: block;
+}
+
+/* Modal Size Variants */
+.modal-size-xs {
+  max-width: 360px;
+}
+
+.modal-size-sm {
+  max-width: 500px;
+}
+
+.modal-size-md {
+  max-width: 600px;
+}
+
+.modal-size-lg {
+  max-width: 700px;
+}
+
+.modal-size-xl {
+  max-width: 800px;
+}
+
+/* Scrollable Container Variants */
+.scrollable-sm {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.scrollable-md {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.scrollable-lg {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.scrollable-xl {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* ===== SEMANTIC COMPONENT CLASSES ===== */
+
+/* Tab Header Styling */
+.tab-header-title {
+  color: var(--glass-white-90);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.tab-header-spacing {
+  margin-bottom: var(--space-2);
+}
+
+.tab-subtitle {
+  color: var(--glass-white-60);
+  font-size: 12px;
+  margin: 0;
+}
+
+.section-spacing-md {
+  margin-bottom: 24px;
+}
+
+/* Provider Card Text */
+.provider-name {
+  font-weight: var(--font-semibold);
+  color: var(--neutral-0);
+}
+
+/* Color Utilities for Provider Icons */
+.color-gitlab {
+  color: var(--gitlab-orange);
+}
+
+.color-white {
+  color: var(--neutral-0);
+}
+
+/* Settings Toggle Label Text */
+.toggle-label-text {
+  font-size: 13px;
+  color: var(--glass-white-90);
+}
+
+.toggle-switch-spaced {
+  margin-top: 12px;
+}
+
+/* Share Token Warning */
+.share-token-warning {
+  display: none;
+  color: var(--error-400);
+  font-size: 11px;
+  margin-top: 4px;
+  padding-left: 42px;
+  line-height: 1.3;
+}
+
+/* Warning Icon Inline */
+.warning-icon-inline {
+  font-size: var(--icon-xs);
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+/* Config Metadata Box */
+.config-metadata {
+  margin-top: 16px;
+  background: var(--glass-white-medium);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 11px;
+  color: var(--glass-white-60);
+  display: none;
+}
+
+.config-metadata-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Settings Feedback Section */
+.settings-feedback-section {
+  border-top: 1px solid var(--glass-purple-20);
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.settings-feedback-title {
+  margin-bottom: var(--space-2);
+}
+
+.settings-feedback-desc {
+  font-size: 13px;
+  color: var(--glass-white-70);
+  margin-bottom: var(--space-3);
+}
+
+.settings-feedback-buttons {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.settings-feedback-buttons .feedback-button {
+  flex: 1;
+  min-width: 100px;
+}
+
+.settings-feedback-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-3);
+}
+
+/* Guide / Website Link Buttons */
+.btn-guide-link {
+  background: transparent;
+  border: 1px solid var(--glass-purple-30);
+  color: var(--purple-muted);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.website-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-300);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+/* Danger / Reset Buttons */
+.btn-danger {
+  background: var(--error-600);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-danger-confirm {
+  background: var(--error-600);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-weight: var(--font-medium);
+}
+
+.btn-danger-red {
+  background-color: var(--error-500);
+}
+
+/* Settings Input Row with Side Button */
+.input-with-action {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-compact-auto {
+  width: auto !important;
+  min-width: 32px;
+  padding: 0 12px;
+  gap: 4px;
+}
+
+.btn-compact-browse {
+  width: auto;
+  padding: 0 10px;
+  display: none;
+}
+
+/* Settings Repo Link (inline button-like anchor) */
+.settings-repo-link {
+  display: none;
+  width: auto;
+  padding: 0 12px;
+  gap: 4px;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Checking Pages Text */
+.checking-pages-text {
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+/* Stats Page Selector Container */
+.stats-page-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Stats Search Wrapper Override */
+.stats-search-active {
+  display: flex;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.search-input-narrow {
+  max-width: 200px;
+}
+
+/* Reset Modal Warning Box */
+.reset-warning-box {
+  background: rgba(251, 191, 36, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 15px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 32px rgba(251, 191, 36, 0.1);
+}
+
+.reset-warning-text {
+  margin: 0;
+  color: var(--orange-400);
+  font-weight: var(--font-medium);
+}
+
+.reset-list {
+  margin: 0 0 20px 20px;
+  line-height: 1.6;
+  color: var(--glass-white-80);
+}
+
+.reset-note {
+  margin: 0;
+  color: var(--glass-white-80);
+  font-style: italic;
+}
+
+.reset-body-text {
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* Reset Header */
+.reset-header-title {
+  color: var(--error-600);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Browser Modal Containers */
+.search-container-spaced {
+  margin-bottom: 16px;
+}
+
+/* Create Variable Value Display */
+.create-var-value {
+  color: var(--purple-light);
+  font-family: monospace;
+}
+
+/* Create Variable Hidden Input */
+.input-hidden-toggle {
+  display: none;
+  margin-top: 4px;
+}
+
+.settings-helper-spaced {
+  margin-top: 8px;
+}
+
+/* Generic Dialog Modals (Alert/Confirm) */
+.modal-dialog {
+  z-index: 10000;
+}
+
+.modal-dialog-content {
+  max-width: 360px;
+  padding: 32px;
+  text-align: center;
+  margin: 20vh auto;
+}
+
+.modal-dialog-icon {
+  color: var(--warning-400);
+  margin-bottom: 16px;
+}
+
+.modal-dialog-title {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: white;
+}
+
+.modal-dialog-message {
+  font-size: 13px;
+  color: var(--glass-white-80);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.modal-dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ===== USER GUIDE STYLES ===== */
+
+/* Guide Section Headers */
+.guide-section-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-section-desc {
+  margin: 0 0 24px;
+  color: var(--glass-white-70);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Guide Demo Container (fake UI replica) */
+.guide-demo-container {
+  background: var(--glass-dark-light);
+  border: 1px solid var(--glass-white-10);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  margin-bottom: 40px;
+}
+
+.guide-demo-header {
+  margin: 0;
+  pointer-events: none;
+}
+
+/* Guide Legend Item Override for Demo */
+.guide-legend-text {
+  color: var(--glass-white-80);
+}
+
+/* Guide Score Label Overrides for Demo */
+.guide-score-sub {
+  color: var(--glass-white-50);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.guide-score-main {
+  font-size: 22px;
+  font-weight: var(--font-semibold);
+  color: var(--neutral-0);
+  margin-bottom: 4px;
+}
+
+.guide-score-stats {
+  color: var(--glass-white-60);
+  font-size: 12px;
+}
+
+/* Guide Page Selector Demo */
+.guide-page-selector {
+  opacity: 0.8;
+  font-size: 13px;
+}
+
+.guide-page-label {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Workflow Visual Steps */
+.workflow-visual-container {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.workflow-step {
+  flex: 1;
+  background: var(--glass-white-light);
+  border: 1px solid var(--glass-white-10);
+  border-radius: var(--radius-card);
+  padding: 20px 12px;
+  position: relative;
+}
+
+.workflow-step--yellow {
+  background: rgba(234, 179, 8, 0.05);
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.workflow-step--purple {
+  background: var(--glass-purple-05);
+  border-color: var(--glass-purple-30);
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
+}
+
+.workflow-step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.workflow-step-icon--blue {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.workflow-step-icon--yellow {
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.workflow-step-icon--purple {
+  background: var(--glass-purple-20);
+  border: 1px solid var(--glass-purple-50);
+}
+
+.workflow-step-icon--green {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.workflow-step h5 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--neutral-0);
+}
+
+.workflow-step p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--glass-white-60);
+  line-height: 1.4;
+}
+
+.workflow-arrow {
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--glass-white-20);
+  z-index: 1;
+  font-size: var(--icon-md);
+}
+
+/* Guide Accordion (details/summary) */
+.guide-accordion {
+  background: var(--glass-white-light);
+  border: 1px solid var(--glass-white-10);
+  border-radius: 8px;
+}
+
+.guide-accordion summary {
+  padding: 16px;
+  cursor: pointer;
+  font-weight: var(--font-medium);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
+.guide-accordion-chevron {
+  margin-left: auto;
+  font-size: var(--icon-md);
+}
+
+.guide-accordion-body {
+  padding: 0 16px 16px 16px;
+  font-size: 13px;
+  color: var(--glass-white-80);
+  line-height: 1.6;
+  border-top: 1px solid var(--glass-white-medium);
+  padding-top: 12px;
+}
+
+.guide-accordion-body p {
+  margin: 0 0 8px 0;
+}
+
+.guide-accordion-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Guide Modal Footer */
+.guide-modal-footer {
+  padding: 16px 24px;
+  text-align: right;
+  background: var(--bg-card);
+  border-top: 1px solid var(--glass-white-medium);
+  border-bottom-left-radius: var(--radius-card);
+  border-bottom-right-radius: var(--radius-card);
+}
+
+.btn-got-it {
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  border-radius: 8px;
+  border: none;
+  color: white;
+}
+
+/* Import Preview Toolbar */
+.preview-toolbar-bar {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: var(--glass-dark-light);
+  border-radius: var(--radius-md);
+  align-items: center;
+}
+
+/* Import Toolbar Icon Buttons (square icon-only) */
+.import-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.import-toolbar-btn-auto {
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+}
+
+/* Toolbar Divider */
+.toolbar-divider {
+  border-left: 1px solid var(--glass-white-10);
+  height: 16px;
+  margin: 0 4px;
+}
+
+/* Import Settings Box */
+.import-settings-box {
+  margin-bottom: 16px;
+  background: var(--glass-white-light);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-white-medium);
+}
+
+.import-settings-heading {
+  margin: 0 0 12px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+  font-weight: var(--font-semibold);
+}
+
+/* Import Settings Label (no bottom margin) */
+.settings-label-inline {
+  margin-bottom: 0;
+}
+
+/* Import Help Icon */
+.help-icon-muted {
+  font-size: var(--icon-14);
+  opacity: 0.4;
+  cursor: help;
+}
+
+/* Overwrite Warning Banner */
+.overwrite-warning {
+  margin-top: 12px;
+  display: none;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(234, 179, 8, 0.1);
+  color: var(--yellow-400);
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+/* Import Preview Badge with Icon */
+.badge-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Import Confirmation Spacing */
+.import-confirmation-spaced {
+  margin-top: 12px;
+}
+
+/* Import Confirm Button Layout */
+.btn-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Units Modal Description */
+.units-modal-desc {
+  color: var(--glass-white-80);
+  margin-bottom: 16px;
+}
+
+.units-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Preview Table Column Widths */
+.col-variable {
+  width: 40%;
+}
+
+.col-type {
+  width: 15%;
+}
+
+.col-value {
+  width: 30%;
+}
+
+.col-status {
+  width: 15%;
+}
+
+/* SVG Display Block (for inline SVGs) */
+.svg-block {
+  display: block;
+}
+
+/* Color Utility Classes for Workflow Icons */
+.color-blue-400 {
+  color: var(--blue-400);
+}
+
+.color-yellow-400 {
+  color: var(--yellow-400);
+}
+
+.color-purple-light {
+  color: var(--primary-300);
+}
+
+.color-success {
+  color: #10b981;
+}
+
+.color-pink {
+  color: var(--pink-400);
+}
+
+/* Inline SVG Stroke Score Circle */
+.score-circle-text {
+  fill: var(--warning-500);
+  font-size: 32px;
+  font-weight: 800;
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
 }

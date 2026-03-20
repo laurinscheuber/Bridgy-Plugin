@@ -9,17 +9,17 @@ window.UIUtils = {
       const okBtn = document.getElementById('generic-alert-ok-btn');
       
       const cleanup = () => {
-        modal.style.display = 'none';
+        modal.classList.remove('is-visible');
         okBtn.removeEventListener('click', onOk);
       };
-      
+
       const onOk = () => {
         cleanup();
         resolve(true);
       };
-      
+
       okBtn.addEventListener('click', onOk);
-      modal.style.display = 'block';
+      modal.classList.add('is-visible');
     });
   },
   
@@ -32,10 +32,10 @@ window.UIUtils = {
       const icon = document.getElementById('generic-confirm-icon');
       if (type === 'delete') {
         icon.innerText = 'delete_forever';
-        icon.parentElement.style.color = '#ef4444'; // Red
+        icon.parentElement.classList.add('text-error');
       } else if (type === 'danger') {
         icon.innerText = 'warning';
-        icon.parentElement.style.color = '#ef4444'; // Red
+        icon.parentElement.classList.add('text-error');
       } else {
         icon.innerText = 'help';
         icon.parentElement.style.color = 'var(--warning-400)'; // Orange/Yellow
@@ -45,25 +45,25 @@ window.UIUtils = {
       const cancelBtn = document.getElementById('generic-confirm-cancel-btn');
       
       const cleanup = () => {
-        modal.style.display = 'none';
+        modal.classList.remove('is-visible');
         okBtn.removeEventListener('click', onOk);
         cancelBtn.removeEventListener('click', onCancel);
       };
-      
+
       const onOk = () => {
         cleanup();
         resolve(true);
       };
-      
+
       const onCancel = () => {
         cleanup();
         resolve(false);
       };
-      
+
       okBtn.addEventListener('click', onOk);
       cancelBtn.addEventListener('click', onCancel);
-      
-      modal.style.display = 'block';
+
+      modal.classList.add('is-visible');
     });
   }
 };
@@ -553,7 +553,7 @@ function hidePluginLoadingOverlay() {
   if (overlay) {
     overlay.classList.add('fade-out');
     setTimeout(() => {
-      overlay.style.display = 'none';
+      overlay.classList.add('hidden');
     }, 500);
   }
 }
@@ -847,12 +847,12 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (confirmed) {
           shareTokenCheckbox.checked = true;
-          shareTokenWarning.style.display = 'block';
+          shareTokenWarning.classList.remove('hidden');
           persistSettings(true);
         }
       } else {
         // If turning OFF
-        shareTokenWarning.style.display = 'none';
+        shareTokenWarning.classList.add('hidden');
         persistSettings(true);
       }
     });
@@ -875,17 +875,17 @@ function initSearchFeatures() {
       // Input event listener to toggle button visibility
       input.addEventListener('input', function () {
         if (this.value && this.value.length > 0) {
-          clearBtn.style.display = 'flex';
+          clearBtn.classList.remove('hidden');
         } else {
-          clearBtn.style.display = 'none';
+          clearBtn.classList.add('hidden');
         }
       });
 
       // Initialize state
       if (input.value && input.value.length > 0) {
-        clearBtn.style.display = 'flex';
+        clearBtn.classList.remove('hidden');
       } else {
-        clearBtn.style.display = 'none';
+        clearBtn.classList.add('hidden');
       }
     }
   });
@@ -927,7 +927,7 @@ window.refreshData = function () {
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.disabled = true;
-    refreshBtn.style.opacity = '0.6';
+    refreshBtn.classList.add('disabled-visual');
 
     // Animate the icon
     const icon = refreshBtn.querySelector('.material-symbols-outlined');
@@ -1024,7 +1024,7 @@ function resetRefreshButton(btn, delay) {
   if (!btn) return;
   setTimeout(() => {
     btn.disabled = false;
-    btn.style.opacity = '1';
+    btn.classList.remove('disabled-visual');
     const icon = btn.querySelector('.material-symbols-outlined');
     if (icon) icon.style.animation = 'none';
   }, delay);
@@ -1093,7 +1093,7 @@ window.dismissFeedback = function () {
     feedbackSection.style.opacity = '0';
     feedbackSection.style.transform = 'translateY(-20px)';
     setTimeout(() => {
-      feedbackSection.style.display = 'none';
+      feedbackSection.classList.add('hidden');
     }, 300);
 
     // Persist dismissal
@@ -1396,13 +1396,13 @@ function updateRepositoryLink() {
 
   if (!repoButton || !settings || !settings.projectId) {
     if (repoButton) {
-      repoButton.style.display = 'none';
+      repoButton.classList.add('hidden');
     }
     return;
   }
 
   // Show button with fallback URL immediately, don't wait for network validation
-  repoButton.style.display = 'inline-flex';
+  repoButton.classList.remove('hidden');
   setFallbackRepositoryLink(settings, repoButton);
 
   // Optionally fetch project information in background (only if user has token)
@@ -1493,8 +1493,7 @@ async function fetchProjectInfo(projectId, token, silent = false) {
         repoButton.title = `Open Merge Requests for ${projectData.path_with_namespace || projectData.name || 'project'}`;
       }
 
-      repoButton.style.opacity = '1';
-      repoButton.style.pointerEvents = 'auto';
+      repoButton.classList.remove('disabled-visual');
       // Store valid state visually if needed
     } else {
       // Handle specific HTTP errors
@@ -1557,8 +1556,7 @@ function setFallbackRepositoryLink(settings, repoButton) {
   try {
     if (!settings || !settings.projectId) {
       // Final fallback - disable button if we can't build URL
-      repoButton.style.opacity = '0.5';
-      repoButton.style.pointerEvents = 'none';
+      repoButton.classList.add('disabled-visual');
       repoButton.title = 'Unable to determine project URL';
       return;
     }
@@ -1591,20 +1589,17 @@ function setFallbackRepositoryLink(settings, repoButton) {
 
     if (fallbackUrl) {
       repoButton.href = fallbackUrl;
-      repoButton.style.opacity = '1';
-      repoButton.style.pointerEvents = 'auto';
+      repoButton.classList.remove('disabled-visual');
       repoButton.title = title;
     } else {
       // Final fallback - disable button if we can't build URL
-      repoButton.style.opacity = '0.5';
-      repoButton.style.pointerEvents = 'none';
+      repoButton.classList.add('disabled-visual');
       repoButton.title = 'Unable to determine project URL';
     }
   } catch (error) {
     console.error('Error setting fallback repository link:', error);
     // Final fallback - disable button completely
-    repoButton.style.opacity = '0.5';
-    repoButton.style.pointerEvents = 'none';
+    repoButton.classList.add('disabled-visual');
     repoButton.title = 'Repository link unavailable';
   }
 }
@@ -1781,11 +1776,9 @@ function scrollToVariable(variableName) {
   const element = document.getElementById(`var-${variableName}`);
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
-    element.style.border = '2px solid #8b5cf6';
+    element.classList.add('focus-highlight');
     setTimeout(() => {
-      element.style.backgroundColor = '';
-      element.style.border = '';
+      element.classList.remove('focus-highlight');
     }, 2000);
   }
 }
@@ -1794,11 +1787,9 @@ function scrollToGroup(collection, group) {
   const element = document.getElementById(`group-${collection}-${group}`);
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
-    element.style.border = '2px solid #8b5cf6';
+    element.classList.add('focus-highlight');
     setTimeout(() => {
-      element.style.backgroundColor = '';
-      element.style.border = '';
+      element.classList.remove('focus-highlight');
     }, 2000);
   }
 }
@@ -1807,11 +1798,9 @@ function scrollToGroupById(elementId) {
   const element = document.getElementById(elementId);
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
-    element.style.border = '2px solid #8b5cf6';
+    element.classList.add('focus-highlight');
     setTimeout(() => {
-      element.style.backgroundColor = '';
-      element.style.border = '';
+      element.classList.remove('focus-highlight');
     }, 2000);
   }
 }
@@ -1928,7 +1917,7 @@ window.onmessage = (event) => {
 
             if (securityNoteCompact) {
               securityNoteCompact.innerHTML = sanitizeHTML(savedInfoText);
-              securityNoteCompact.style.display = 'block';
+              securityNoteCompact.classList.remove('hidden');
             }
 
             if (securityNoteFull) {
@@ -1950,7 +1939,7 @@ window.onmessage = (event) => {
     } else if (message.type === 'repositories-error') {
       const container = document.getElementById('repo-list-container');
       container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #ef4444;">
+            <div style="text-align: center; padding: 20px; color: var(--error-500);">
               <div style="font-weight: 500; margin-bottom: 8px;">Error loading repositories</div>
               <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">${message.error}</div>
             </div>
@@ -1960,7 +1949,7 @@ window.onmessage = (event) => {
     } else if (message.type === 'branches-error') {
       const container = document.getElementById('branch-list-container');
       container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #ef4444;">
+            <div style="text-align: center; padding: 20px; color: var(--error-500);">
               <div style="font-weight: 500; margin-bottom: 8px;">Error loading branches</div>
               <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">${message.error}</div>
             </div>
@@ -1996,7 +1985,7 @@ window.onmessage = (event) => {
       if (message.feedbackDismissed) {
         const feedbackSection = document.querySelector('.feedback-section');
         if (feedbackSection) {
-          feedbackSection.style.display = 'none';
+          feedbackSection.classList.add('hidden');
         }
       }
 
@@ -2058,7 +2047,7 @@ window.onmessage = (event) => {
       const componentsContainer = document.getElementById('stats-container');
       if (componentsContainer) {
         componentsContainer.innerHTML = `
-              <div style="color: #ef4444; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px;">
+              <div style="color: var(--error-500); background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px;">
                 <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">Error Loading Components</h3>
                 <p style="margin: 0; font-size: 13px;">${message.error}</p>
                 <p style="margin: 8px 0 0 0; font-size: 12px; opacity: 0.8;">Check the developer console for more details.</p>
@@ -2124,7 +2113,7 @@ window.onmessage = (event) => {
       const buttons = document.querySelectorAll('.delete-variable-btn[disabled]');
       buttons.forEach((button) => {
         button.disabled = false;
-        button.style.cursor = 'pointer';
+        button.classList.remove('disabled-visual');
         button.innerHTML = `
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5zM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 5.883 16h4.234a2 2 0 0 0 1.992-1.84l.853-10.66h.538a.5.5 0 0 0 0-1H11zm1.958 1H3.042l.846 10.58a1 1 0 0 0 .996.92h4.234a1 1 0 0 0 .996-.92L11.958 3.5zM6.5 5.5a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6zm2 0a.5.5 0 0 1 1 0v6a.5.5 0 0 1-1 0v-6z"/>
@@ -2221,7 +2210,7 @@ window.onmessage = (event) => {
               const fixHtml =
                 '<div class="fix-actions-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">' +
                 '<div id="' + issueId + '-custom-select" class="custom-select" data-value="' + id + '">' +
-                '<div class="custom-select-trigger" onclick="toggleCustomSelect(\'' + issueId + '\')" style="border: 2px solid #8b5cf6;">' +
+                '<div class="custom-select-trigger" onclick="toggleCustomSelect(\'' + issueId + '\')" style="border: 2px solid var(--primary-400);">' +
                 '<span class="trigger-text">' + SecurityUtils.escapeHTML(label) + '</span>' +
                 '<span class="material-symbols-outlined trigger-icon">expand_more</span></div>' +
                 '<div class="custom-select-menu">' +
@@ -2477,7 +2466,7 @@ window.onmessage = (event) => {
 
           // Hide section if empty
           if (currentCount === 0) {
-            containerEl.style.display = 'none';
+            containerEl.classList.add('hidden');
           }
         }
       }
@@ -2485,8 +2474,8 @@ window.onmessage = (event) => {
       const invalidGroupsContainer = document.getElementById('tw-invalid-groups');
       const standaloneContainer = document.getElementById('tw-standalone');
 
-      const invalidGroupsVisible = invalidGroupsContainer && invalidGroupsContainer.style.display !== 'none';
-      const standaloneVisible = standaloneContainer && standaloneContainer.style.display !== 'none';
+      const invalidGroupsVisible = invalidGroupsContainer && !invalidGroupsContainer.classList.contains('hidden');
+      const standaloneVisible = standaloneContainer && !standaloneContainer.classList.contains('hidden');
 
       // If both are hidden (or don't exist), show success message
       if (!invalidGroupsVisible && !standaloneVisible) {
@@ -2495,7 +2484,7 @@ window.onmessage = (event) => {
           tailwindContent.innerHTML = `
             <div class="tailwind-success-message" style="text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease-out;">
               <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
+                <span class="material-symbols-outlined" style="font-size: 32px; color: var(--success-500);">check_circle</span>
               </div>
               <h3 style="margin: 0 0 8px; color: white; font-size: 16px; font-weight: 600;">All variables compatible!</h3>
               <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5;">
@@ -2507,7 +2496,7 @@ window.onmessage = (event) => {
           // Force update the category header to green immediately
           const twHeader = document.querySelector('#quality-cat-tailwind .quality-category-title');
           if (twHeader) {
-            twHeader.style.color = '#22c55e';
+            twHeader.classList.add('text-success');
             if (!twHeader.querySelector('.check-icon')) {
               const check = document.createElement('span');
               check.className = 'material-symbols-outlined check-icon';
@@ -2764,7 +2753,7 @@ window.onmessage = (event) => {
           if (button) {
             const originalText = button.textContent;
             button.textContent = 'Saved!';
-            button.style.backgroundColor = '#28a745';
+            button.style.backgroundColor = 'var(--success-500)';
             button.disabled = true;
 
             // Reset button appearance after 2 seconds
@@ -2876,7 +2865,7 @@ window.onmessage = (event) => {
           if (itemCard) {
             // Restore visibility if we started hiding it
             itemCard.style.opacity = '1';
-            itemCard.style.display = '';
+            itemCard.classList.remove('hidden');
           }
         }
         delete window.tailwindProcessingItemId;
@@ -3114,12 +3103,12 @@ window.onmessage = (event) => {
       const resultsContainer = document.getElementById('missing-variables-content');
       resultsContainer.innerHTML = `
             <div style="text-align: center; padding: 40px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444; margin-bottom: 16px;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--error-500); margin-bottom: 16px;">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="15" y1="9" x2="9" y2="15"></line>
                 <line x1="9" y1="9" x2="15" y2="15"></line>
               </svg>
-              <h3 style="color: #ef4444; margin-bottom: 8px;">Analysis Failed</h3>
+              <h3 style="color: var(--error-500); margin-bottom: 8px;">Analysis Failed</h3>
               <p style="color: rgba(255, 255, 255, 0.8);">${message.error || 'Failed to analyze token coverage'}</p>
             </div>
           `;
@@ -4320,7 +4309,7 @@ function formatStyles(styles, textElements, componentName) {
         "... <span class='expand-indicator'>(Click to expand)</span>";
       return `<div class="style-content-wrapper">
               <div class="style-collapsed">${truncated}</div>
-              <div class="style-expanded" style="display: none;">${highlightedJson}</div>
+              <div class="style-expanded hidden">${highlightedJson}</div>
             </div>`;
     }
 
@@ -4450,7 +4439,7 @@ async function deleteVariable(variableId, variableName) {
     if (button) {
       button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
-      button.style.cursor = 'not-allowed';
+      button.classList.add('disabled-visual');
     }
   }
 }
@@ -4471,7 +4460,7 @@ async function deleteStyle(styleId, styleName, styleType) {
     if (button) {
       button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
-      button.style.cursor = 'not-allowed';
+      button.classList.add('disabled-visual');
     }
   }
 }
@@ -4508,7 +4497,7 @@ async function deleteComponent(componentId, componentName, componentType = 'comp
       button.innerHTML =
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
-      button.style.cursor = 'not-allowed';
+      button.classList.add('disabled-visual');
     }
   }
 }
@@ -4550,7 +4539,7 @@ async function deleteUnusedVariable(variableId, variableName) {
       button.innerHTML =
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
-      button.style.cursor = 'not-allowed';
+      button.classList.add('disabled-visual');
     }
 
     // Hide the card immediately for better UX
@@ -4605,7 +4594,7 @@ async function deleteAllUnusedVariants(componentId, componentName, variantIdsStr
       button.innerHTML =
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="1;0;1" repeatCount="indefinite"/></circle></svg>';
       button.disabled = true;
-      button.style.cursor = 'not-allowed';
+      button.classList.add('disabled-visual');
     }
   }
 }
@@ -4937,11 +4926,11 @@ function renderComponents(data) {
       const expanded = wrapper.querySelector('.style-expanded');
 
       if (element.classList.contains('expanded')) {
-        if (collapsed) collapsed.style.display = 'none';
-        if (expanded) expanded.style.display = 'block';
+        if (collapsed) collapsed.classList.add('hidden');
+        if (expanded) expanded.classList.remove('hidden');
       } else {
-        if (collapsed) collapsed.style.display = 'block';
-        if (expanded) expanded.style.display = 'none';
+        if (collapsed) collapsed.classList.remove('hidden');
+        if (expanded) expanded.classList.add('hidden');
       }
     }
 
@@ -5146,7 +5135,7 @@ if (variableSearchElement) {
 
     const clearBtn = document.getElementById('clear-variable-search');
     if (clearBtn) {
-      clearBtn.style.display = searchTerm ? 'flex' : 'none';
+      searchTerm ? clearBtn.classList.remove('hidden') : clearBtn.classList.add('hidden');
     }
 
     const filteredData = variablesData
@@ -5304,7 +5293,7 @@ if (componentSearchElement) {
     // Toggle clear button
     const clearBtn = document.getElementById('clear-component-search');
     if (clearBtn) {
-      clearBtn.style.display = searchTerm ? 'flex' : 'none';
+      searchTerm ? clearBtn.classList.remove('hidden') : clearBtn.classList.add('hidden');
     }
 
     // Search in component names, types, and metadata
@@ -5346,7 +5335,7 @@ if (componentSearchElement) {
 
 // Function to open settings modal
 function openSettingsModal() {
-  document.getElementById('settings-modal').style.display = 'block';
+  document.getElementById('settings-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
   loadConfigurationTab(); // Load saved settings into the form
 
@@ -5358,26 +5347,26 @@ function openSettingsModal() {
 
 // Function to close settings modal
 function closeSettingsModal() {
-  document.getElementById('settings-modal').style.display = 'none';
+  document.getElementById('settings-modal').classList.remove('is-visible');
   document.body.classList.remove('modal-open');
 }
 
 // Function to open import modal
 function openImportModal() {
-  document.getElementById('import-modal').style.display = 'block';
+  document.getElementById('import-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
   initializeVariableImportTab();
 }
 
 // Function to close import modal
 function closeImportModal() {
-  document.getElementById('import-modal').style.display = 'none';
+  document.getElementById('import-modal').classList.remove('is-visible');
   document.body.classList.remove('modal-open');
 }
 
 // Function to open units modal
 function openUnitsModal() {
-  document.getElementById('units-modal').style.display = 'block';
+  document.getElementById('units-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
   loadUnitsSettings();
 }
@@ -5390,7 +5379,7 @@ function saveUnitsAndCloseModal() {
 
 // Function to close units modal
 function closeUnitsModal() {
-  document.getElementById('units-modal').style.display = 'none';
+  document.getElementById('units-modal').classList.remove('is-visible');
   document.body.classList.remove('modal-open');
 }
 
@@ -5495,7 +5484,7 @@ function updateAllCategoryUI() {
 
   const twSection = document.getElementById('quality-cat-tailwind');
   if (twSection) {
-    twSection.style.display = cats.tailwind.active ? '' : 'none';
+    cats.tailwind.active ? twSection.classList.remove('hidden') : twSection.classList.add('hidden');
   }
 
   // Clear loading flag once all required categories have data
@@ -5536,7 +5525,7 @@ function updateCategoryProgress(id, category) {
     const title = section.querySelector('.quality-category-title');
     if (title) {
       if (category.score === 100) {
-        title.style.color = '#22c55e'; // Green
+        title.classList.add('text-success');
         if (!title.querySelector('.check-icon')) {
           const check = document.createElement('span');
           check.className = 'material-symbols-outlined check-icon';
@@ -5545,7 +5534,7 @@ function updateCategoryProgress(id, category) {
           title.appendChild(check);
         }
       } else {
-        title.style.color = ''; // Reset
+        title.classList.remove('text-success');
         const check = title.querySelector('.check-icon');
         if (check) check.remove();
       }
@@ -5556,7 +5545,7 @@ function updateCategoryProgress(id, category) {
   if (id === 'tailwind') {
     const twSection = document.getElementById('quality-cat-tailwind');
     if (twSection) {
-      twSection.style.display = category.active ? '' : 'none';
+      category.active ? twSection.classList.remove('hidden') : twSection.classList.add('hidden');
     }
   }
 }
@@ -5566,7 +5555,7 @@ function renderResolutionSuccessState(container, title, message) {
   container.innerHTML = `
     <div class="quality-success-message" style="text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease-out;">
       <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-        <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
+        <span class="material-symbols-outlined" style="font-size: 32px; color: var(--success-500);">check_circle</span>
       </div>
       <h3 style="margin: 0 0 8px; color: white; font-size: 16px; font-weight: 600;">${title}</h3>
       <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5;">
@@ -5617,10 +5606,10 @@ window.toggleQualitySection = function (sectionId) {
 
   if (isExpanded) {
     section.classList.remove('expanded');
-    if (body) body.style.display = 'none';
+    if (body) body.classList.add('hidden');
   } else {
     section.classList.add('expanded');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('hidden');
   }
 };
 
@@ -5633,10 +5622,10 @@ window.toggleQualityAccordion = function (id) {
 
   if (isExpanded) {
     el.classList.remove('expanded');
-    if (body) body.style.display = 'none';
+    if (body) body.classList.add('hidden');
   } else {
     el.classList.add('expanded');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('hidden');
   }
 };
 
@@ -5647,14 +5636,14 @@ window.toggleIssueCard = function (issueId) {
 
   if (!card || !body) return;
 
-  const isHidden = body.style.display === 'none' || !body.style.display;
+  const isHidden = body.classList.contains('hidden');
 
   if (isHidden) {
-    body.style.display = 'block';
+    body.classList.remove('hidden');
     card.classList.add('expanded');
     if (chevron) chevron.style.transform = 'rotate(90deg)';
   } else {
-    body.style.display = 'none';
+    body.classList.add('hidden');
     card.classList.remove('expanded');
     if (chevron) chevron.style.transform = 'rotate(0deg)';
   }
@@ -5769,7 +5758,7 @@ function renderMissingVariablesContent(result) {
       '<span class="quality-accordion-title">' + SecurityUtils.escapeHTML(category) + '</span>' +
       '<span class="quality-accordion-count">' + totalAttributes + '</span>' +
       '</div>' +
-      '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none;">';
+      '<div class="quality-accordion-body hidden" id="' + groupId + '-body">';
 
     const initialCount = 10;
     const initialIssues = issues.slice(0, initialCount);
@@ -5961,7 +5950,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
     '<span style="font-size: 11px; font-weight: 500;">' + (issue.totalNodes || issue.count) + '</span>' +
     '</div>' +
     '</div>' +
-    '<div id="' + issueId + '-body" style="display: none; padding: 8px 16px;">';
+    '<div id="' + issueId + '-body" class="hidden" style="padding: 8px 16px;">';
 
   if (exactMatches.length === 0 && nearMatches.length === 0) {
     html += '<div style="margin-bottom: 8px;">' +
@@ -5979,7 +5968,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
 
     html += '<div class="fix-actions-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">';
     html += '<div id="' + issueId + '-custom-select" class="custom-select" data-value="' + selectedId + '">';
-    html += '<div class="custom-select-trigger" onclick="toggleCustomSelect(\'' + issueId + '\')" style="border: 2px solid #8b5cf6;">' +
+    html += '<div class="custom-select-trigger" onclick="toggleCustomSelect(\'' + issueId + '\')" style="border: 2px solid var(--primary-400);">' +
       '<span class="trigger-text">' + initialLabel + '</span>' +
       '<span class="material-symbols-outlined trigger-icon">expand_more</span></div>';
     html += '<div class="custom-select-menu">';
@@ -6047,7 +6036,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
       '<span class="node-name" style="flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">' + SecurityUtils.escapeHTML(groupName) + '</span>' +
       '<span style="font-size: 11px; color: rgba(255,255,255,0.5);">' + data.count + '</span>' +
       '</div>' +
-      '<div id="' + ngId + '" class="node-instances" style="display: none; padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
+      '<div id="' + ngId + '" class="node-instances hidden" style="padding-left: 28px; margin-top: 2px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 9px;">';
 
     data.instances.forEach(inst => {
       const leafIconSvg = getNodeLeafIconSvg(inst.nodeType);
@@ -6162,7 +6151,7 @@ function renderUnusedVariablesContent(result) {
         '<span class="quality-accordion-title">' + escapedName + '</span>' +
         '<span class="quality-accordion-count">' + childCount + '</span>' +
         '</div>' +
-        '<div class="quality-accordion-body" id="' + childGroupId + '-body" style="display: none; ' + (depth > 0 ? 'margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);' : '') + '">' +
+        '<div class="quality-accordion-body hidden" id="' + childGroupId + '-body"' + (depth > 0 ? ' style="margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);"' : '') + '>' +
         renderTree(childNode, childGroupId, depth + 1) +
         '</div></div>';
     });
@@ -6182,7 +6171,7 @@ function renderUnusedVariablesContent(result) {
       '<span class="quality-accordion-title" style="font-weight: 600;">' + escapedColName + '</span>' +
       '<span class="quality-accordion-count">' + totalVarsCount + '</span>' +
       '</div>' +
-      '<div class="quality-accordion-body" id="' + cGroupId + '-body" style="display: none;">';
+      '<div class="quality-accordion-body hidden" id="' + cGroupId + '-body">';
 
     html += renderTree(rootNode, cGroupId, 0);
     html += '</div></div>';
@@ -6227,7 +6216,7 @@ function renderUnusedComponentsContent(result) {
         '<span class="material-symbols-outlined">delete</span>' +
         '</button>' : '') +
         '</div>' +
-        '<div class="quality-accordion-body" id="' + groupId + '-body" style="display: none; margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);">' +
+        '<div class="quality-accordion-body hidden" id="' + groupId + '-body" style="margin-left: 20px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05);">' +
         '<div class="quality-variant-list" style="display: flex; flex-direction: column; gap: 0;">';
 
       component.unusedVariants.forEach((variant, vIdx) => {
@@ -6272,7 +6261,7 @@ function renderTailwindContent(validation) {
     container.innerHTML = `
       <div class="tailwind-success-message" style="text-align: center; padding: 40px 20px;">
         <div style="width: 60px; height: 60px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-          <span class="material-symbols-outlined" style="font-size: 32px; color: #22c55e;">check_circle</span>
+          <span class="material-symbols-outlined" style="font-size: 32px; color: var(--success-500);">check_circle</span>
         </div>
         <h3 style="margin: 0 0 8px; color: white; font-size: 16px; font-weight: 600;">All variables compatible!</h3>
         <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5;">
@@ -6295,7 +6284,7 @@ function renderTailwindContent(validation) {
       '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
       '<span class="quality-accordion-title">Invalid Groups</span>' +
       '<span class="quality-accordion-count">' + groupedVars.length + '</span>' +
-      '</div><div class="quality-accordion-body" id="tw-invalid-groups-body" style="display: none;">';
+      '</div><div class="quality-accordion-body hidden" id="tw-invalid-groups-body">';
 
     groupedVars.forEach((group, idx) => {
       const itemId = 'tw-group-' + idx;
@@ -6325,7 +6314,7 @@ function renderTailwindContent(validation) {
       '<span class="material-symbols-outlined quality-accordion-chevron">chevron_right</span>' +
       '<span class="quality-accordion-title">Standalone Variables</span>' +
       '<span class="quality-accordion-count">' + standaloneVars.length + '</span>' +
-      '</div><div class="quality-accordion-body" id="tw-standalone-body" style="display: none;">';
+      '</div><div class="quality-accordion-body hidden" id="tw-standalone-body">';
 
     standaloneVars.forEach((variable, idx) => {
       const itemId = 'tw-standalone-' + idx;
@@ -6524,23 +6513,23 @@ function renderStats(statsData, filteredData = null) {
   if (summaryContainer) {
     summaryContainer.innerHTML = `
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-        <div onclick="window.filterStats(null)" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+        <div onclick="window.filterStats(null)" style="background: var(--glass-white-light); padding: 12px; border-radius: 8px; border: 1px solid var(--glass-white-medium); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='var(--glass-white-medium)'" onmouseout="this.style.background='var(--glass-white-light)'">
           <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
               ${filteredData ? `${filteredComponents} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalComponents}</span>` : totalComponents}
           </div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
+          <div style="font-size: 11px; color: var(--glass-white-50); text-transform: uppercase; letter-spacing: 0.5px;">Components</div>
         </div>
-        <div onclick="window.filterStats(null)" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+        <div onclick="window.filterStats(null)" style="background: var(--glass-white-light); padding: 12px; border-radius: 8px; border: 1px solid var(--glass-white-medium); cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='var(--glass-white-medium)'" onmouseout="this.style.background='var(--glass-white-light)'">
           <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
               ${filteredData ? `${filteredInstances} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${totalInstances}</span>` : totalInstances}
           </div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
+          <div style="font-size: 11px; color: var(--glass-white-50); text-transform: uppercase; letter-spacing: 0.5px;">Local Instances</div>
         </div>
-        <div onclick="window.toggleUnusedFilter()" style="background: ${window.activeStatsFilter === 'unused' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)'}; padding: 12px; border-radius: 8px; border: ${window.activeStatsFilter === 'unused' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255,255,255,0.05)'}; cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='${window.activeStatsFilter === 'unused' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)'}'">
+        <div onclick="window.toggleUnusedFilter()" style="background: ${window.activeStatsFilter === 'unused' ? 'rgba(168, 85, 247, 0.2)' : 'var(--glass-white-light)'}; padding: 12px; border-radius: 8px; border: ${window.activeStatsFilter === 'unused' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid var(--glass-white-medium)'}; cursor: pointer; text-align: center; transition: all 0.2s ease;" onmouseover="this.style.background='var(--glass-white-medium)'" onmouseout="this.style.background='${window.activeStatsFilter === 'unused' ? 'rgba(168, 85, 247, 0.2)' : 'var(--glass-white-light)'}'">
           <div style="font-size: 24px; font-weight: 600; color: white; margin-bottom: 4px;">
               ${filteredData && window.activeStatsFilter === 'unused' ? `${filteredUnused} <span style="font-size: 14px; color: #a855f7; margin-left: 2px;">/ ${unusedComponents}</span>` : unusedComponents}
           </div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
+          <div style="font-size: 11px; color: var(--glass-white-50); text-transform: uppercase; letter-spacing: 0.5px;">Unused Components</div>
         </div>
       </div>
     `;
@@ -6821,9 +6810,9 @@ window.openCreateVariableModal = function (value, issueId) {
 
   // Reset new inputs
   const newColInput = document.getElementById('create-var-new-collection');
-  if (newColInput) newColInput.style.display = 'none';
+  if (newColInput) newColInput.classList.add('hidden');
   const newGroupInput = document.getElementById('create-var-new-group');
-  if (newGroupInput) newGroupInput.style.display = 'none';
+  if (newGroupInput) newGroupInput.classList.add('hidden');
 
   // Populate Collections
   const collectionSelect = document.getElementById('create-var-collection');
@@ -6855,7 +6844,7 @@ window.openCreateVariableModal = function (value, issueId) {
     handleCollectionChange();
   }
 
-  modal.style.display = 'block';
+  modal.classList.add('is-visible');
   document.body.classList.add('modal-open');
 
   setTimeout(() => {
@@ -6878,14 +6867,14 @@ window.handleCollectionChange = function () {
 
   // Toggle new collection input
   if (selectedColName === 'create-new') {
-    newColInput.style.display = 'block';
+    newColInput.classList.remove('hidden');
     newColInput.focus();
     // Reset groups
     groupSelect.innerHTML =
       '<option value="">(No Group)</option><option value="create-new">Create New Group...</option>';
     return; // No existing groups to show
   } else {
-    newColInput.style.display = 'none';
+    newColInput.classList.add('hidden');
   }
 
   // Populate Groups for selected collection
@@ -6927,17 +6916,17 @@ window.handleGroupChange = function () {
   const newGroupInput = document.getElementById('create-var-new-group');
 
   if (groupSelect.value === 'create-new') {
-    newGroupInput.style.display = 'block';
+    newGroupInput.classList.remove('hidden');
     newGroupInput.focus();
   } else {
-    newGroupInput.style.display = 'none';
+    newGroupInput.classList.add('hidden');
   }
 };
 
 window.closeCreateVariableModal = function () {
   const modal = document.getElementById('create-variable-modal');
   if (modal) {
-    modal.style.display = 'none';
+    modal.classList.remove('is-visible');
     document.body.classList.remove('modal-open');
     // Only clear pending state if we are NOT submitting (submit sets it again/keeps it)
     // Actually, submit calls close, so we should be careful.
@@ -7052,7 +7041,7 @@ window.submitCreateVariable = function () {
     if (createBtn) {
       createBtn.textContent = `Creating ${fullVariableName}...`;
       createBtn.disabled = true;
-      createBtn.style.opacity = '0.6';
+      createBtn.classList.add('disabled-visual');
     }
   }
 
@@ -7071,23 +7060,19 @@ window.updateTailwindActionButtonsState = function (itemId, isStandalone) {
   if (addPrefixBtn) {
     if (hasSelection) {
       addPrefixBtn.disabled = false;
-      addPrefixBtn.style.opacity = '1';
-      addPrefixBtn.style.pointerEvents = 'auto';
+      addPrefixBtn.classList.remove('disabled-visual');
     } else {
       addPrefixBtn.disabled = true;
-      addPrefixBtn.style.opacity = '0.5';
-      addPrefixBtn.style.pointerEvents = 'none';
+      addPrefixBtn.classList.add('disabled-visual');
     }
   }
 
   if (replaceBtn) {
     if (hasSelection) {
       replaceBtn.disabled = false;
-      replaceBtn.style.opacity = '1';
-      replaceBtn.style.pointerEvents = 'auto';
+      replaceBtn.classList.remove('disabled-visual');
     } else {
-      replaceBtn.style.opacity = '0.5';
-      replaceBtn.style.pointerEvents = 'none';
+      replaceBtn.classList.add('disabled-visual');
     }
   }
 };
@@ -7168,8 +7153,7 @@ window.applyTailwindNamespace = async function (currentGroupName, itemId, variab
 
   if (addPrefixBtn) {
     addPrefixBtn.disabled = true;
-    addPrefixBtn.style.opacity = '0.5';
-    addPrefixBtn.style.pointerEvents = 'none';
+    addPrefixBtn.classList.add('disabled-visual');
     if (action === 'add-prefix' || isIndividualVariable) {
       addPrefixBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Processing...';
     }
@@ -7177,8 +7161,7 @@ window.applyTailwindNamespace = async function (currentGroupName, itemId, variab
 
   if (replaceBtn) {
     replaceBtn.disabled = true;
-    replaceBtn.style.opacity = '0.5';
-    replaceBtn.style.pointerEvents = 'none';
+    replaceBtn.classList.add('disabled-visual');
     if (action === 'replace') {
       replaceBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">hourglass_empty</span> Processing...';
     }
@@ -7219,7 +7202,7 @@ const totalOnboardingSlides = 4;
 function openUserGuide() {
   const modal = document.getElementById('user-guide-modal');
   if (modal) {
-    modal.style.display = 'block';
+    modal.classList.add('is-visible');
     document.body.classList.add('modal-open');
   }
 }
@@ -7228,7 +7211,7 @@ function openUserGuide() {
 function closeUserGuide() {
   const modal = document.getElementById('user-guide-modal');
   if (modal) {
-    modal.style.display = 'none';
+    modal.classList.remove('is-visible');
     document.body.classList.remove('modal-open');
   }
 }
@@ -7317,13 +7300,13 @@ ${checkboxes}
 
 // Function to show reset confirmation modal
 function showResetConfirmation() {
-  document.getElementById('reset-confirmation-modal').style.display = 'block';
+  document.getElementById('reset-confirmation-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
 }
 
 // Function to close reset confirmation modal
 function closeResetConfirmation() {
-  document.getElementById('reset-confirmation-modal').style.display = 'none';
+  document.getElementById('reset-confirmation-modal').classList.remove('is-visible');
   document.body.classList.remove('modal-open');
 }
 
@@ -7363,7 +7346,7 @@ function confirmReset() {
   selectProvider(activeProvider);
 
   // Hide metadata
-  document.getElementById('config-metadata').style.display = 'none';
+  document.getElementById('config-metadata').classList.add('hidden');
 
   // Close both modals
   closeResetConfirmation();
@@ -7452,32 +7435,32 @@ function onProviderChange() {
   const tokenInput = document.getElementById('config-token');
 
   if (provider === 'gitlab') {
-    if (gitlabUrlGroup) gitlabUrlGroup.style.display = 'block';
-    if (githubUrlGroup) githubUrlGroup.style.display = 'none';
+    if (gitlabUrlGroup) gitlabUrlGroup.classList.remove('hidden');
+    if (githubUrlGroup) githubUrlGroup.classList.add('hidden');
     if (projectIdLabel) projectIdLabel.textContent = 'Project ID';
     // Help text might be static in new UI? Let's keep dynamic for now
     // projectIdInput.placeholder updated in selectProvider? No, here.
     if (projectIdInput) projectIdInput.placeholder = 'e.g. 24267 or namespace/project';
-    if (browseButton) browseButton.style.display = 'none';
+    if (browseButton) browseButton.classList.add('hidden');
 
-    if (browseBranchesButton) browseBranchesButton.style.display = 'block'; // GitLab supports browsing too if implemented? Original code said 'none' for GitLab browse branches?
-    // Checking original code: browseBranchesButton.style.display = 'none' for GitLab.
+    if (browseBranchesButton) browseBranchesButton.classList.remove('hidden'); // GitLab supports browsing too if implemented? Original code said 'none' for GitLab browse branches?
+    // Checking original code: browseBranchesButton hidden for GitLab.
     // Wait, standard GitLab supports browsing branches? The original plugin might not have implemented it.
     // Let's stick to original behavior:
-    if (browseBranchesButton) browseBranchesButton.style.display = 'none';
+    if (browseBranchesButton) browseBranchesButton.classList.add('hidden');
 
     if (tokenLabel) tokenLabel.textContent = 'Project Access Token';
     if (tokenInput) tokenInput.placeholder = 'Enter your GitLab private token';
   } else {
-    if (gitlabUrlGroup) gitlabUrlGroup.style.display = 'none';
-    if (githubUrlGroup) githubUrlGroup.style.display = 'block';
+    if (gitlabUrlGroup) gitlabUrlGroup.classList.add('hidden');
+    if (githubUrlGroup) githubUrlGroup.classList.remove('hidden');
     if (projectIdLabel) projectIdLabel.textContent = 'Repository';
     if (projectIdInput) projectIdInput.placeholder = 'e.g. owner/repository';
     if (browseButton) {
-      browseButton.style.display = tokenInput && tokenInput.value.trim() ? 'block' : 'none';
+      tokenInput && tokenInput.value.trim() ? browseButton.classList.remove('hidden') : browseButton.classList.add('hidden');
     }
     if (browseBranchesButton) {
-      browseBranchesButton.style.display = tokenInput && tokenInput.value.trim() ? 'block' : 'none';
+      tokenInput && tokenInput.value.trim() ? browseBranchesButton.classList.remove('hidden') : browseBranchesButton.classList.add('hidden');
     }
     if (tokenLabel) tokenLabel.textContent = 'GitHub Access Token';
     if (tokenInput) tokenInput.placeholder = 'Enter your GitHub token';
@@ -7499,7 +7482,7 @@ function browseRepositories() {
   }
 
   // Show modal
-  document.getElementById('repository-browser-modal').style.display = 'block';
+  document.getElementById('repository-browser-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
 
   // Load repositories
@@ -7507,7 +7490,7 @@ function browseRepositories() {
 }
 
 function closeRepositoryBrowser() {
-  document.getElementById('repository-browser-modal').style.display = 'none';
+  document.getElementById('repository-browser-modal').classList.remove('is-visible');
   document.body.classList.remove('modal-open');
 }
 
@@ -7559,14 +7542,14 @@ function displayRepositories(repositories) {
               onclick="selectRepository('${repo.fullName || repo.name}')"
               style="
                 padding: 12px;
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: var(--glass-white-medium);
+                border: 1px solid var(--glass-white-10);
                 border-radius: 8px;
                 cursor: pointer;
                 transition: all 0.2s ease;
               "
-              onmouseover="this.style.background='rgba(139, 92, 246, 0.2)'; this.style.borderColor='rgba(139, 92, 246, 0.3)';"
-              onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.borderColor='rgba(255, 255, 255, 0.1)';"
+              onmouseover="this.style.background='var(--glass-purple-20)'; this.style.borderColor='var(--glass-purple-30)';"
+              onmouseout="this.style.background='var(--glass-white-medium)'; this.style.borderColor='var(--glass-white-10)';"
             >
               <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
@@ -7581,7 +7564,7 @@ function displayRepositories(repositories) {
                   `
         : ''
       }
-                  <div style="display: flex; gap: 12px; align-items: center; font-size: 11px; color: rgba(255, 255, 255, 0.5);">
+                  <div style="display: flex; gap: 12px; align-items: center; font-size: 11px; color: var(--glass-white-50);">
                     <span>${repo.private ? '🔒 Private' : '🌐 Public'}</span>
                     ${language ? `<span>📝 ${language}</span>` : ''}
                     ${stars > 0 ? `<span>⭐ ${stars}</span>` : ''}
@@ -7589,9 +7572,9 @@ function displayRepositories(repositories) {
                   </div>
                 </div>
                 <div style="margin-left: 8px;">
-                  <button 
+                  <button
                     onclick="event.stopPropagation(); showRepositoryDetails('${repo.fullName || repo.name}')"
-                    style="padding: 4px 8px; font-size: 10px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); color: #c4b5fd; cursor: pointer; border-radius: 4px;"
+                    style="padding: 4px 8px; font-size: 10px; background: var(--glass-purple-20); border: 1px solid var(--glass-purple-30); color: #c4b5fd; cursor: pointer; border-radius: 4px;"
                     title="View repository details"
                   >
                     Details
@@ -7686,7 +7669,7 @@ function showRepositoryDetails(repoName) {
             
             <div style="display: flex; gap: 8px;">
               <button onclick="window.open('${repo.webUrl}', '_blank')" 
-                      style="padding: 8px 12px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; cursor: pointer; border-radius: 6px;">
+                      style="padding: 8px 12px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--success-500); cursor: pointer; border-radius: 6px;">
                 Open on GitHub
               </button>
               <button onclick="selectRepository('${repo.fullName || repo.name}'); closeModal();" 
@@ -7710,8 +7693,7 @@ function showModal(title, content) {
 
   const modal = document.createElement('div');
   modal.id = 'temp-modal';
-  modal.className = 'modal';
-  modal.style.display = 'block';
+  modal.className = 'modal is-visible';
   modal.innerHTML = `
           <div class="modal-content" style="max-width: 600px;">
             <button class="close-modal" onclick="closeModal()">&times;</button>
@@ -7755,7 +7737,7 @@ function browseBranches() {
   }
 
   // Show modal
-  document.getElementById('branch-browser-modal').style.display = 'block';
+  document.getElementById('branch-browser-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
 
   // Load branches
@@ -7763,7 +7745,7 @@ function browseBranches() {
 }
 
 function closeBranchBrowser() {
-  document.getElementById('branch-browser-modal').style.display = 'none';
+  document.getElementById('branch-browser-modal').classList.remove('is-visible');
   document.body.classList.remove('modal-open');
 }
 
@@ -7829,13 +7811,13 @@ function displayBranches(branches) {
                 justify-content: space-between;
                 align-items: center;
               "
-              onmouseover="this.style.background='rgba(139, 92, 246, 0.2)'; this.style.borderColor='rgba(139, 92, 246, 0.3)';"
-              onmouseout="this.style.background='${isDefault ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.05)'}'; this.style.borderColor='${isDefault ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.1)'}';"
+              onmouseover="this.style.background='var(--glass-purple-20)'; this.style.borderColor='var(--glass-purple-30)';"
+              onmouseout="this.style.background='${isDefault ? 'rgba(34, 197, 94, 0.1)' : 'var(--glass-white-medium)'}'; this.style.borderColor='${isDefault ? 'rgba(34, 197, 94, 0.3)' : 'var(--glass-white-10)'}';"
             >
-              <span style="font-weight: ${isDefault ? '500' : 'normal'}; color: ${isDefault ? '#22c55e' : '#c4b5fd'};">
+              <span style="font-weight: ${isDefault ? '500' : 'normal'}; color: ${isDefault ? 'var(--success-500)' : '#c4b5fd'};">
                 ${branch.name}
               </span>
-              ${isDefault ? '<span style="font-size: 10px; background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 2px 6px; border-radius: 3px;">DEFAULT</span>' : ''}
+              ${isDefault ? '<span style="font-size: 10px; background: rgba(34, 197, 94, 0.2); color: var(--success-500); padding: 2px 6px; border-radius: 3px;">DEFAULT</span>' : ''}
             </div>
           `;
   });
@@ -8133,18 +8115,18 @@ function loadConfigurationTab(forceProvider = null) {
       
       if (shareTokenElement && shareTokenWarning) {
         shareTokenElement.checked = settings.shareTokenWithTeam || false;
-        shareTokenWarning.style.display = settings.shareTokenWithTeam ? 'block' : 'none';
+        settings.shareTokenWithTeam ? shareTokenWarning.classList.remove('hidden') : shareTokenWarning.classList.add('hidden');
       }
 
       // Handle strategy-dependent sections
       const strategyElement = document.getElementById('config-strategy');
       if (strategyElement) {
         const strategy = strategyElement.value;
-        const display = strategy === 'merge-request' ? 'block' : 'none';
+        const isMergeRequest = strategy === 'merge-request';
 
         const branchSection = document.getElementById('config-branch-section');
 
-        if (branchSection) branchSection.style.display = display;
+        if (branchSection) isMergeRequest ? branchSection.classList.remove('hidden') : branchSection.classList.add('hidden');
       }
 
       displayConfigMetadata();
@@ -8182,7 +8164,7 @@ function displayConfigMetadata() {
   const settings = window.gitSettings || window.gitlabSettings;
 
   if (settings && (settings.savedAt || settings.savedBy)) {
-    metadataElement.style.display = 'block';
+    metadataElement.classList.remove('hidden');
 
     let metadataText = '';
 
@@ -8204,7 +8186,7 @@ function displayConfigMetadata() {
 
     metadataTextElement.textContent = metadataText;
   } else {
-    metadataElement.style.display = 'none';
+    metadataElement.classList.add('hidden');
   }
 }
 
@@ -8214,18 +8196,18 @@ function toggleGitLabCredentialsFields() {
   const securityNoteCompact = document.getElementById('security-note-compact');
   const securityNoteFull = document.getElementById('security-note-full');
 
-  if (fieldsSection.style.display === 'none') {
-    fieldsSection.style.display = 'block';
-    summarySection.style.display = 'none';
-    securityNoteCompact.style.display = 'none';
-    securityNoteFull.style.display = 'block';
+  if (fieldsSection.classList.contains('hidden')) {
+    fieldsSection.classList.remove('hidden');
+    summarySection.classList.add('hidden');
+    securityNoteCompact.classList.add('hidden');
+    securityNoteFull.classList.remove('hidden');
   } else {
     const projectId = document.getElementById('gitlab-project-id').value;
     if (projectId) {
-      fieldsSection.style.display = 'none';
-      summarySection.style.display = 'block';
-      securityNoteCompact.style.display = 'block';
-      securityNoteFull.style.display = 'none';
+      fieldsSection.classList.add('hidden');
+      summarySection.classList.remove('hidden');
+      securityNoteCompact.classList.remove('hidden');
+      securityNoteFull.classList.add('hidden');
 
       document.getElementById('project-id-display').textContent = projectId;
     }
@@ -8233,7 +8215,7 @@ function toggleGitLabCredentialsFields() {
 }
 
 function openGitLabModal() {
-  document.getElementById('gitlab-modal').style.display = 'block';
+  document.getElementById('gitlab-modal').classList.add('is-visible');
   document.body.classList.add('modal-open');
 
   const fieldsSection = document.getElementById('gitlab-credentials-fields');
@@ -8241,10 +8223,10 @@ function openGitLabModal() {
   const securityNoteCompact = document.getElementById('security-note-compact');
   const securityNoteFull = document.getElementById('security-note-full');
 
-  if (fieldsSection) fieldsSection.style.display = 'block';
-  if (summarySection) summarySection.style.display = 'none';
-  if (securityNoteCompact) securityNoteCompact.style.display = 'none';
-  if (securityNoteFull) securityNoteFull.style.display = 'block';
+  if (fieldsSection) fieldsSection.classList.remove('hidden');
+  if (summarySection) summarySection.classList.add('hidden');
+  if (securityNoteCompact) securityNoteCompact.classList.add('hidden');
+  if (securityNoteFull) securityNoteFull.classList.remove('hidden');
 
   if (window.gitlabSettings) {
     if (window.gitlabSettings.projectId) {
@@ -8280,10 +8262,10 @@ function openGitLabModal() {
     }
 
     if (window.gitlabSettings.projectId) {
-      fieldsSection.style.display = 'none';
-      summarySection.style.display = 'block';
-      securityNoteCompact.style.display = 'block';
-      securityNoteFull.style.display = 'none';
+      fieldsSection.classList.add('hidden');
+      summarySection.classList.remove('hidden');
+      securityNoteCompact.classList.remove('hidden');
+      securityNoteFull.classList.add('hidden');
     }
   }
 
@@ -8310,7 +8292,7 @@ function closeGitLabModal() {
       modalNotification.remove();
     }
 
-    modal.style.display = 'none';
+    modal.classList.remove('is-visible');
     document.body.classList.remove('modal-open');
   }
   resetCommitButton();
@@ -8600,7 +8582,7 @@ function renderUnitsSettings(data) {
 
   let html = `
           <div class="units-section" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); margin-bottom: 24px;">
-            <h4 style="color: #22c55e; margin-bottom: 12px;">⚡ Settings Hierarchy</h4>
+            <h4 style="color: var(--success-500); margin-bottom: 12px;">⚡ Settings Hierarchy</h4>
             <div style="color: rgba(255, 255, 255, 0.85); font-size: 13px; line-height: 1.5;">
               <strong>1. Group Settings</strong> (highest priority) → <strong>2. Collection Settings</strong> → <strong>3. Smart Defaults</strong> (fallback)
               <br><span style="color: rgba(255, 255, 255, 0.6);">More specific settings always override general ones</span>
@@ -8721,10 +8703,10 @@ function renderUnitsSettings(data) {
               <div>
                 <h5 style="margin-bottom: 8px; color: #c4b5fd;">Unitless</h5>
                 <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
-                  <div><code style="color: #fbbf24;">opacity</code> → <span style="color: #22c55e;">none</span></div>
-                  <div><code style="color: #fbbf24;">z-index</code> → <span style="color: #22c55e;">none</span></div>
-                  <div><code style="color: #fbbf24;">line-height</code> → <span style="color: #22c55e;">none</span></div>
-                  <div><code style="color: #fbbf24;">font-weight</code> → <span style="color: #22c55e;">none</span></div>
+                  <div><code style="color: #fbbf24;">opacity</code> → <span style="color: var(--success-500);">none</span></div>
+                  <div><code style="color: #fbbf24;">z-index</code> → <span style="color: var(--success-500);">none</span></div>
+                  <div><code style="color: #fbbf24;">line-height</code> → <span style="color: var(--success-500);">none</span></div>
+                  <div><code style="color: #fbbf24;">font-weight</code> → <span style="color: var(--success-500);">none</span></div>
                   <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">No units needed</div>
                 </div>
               </div>
@@ -8744,9 +8726,9 @@ function renderUnitsSettings(data) {
               <div>
                 <h5 style="margin-bottom: 8px; color: #c4b5fd;">Relative</h5>
                 <div style="font-family: monospace; font-size: 12px; line-height: 1.4;">
-                  <div><code style="color: #fbbf24;">container-*</code> → <span style="color: #ef4444;">%</span></div>
-                  <div><code style="color: #fbbf24;">sidebar-*</code> → <span style="color: #ef4444;">%</span></div>
-                  <div><code style="color: #fbbf24;">radius-pill</code> → <span style="color: #ef4444;">%</span></div>
+                  <div><code style="color: #fbbf24;">container-*</code> → <span style="color: var(--error-500);">%</span></div>
+                  <div><code style="color: #fbbf24;">sidebar-*</code> → <span style="color: var(--error-500);">%</span></div>
+                  <div><code style="color: #fbbf24;">radius-pill</code> → <span style="color: var(--error-500);">%</span></div>
                   <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px; margin-top: 4px;">Relative to parent</div>
                 </div>
               </div>
@@ -8766,9 +8748,9 @@ function renderUnitsSettings(data) {
               <strong style="color: #c4b5fd;">Real Examples:</strong><br>
               <code style="color: #fbbf24;">heading-font-size</code> → <span style="color: #06d6a0;">rem</span> (typography),
               <code style="color: #fbbf24;">section-padding</code> → <span style="color: #06d6a0;">rem</span> (spacing),<br>
-              <code style="color: #fbbf24;">button-opacity</code> → <span style="color: #22c55e;">none</span> (unitless),
+              <code style="color: #fbbf24;">button-opacity</code> → <span style="color: var(--success-500);">none</span> (unitless),
               <code style="color: #fbbf24;">hero-full-width</code> → <span style="color: #f59e0b;">vw</span> (viewport),<br>
-              <code style="color: #fbbf24;">sidebar-width</code> → <span style="color: #ef4444;">%</span> (relative),
+              <code style="color: #fbbf24;">sidebar-width</code> → <span style="color: var(--error-500);">%</span> (relative),
               <code style="color: #fbbf24;">border-width</code> → <span style="color: #a78bfa;">px</span> (default)
             </div>
           </div>
@@ -8807,7 +8789,7 @@ if (createMRElement) {
     const mergeRequestOptions = document.getElementById('merge-request-options');
     if (mergeRequestOptions) {
       if (this.checked) {
-        mergeRequestOptions.style.display = 'block';
+        mergeRequestOptions.classList.remove('hidden');
 
         const commitMessage = document.getElementById('commit-message').value;
         const mrTitleElement = document.getElementById('mr-title');
@@ -8815,7 +8797,7 @@ if (createMRElement) {
           mrTitleElement.value = commitMessage;
         }
       } else {
-        mergeRequestOptions.style.display = 'none';
+        mergeRequestOptions.classList.add('hidden');
       }
     }
   });
@@ -8839,9 +8821,9 @@ if (configStrategyElement) {
     const testBranchSection = document.getElementById('config-test-branch-section');
 
     if (branchSection && testBranchSection) {
-      const display = this.value === 'merge-request' ? 'block' : 'none';
-      branchSection.style.display = display;
-      testBranchSection.style.display = display;
+      const isMergeRequest = this.value === 'merge-request';
+      isMergeRequest ? branchSection.classList.remove('hidden') : branchSection.classList.add('hidden');
+      isMergeRequest ? testBranchSection.classList.remove('hidden') : testBranchSection.classList.add('hidden');
     }
   });
 }
@@ -8997,13 +8979,13 @@ function toggleVariablesList(groupIndex) {
     }
 
     // Toggle visibility
-    if (variablesList.style.display === 'none' || !variablesList.style.display) {
-      variablesList.style.display = 'block';
+    if (variablesList.classList.contains('hidden')) {
+      variablesList.classList.remove('hidden');
       if (toggleButton) {
         toggleButton.innerHTML = '🔼 Hide Variables';
       }
     } else {
-      variablesList.style.display = 'none';
+      variablesList.classList.add('hidden');
       if (toggleButton) {
         toggleButton.innerHTML = '🔽 Show Variables';
       }
@@ -9048,18 +9030,18 @@ function initializeVariableImportTab() {
                   <button class="btn btn-secondary" onclick="loadSampleData()">Load Sample</button>
                   <button class="btn btn-secondary" onclick="clearInput()">Clear</button>
                 </div>
-                <div id="parse-status" class="parse-status" style="display: none;"></div>
+                <div id="parse-status" class="parse-status hidden"></div>
               </div>
             </div>
 
-            <div id="preview-section" class="import-section" style="display: none;">
+            <div id="preview-section" class="import-section hidden">
               <h3>Preview & Configure</h3>
               <div id="preview-content">
                 <!-- Dynamic content will be inserted here -->
               </div>
             </div>
 
-            <div id="import-section" class="import-section" style="display: none;">
+            <div id="import-section" class="import-section hidden">
               <h3>Import to Figma</h3>
               <div id="import-content">
                 <!-- Dynamic content will be inserted here -->
@@ -9178,9 +9160,9 @@ window.clearInput = function () {
 
   if (tokenInput) tokenInput.value = '';
   if (importInput) importInput.value = ''; // Also clear import input
-  if (parseStatus) parseStatus.style.display = 'none';
-  if (previewSection) previewSection.style.display = 'none';
-  if (importSection) importSection.style.display = 'none';
+  if (parseStatus) parseStatus.classList.add('hidden');
+  if (previewSection) previewSection.classList.add('hidden');
+  if (importSection) importSection.classList.add('hidden');
 };
 
 
@@ -9189,7 +9171,7 @@ function showStatus(message, type) {
   const statusDiv = document.getElementById('parse-status');
   statusDiv.className = `parse-status ${type}`;
   statusDiv.textContent = message;
-  statusDiv.style.display = 'block';
+  statusDiv.classList.remove('hidden');
 }
 
 function extractVariableReferences(value) {
@@ -9858,7 +9840,7 @@ function showPreview(tokens, { skipScroll = false } = {}) {
                 <input type="text" id="collection-name" value="Design Tokens" placeholder="Enter collection name">
               </div>
 
-              <div id="existing-collection-group" class="input-group" style="display: none;">
+              <div id="existing-collection-group" class="input-group hidden">
                 <label>Select Collection <span class="material-symbols-outlined help-icon" data-tooltip="Choose an existing variable collection to merge into">help</span></label>
                 <select id="existing-collection-select">
                   <option value="">Loading collections...</option>
@@ -9900,7 +9882,7 @@ function showPreview(tokens, { skipScroll = false } = {}) {
         `;
 
   previewContent.innerHTML = SecurityUtils.sanitizeHTML(previewHTML);
-  previewSection.style.display = 'block';
+  previewSection.classList.remove('hidden');
   if (!skipScroll) {
     setTimeout(() => {
       previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -9951,14 +9933,14 @@ window.toggleImportDestination = function (mode) {
 
   if (mode === 'new') {
     // Show collection name input, hide existing collections dropdown
-    if (collectionNameGroup) collectionNameGroup.style.display = 'block';
-    if (existingCollectionGroup) existingCollectionGroup.style.display = 'none';
+    if (collectionNameGroup) collectionNameGroup.classList.remove('hidden');
+    if (existingCollectionGroup) existingCollectionGroup.classList.add('hidden');
     console.log('[DEBUG] Switched to NEW collection mode');
   } else {
     // Hide collection name input, show existing collections dropdown
-    if (collectionNameGroup) collectionNameGroup.style.display = 'none';
-    if (existingCollectionGroup) existingCollectionGroup.style.display = 'block';
-    console.log('[DEBUG] Switched to EXISTING collection mode, display should be:', existingCollectionGroup?.style.display);
+    if (collectionNameGroup) collectionNameGroup.classList.add('hidden');
+    if (existingCollectionGroup) existingCollectionGroup.classList.remove('hidden');
+    console.log('[DEBUG] Switched to EXISTING collection mode');
     // Refresh existing collections list
     loadExistingCollections();
   }
@@ -10063,7 +10045,7 @@ window.simulateImport = function () {
           </div>
         `;
 
-  importSection.style.display = 'block';
+  importSection.classList.remove('hidden');
 
   // Send real import message to plugin backend
   const messageData = {
@@ -10111,7 +10093,7 @@ window.simulateImport = function () {
     error: function (error) {
       clearInterval(this.interval);
       this.fill.style.width = '100%';
-      this.fill.style.backgroundColor = '#f87171';
+      this.fill.style.backgroundColor = 'var(--error-400)';
       this.text.textContent = 'Import failed';
       setTimeout(() => showImportError(error), 500);
     },
@@ -10271,7 +10253,7 @@ function updateExistingCollectionsDropdown(collections) {
 
   // If we have parsed tokens and the preview is visible, re-render to show duplicate badges
   const previewSection = document.getElementById('preview-section');
-  if (previewSection && previewSection.style.display !== 'none' && window.parsedTokens) {
+  if (previewSection && !previewSection.classList.contains('hidden') && window.parsedTokens) {
     // Preserve current destination mode before re-render
     const activeRadio = document.querySelector('input[name="import-destination"]:checked');
     const currentMode = activeRadio ? activeRadio.value : 'new';
@@ -10286,8 +10268,8 @@ function updateExistingCollectionsDropdown(collections) {
       if (existingRadio) existingRadio.checked = true;
       const newGroup = document.getElementById('new-collection-group');
       const existingGroup = document.getElementById('existing-collection-group');
-      if (newGroup) newGroup.style.display = 'none';
-      if (existingGroup) existingGroup.style.display = 'block';
+      if (newGroup) newGroup.classList.add('hidden');
+      if (existingGroup) existingGroup.classList.remove('hidden');
       // Re-populate dropdown since showPreview rebuilt the HTML
       const select = document.getElementById('existing-collection-select');
       if (select && collections && collections.length > 0) {
@@ -10586,7 +10568,7 @@ window.handleOverwriteToggleChange = function() {
   
   const warning = document.getElementById('overwrite-warning');
   if (warning) {
-    warning.style.display = checkbox.checked ? 'flex' : 'none';
+    checkbox.checked ? warning.classList.remove('hidden') : warning.classList.add('hidden');
   }
   
   // Re-render the initial parsed tokens list to update badges
@@ -10742,7 +10724,7 @@ window.showFeedbackInSettings = function () {
   // Open settings modal and scroll to feedback section
   const modal = document.getElementById('settings-modal');
   if (modal) {
-    modal.style.display = 'flex';
+    modal.classList.add('is-visible');
     // Wait a tick for display, then scroll to feedback
     setTimeout(() => {
       const feedbackSection = document.getElementById('settings-feedback-section');
@@ -10757,8 +10739,8 @@ window.toggleFeedback = function () {
   console.log('Toggling feedback section');
   const feedbackSection = document.getElementById('feedback-section');
   if (feedbackSection) {
-    const isHidden = feedbackSection.style.display === 'none' || !feedbackSection.style.display;
-    feedbackSection.style.display = isHidden ? 'block' : 'none';
+    const isHidden = feedbackSection.classList.contains('hidden');
+    isHidden ? feedbackSection.classList.remove('hidden') : feedbackSection.classList.add('hidden');
     // Also persist the state
     if (!isHidden) {
       parent.postMessage(
@@ -10793,7 +10775,7 @@ function updateVariablesSummary(variablesCount, collectionsCount) {
                <span>${collectionsCount} Collections</span>
             </div>
           `;
-    summaryDiv.style.display = 'flex';
+    summaryDiv.classList.remove('hidden');
   }
 }
 window.updateVariablesSummary = updateVariablesSummary;
@@ -10810,7 +10792,7 @@ function updateComponentsSummary(componentsCount, setsCount) {
                <span>${setsCount} Sets</span>
             </div>
           `;
-    summaryDiv.style.display = 'flex';
+    summaryDiv.classList.remove('hidden');
   }
 }
 window.updateComponentsSummary = updateComponentsSummary;
@@ -10891,7 +10873,7 @@ function filterQualityResults(query) {
   const breakdownContent = document.getElementById('quality-breakdown-content');
   if (breakdownContent) {
     if (normalizedQuery && visibleBreakdownRows > 0) {
-      breakdownContent.style.display = 'block';
+      breakdownContent.classList.remove('hidden');
       // Ensure toggle icon is rotated if needed (optional)
       const toggleIcon = document.getElementById('breakdown-toggle-icon');
       if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
@@ -10967,12 +10949,12 @@ function filterQualityResults(query) {
 
     // Toggle group visibility based on whether it has any visible matching issues
     if (groupHasVisibleIssues) {
-      group.style.display = 'block';
+      group.classList.remove('hidden');
       // Expand group if searching
       if (normalizedQuery && content) content.classList.remove('collapsed');
       if (normalizedQuery && header) header.classList.remove('collapsed');
     } else {
-      group.style.display = 'none';
+      group.classList.add('hidden');
       // Collapse group if hiding (optional, but keeps it clean when reappearing)
     }
   });
@@ -10993,13 +10975,13 @@ function filterQualityResults(query) {
       noResultsMsg.className = 'no-results-message';
       noResultsMsg.style.textAlign = 'center';
       noResultsMsg.style.padding = '40px';
-      noResultsMsg.style.color = 'rgba(255, 255, 255, 0.5)';
+      noResultsMsg.style.color = 'var(--glass-white-50)';
       noResultsMsg.innerText = 'No matching issues found.';
       container.appendChild(noResultsMsg);
     }
-    noResultsMsg.style.display = 'block';
+    noResultsMsg.classList.remove('hidden');
   } else if (noResultsMsg) {
-    noResultsMsg.style.display = 'none';
+    noResultsMsg.classList.add('hidden');
   }
 }
 
@@ -11014,8 +10996,8 @@ function toggleQualityNodeGroup(groupId) {
   console.log('Container found:', !!container, 'Toggle found:', !!toggle);
 
   if (container) {
-    const isExpanded = container.style.display !== 'none';
-    container.style.display = isExpanded ? 'none' : 'block';
+    const isExpanded = !container.classList.contains('hidden');
+    isExpanded ? container.classList.add('hidden') : container.classList.remove('hidden');
 
     if (toggle) {
       toggle.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
@@ -11041,10 +11023,10 @@ function toggleQualitySection(sectionId) {
 
   if (isExpanded) {
     section.classList.remove('expanded');
-    if (body) body.style.display = 'none';
+    if (body) body.classList.add('hidden');
   } else {
     section.classList.add('expanded');
-    if (body) body.style.display = 'block';
+    if (body) body.classList.remove('hidden');
   }
 }
 
@@ -11084,8 +11066,8 @@ function toggleComponentHygieneGroup(groupId) {
   console.log('Container found:', !!container, 'Toggle found:', !!toggle);
 
   if (container) {
-    const isExpanded = container.style.display !== 'none';
-    container.style.display = isExpanded ? 'none' : 'block';
+    const isExpanded = !container.classList.contains('hidden');
+    isExpanded ? container.classList.add('hidden') : container.classList.remove('hidden');
 
     if (toggle) {
       const icon = toggle.querySelector('.material-symbols-outlined');
@@ -11322,8 +11304,7 @@ function updateIssueApplyButtonState(issueId) {
   // Enable button only if both conditions are met
   if (hasSelection && hasVariable) {
     applyBtn.disabled = false;
-    applyBtn.style.opacity = '1';
-    applyBtn.style.pointerEvents = 'auto';
+    applyBtn.classList.remove('disabled-visual');
 
     if (isCreateNew) {
       // Transform to "Create" button
@@ -11375,8 +11356,7 @@ function updateIssueApplyButtonState(issueId) {
   } else {
     // Disabled state
     applyBtn.disabled = true;
-    applyBtn.style.opacity = '0.5';
-    applyBtn.style.pointerEvents = 'none';
+    applyBtn.classList.add('disabled-visual');
     applyBtn.innerHTML =
       '<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">check</span> Apply';
     applyBtn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
@@ -11565,7 +11545,7 @@ window.CustomSelect = class CustomSelect {
     this.originalSelect = originalSelect;
     
     // Hide original
-    this.originalSelect.style.display = 'none';
+    this.originalSelect.classList.add('hidden');
     
     // Wrap the original select if it isn't already inside a relative container.
     this.wrapper = document.createElement('div');
