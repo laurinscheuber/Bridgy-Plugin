@@ -5494,49 +5494,6 @@ input[type='password']:focus {
   min-width: 0;
 }
 
-.custom-select-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 5px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 28px;
-}
-
-.custom-select-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.custom-select-trigger.active {
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
-}
-
-.custom-select-trigger .trigger-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.custom-select-trigger .trigger-icon {
-  font-size: 16px;
-  color: #a78bfa;
-  margin-left: 8px;
-  transition: transform 0.2s ease;
-}
-
-.custom-select-trigger.active .trigger-icon {
-  transform: rotate(180deg);
-}
-
 .custom-select-menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -5544,19 +5501,14 @@ input[type='password']:focus {
   width: 100%;
   max-height: 250px;
   overflow-y: auto;
-  background: #1e1e1e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: var(--neutral-800);
+  border: 1px solid var(--glass-purple-light);
+  border-radius: var(--radius-md);
   z-index: 1000;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-dark-heavy);
   display: none;
   backdrop-filter: blur(12px);
   padding: 4px;
-}
-
-/* Glassmorphism version if context allows */
-.custom-select-menu {
-  background: rgba(30, 30, 30, 0.95);
 }
 
 .custom-select-menu.show {
@@ -5595,24 +5547,25 @@ input[type='password']:focus {
 
 .custom-select-option {
   padding: 8px 12px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--text-xs);
+  color: var(--glass-white-90);
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.1s ease;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .custom-select-option:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--glass-purple-10);
+  color: var(--neutral-0);
 }
 
 .custom-select-option.selected {
-  background: rgba(139, 92, 246, 0.15);
-  color: #c084fc;
+  background: var(--glass-purple-20);
+  color: var(--purple-light);
+  font-weight: 500;
 }
 
 .custom-select-option.create-new {
@@ -7086,51 +7039,7 @@ body.edit-mode .quality-header {
   z-index: 100;
 }
 
-/* Custom Select Menu Styling */
-.custom-select-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  max-height: 200px;
-  overflow-y: auto;
-  background: var(--neutral-800);
-  /* Fallback */
-  background: rgba(30, 41, 59, 0.95);
-  /* modern dark bg */
-  border: 1px solid var(--glass-purple-light);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  z-index: 1000 !important;
-  /* Ensure it floats above other cards */
-  margin-top: 4px;
-  padding: 4px 0;
-  display: none;
-  /* Hidden by default, toggled via JS */
-}
-
-.custom-select-menu.open {
-  display: block;
-}
-
-.custom-select-option {
-  padding: 6px 12px;
-  cursor: pointer;
-  color: var(--text-primary);
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  transition: background 0.15s ease;
-}
-
-.custom-select-option:hover {
-  background: var(--glass-purple-light);
-}
-
-.custom-select-option.selected {
-  background: var(--glass-purple-medium);
-  color: white;
-}
+/* Cleaned up duplicate custom-select-menu block */
 
 /* ========================================= */
 /* USER GUIDE ACCORDION (Details/Summary)    */
@@ -7178,7 +7087,7 @@ body.edit-mode .quality-header {
   border: 1px solid var(--glass-white-20);
   border-radius: var(--radius-md);
   color: var(--neutral-0);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
@@ -7206,48 +7115,7 @@ body.edit-mode .quality-header {
   color: var(--neutral-0);
 }
 
-.custom-select-options {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  background: var(--neutral-800);
-  border: 1px solid var(--glass-white-20);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-dark-heavy);
-  z-index: var(--z-dropdown);
-  max-height: 200px;
-  overflow-y: auto;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-10px);
-  transition: all 0.2s ease;
-}
-
-.custom-select-options.show {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.custom-select-option {
-  padding: 8px 12px;
-  color: var(--glass-white-90);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  transition: all 0.2s ease;
-}
-
-.custom-select-option:hover {
-  background: var(--glass-purple-10);
-  color: var(--neutral-0);
-}
-
-.custom-select-option.selected {
-  background: var(--glass-purple-20);
-  color: var(--purple-light);
-  font-weight: 500;
-}
+/* Cleaned up duplicate custom-select-options block */
 
 /* ===== UTILITY CLASSES ===== */
 
