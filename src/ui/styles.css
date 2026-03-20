@@ -5883,10 +5883,12 @@ input[type='checkbox']:indeterminate {
 
 .icon-btn-focus:hover {
   color: #a78bfa !important;
+  background: transparent !important;
 }
 
 .icon-btn-delete:hover {
   color: #ef4444 !important;
+  background: transparent !important;
 }
 
 /* Bin icon size — consistent 16px across all quality accordions and variables tab */
