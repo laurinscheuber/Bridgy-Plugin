@@ -3168,9 +3168,11 @@ window.onmessage = (event) => {
                 const headerCount = card.querySelector('.quality-issue-header .material-symbols-outlined + span');
                 if (headerCount) {
                   const currentVal = parseInt(headerCount.textContent) || 0;
-                  const fixedCount = checkedInputs.length; // Approximate, or use message.successCount
+                  const fixedCount = message.successCount || checkedInputs.length;
                   const newVal = Math.max(0, currentVal - fixedCount);
                   headerCount.textContent = newVal;
+                  // Keep data-node-count in sync so updateAccordionCount reads the correct value
+                  card.dataset.nodeCount = newVal;
                 }
 
                 // 4. Update the "Select All" checkbox state
@@ -3247,8 +3249,14 @@ window.onmessage = (event) => {
 
               const countBadge = accordion.querySelector('.quality-accordion-count');
               if (countBadge) {
-                const remainingCards = accordion.querySelectorAll('.quality-issue-card:not(.quality-fade-out)');
-                countBadge.textContent = remainingCards.length;
+                const visibleCards = accordion.querySelectorAll('.quality-issue-card:not(.quality-fade-out)');
+                const visibleNodeCount = Array.from(visibleCards).reduce((sum, card) => {
+                  return sum + (parseInt(card.dataset.nodeCount, 10) || 0);
+                }, 0);
+                const unloadedNodeCount = (window.qualityRemainingIssues && window.qualityRemainingIssues[category])
+                  ? window.qualityRemainingIssues[category].reduce((sum, issue) => sum + (issue.totalNodes || issue.count || 0), 0)
+                  : 0;
+                countBadge.textContent = visibleNodeCount + unloadedNodeCount;
               }
             }
 
@@ -5936,7 +5944,7 @@ function renderMissingVarIssueCard(issue, category, idx) {
   const isColor = /^#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?$|^rgb/.test(val);
   const colorPreview = isColor ? '<div class="quality-color-preview" style="background: ' + val + ';"></div>' : '';
 
-  let html = '<div id="' + issueId + '-card" class="quality-issue-card" data-property="' + SecurityUtils.escapeHTML(issue.property) + '" data-category="' + SecurityUtils.escapeHTML(category) + '" data-value="' + SecurityUtils.escapeHTML(val) + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
+  let html = '<div id="' + issueId + '-card" class="quality-issue-card" data-property="' + SecurityUtils.escapeHTML(issue.property) + '" data-category="' + SecurityUtils.escapeHTML(category) + '" data-value="' + SecurityUtils.escapeHTML(val) + '" data-node-count="' + (issue.totalNodes || issue.count || 0) + '" style="margin-bottom: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: block; padding: 0;">' +
     '<div class="quality-issue-header" onclick="toggleIssueCard(\'' + issueId + '\')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; cursor: pointer; border-radius: 8px;">' +
     '<div style="flex: 1; display: flex; align-items: center; gap: 12px; overflow: hidden;">' +
     '<span id="' + issueId + '-chevron" class="material-symbols-outlined" style="font-size: 18px; opacity: 0.7; transition: transform 0.2s;">chevron_right</span>' +

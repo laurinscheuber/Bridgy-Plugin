@@ -7902,183 +7902,203 @@ ${commentPrefix} Grids${commentSuffix}`);
       var variableImportService_1 = require_variableImportService();
       var config_1 = require_config();
       figma.showUI(__html__, { width: 650, height: 900, themeColors: true });
-      function collectDocumentData() {
+      function countNodeUsages() {
         return __awaiter(this, void 0, void 0, function* () {
+          const usageMap = /* @__PURE__ */ new Map();
           try {
-            const usageMap = /* @__PURE__ */ new Map();
-            try {
-              const usageNodes = figma.currentPage.findAll((node) => true);
-              for (const node of usageNodes) {
-                if ("boundVariables" in node && node.boundVariables) {
-                  const bounds = node.boundVariables;
-                  for (const key in bounds) {
-                    const val = bounds[key];
-                    if (val) {
-                      if (Array.isArray(val)) {
-                        val.forEach((v) => {
-                          if (v.type === "VARIABLE_ALIAS") {
-                            usageMap.set(v.id, (usageMap.get(v.id) || 0) + 1);
-                          }
-                        });
-                      } else if (val.type === "VARIABLE_ALIAS") {
-                        usageMap.set(val.id, (usageMap.get(val.id) || 0) + 1);
-                      }
+            const usageNodes = figma.currentPage.findAll((node) => true);
+            for (const node of usageNodes) {
+              if ("boundVariables" in node && node.boundVariables) {
+                const bounds = node.boundVariables;
+                for (const key in bounds) {
+                  const val = bounds[key];
+                  if (val) {
+                    if (Array.isArray(val)) {
+                      val.forEach((v) => {
+                        if (v.type === "VARIABLE_ALIAS") {
+                          usageMap.set(v.id, (usageMap.get(v.id) || 0) + 1);
+                        }
+                      });
+                    } else if (val.type === "VARIABLE_ALIAS") {
+                      usageMap.set(val.id, (usageMap.get(val.id) || 0) + 1);
                     }
                   }
                 }
-                const checkStyle = (styleId) => {
-                  if (typeof styleId === "string" && styleId.length > 0) {
-                    usageMap.set(styleId, (usageMap.get(styleId) || 0) + 1);
-                  }
-                };
-                if ("fillStyleId" in node)
-                  checkStyle(node.fillStyleId);
-                if ("strokeStyleId" in node)
-                  checkStyle(node.strokeStyleId);
-                if ("textStyleId" in node)
-                  checkStyle(node.textStyleId);
-                if ("effectStyleId" in node)
-                  checkStyle(node.effectStyleId);
-                if ("gridStyleId" in node)
-                  checkStyle(node.gridStyleId);
+              }
+              const checkStyle = (styleId) => {
+                if (typeof styleId === "string" && styleId.length > 0) {
+                  usageMap.set(styleId, (usageMap.get(styleId) || 0) + 1);
+                }
+              };
+              if ("fillStyleId" in node)
+                checkStyle(node.fillStyleId);
+              if ("strokeStyleId" in node)
+                checkStyle(node.strokeStyleId);
+              if ("textStyleId" in node)
+                checkStyle(node.textStyleId);
+              if ("effectStyleId" in node)
+                checkStyle(node.effectStyleId);
+              if ("gridStyleId" in node)
+                checkStyle(node.gridStyleId);
+            }
+          } catch (e) {
+            console.warn("Error counting usages:", e);
+          }
+          return usageMap;
+        });
+      }
+      function collectVariablesData(usageMap) {
+        return __awaiter(this, void 0, void 0, function* () {
+          const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
+          const variablesData = [];
+          const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
+          for (const collection of sortedCollections) {
+            const variablesPromises = collection.variableIds.map((id) => __awaiter(this, void 0, void 0, function* () {
+              const variable = yield figma.variables.getVariableByIdAsync(id);
+              if (!variable)
+                return null;
+              const valuesByModeEntries = [];
+              Object.keys(variable.valuesByMode).forEach((modeId) => {
+                const value = variable.valuesByMode[modeId];
+                const mode = collection.modes.find((m) => m.modeId === modeId);
+                valuesByModeEntries.push({
+                  modeName: mode ? mode.name : "Unknown",
+                  value
+                });
+              });
+              return {
+                id: variable.id,
+                name: variable.name,
+                resolvedType: variable.resolvedType,
+                valuesByMode: valuesByModeEntries,
+                usageCount: usageMap.get(variable.id) || 0
+              };
+            }));
+            const variablesResult = yield Promise.all(variablesPromises);
+            const variables = variablesResult.filter((item) => item !== null);
+            variablesData.push({ name: collection.name, variables });
+          }
+          return variablesData;
+        });
+      }
+      function collectStylesData(usageMap) {
+        return __awaiter(this, void 0, void 0, function* () {
+          const stylesData = {
+            textStyles: [],
+            paintStyles: [],
+            effectStyles: []
+          };
+          const textStyles = yield figma.getLocalTextStylesAsync();
+          for (const textStyle of textStyles) {
+            stylesData.textStyles.push({
+              id: textStyle.id,
+              name: textStyle.name,
+              description: textStyle.description,
+              fontSize: textStyle.fontSize,
+              fontName: textStyle.fontName,
+              // fontWeight: textStyle.fontWeight, // Property doesn't exist on TextStyle
+              lineHeight: textStyle.lineHeight,
+              letterSpacing: textStyle.letterSpacing,
+              textCase: textStyle.textCase,
+              textDecoration: textStyle.textDecoration,
+              boundVariables: textStyle.boundVariables,
+              usageCount: usageMap.get(textStyle.id) || 0
+            });
+          }
+          const paintStyles = yield figma.getLocalPaintStylesAsync();
+          for (const paintStyle of paintStyles) {
+            stylesData.paintStyles.push({
+              id: paintStyle.id,
+              name: paintStyle.name,
+              description: paintStyle.description,
+              paints: paintStyle.paints,
+              boundVariables: paintStyle.boundVariables,
+              usageCount: usageMap.get(paintStyle.id) || 0
+            });
+          }
+          const effectStyles = yield figma.getLocalEffectStylesAsync();
+          for (const effectStyle of effectStyles) {
+            stylesData.effectStyles.push({
+              id: effectStyle.id,
+              name: effectStyle.name,
+              description: effectStyle.description,
+              effects: effectStyle.effects,
+              boundVariables: effectStyle.boundVariables,
+              usageCount: usageMap.get(effectStyle.id) || 0
+            });
+          }
+          const gridStyles = yield figma.getLocalGridStylesAsync();
+          stylesData.gridStyles = [];
+          for (const gridStyle of gridStyles) {
+            stylesData.gridStyles.push({
+              id: gridStyle.id,
+              name: gridStyle.name,
+              description: gridStyle.description,
+              layoutGrids: gridStyle.layoutGrids,
+              boundVariables: gridStyle.boundVariables,
+              usageCount: usageMap.get(gridStyle.id) || 0
+            });
+          }
+          return stylesData;
+        });
+      }
+      function resolveVariableAliases(variablesData) {
+        return __awaiter(this, void 0, void 0, function* () {
+          const referencedIds = /* @__PURE__ */ new Set();
+          const collectAliasIds = (val) => {
+            if (val && typeof val === "object" && val.type === "VARIABLE_ALIAS" && val.id) {
+              referencedIds.add(val.id);
+            }
+          };
+          variablesData.forEach((collection) => {
+            collection.variables.forEach((variable) => {
+              variable.valuesByMode.forEach((item) => {
+                collectAliasIds(item.value);
+              });
+            });
+          });
+          const variableReferences = {};
+          const referencePromises = Array.from(referencedIds).map((id) => __awaiter(this, void 0, void 0, function* () {
+            try {
+              let foundLocal = false;
+              for (const col of variablesData) {
+                const local = col.variables.find((v) => v.id === id);
+                if (local) {
+                  variableReferences[id] = local.name;
+                  foundLocal = true;
+                  break;
+                }
+              }
+              if (!foundLocal) {
+                const v = yield figma.variables.getVariableByIdAsync(id);
+                if (v) {
+                  variableReferences[id] = v.name;
+                }
               }
             } catch (e) {
-              console.warn("Error counting usages:", e);
+              console.warn(`Could not resolve referenced variable: ${id}`);
             }
-            const variableCollections = yield figma.variables.getLocalVariableCollectionsAsync();
-            const variablesData = [];
-            const sortedCollections = variableCollections.sort((a, b) => a.name.localeCompare(b.name));
-            for (const collection of sortedCollections) {
-              const variablesPromises = collection.variableIds.map((id) => __awaiter(this, void 0, void 0, function* () {
-                const variable = yield figma.variables.getVariableByIdAsync(id);
-                if (!variable)
-                  return null;
-                const valuesByModeEntries = [];
-                Object.keys(variable.valuesByMode).forEach((modeId) => {
-                  const value = variable.valuesByMode[modeId];
-                  const mode = collection.modes.find((m) => m.modeId === modeId);
-                  valuesByModeEntries.push({
-                    modeName: mode ? mode.name : "Unknown",
-                    value
-                  });
-                });
-                return {
-                  id: variable.id,
-                  name: variable.name,
-                  resolvedType: variable.resolvedType,
-                  valuesByMode: valuesByModeEntries,
-                  usageCount: usageMap.get(variable.id) || 0
-                };
-              }));
-              const variablesResult = yield Promise.all(variablesPromises);
-              const variables = variablesResult.filter((item) => item !== null);
-              variablesData.push({
-                name: collection.name,
-                variables
-              });
-            }
-            const stylesData = {
-              textStyles: [],
-              paintStyles: [],
-              effectStyles: []
-            };
-            const textStyles = yield figma.getLocalTextStylesAsync();
-            for (const textStyle of textStyles) {
-              stylesData.textStyles.push({
-                id: textStyle.id,
-                name: textStyle.name,
-                description: textStyle.description,
-                fontSize: textStyle.fontSize,
-                fontName: textStyle.fontName,
-                // fontWeight: textStyle.fontWeight, // Property doesn't exist on TextStyle
-                lineHeight: textStyle.lineHeight,
-                letterSpacing: textStyle.letterSpacing,
-                textCase: textStyle.textCase,
-                textDecoration: textStyle.textDecoration,
-                boundVariables: textStyle.boundVariables,
-                usageCount: usageMap.get(textStyle.id) || 0
-              });
-            }
-            const paintStyles = yield figma.getLocalPaintStylesAsync();
-            for (const paintStyle of paintStyles) {
-              stylesData.paintStyles.push({
-                id: paintStyle.id,
-                name: paintStyle.name,
-                description: paintStyle.description,
-                paints: paintStyle.paints,
-                boundVariables: paintStyle.boundVariables,
-                usageCount: usageMap.get(paintStyle.id) || 0
-              });
-            }
-            const effectStyles = yield figma.getLocalEffectStylesAsync();
-            for (const effectStyle of effectStyles) {
-              stylesData.effectStyles.push({
-                id: effectStyle.id,
-                name: effectStyle.name,
-                description: effectStyle.description,
-                effects: effectStyle.effects,
-                boundVariables: effectStyle.boundVariables,
-                usageCount: usageMap.get(effectStyle.id) || 0
-              });
-            }
-            const gridStyles = yield figma.getLocalGridStylesAsync();
-            stylesData.gridStyles = [];
-            for (const gridStyle of gridStyles) {
-              stylesData.gridStyles.push({
-                id: gridStyle.id,
-                name: gridStyle.name,
-                description: gridStyle.description,
-                layoutGrids: gridStyle.layoutGrids,
-                boundVariables: gridStyle.boundVariables,
-                usageCount: usageMap.get(gridStyle.id) || 0
-              });
-            }
+          }));
+          yield Promise.all(referencePromises);
+          return variableReferences;
+        });
+      }
+      function collectDocumentData() {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const usageMap = yield countNodeUsages();
+            const variablesData = yield collectVariablesData(usageMap);
+            const stylesData = yield collectStylesData(usageMap);
             const componentsData = yield componentService_1.ComponentService.collectComponents();
             if (!componentsData || componentsData.length === 0) {
               console.warn("No components found in document");
             }
-            const referencedIds = /* @__PURE__ */ new Set();
-            const collectAliasIds = (val) => {
-              if (val && typeof val === "object" && val.type === "VARIABLE_ALIAS" && val.id) {
-                referencedIds.add(val.id);
-              }
-            };
-            variablesData.forEach((collection) => {
-              collection.variables.forEach((variable) => {
-                variable.valuesByMode.forEach((item) => {
-                  collectAliasIds(item.value);
-                });
-              });
-            });
-            const variableReferences = {};
-            const referencePromises = Array.from(referencedIds).map((id) => __awaiter(this, void 0, void 0, function* () {
-              try {
-                let foundLocal = false;
-                for (const col of variablesData) {
-                  const local = col.variables.find((v) => v.id === id);
-                  if (local) {
-                    variableReferences[id] = local.name;
-                    foundLocal = true;
-                    break;
-                  }
-                }
-                if (!foundLocal) {
-                  const v = yield figma.variables.getVariableByIdAsync(id);
-                  if (v) {
-                    variableReferences[id] = v.name;
-                  }
-                }
-              } catch (e) {
-                console.warn(`Could not resolve referenced variable: ${id}`);
-              }
-            }));
-            yield Promise.all(referencePromises);
+            const variableReferences = yield resolveVariableAliases(variablesData);
             const feedbackDismissed = yield figma.clientStorage.getAsync("feedback_dismissed");
             figma.ui.postMessage({
               type: "document-data",
               variablesData,
               variableReferences,
-              // Send the lookup map
               stylesData,
               componentsData: componentsData || [],
               feedbackDismissed: !!feedbackDismissed
@@ -8094,7 +8114,6 @@ ${commentPrefix} Grids${commentSuffix}`);
               type: "document-data-error",
               error: error instanceof Error ? error.message : "Unknown error during data collection",
               variablesData: [],
-              // Send empty arrays as fallback
               componentsData: []
             });
             return {
@@ -8171,6 +8190,91 @@ ${commentPrefix} Grids${commentSuffix}`);
         const target = targetValue.trim();
         return target.toUpperCase() === hex || target === rgb || target.replace(/\s/g, "") === rgb.replace(/\s/g, "");
       }
+      function applyPaddingVariable(node, variable) {
+        if ("paddingLeft" in node && typeof node.setBoundVariable === "function") {
+          node.setBoundVariable("paddingLeft", variable);
+          node.setBoundVariable("paddingTop", variable);
+          node.setBoundVariable("paddingRight", variable);
+          node.setBoundVariable("paddingBottom", variable);
+        }
+      }
+      function applyCornerRadiusVariable(node, variable) {
+        if ("topLeftRadius" in node && typeof node.setBoundVariable === "function") {
+          node.setBoundVariable("topLeftRadius", variable);
+          node.setBoundVariable("topRightRadius", variable);
+          node.setBoundVariable("bottomLeftRadius", variable);
+          node.setBoundVariable("bottomRightRadius", variable);
+        }
+      }
+      function applyFillColorVariable(node, variable, targetValue) {
+        if (!("fills" in node) || !Array.isArray(node.fills) || node.fills.length === 0) {
+          console.warn(`[BRIDGY] Node has no fills`);
+          return;
+        }
+        const fills = [...node.fills];
+        const solidFillIndex = fills.findIndex((fill) => fill && fill.type === "SOLID" && fill.visible !== false && (!fill.boundVariables || !fill.boundVariables.color) && matchesTargetValue(fill, targetValue));
+        if (solidFillIndex === -1) {
+          console.warn(`[BRIDGY] No suitable solid fill found to apply color`);
+          return;
+        }
+        const targetPaint = fills[solidFillIndex];
+        const alias = figma.variables.createVariableAlias(variable);
+        const nextBound = Object.assign(Object.assign({}, targetPaint.boundVariables || {}), { color: alias });
+        fills[solidFillIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
+        try {
+          node.fills = fills;
+        } catch (err) {
+          console.warn(`[BRIDGY] Failed to set fills on node ${node.id}:`, err);
+          throw err;
+        }
+      }
+      function applyStrokeColorVariable(node, variable, targetValue) {
+        if (!("strokes" in node) || !Array.isArray(node.strokes) || node.strokes.length === 0) {
+          return;
+        }
+        const strokes = [...node.strokes];
+        const solidStrokeIndex = strokes.findIndex((stroke) => stroke && stroke.type === "SOLID" && stroke.visible !== false && (!stroke.boundVariables || !stroke.boundVariables.color) && matchesTargetValue(stroke, targetValue));
+        if (solidStrokeIndex === -1) {
+          console.warn(`[BRIDGY] No suitable solid stroke found to apply color`);
+          return;
+        }
+        const targetPaint = strokes[solidStrokeIndex];
+        const alias = figma.variables.createVariableAlias(variable);
+        const nextBound = Object.assign(Object.assign({}, targetPaint.boundVariables || {}), { color: alias });
+        strokes[solidStrokeIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
+        try {
+          node.strokes = strokes;
+        } catch (err) {
+          console.warn(`[BRIDGY] Failed to set strokes on node ${node.id}:`, err);
+          throw err;
+        }
+      }
+      function applySinglePropertyVariable(node, figmaProperty, variable) {
+        if (typeof node.setBoundVariable !== "function") {
+          console.warn(`[BRIDGY] Node ${node.name} has property ${figmaProperty} but NO setBoundVariable method`);
+          return false;
+        }
+        if (figmaProperty === "width" && "layoutSizingHorizontal" in node) {
+          if (node.layoutSizingHorizontal !== "FIXED") {
+            try {
+              node.layoutSizingHorizontal = "FIXED";
+            } catch (e) {
+              console.warn(`Could not set layoutSizingHorizontal to FIXED:`, e);
+            }
+          }
+        }
+        if (figmaProperty === "height" && "layoutSizingVertical" in node) {
+          if (node.layoutSizingVertical !== "FIXED") {
+            try {
+              node.layoutSizingVertical = "FIXED";
+            } catch (e) {
+              console.warn(`Could not set layoutSizingVertical to FIXED:`, e);
+            }
+          }
+        }
+        node.setBoundVariable(figmaProperty, variable);
+        return true;
+      }
       function applyVariableToNode(node, variable, property, category, targetValue) {
         return __awaiter(this, void 0, void 0, function* () {
           try {
@@ -8209,89 +8313,15 @@ ${commentPrefix} Grids${commentSuffix}`);
               return false;
             }
             if (property === "Padding") {
-              const paddingNode = node;
-              if ("paddingLeft" in paddingNode && typeof paddingNode.setBoundVariable === "function") {
-                paddingNode.setBoundVariable("paddingLeft", variable);
-                paddingNode.setBoundVariable("paddingTop", variable);
-                paddingNode.setBoundVariable("paddingRight", variable);
-                paddingNode.setBoundVariable("paddingBottom", variable);
-              }
+              applyPaddingVariable(node, variable);
             } else if (property === "Corner Radius") {
-              const radiusNode = node;
-              if ("topLeftRadius" in radiusNode && typeof radiusNode.setBoundVariable === "function") {
-                radiusNode.setBoundVariable("topLeftRadius", variable);
-                radiusNode.setBoundVariable("topRightRadius", variable);
-                radiusNode.setBoundVariable("bottomLeftRadius", variable);
-                radiusNode.setBoundVariable("bottomRightRadius", variable);
-              }
+              applyCornerRadiusVariable(node, variable);
             } else if (property === "Fill Color") {
-              const fillNode = node;
-              if ("fills" in fillNode && Array.isArray(fillNode.fills) && fillNode.fills.length > 0) {
-                const fills = [...fillNode.fills];
-                const solidFillIndex = fills.findIndex((fill) => fill && fill.type === "SOLID" && fill.visible !== false && (!fill.boundVariables || !fill.boundVariables.color) && matchesTargetValue(fill, targetValue));
-                if (solidFillIndex !== -1) {
-                  const targetPaint = fills[solidFillIndex];
-                  const alias = figma.variables.createVariableAlias(variable);
-                  const nextBound = Object.assign(Object.assign({}, targetPaint.boundVariables || {}), { color: alias });
-                  fills[solidFillIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
-                  try {
-                    fillNode.fills = fills;
-                  } catch (err) {
-                    console.warn(`[BRIDGY] Failed to set fills on node ${fillNode.id}:`, err);
-                    throw err;
-                  }
-                } else {
-                  console.warn(`[BRIDGY] No suitable solid fill found to apply color`);
-                }
-              } else {
-                console.warn(`[BRIDGY] Node has no fills`);
-              }
+              applyFillColorVariable(node, variable, targetValue);
             } else if (property === "Stroke Color") {
-              const strokeNode = node;
-              if ("strokes" in strokeNode && Array.isArray(strokeNode.strokes) && strokeNode.strokes.length > 0) {
-                const strokes = [...strokeNode.strokes];
-                const solidStrokeIndex = strokes.findIndex((stroke) => stroke && stroke.type === "SOLID" && stroke.visible !== false && (!stroke.boundVariables || !stroke.boundVariables.color) && matchesTargetValue(stroke, targetValue));
-                if (solidStrokeIndex !== -1) {
-                  const targetPaint = strokes[solidStrokeIndex];
-                  const alias = figma.variables.createVariableAlias(variable);
-                  const nextBound = Object.assign(Object.assign({}, targetPaint.boundVariables || {}), { color: alias });
-                  strokes[solidStrokeIndex] = Object.assign(Object.assign({}, targetPaint), { boundVariables: nextBound });
-                  try {
-                    strokeNode.strokes = strokes;
-                  } catch (err) {
-                    console.warn(`[BRIDGY] Failed to set strokes on node ${strokeNode.id}:`, err);
-                    throw err;
-                  }
-                } else {
-                  console.warn(`[BRIDGY] No suitable solid stroke found to apply color`);
-                }
-              }
+              applyStrokeColorVariable(node, variable, targetValue);
             } else {
-              const bindableNode = node;
-              if (typeof bindableNode.setBoundVariable === "function") {
-                if (figmaProperty === "width" && "layoutSizingHorizontal" in bindableNode) {
-                  if (bindableNode.layoutSizingHorizontal !== "FIXED") {
-                    try {
-                      bindableNode.layoutSizingHorizontal = "FIXED";
-                    } catch (e) {
-                      console.warn(`Could not set layoutSizingHorizontal to FIXED:`, e);
-                    }
-                  }
-                }
-                if (figmaProperty === "height" && "layoutSizingVertical" in bindableNode) {
-                  if (bindableNode.layoutSizingVertical !== "FIXED") {
-                    try {
-                      bindableNode.layoutSizingVertical = "FIXED";
-                    } catch (e) {
-                      console.warn(`Could not set layoutSizingVertical to FIXED:`, e);
-                    }
-                  }
-                }
-                bindableNode.setBoundVariable(figmaProperty, variable);
-              } else {
-                console.warn(`[BRIDGY] Node ${node.name} has property ${figmaProperty} but NO setBoundVariable method`);
-                return false;
-              }
+              return applySinglePropertyVariable(node, figmaProperty, variable);
             }
             return true;
           } catch (error) {
@@ -8300,802 +8330,1364 @@ ${commentPrefix} Grids${commentSuffix}`);
           }
         });
       }
-      figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
-        try {
-          switch (msg.type) {
-            case "export-css":
-              const format = msg.exportFormat || "css";
-              const cssContent = yield cssExportService_1.CSSExportService.exportVariables(format);
-              figma.ui.postMessage({
-                type: "css-export",
-                cssData: cssContent,
-                shouldDownload: msg.shouldDownload,
-                exportFormat: format
-              });
-              break;
-            case "load-component-styles":
-              if (!msg.componentId) {
-                throw new Error(`Missing required component ID for loading styles`);
+      function handleExportCSS(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          const format = msg.exportFormat || "css";
+          const cssContent = yield cssExportService_1.CSSExportService.exportVariables(format);
+          figma.ui.postMessage({
+            type: "css-export",
+            cssData: cssContent,
+            shouldDownload: msg.shouldDownload,
+            exportFormat: format
+          });
+        });
+      }
+      function handleLoadComponentStyles(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          if (!msg.componentId) {
+            throw new Error(`Missing required component ID for loading styles`);
+          }
+          const targetComponent = componentService_1.ComponentService.getComponentById(msg.componentId);
+          if (!targetComponent) {
+            throw new Error(`Component with ID ${msg.componentId} not found`);
+          }
+          const { styles, textElements } = yield componentService_1.ComponentService.loadComponentDetails(msg.componentId);
+          figma.ui.postMessage({
+            type: "component-styles-loaded",
+            componentId: msg.componentId,
+            styles: styles || {},
+            textElements: textElements || []
+          });
+        });
+      }
+      function handleSelectComponent(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            if (!msg.componentId) {
+              throw new Error(`Missing required component ID for selection`);
+            }
+            const nodeToSelect = yield figma.getNodeByIdAsync(msg.componentId);
+            if (!nodeToSelect) {
+              throw new Error(`Component with ID ${msg.componentId} not found`);
+            }
+            const isSceneNode = nodeToSelect.type !== "DOCUMENT" && nodeToSelect.type !== "PAGE";
+            if (!isSceneNode) {
+              throw new Error(`Node ${msg.componentId} is not a selectable scene node (type: ${nodeToSelect.type})`);
+            }
+            let currentNode = nodeToSelect;
+            let containingPage = null;
+            while (currentNode.parent) {
+              if (currentNode.parent.type === "PAGE") {
+                containingPage = currentNode.parent;
+                break;
               }
-              const targetComponent = componentService_1.ComponentService.getComponentById(msg.componentId);
-              if (!targetComponent) {
-                throw new Error(`Component with ID ${msg.componentId} not found`);
-              }
-              const { styles, textElements } = yield componentService_1.ComponentService.loadComponentDetails(msg.componentId);
-              figma.ui.postMessage({
-                type: "component-styles-loaded",
-                componentId: msg.componentId,
-                styles: styles || {},
-                textElements: textElements || []
-              });
-              break;
-            case "select-component":
-              try {
-                if (!msg.componentId) {
-                  throw new Error(`Missing required component ID for selection`);
-                }
-                const nodeToSelect = yield figma.getNodeByIdAsync(msg.componentId);
-                if (!nodeToSelect) {
-                  throw new Error(`Component with ID ${msg.componentId} not found`);
-                }
-                const isSceneNode = nodeToSelect.type !== "DOCUMENT" && nodeToSelect.type !== "PAGE";
-                if (!isSceneNode) {
-                  throw new Error(`Node ${msg.componentId} is not a selectable scene node (type: ${nodeToSelect.type})`);
-                }
-                let currentNode = nodeToSelect;
-                let containingPage = null;
-                while (currentNode.parent) {
-                  if (currentNode.parent.type === "PAGE") {
-                    containingPage = currentNode.parent;
+              currentNode = currentNode.parent;
+            }
+            const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
+            if (needsPageSwitch && containingPage) {
+              yield figma.setCurrentPageAsync(containingPage);
+            }
+            figma.currentPage.selection = [nodeToSelect];
+            figma.viewport.scrollAndZoomIntoView([nodeToSelect]);
+            figma.ui.postMessage({
+              type: "component-selected",
+              componentId: msg.componentId,
+              componentName: nodeToSelect.name,
+              pageName: (containingPage === null || containingPage === void 0 ? void 0 : containingPage.name) || "Unknown",
+              switchedPage: needsPageSwitch || false
+            });
+          } catch (error) {
+            console.error("Backend: Error selecting component:", error);
+            let errorPageName = "unknown page";
+            try {
+              const errorNode = yield figma.getNodeByIdAsync(msg.componentId);
+              if (errorNode) {
+                let checkNode = errorNode;
+                while (checkNode.parent) {
+                  if (checkNode.parent.type === "PAGE") {
+                    errorPageName = checkNode.parent.name;
                     break;
                   }
-                  currentNode = currentNode.parent;
+                  checkNode = checkNode.parent;
                 }
-                const needsPageSwitch = containingPage && containingPage !== figma.currentPage;
-                if (needsPageSwitch && containingPage) {
-                  yield figma.setCurrentPageAsync(containingPage);
-                }
-                figma.currentPage.selection = [nodeToSelect];
-                figma.viewport.scrollAndZoomIntoView([nodeToSelect]);
-                figma.ui.postMessage({
-                  type: "component-selected",
-                  componentId: msg.componentId,
-                  componentName: nodeToSelect.name,
-                  pageName: (containingPage === null || containingPage === void 0 ? void 0 : containingPage.name) || "Unknown",
-                  switchedPage: needsPageSwitch || false
-                });
-              } catch (error) {
-                console.error("Backend: Error selecting component:", error);
-                let errorPageName = "unknown page";
-                try {
-                  const errorNode = yield figma.getNodeByIdAsync(msg.componentId);
-                  if (errorNode) {
-                    let checkNode = errorNode;
-                    while (checkNode.parent) {
-                      if (checkNode.parent.type === "PAGE") {
-                        errorPageName = checkNode.parent.name;
-                        break;
-                      }
-                      checkNode = checkNode.parent;
-                    }
-                  }
-                } catch (pageError) {
-                }
-                figma.ui.postMessage({
-                  type: "component-selection-error",
-                  componentId: msg.componentId,
-                  message: error.message || "Failed to select component",
-                  pageName: errorPageName
-                });
               }
-              break;
-            case "save-git-settings":
-              const gitService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
-              const gitSettings = {
-                provider: msg.provider || "gitlab",
-                baseUrl: msg.baseUrl,
-                projectId: msg.projectId || "",
-                token: msg.token,
-                filePath: msg.filePath || "src/variables.css",
-                strategy: msg.strategy || "merge-request",
-                branchName: msg.branchName || "feature/variables",
-                exportFormat: msg.exportFormat || "css",
-                saveToken: msg.saveToken || false,
-                shareTokenWithTeam: msg.shareTokenWithTeam || false,
-                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-                savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
-              };
-              if (typeof gitService.saveSettings !== "function") {
-                console.error("CRITICAL: gitService.saveSettings is not a function!", gitService);
-                throw new Error(`Internal Error: Service for ${msg.provider} is not initialized correctly.`);
+            } catch (pageError) {
+            }
+            figma.ui.postMessage({
+              type: "component-selection-error",
+              componentId: msg.componentId,
+              message: error.message || "Failed to select component",
+              pageName: errorPageName
+            });
+          }
+        });
+      }
+      function handleSaveGitSettings(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          const gitService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
+          const gitSettings = {
+            provider: msg.provider || "gitlab",
+            baseUrl: msg.baseUrl,
+            projectId: msg.projectId || "",
+            token: msg.token,
+            filePath: msg.filePath || "src/variables.css",
+            strategy: msg.strategy || "merge-request",
+            branchName: msg.branchName || "feature/variables",
+            exportFormat: msg.exportFormat || "css",
+            saveToken: msg.saveToken || false,
+            shareTokenWithTeam: msg.shareTokenWithTeam || false,
+            savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+          };
+          if (typeof gitService.saveSettings !== "function") {
+            console.error("CRITICAL: gitService.saveSettings is not a function!", gitService);
+            throw new Error(`Internal Error: Service for ${msg.provider} is not initialized correctly.`);
+          }
+          yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
+          figma.ui.postMessage({
+            type: "git-settings-saved",
+            success: true,
+            sharedWithTeam: msg.shareWithTeam,
+            savedAt: gitSettings.savedAt,
+            savedBy: gitSettings.savedBy
+          });
+        });
+      }
+      function handleSaveGitlabSettings(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          yield gitlabService_1.GitLabService.saveSettings({
+            gitlabUrl: msg.gitlabUrl,
+            projectId: msg.projectId || "",
+            gitlabToken: msg.gitlabToken,
+            filePath: msg.filePath || "src/variables.css",
+            strategy: msg.strategy || "merge-request",
+            branchName: msg.branchName || "feature/variables",
+            exportFormat: msg.exportFormat || "css",
+            saveToken: msg.saveToken || false,
+            savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+          }, msg.shareWithTeam || false);
+          figma.ui.postMessage({
+            type: "gitlab-settings-saved",
+            success: true,
+            sharedWithTeam: msg.shareWithTeam,
+            savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+          });
+        });
+      }
+      function handleListRepositories(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const listService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
+            const tempSettings = {
+              provider: msg.provider || "gitlab",
+              baseUrl: "",
+              projectId: "",
+              token: msg.token,
+              filePath: "",
+              saveToken: false,
+              savedAt: "",
+              savedBy: ""
+            };
+            const repositories = yield listService.listRepositories(tempSettings);
+            figma.ui.postMessage({
+              type: "repositories-loaded",
+              repositories
+            });
+          } catch (error) {
+            figma.ui.postMessage({
+              type: "repositories-error",
+              error: error.message || "Failed to load repositories"
+            });
+          }
+        });
+      }
+      function handleListBranches(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            if (msg.provider !== "github") {
+              throw new Error("Branch listing is currently only supported for GitHub repositories");
+            }
+            const { GitHubService } = yield Promise.resolve().then(() => __importStar(require_githubService()));
+            const githubService = new GitHubService();
+            const branchSettings = {
+              provider: "github",
+              baseUrl: "",
+              projectId: msg.projectId || "",
+              token: msg.token,
+              filePath: "",
+              saveToken: false,
+              savedAt: "",
+              savedBy: ""
+            };
+            const branches = yield githubService.listBranches(branchSettings);
+            figma.ui.postMessage({
+              type: "branches-loaded",
+              branches
+            });
+          } catch (error) {
+            figma.ui.postMessage({
+              type: "branches-error",
+              error: error.message || "Failed to load branches"
+            });
+          }
+        });
+      }
+      function handleGetComponentUsage(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            console.log("Counting component usage...");
+            yield figma.loadAllPagesAsync();
+            const localDefinitions = /* @__PURE__ */ new Map();
+            const variantToSetId = /* @__PURE__ */ new Map();
+            const localNodes = [];
+            const allInstances = [];
+            for (const page of figma.root.children) {
+              if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+                continue;
               }
-              yield gitService.saveSettings(gitSettings, msg.shareWithTeam || false);
-              figma.ui.postMessage({
-                type: "git-settings-saved",
-                success: true,
-                sharedWithTeam: msg.shareWithTeam,
-                savedAt: gitSettings.savedAt,
-                savedBy: gitSettings.savedBy
-              });
-              break;
-            case "save-gitlab-settings":
-              yield gitlabService_1.GitLabService.saveSettings({
-                gitlabUrl: msg.gitlabUrl,
-                projectId: msg.projectId || "",
-                gitlabToken: msg.gitlabToken,
-                filePath: msg.filePath || "src/variables.css",
-                strategy: msg.strategy || "merge-request",
-                branchName: msg.branchName || "feature/variables",
-                exportFormat: msg.exportFormat || "css",
-                saveToken: msg.saveToken || false,
-                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-                savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
-              }, msg.shareWithTeam || false);
-              figma.ui.postMessage({
-                type: "gitlab-settings-saved",
-                success: true,
-                sharedWithTeam: msg.shareWithTeam,
-                savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-                // We need to match what was saved
-                savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
-              });
-              break;
-            case "list-repositories":
-              try {
-                const listService = gitServiceFactory_1.GitServiceFactory.getService(msg.provider || "gitlab");
-                const tempSettings = {
-                  provider: msg.provider || "gitlab",
-                  baseUrl: "",
-                  projectId: "",
-                  token: msg.token,
-                  filePath: "",
-                  saveToken: false,
-                  savedAt: "",
-                  savedBy: ""
-                };
-                const repositories = yield listService.listRepositories(tempSettings);
-                figma.ui.postMessage({
-                  type: "repositories-loaded",
-                  repositories
+              const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
+              localNodes.push(...pageDefs);
+              const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
+              allInstances.push(...pageInstances);
+            }
+            for (const node of localNodes) {
+              if (node.type === "COMPONENT_SET") {
+                localDefinitions.set(node.id, {
+                  node,
+                  name: node.name,
+                  isSet: true,
+                  instances: []
                 });
-              } catch (error) {
-                figma.ui.postMessage({
-                  type: "repositories-error",
-                  error: error.message || "Failed to load repositories"
-                });
-              }
-              break;
-            case "list-branches":
-              try {
-                if (msg.provider !== "github") {
-                  throw new Error("Branch listing is currently only supported for GitHub repositories");
-                }
-                const { GitHubService } = yield Promise.resolve().then(() => __importStar(require_githubService()));
-                const githubService = new GitHubService();
-                const branchSettings = {
-                  provider: "github",
-                  baseUrl: "",
-                  projectId: msg.projectId || "",
-                  token: msg.token,
-                  filePath: "",
-                  saveToken: false,
-                  savedAt: "",
-                  savedBy: ""
-                };
-                const branches = yield githubService.listBranches(branchSettings);
-                figma.ui.postMessage({
-                  type: "branches-loaded",
-                  branches
-                });
-              } catch (error) {
-                figma.ui.postMessage({
-                  type: "branches-error",
-                  error: error.message || "Failed to load branches"
-                });
-              }
-              break;
-            case "get-component-usage":
-              try {
-                console.log("Counting component usage...");
-                const usageMap = {};
-                yield figma.loadAllPagesAsync();
-                const localDefinitions = /* @__PURE__ */ new Map();
-                const variantToSetId = /* @__PURE__ */ new Map();
-                const localNodes = [];
-                const allInstances = [];
-                for (const page of figma.root.children) {
-                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-                    continue;
-                  }
-                  const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
-                  localNodes.push(...pageDefs);
-                  const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
-                  allInstances.push(...pageInstances);
-                }
-                for (const node of localNodes) {
-                  if (node.type === "COMPONENT_SET") {
-                    localDefinitions.set(node.id, {
-                      node,
-                      name: node.name,
-                      isSet: true,
-                      instances: []
-                    });
-                    for (const child of node.children) {
-                      if (child.type === "COMPONENT") {
-                        variantToSetId.set(child.id, node.id);
-                      }
-                    }
-                  } else if (node.type === "COMPONENT") {
-                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
-                      localDefinitions.set(node.id, {
-                        node,
-                        name: node.name,
-                        isSet: false,
-                        instances: []
-                      });
-                    }
+                for (const child of node.children) {
+                  if (child.type === "COMPONENT") {
+                    variantToSetId.set(child.id, node.id);
                   }
                 }
-                console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
-                for (const instance of allInstances) {
-                  let mainId;
-                  try {
-                    const mainComponent = yield instance.getMainComponentAsync();
-                    if (mainComponent) {
-                      mainId = mainComponent.id;
-                    }
-                  } catch (e) {
-                  }
-                  if (!mainId)
-                    continue;
-                  let targetId = mainId;
-                  if (variantToSetId.has(mainId)) {
-                    targetId = variantToSetId.get(mainId);
-                  }
-                  if (localDefinitions.has(targetId)) {
-                    const def = localDefinitions.get(targetId);
-                    let parentName = "Page";
-                    if (instance.parent) {
-                      parentName = instance.parent.name;
-                    }
-                    def.instances.push({
-                      id: instance.id,
-                      name: instance.name,
-                      // Instance name might differ from component name
-                      parentName
-                    });
-                  }
-                }
-                const statsData = Array.from(localDefinitions.values()).map((def) => ({
-                  id: def.node.id,
-                  name: def.name,
-                  type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
-                  count: def.instances.length,
-                  variantCount: def.isSet ? def.node.children.length : 1,
-                  instances: def.instances
-                })).sort((a, b) => b.count - a.count);
-                console.log(`Stats generated. Found ${statsData.length} definitions.`);
-                figma.ui.postMessage({
-                  type: "component-stats-data",
-                  stats: statsData
-                });
-              } catch (err) {
-                console.error("Error generating stats:", err);
-                figma.ui.postMessage({
-                  type: "component-stats-error",
-                  error: err.message
-                });
-              }
-              break;
-            case "analyze-component-hygiene":
-              try {
-                console.log("Analyzing component hygiene...");
-                yield figma.loadAllPagesAsync();
-                const localDefinitions = /* @__PURE__ */ new Map();
-                const variantToSetId = /* @__PURE__ */ new Map();
-                const localNodes = [];
-                const allInstances = [];
-                for (const page of figma.root.children) {
-                  if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
-                    continue;
-                  }
-                  const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
-                  localNodes.push(...pageDefs);
-                }
-                for (const page of figma.root.children) {
-                  const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
-                  allInstances.push(...pageInstances);
-                }
-                const variantUsage = /* @__PURE__ */ new Map();
-                for (const node of localNodes) {
-                  if (node.type === "COMPONENT_SET") {
-                    localDefinitions.set(node.id, {
-                      node,
-                      name: node.name,
-                      isSet: true,
-                      instances: []
-                    });
-                    for (const child of node.children) {
-                      if (child.type === "COMPONENT") {
-                        variantToSetId.set(child.id, node.id);
-                        variantUsage.set(child.id, {
-                          name: child.name,
-                          parentId: node.id,
-                          instances: []
-                        });
-                      }
-                    }
-                  } else if (node.type === "COMPONENT") {
-                    if (!node.parent || node.parent.type !== "COMPONENT_SET") {
-                      localDefinitions.set(node.id, {
-                        node,
-                        name: node.name,
-                        isSet: false,
-                        instances: []
-                      });
-                    }
-                  }
-                }
-                for (const instance of allInstances) {
-                  let mainId;
-                  try {
-                    const mainComponent = yield instance.getMainComponentAsync();
-                    if (mainComponent) {
-                      mainId = mainComponent.id;
-                    }
-                  } catch (e) {
-                    console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
-                  }
-                  if (!mainId)
-                    continue;
-                  if (variantUsage.has(mainId)) {
-                    const variantInfo = variantUsage.get(mainId);
-                    variantInfo.instances.push({ id: instance.id });
-                  }
-                  let targetId = mainId;
-                  if (variantToSetId.has(mainId)) {
-                    targetId = variantToSetId.get(mainId);
-                  }
-                  if (localDefinitions.has(targetId)) {
-                    const def = localDefinitions.get(targetId);
-                    def.instances.push({ id: instance.id });
-                  }
-                }
-                const unusedComponents = [];
-                console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
-                console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
-                for (const [id, def] of localDefinitions.entries()) {
-                  if (def.isSet) {
-                    const componentSet = def.node;
-                    const variants = componentSet.children.filter((child) => child.type === "COMPONENT");
-                    const unusedVariants = [];
-                    const totalVariants = variants.length;
-                    let unusedVariantCount = 0;
-                    for (const variant of variants) {
-                      const variantInfo = variantUsage.get(variant.id);
-                      if (variantInfo && variantInfo.instances.length === 0) {
-                        unusedVariantCount++;
-                        unusedVariants.push({
-                          id: variant.id,
-                          name: variant.name
-                        });
-                      }
-                    }
-                    if (unusedVariantCount > 0) {
-                      unusedComponents.push({
-                        id: componentSet.id,
-                        name: componentSet.name,
-                        type: "COMPONENT_SET",
-                        totalVariants,
-                        unusedVariantCount,
-                        isFullyUnused: unusedVariantCount === totalVariants,
-                        unusedVariants
-                      });
-                    }
-                  } else {
-                    if (def.instances.length === 0) {
-                      unusedComponents.push({
-                        id: def.node.id,
-                        name: def.name,
-                        type: "COMPONENT",
-                        isFullyUnused: true
-                      });
-                    }
-                  }
-                }
-                const totalComponents = localDefinitions.size;
-                const unusedCount = unusedComponents.length;
-                let totalDeletableUnits = 0;
-                let unusedDeletableUnits = 0;
-                for (const [id, def] of localDefinitions.entries()) {
-                  if (def.isSet) {
-                    const set = def.node;
-                    const variantCount = set.children.filter((c) => c.type === "COMPONENT").length;
-                    totalDeletableUnits += variantCount;
-                  } else {
-                    totalDeletableUnits += 1;
-                  }
-                }
-                for (const comp of unusedComponents) {
-                  if (comp.type === "COMPONENT_SET") {
-                    unusedDeletableUnits += comp.unusedVariantCount || 0;
-                  } else {
-                    unusedDeletableUnits += 1;
-                  }
-                }
-                const hygieneScore = totalDeletableUnits === 0 ? 100 : Math.round((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits * 100);
-                console.log(`Component hygiene analysis complete. Found ${unusedDeletableUnits} unused deletable units out of ${totalDeletableUnits} total.`);
-                if (unusedCount === 0 && totalComponents > 0) {
-                  console.log("DEBUG: 0 unused found. Dumping sample defs to check consistency:");
-                  let i = 0;
-                  for (const [id, def] of localDefinitions.entries()) {
-                    if (i++ > 5)
-                      break;
-                    console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
-                    if (def.isSet) {
-                      const set = def.node;
-                      console.log(` - Variants: ${set.children.length}`);
-                    }
-                  }
-                }
-                figma.ui.postMessage({
-                  type: "component-hygiene-result",
-                  result: {
-                    totalComponents,
-                    totalDeletableUnits,
-                    unusedComponents,
-                    unusedCount,
-                    unusedDeletableUnits,
-                    hygieneScore,
-                    subScores: { componentHygiene: hygieneScore }
-                  }
-                });
-              } catch (err) {
-                console.error("Error analyzing component hygiene:", err);
-                figma.ui.postMessage({
-                  type: "component-hygiene-error",
-                  error: err.message
-                });
-              }
-              break;
-            case "analyze-variable-hygiene":
-              try {
-                console.log("Analyzing variable hygiene...");
-                const allVariables = yield figma.variables.getLocalVariablesAsync();
-                console.log(`Found ${allVariables.length} local variables`);
-                if (allVariables.length === 0) {
-                  figma.ui.postMessage({
-                    type: "variable-hygiene-result",
-                    result: {
-                      totalVariables: 0,
-                      unusedVariables: [],
-                      unusedCount: 0,
-                      hygieneScore: 100
-                    },
-                    subScores: { variableHygiene: 100 }
+              } else if (node.type === "COMPONENT") {
+                if (!node.parent || node.parent.type !== "COMPONENT_SET") {
+                  localDefinitions.set(node.id, {
+                    node,
+                    name: node.name,
+                    isSet: false,
+                    instances: []
                   });
+                }
+              }
+            }
+            console.log(`Analyzing ${allInstances.length} instances against ${localDefinitions.size} local definitions...`);
+            for (const instance of allInstances) {
+              let mainId;
+              try {
+                const mainComponent = yield instance.getMainComponentAsync();
+                if (mainComponent) {
+                  mainId = mainComponent.id;
+                }
+              } catch (e) {
+              }
+              if (!mainId)
+                continue;
+              let targetId = mainId;
+              if (variantToSetId.has(mainId)) {
+                targetId = variantToSetId.get(mainId);
+              }
+              if (localDefinitions.has(targetId)) {
+                const def = localDefinitions.get(targetId);
+                const parentName = instance.parent ? instance.parent.name : "Page";
+                def.instances.push({
+                  id: instance.id,
+                  name: instance.name,
+                  parentName
+                });
+              }
+            }
+            const statsData = Array.from(localDefinitions.values()).map((def) => ({
+              id: def.node.id,
+              name: def.name,
+              type: def.isSet ? "COMPONENT_SET" : "COMPONENT",
+              count: def.instances.length,
+              variantCount: def.isSet ? def.node.children.length : 1,
+              instances: def.instances
+            })).sort((a, b) => b.count - a.count);
+            console.log(`Stats generated. Found ${statsData.length} definitions.`);
+            figma.ui.postMessage({
+              type: "component-stats-data",
+              stats: statsData
+            });
+          } catch (err) {
+            console.error("Error generating stats:", err);
+            figma.ui.postMessage({
+              type: "component-stats-error",
+              error: err.message
+            });
+          }
+        });
+      }
+      function handleAnalyzeComponentHygiene(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            console.log("Analyzing component hygiene...");
+            yield figma.loadAllPagesAsync();
+            const localDefinitions = /* @__PURE__ */ new Map();
+            const variantToSetId = /* @__PURE__ */ new Map();
+            const localNodes = [];
+            const allInstances = [];
+            for (const page of figma.root.children) {
+              if (msg.pageIds && msg.pageIds.length > 0 && msg.pageIds.indexOf(page.id) === -1) {
+                continue;
+              }
+              const pageDefs = page.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
+              localNodes.push(...pageDefs);
+            }
+            for (const page of figma.root.children) {
+              const pageInstances = page.findAllWithCriteria({ types: ["INSTANCE"] });
+              allInstances.push(...pageInstances);
+            }
+            const variantUsage = /* @__PURE__ */ new Map();
+            for (const node of localNodes) {
+              if (node.type === "COMPONENT_SET") {
+                localDefinitions.set(node.id, {
+                  node,
+                  name: node.name,
+                  isSet: true,
+                  instances: []
+                });
+                for (const child of node.children) {
+                  if (child.type === "COMPONENT") {
+                    variantToSetId.set(child.id, node.id);
+                    variantUsage.set(child.id, {
+                      name: child.name,
+                      parentId: node.id,
+                      instances: []
+                    });
+                  }
+                }
+              } else if (node.type === "COMPONENT") {
+                if (!node.parent || node.parent.type !== "COMPONENT_SET") {
+                  localDefinitions.set(node.id, {
+                    node,
+                    name: node.name,
+                    isSet: false,
+                    instances: []
+                  });
+                }
+              }
+            }
+            for (const instance of allInstances) {
+              let mainId;
+              try {
+                const mainComponent = yield instance.getMainComponentAsync();
+                if (mainComponent) {
+                  mainId = mainComponent.id;
+                }
+              } catch (e) {
+                console.warn(`Unable to resolve main component for instance ${instance.id}:`, e);
+              }
+              if (!mainId)
+                continue;
+              if (variantUsage.has(mainId)) {
+                variantUsage.get(mainId).instances.push({ id: instance.id });
+              }
+              let targetId = mainId;
+              if (variantToSetId.has(mainId)) {
+                targetId = variantToSetId.get(mainId);
+              }
+              if (localDefinitions.has(targetId)) {
+                localDefinitions.get(targetId).instances.push({ id: instance.id });
+              }
+            }
+            const unusedComponents = [];
+            console.log(`DEBUG: Analysis Scope: ${localDefinitions.size} definitions, ${allInstances.length} instances.`);
+            console.log(`DEBUG: Variant Usage Map size: ${variantUsage.size}`);
+            for (const [id, def] of localDefinitions.entries()) {
+              if (def.isSet) {
+                const componentSet = def.node;
+                const variants = componentSet.children.filter((child) => child.type === "COMPONENT");
+                const unusedVariants = [];
+                const totalVariants = variants.length;
+                let unusedVariantCount = 0;
+                for (const variant of variants) {
+                  const variantInfo = variantUsage.get(variant.id);
+                  if (variantInfo && variantInfo.instances.length === 0) {
+                    unusedVariantCount++;
+                    unusedVariants.push({
+                      id: variant.id,
+                      name: variant.name
+                    });
+                  }
+                }
+                if (unusedVariantCount > 0) {
+                  unusedComponents.push({
+                    id: componentSet.id,
+                    name: componentSet.name,
+                    type: "COMPONENT_SET",
+                    totalVariants,
+                    unusedVariantCount,
+                    isFullyUnused: unusedVariantCount === totalVariants,
+                    unusedVariants
+                  });
+                }
+              } else {
+                if (def.instances.length === 0) {
+                  unusedComponents.push({
+                    id: def.node.id,
+                    name: def.name,
+                    type: "COMPONENT",
+                    isFullyUnused: true
+                  });
+                }
+              }
+            }
+            const totalComponents = localDefinitions.size;
+            const unusedCount = unusedComponents.length;
+            let totalDeletableUnits = 0;
+            let unusedDeletableUnits = 0;
+            for (const [id, def] of localDefinitions.entries()) {
+              if (def.isSet) {
+                const set = def.node;
+                totalDeletableUnits += set.children.filter((c) => c.type === "COMPONENT").length;
+              } else {
+                totalDeletableUnits += 1;
+              }
+            }
+            for (const comp of unusedComponents) {
+              if (comp.type === "COMPONENT_SET") {
+                unusedDeletableUnits += comp.unusedVariantCount || 0;
+              } else {
+                unusedDeletableUnits += 1;
+              }
+            }
+            const hygieneScore = totalDeletableUnits === 0 ? 100 : Math.round((totalDeletableUnits - unusedDeletableUnits) / totalDeletableUnits * 100);
+            console.log(`Component hygiene analysis complete. Found ${unusedDeletableUnits} unused deletable units out of ${totalDeletableUnits} total.`);
+            if (unusedCount === 0 && totalComponents > 0) {
+              console.log("DEBUG: 0 unused found. Dumping sample defs to check consistency:");
+              let i = 0;
+              for (const [id, def] of localDefinitions.entries()) {
+                if (i++ > 5)
                   break;
+                console.log(`Def ${def.name} (${def.node.type}): instances=${def.instances.length}`);
+                if (def.isSet) {
+                  const set = def.node;
+                  console.log(` - Variants: ${set.children.length}`);
                 }
-                const variableUsage = /* @__PURE__ */ new Map();
-                for (const variable of allVariables) {
-                  variableUsage.set(variable.id, {
-                    variable,
-                    usedBy: /* @__PURE__ */ new Set()
-                  });
-                }
-                for (const variable of allVariables) {
-                  for (const modeId of Object.keys(variable.valuesByMode)) {
-                    const value = variable.valuesByMode[modeId];
-                    if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
-                      const aliasedVarId = value.id;
-                      if (variableUsage.has(aliasedVarId)) {
-                        variableUsage.get(aliasedVarId).usedBy.add(variable.id);
-                      }
-                    }
+              }
+            }
+            figma.ui.postMessage({
+              type: "component-hygiene-result",
+              result: {
+                totalComponents,
+                totalDeletableUnits,
+                unusedComponents,
+                unusedCount,
+                unusedDeletableUnits,
+                hygieneScore,
+                subScores: { componentHygiene: hygieneScore }
+              }
+            });
+          } catch (err) {
+            console.error("Error analyzing component hygiene:", err);
+            figma.ui.postMessage({
+              type: "component-hygiene-error",
+              error: err.message
+            });
+          }
+        });
+      }
+      function handleAnalyzeVariableHygiene() {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            console.log("Analyzing variable hygiene...");
+            const allVariables = yield figma.variables.getLocalVariablesAsync();
+            console.log(`Found ${allVariables.length} local variables`);
+            if (allVariables.length === 0) {
+              figma.ui.postMessage({
+                type: "variable-hygiene-result",
+                result: {
+                  totalVariables: 0,
+                  unusedVariables: [],
+                  unusedCount: 0,
+                  hygieneScore: 100
+                },
+                subScores: { variableHygiene: 100 }
+              });
+              return;
+            }
+            const variableUsage = /* @__PURE__ */ new Map();
+            for (const variable of allVariables) {
+              variableUsage.set(variable.id, {
+                variable,
+                usedBy: /* @__PURE__ */ new Set()
+              });
+            }
+            for (const variable of allVariables) {
+              for (const modeId of Object.keys(variable.valuesByMode)) {
+                const value = variable.valuesByMode[modeId];
+                if (value && typeof value === "object" && "type" in value && value.type === "VARIABLE_ALIAS") {
+                  const aliasedVarId = value.id;
+                  if (variableUsage.has(aliasedVarId)) {
+                    variableUsage.get(aliasedVarId).usedBy.add(variable.id);
                   }
                 }
-                yield figma.loadAllPagesAsync();
-                for (const page of figma.root.children) {
-                  const allNodes = page.findAll();
-                  for (const node of allNodes) {
-                    try {
-                      if ("boundVariables" in node && node.boundVariables) {
-                        const boundVars = node.boundVariables;
-                        for (const propKey of Object.keys(boundVars)) {
-                          const binding = boundVars[propKey];
-                          if (binding && typeof binding === "object") {
-                            if ("id" in binding) {
-                              const varId = binding.id;
+              }
+            }
+            yield figma.loadAllPagesAsync();
+            for (const page of figma.root.children) {
+              const allNodes = page.findAll();
+              for (const node of allNodes) {
+                try {
+                  if ("boundVariables" in node && node.boundVariables) {
+                    const boundVars = node.boundVariables;
+                    for (const propKey of Object.keys(boundVars)) {
+                      const binding = boundVars[propKey];
+                      if (binding && typeof binding === "object") {
+                        if ("id" in binding) {
+                          const varId = binding.id;
+                          if (variableUsage.has(varId)) {
+                            variableUsage.get(varId).usedBy.add(node.id);
+                          }
+                        } else if (Array.isArray(binding)) {
+                          for (const item of binding) {
+                            if (item && typeof item === "object" && "id" in item) {
+                              const varId = item.id;
                               if (variableUsage.has(varId)) {
                                 variableUsage.get(varId).usedBy.add(node.id);
-                              }
-                            } else if (Array.isArray(binding)) {
-                              for (const item of binding) {
-                                if (item && typeof item === "object" && "id" in item) {
-                                  const varId = item.id;
-                                  if (variableUsage.has(varId)) {
-                                    variableUsage.get(varId).usedBy.add(node.id);
-                                  }
-                                }
                               }
                             }
                           }
                         }
                       }
-                    } catch (nodeError) {
-                      console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
                     }
                   }
+                } catch (nodeError) {
+                  console.warn(`Could not check variable bindings for node ${node.id}:`, nodeError);
                 }
-                const unusedVariables = [];
-                for (const [varId, usage] of variableUsage.entries()) {
-                  if (usage.usedBy.size === 0) {
-                    const variable = usage.variable;
-                    const collection = yield figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
-                    const modeId = (collection === null || collection === void 0 ? void 0 : collection.defaultModeId) || Object.keys(variable.valuesByMode)[0];
-                    const varValue = variable.valuesByMode[modeId];
-                    let resolvedValue = "";
-                    if (variable.resolvedType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
-                      const color = varValue;
-                      resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-                    } else if (variable.resolvedType === "FLOAT") {
-                      resolvedValue = String(Math.round(Number(varValue) * 100) / 100);
-                    } else if (variable.resolvedType === "STRING") {
-                      resolvedValue = String(varValue);
-                    } else {
-                      resolvedValue = String(varValue);
-                    }
-                    unusedVariables.push({
-                      id: variable.id,
-                      name: variable.name,
-                      collectionId: variable.variableCollectionId,
-                      collectionName: (collection === null || collection === void 0 ? void 0 : collection.name) || "Unknown Collection",
-                      resolvedType: variable.resolvedType,
-                      resolvedValue,
-                      scopes: variable.scopes
-                    });
-                  }
+              }
+            }
+            const unusedVariables = [];
+            for (const [varId, usage] of variableUsage.entries()) {
+              if (usage.usedBy.size === 0) {
+                const variable = usage.variable;
+                const collection = yield figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+                const modeId = (collection === null || collection === void 0 ? void 0 : collection.defaultModeId) || Object.keys(variable.valuesByMode)[0];
+                const varValue = variable.valuesByMode[modeId];
+                let resolvedValue = "";
+                if (variable.resolvedType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
+                  const color = varValue;
+                  resolvedValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+                } else if (variable.resolvedType === "FLOAT") {
+                  resolvedValue = String(Math.round(Number(varValue) * 100) / 100);
+                } else if (variable.resolvedType === "STRING") {
+                  resolvedValue = String(varValue);
+                } else {
+                  resolvedValue = String(varValue);
                 }
-                const totalVariables = allVariables.length;
-                const unusedCount = unusedVariables.length;
-                const hygieneScore = totalVariables === 0 ? 100 : Math.round((totalVariables - unusedCount) / totalVariables * 100);
-                console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
-                figma.ui.postMessage({
-                  type: "variable-hygiene-result",
-                  result: {
-                    totalVariables,
-                    unusedVariables,
-                    unusedCount,
-                    hygieneScore,
-                    subScores: { variableHygiene: hygieneScore }
-                  }
-                });
-              } catch (err) {
-                console.error("Error analyzing variable hygiene:", err);
-                figma.ui.postMessage({
-                  type: "variable-hygiene-error",
-                  error: err.message
+                unusedVariables.push({
+                  id: variable.id,
+                  name: variable.name,
+                  collectionId: variable.variableCollectionId,
+                  collectionName: (collection === null || collection === void 0 ? void 0 : collection.name) || "Unknown Collection",
+                  resolvedType: variable.resolvedType,
+                  resolvedValue,
+                  scopes: variable.scopes
                 });
               }
+            }
+            const totalVariables = allVariables.length;
+            const unusedCount = unusedVariables.length;
+            const hygieneScore = totalVariables === 0 ? 100 : Math.round((totalVariables - unusedCount) / totalVariables * 100);
+            console.log(`Variable hygiene analysis complete. Found ${unusedCount} unused variables out of ${totalVariables} total.`);
+            figma.ui.postMessage({
+              type: "variable-hygiene-result",
+              result: {
+                totalVariables,
+                unusedVariables,
+                unusedCount,
+                hygieneScore,
+                subScores: { variableHygiene: hygieneScore }
+              }
+            });
+          } catch (err) {
+            console.error("Error analyzing variable hygiene:", err);
+            figma.ui.postMessage({
+              type: "variable-hygiene-error",
+              error: err.message
+            });
+          }
+        });
+      }
+      function handleDeleteComponent(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            if (!msg.componentId) {
+              throw new Error("Component ID is required for deletion");
+            }
+            const componentNode = yield figma.getNodeByIdAsync(msg.componentId);
+            if (!componentNode) {
+              throw new Error("Component not found");
+            }
+            const componentType = msg.componentType || "component";
+            const componentName = componentNode.name;
+            let deletedType = "";
+            if (componentType === "set") {
+              if (componentNode.type !== "COMPONENT_SET") {
+                throw new Error("Node is not a component set");
+              }
+              deletedType = "component set";
+              componentNode.remove();
+            } else if (componentType === "variant") {
+              if (componentNode.type !== "COMPONENT") {
+                throw new Error("Node is not a component variant");
+              }
+              const parent = componentNode.parent;
+              if (!parent || parent.type !== "COMPONENT_SET") {
+                throw new Error("Component is not part of a component set");
+              }
+              const parentId = parent.id;
+              const remainingVariants = parent.children.filter((child) => child.type === "COMPONENT" && child.id !== componentNode.id);
+              if (remainingVariants.length === 0) {
+                throw new Error("Cannot delete the last variant. Delete the entire component set instead.");
+              }
+              deletedType = "variant";
+              componentNode.remove();
+              figma.ui.postMessage({
+                type: "component-deleted",
+                componentId: msg.componentId,
+                parentId,
+                componentName,
+                componentType: deletedType
+              });
+              return;
+            } else {
+              if (componentNode.type !== "COMPONENT" && componentNode.type !== "COMPONENT_SET") {
+                throw new Error("Node is not a component");
+              }
+              deletedType = "component";
+              componentNode.remove();
+            }
+            console.log(`Successfully deleted ${deletedType}: ${componentName} (${msg.componentId})`);
+            figma.ui.postMessage({
+              type: "component-deleted",
+              componentId: msg.componentId,
+              componentName,
+              componentType: deletedType
+            });
+          } catch (deleteError) {
+            console.error("Error deleting component:", deleteError);
+            figma.ui.postMessage({
+              type: "delete-component-error",
+              error: deleteError.message || "Failed to delete component"
+            });
+          }
+        });
+      }
+      function handleDeleteAllUnusedVariants(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            if (!msg.variantIds || !Array.isArray(msg.variantIds) || msg.variantIds.length === 0) {
+              throw new Error("Variant IDs are required for batch deletion");
+            }
+            const deletionResults = [];
+            let successCount = 0;
+            let failCount = 0;
+            for (const variantId of msg.variantIds) {
+              try {
+                const variantNode = yield figma.getNodeByIdAsync(variantId);
+                if (!variantNode || variantNode.type !== "COMPONENT") {
+                  console.warn(`Variant ${variantId} not found or not a component`);
+                  failCount++;
+                  continue;
+                }
+                const variantName = variantNode.name;
+                variantNode.remove();
+                deletionResults.push({ id: variantId, name: variantName, success: true });
+                successCount++;
+              } catch (error) {
+                console.error(`Error deleting variant ${variantId}:`, error);
+                deletionResults.push({ id: variantId, success: false, error: error.message });
+                failCount++;
+              }
+            }
+            console.log(`Batch deletion complete: ${successCount} succeeded, ${failCount} failed`);
+            figma.ui.postMessage({
+              type: "batch-variants-deleted",
+              results: deletionResults,
+              successCount,
+              failCount,
+              componentId: msg.componentId,
+              deletedAll: successCount === msg.variantIds.length
+            });
+          } catch (batchDeleteError) {
+            console.error("Error in batch variant deletion:", batchDeleteError);
+            figma.ui.postMessage({
+              type: "delete-component-error",
+              error: batchDeleteError.message || "Failed to delete variants"
+            });
+          }
+        });
+      }
+      function handleDeleteVariable(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            if (!msg.variableId) {
+              throw new Error("Variable ID is required for deletion");
+            }
+            const variable = yield figma.variables.getVariableByIdAsync(msg.variableId);
+            if (!variable) {
+              throw new Error("Variable not found");
+            }
+            const variableName = variable.name;
+            const variableType = variable.resolvedType;
+            variable.remove();
+            console.log(`Successfully deleted variable: ${variableName} (${msg.variableId})`);
+            figma.ui.postMessage({
+              type: "variable-deleted",
+              variableId: msg.variableId,
+              variableName,
+              variableType
+            });
+          } catch (deleteError) {
+            console.error("Error deleting variable:", deleteError);
+            figma.ui.postMessage({
+              type: "delete-variable-error",
+              error: deleteError.message || "Failed to delete variable"
+            });
+          }
+        });
+      }
+      function handleOpenExternal(msg) {
+        try {
+          if (!msg.url) {
+            throw new Error("URL is required for external opening");
+          }
+          figma.openExternal(msg.url);
+          figma.ui.postMessage({
+            type: "external-url-opened",
+            success: true
+          });
+        } catch (error) {
+          console.error("Error opening external URL:", error);
+          figma.ui.postMessage({
+            type: "external-url-opened",
+            success: false,
+            error: error.message || "Failed to open external URL"
+          });
+        }
+      }
+      function handleCommitToRepo(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          if (!msg.projectId || !msg.token && !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
+            throw new Error("Missing required fields for commit");
+          }
+          try {
+            const provider = msg.provider || "gitlab";
+            const gitService = gitServiceFactory_1.GitServiceFactory.getService(provider);
+            const settings = {
+              provider,
+              baseUrl: msg.baseUrl || msg.gitlabUrl || "",
+              projectId: msg.projectId,
+              token: msg.token || msg.gitlabToken,
+              filePath: msg.filePath || "src/variables.css",
+              strategy: "merge-request",
+              branchName: msg.branchName || "feature/variables",
+              exportFormat: "css",
+              saveToken: false,
+              savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+              savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
+            };
+            const result = yield gitService.commitWorkflow(settings, msg.commitMessage, msg.filePath || "src/variables.css", msg.cssData, msg.branchName || "feature/variables");
+            figma.ui.postMessage({
+              type: "commit-success",
+              message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
+              mergeRequestUrl: result && result.pullRequestUrl
+            });
+          } catch (error) {
+            let errorMessage = "Unknown error occurred";
+            let errorType = "unknown";
+            if (error.name === "GitAuthError" || error.name === "GitLabAuthError") {
+              errorType = "auth";
+              errorMessage = "Authentication failed. Please check your token and permissions.";
+            } else if (error.name === "GitNetworkError" || error.name === "GitLabNetworkError") {
+              errorType = "network";
+              errorMessage = "Network error. Please check your internet connection.";
+            } else if (error.name === "GitServiceError" || error.name === "GitLabAPIError") {
+              if (error.statusCode === 401 || error.statusCode === 403) {
+                errorType = "auth";
+                errorMessage = "Authentication failed. Please check your token and permissions.";
+              } else {
+                errorType = "api";
+                if (error.statusCode === 404) {
+                  errorMessage = "Project/Repository not found. Please check your ID.";
+                } else if (error.statusCode === 422) {
+                  errorMessage = "Invalid data provided. Please check your settings.";
+                } else if (error.statusCode === 429) {
+                  errorMessage = "Rate limit exceeded. Please try again later.";
+                } else {
+                  errorMessage = error.message || "Git API error occurred.";
+                }
+              }
+            } else {
+              errorMessage = error.message || "Unknown error occurred";
+            }
+            figma.ui.postMessage({
+              type: "commit-error",
+              error: errorMessage,
+              errorType,
+              statusCode: error.statusCode
+            });
+          }
+        });
+      }
+      function handleGetExistingCollections() {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const existingCollections = yield figma.variables.getLocalVariableCollectionsAsync();
+            const collectionsData = [];
+            for (const collection of existingCollections) {
+              const variablesPromises = collection.variableIds.map((id) => __awaiter(this, void 0, void 0, function* () {
+                const variable = yield figma.variables.getVariableByIdAsync(id);
+                return variable ? { id: variable.id, name: variable.name, resolvedType: variable.resolvedType } : null;
+              }));
+              const variables = yield Promise.all(variablesPromises);
+              const validVariables = variables.filter((v) => v !== null);
+              collectionsData.push({
+                id: collection.id,
+                name: collection.name,
+                variables: validVariables
+              });
+            }
+            figma.ui.postMessage({
+              type: "existing-collections",
+              collections: collectionsData
+            });
+          } catch (error) {
+            console.error("Error getting existing collections:", error);
+            figma.ui.postMessage({
+              type: "existing-collections-error",
+              error: error.message || "Failed to load existing collections"
+            });
+          }
+        });
+      }
+      function handlePreviewImport(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const content = msg.content;
+            if (!content)
+              throw new Error("No content provided");
+            const tokens = variableImportService_1.VariableImportService.parseCSS(content);
+            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+            const variableIds = collections.reduce((acc, c) => acc.concat(c.variableIds), []);
+            const allVariables = yield Promise.all(variableIds.map((id) => figma.variables.getVariableByIdAsync(id)));
+            const validVariables = allVariables.filter((v) => v !== null);
+            const diff = variableImportService_1.VariableImportService.compareTokens(tokens, validVariables);
+            figma.ui.postMessage({
+              type: "preview-import-result",
+              diff,
+              totalFound: tokens.length
+            });
+          } catch (error) {
+            figma.ui.postMessage({
+              type: "import-error",
+              message: error.message
+            });
+          }
+        });
+      }
+      function handleImportTokens(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          console.log("DEBUG: Received import-tokens message");
+          console.log("DEBUG: Message content:", JSON.stringify(msg, null, 2));
+          try {
+            const importOptions = msg.options || {};
+            const tokens = msg.tokens || [];
+            console.log(`DEBUG: Received ${tokens.length} tokens to import`);
+            console.log("DEBUG: Import options:", JSON.stringify(importOptions, null, 2));
+            if (tokens.length > 0) {
+              console.log("DEBUG: Sample token:", JSON.stringify(tokens[0], null, 2));
+            }
+            const validTokens = tokens.map((t) => Object.assign(Object.assign({}, t), { originalLine: t.originalLine || "", lineNumber: t.lineNumber || 0 }));
+            console.log("DEBUG: Calling VariableImportService.importVariables now...");
+            const result = yield variableImportService_1.VariableImportService.importVariables(validTokens, {
+              collectionId: importOptions.collectionId,
+              collectionName: importOptions.collectionName,
+              strategy: importOptions.strategy || "merge",
+              organizeByCategories: importOptions.organizeByCategories
+            });
+            figma.ui.postMessage({
+              type: "import-complete",
+              result: {
+                importedCount: result.success,
+                success: result.success,
+                errors: result.errors,
+                collectionName: importOptions.collectionName,
+                groupsCreated: result.groupsCreated
+              }
+            });
+            try {
+              const refreshedData = yield collectDocumentData();
+              figma.ui.postMessage({
+                type: "refresh-success",
+                variables: refreshedData.variables,
+                styles: refreshedData.styles,
+                components: refreshedData.components,
+                message: "Tokens imported and data refreshed"
+              });
+            } catch (refreshError) {
+              console.error("Auto-refresh failed:", refreshError);
+            }
+          } catch (error) {
+            console.error("Import failed:", error);
+            figma.ui.postMessage({
+              type: "import-error",
+              error: error.message
+            });
+          }
+        });
+      }
+      function handleRefreshData() {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            console.log("Refreshing document data...");
+            const refreshedData = yield collectDocumentData();
+            console.log("[DEBUG] refresh-data: Data collected, sending refresh-success");
+            figma.ui.postMessage({
+              type: "refresh-success",
+              variables: refreshedData.variables,
+              styles: refreshedData.styles,
+              components: refreshedData.components,
+              message: "Data refreshed successfully"
+            });
+            console.log("[DEBUG] refresh-data: refresh-success message sent");
+          } catch (refreshError) {
+            console.error("Error refreshing data:", refreshError);
+            figma.ui.postMessage({
+              type: "refresh-error",
+              error: refreshError.message || "Failed to refresh data"
+            });
+          }
+        });
+      }
+      function handleDeleteStyle(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const deleteStyleMsg = msg;
+            if (!deleteStyleMsg.styleId || !deleteStyleMsg.styleType) {
+              throw new Error("Style ID and type are required for deletion");
+            }
+            let styleToDelete = null;
+            const styleType = deleteStyleMsg.styleType;
+            const styleId = deleteStyleMsg.styleId;
+            if (styleType === "paint") {
+              styleToDelete = yield figma.getStyleByIdAsync(styleId);
+            } else if (styleType === "text") {
+              styleToDelete = yield figma.getStyleByIdAsync(styleId);
+            } else if (styleType === "effect") {
+              styleToDelete = yield figma.getStyleByIdAsync(styleId);
+            } else if (styleType === "grid") {
+              styleToDelete = yield figma.getStyleByIdAsync(styleId);
+            }
+            if (!styleToDelete) {
+              throw new Error("Style not found");
+            }
+            const styleName = styleToDelete.name;
+            styleToDelete.remove();
+            console.log(`Successfully deleted style: ${styleName} (${styleId})`);
+            figma.ui.postMessage({
+              type: "style-deleted",
+              styleId,
+              styleName
+            });
+            const refreshedData = yield collectDocumentData();
+            figma.ui.postMessage({
+              type: "data-refreshed",
+              variables: refreshedData.variables,
+              components: refreshedData.components
+            });
+          } catch (deleteError) {
+            console.error("Error deleting style:", deleteError);
+            figma.ui.postMessage({
+              type: "delete-error",
+              error: deleteError.message || "Failed to delete style"
+            });
+          }
+        });
+      }
+      function handleAnalyzeTokenCoverage(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const scope = msg.scope || "PAGE";
+            console.log(`Analyzing token coverage (Scope: ${scope})...`);
+            const settings = yield gitlabService_1.GitLabService.loadSettings();
+            const exportFormat = msg.exportFormat || (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
+            let coverageResult;
+            if (scope === "ALL") {
+              coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat, msg.pageIds);
+            } else if (scope === "SMART_SCAN") {
+              coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat, msg.pageIds);
+            } else if (scope === "SELECTION") {
+              console.log("Analyzing selection...");
+              coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSelection(exportFormat);
+            } else {
+              coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
+            }
+            console.log("[Plugin Debug] Analysis finished, result obtained. Posting message...");
+            figma.ui.postMessage({
+              type: "token-coverage-result",
+              result: coverageResult
+            });
+            console.log("[Plugin Debug] Message posted successfully.");
+          } catch (coverageError) {
+            console.error("Error analyzing token coverage:", coverageError);
+            figma.ui.postMessage({
+              type: "token-coverage-error",
+              error: coverageError.message || "Failed to analyze token coverage"
+            });
+          }
+        });
+      }
+      function handleFocusNode(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const focusMsg = msg;
+            if (focusMsg.nodeId) {
+              const node = yield figma.getNodeByIdAsync(focusMsg.nodeId);
+              if (node) {
+                if (node.parent && node.parent.type === "PAGE") {
+                  if (figma.currentPage.id !== node.parent.id) {
+                    yield figma.setCurrentPageAsync(node.parent);
+                  }
+                } else {
+                  let p = node.parent;
+                  while (p && p.type !== "PAGE" && p.type !== "DOCUMENT") {
+                    p = p.parent;
+                  }
+                  if (p && p.type === "PAGE" && figma.currentPage.id !== p.id) {
+                    yield figma.setCurrentPageAsync(p);
+                  }
+                }
+                figma.currentPage.selection = [node];
+                figma.viewport.scrollAndZoomIntoView([node]);
+                console.log(`Focused on node: ${node.name}`);
+              } else {
+                console.warn(`Node not found for focusing: ${focusMsg.nodeId}`);
+              }
+            }
+          } catch (focusError) {
+            console.error("Error focusing node:", focusError);
+          }
+        });
+      }
+      function handleCreateVariable(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const { name, value, collectionName } = msg;
+            if (!name || !value) {
+              throw new Error("Name and value are required");
+            }
+            console.log(`Creating variable: ${name} = ${value} in ${collectionName || "Primitives"}`);
+            let resolvedValue = null;
+            let resolvedType = "FLOAT";
+            const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (colorMatch) {
+              resolvedType = "COLOR";
+              resolvedValue = {
+                r: parseInt(colorMatch[1]) / 255,
+                g: parseInt(colorMatch[2]) / 255,
+                b: parseInt(colorMatch[3]) / 255
+              };
+            } else {
+              const floatMatch = value.match(/^([\d.]+)/);
+              if (floatMatch) {
+                resolvedType = "FLOAT";
+                resolvedValue = parseFloat(floatMatch[1]);
+              }
+            }
+            if (resolvedValue === null) {
+              throw new Error(`Could not parse value: ${value}`);
+            }
+            const targetCollectionName = collectionName || "Primitives";
+            console.log(`DEBUG: Finding collection '${targetCollectionName}'...`);
+            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+            let collection = collections.find((c) => c.name === targetCollectionName);
+            if (!collection) {
+              console.log(`DEBUG: Creating new collection '${targetCollectionName}'...`);
+              try {
+                collection = figma.variables.createVariableCollection(targetCollectionName);
+                console.log("DEBUG: Collection created:", collection ? collection.id : "null");
+              } catch (colError) {
+                console.error("DEBUG: Failed to create collection:", colError);
+                throw colError;
+              }
+            } else {
+              console.log(`DEBUG: Found existing collection: ${collection.id}`);
+            }
+            if (!collection || !collection.id) {
+              throw new Error("Failed to resolve valid collection");
+            }
+            console.log(`DEBUG: Executing createVariable('${name}', collection object, '${resolvedType}')`);
+            let variable;
+            try {
+              variable = figma.variables.createVariable(name, collection, resolvedType);
+            } catch (err) {
+              console.error("createVariable failed:", err);
+              throw err;
+            }
+            if (!variable)
+              throw new Error("Variable creation returned undefined");
+            console.log("DEBUG: Variable created successfully:", variable.id);
+            const modeId = collection.defaultModeId;
+            variable.setValueForMode(modeId, resolvedValue);
+            figma.notify(`Created variable ${variable.name}`);
+            figma.ui.postMessage({
+              type: "variable-created",
+              variable: {
+                id: variable.id,
+                name: variable.name,
+                key: variable.key,
+                valuesByMode: variable.valuesByMode,
+                collectionName: collection.name,
+                resolvedValue: value
+              },
+              context: msg.context
+            });
+          } catch (createError) {
+            console.error("Error creating variable:", createError);
+            figma.ui.postMessage({
+              type: "create-variable-error",
+              error: createError.message
+            });
+            figma.notify(`Failed to create variable: ${createError.message}`, { error: true });
+          }
+        });
+      }
+      function handleRenameVariableGroup(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const { oldGroupName, newGroupName, action, variableId } = msg;
+            if (!newGroupName) {
+              throw new Error("New group name is required");
+            }
+            const renameAction = action || "replace";
+            console.log(`Renaming variable group: ${oldGroupName || "standalone"} \u2192 ${newGroupName} (action: ${renameAction})`);
+            const collections = yield figma.variables.getLocalVariableCollectionsAsync();
+            let renamedCount = 0;
+            if (variableId) {
+              const variable = yield figma.variables.getVariableByIdAsync(variableId);
+              if (!variable) {
+                throw new Error(`Variable with ID ${variableId} not found`);
+              }
+              const oldName = variable.name;
+              const newName = `${newGroupName}/${variable.name}`;
+              try {
+                variable.name = newName;
+                renamedCount = 1;
+                console.log(`Renamed: ${oldName} \u2192 ${newName}`);
+              } catch (renameError) {
+                console.error(`Failed to rename variable ${oldName}:`, renameError);
+                throw renameError;
+              }
+            } else {
+              for (const collection of collections) {
+                for (const collectionVariableId of collection.variableIds) {
+                  const variable = yield figma.variables.getVariableByIdAsync(collectionVariableId);
+                  if (!variable)
+                    continue;
+                  let newName = null;
+                  const oldName = variable.name;
+                  const pathMatch = variable.name.match(/^([^\/]+)\/(.*)/);
+                  if (pathMatch && pathMatch[1] === oldGroupName) {
+                    const currentGroup = pathMatch[1];
+                    const remainder = pathMatch[2];
+                    if (renameAction === "add-prefix") {
+                      newName = `${newGroupName}/${currentGroup}/${remainder}`;
+                    } else {
+                      newName = `${newGroupName}/${remainder}`;
+                    }
+                  }
+                  if (newName) {
+                    try {
+                      variable.name = newName;
+                      renamedCount++;
+                      console.log(`Renamed: ${oldName} \u2192 ${newName}`);
+                    } catch (renameError) {
+                      console.error(`Failed to rename variable ${oldName}:`, renameError);
+                    }
+                  }
+                }
+              }
+            }
+            if (renamedCount === 0) {
+              throw new Error(`No variables found matching the criteria`);
+            }
+            const validation = yield cssExportService_1.CSSExportService.getTailwindV4ValidationStatus();
+            figma.ui.postMessage({
+              type: "tailwind-v4-validation",
+              validation
+            });
+            const actionLabel = renameAction === "add-prefix" ? "prefixed with" : "renamed to";
+            figma.notify(`${renamedCount} variable${renamedCount !== 1 ? "s" : ""} ${actionLabel} "${newGroupName}"`);
+            figma.ui.postMessage({
+              type: "variable-group-renamed",
+              success: true,
+              oldGroupName,
+              newGroupName,
+              renamedCount,
+              action: renameAction
+            });
+          } catch (renameError) {
+            console.error("Error renaming variable group:", renameError);
+            figma.ui.postMessage({
+              type: "variable-group-rename-error",
+              error: renameError.message
+            });
+            figma.notify(`Failed to rename variable group: ${renameError.message}`, { error: true });
+          }
+        });
+      }
+      function handleApplyTokenToNodes(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+          try {
+            const applyMsg = msg;
+            const { nodeIds, variableId, property, category, targetValue } = applyMsg;
+            if (!nodeIds || !variableId || !property || !category) {
+              throw new Error("Missing required parameters for applying token");
+            }
+            console.log(`Applying token: ${variableId} to ${nodeIds.length} nodes (Property: ${property})`);
+            const variable = yield figma.variables.getVariableByIdAsync(variableId);
+            if (!variable) {
+              throw new Error("Variable not found");
+            }
+            let successCount = 0;
+            let failCount = 0;
+            const errors = [];
+            for (const nodeId of nodeIds) {
+              try {
+                const node = yield figma.getNodeByIdAsync(nodeId);
+                if (!node) {
+                  console.warn(`Node not found: ${nodeId}`);
+                  failCount++;
+                  errors.push(`Node ${nodeId}: Not found`);
+                  continue;
+                }
+                if (node.type === "DOCUMENT" || node.type === "PAGE") {
+                  console.warn(`Cannot apply variable to ${node.type}: ${nodeId}`);
+                  failCount++;
+                  errors.push(`Node ${nodeId}: Invalid type ${node.type}`);
+                  continue;
+                }
+                const applied = yield applyVariableToNode(node, variable, property, category, targetValue);
+                if (applied) {
+                  successCount++;
+                } else {
+                  failCount++;
+                  errors.push(`Node ${nodeId}: Apply returned false`);
+                }
+              } catch (nodeError) {
+                console.error(`Error applying variable to node ${nodeId}:`, nodeError);
+                failCount++;
+                errors.push(`Node ${nodeId}: ${nodeError.message}`);
+              }
+            }
+            console.log(`Apply token result: ${successCount} success, ${failCount} failed`);
+            if (errors.length > 0) {
+              console.log("Sample errors:", errors.slice(0, 5));
+            }
+            figma.ui.postMessage({
+              type: "apply-token-result",
+              success: true,
+              successCount,
+              failCount,
+              errors
+            });
+            let refreshTimeout;
+            if (figma.variables && typeof figma.variables.on === "function") {
+              figma.variables.on("change", (event) => {
+                console.log("Variable change detected in Figma:", event);
+                if (refreshTimeout) {
+                  clearTimeout(refreshTimeout);
+                }
+                refreshTimeout = setTimeout(() => {
+                  console.log("Triggering auto-refresh due to variable changes...");
+                  collectDocumentData().then((refreshedData) => {
+                    figma.ui.postMessage({
+                      type: "refresh-success",
+                      variables: refreshedData.variables,
+                      styles: refreshedData.styles,
+                      components: refreshedData.components,
+                      message: "Auto-refreshed from Figma changes"
+                    });
+                  });
+                }, 1e3);
+              });
+            }
+            if (successCount > 0) {
+              figma.notify(`\u2713 Applied token to ${successCount} node${successCount !== 1 ? "s" : ""}`);
+            }
+            if (failCount > 0) {
+              figma.notify(`\u26A0 Failed to apply token to ${failCount} node${failCount !== 1 ? "s" : ""}`, { error: true });
+            }
+          } catch (applyError) {
+            console.error("Error applying token:", applyError);
+            figma.ui.postMessage({
+              type: "apply-token-result",
+              success: false,
+              error: applyError.message || "Failed to apply token"
+            });
+            figma.notify(`\u2717 Error: ${applyError.message || "Failed to apply token"}`, {
+              error: true
+            });
+          }
+        });
+      }
+      figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
+        try {
+          switch (msg.type) {
+            case "export-css":
+              yield handleExportCSS(msg);
+              break;
+            case "load-component-styles":
+              yield handleLoadComponentStyles(msg);
+              break;
+            case "select-component":
+              yield handleSelectComponent(msg);
+              break;
+            case "save-git-settings":
+              yield handleSaveGitSettings(msg);
+              break;
+            case "save-gitlab-settings":
+              yield handleSaveGitlabSettings(msg);
+              break;
+            case "list-repositories":
+              yield handleListRepositories(msg);
+              break;
+            case "list-branches":
+              yield handleListBranches(msg);
+              break;
+            case "get-component-usage":
+              yield handleGetComponentUsage(msg);
+              break;
+            case "analyze-component-hygiene":
+              yield handleAnalyzeComponentHygiene(msg);
+              break;
+            case "analyze-variable-hygiene":
+              yield handleAnalyzeVariableHygiene();
               break;
             case "delete-component":
-              try {
-                if (!msg.componentId) {
-                  throw new Error("Component ID is required for deletion");
-                }
-                const componentNode = yield figma.getNodeByIdAsync(msg.componentId);
-                if (!componentNode) {
-                  throw new Error("Component not found");
-                }
-                const componentType = msg.componentType || "component";
-                const componentName = componentNode.name;
-                let deletedType = "";
-                if (componentType === "set") {
-                  if (componentNode.type !== "COMPONENT_SET") {
-                    throw new Error("Node is not a component set");
-                  }
-                  deletedType = "component set";
-                  componentNode.remove();
-                } else if (componentType === "variant") {
-                  if (componentNode.type !== "COMPONENT") {
-                    throw new Error("Node is not a component variant");
-                  }
-                  const parent = componentNode.parent;
-                  if (!parent || parent.type !== "COMPONENT_SET") {
-                    throw new Error("Component is not part of a component set");
-                  }
-                  const parentId = parent.id;
-                  const remainingVariants = parent.children.filter((child) => child.type === "COMPONENT" && child.id !== componentNode.id);
-                  if (remainingVariants.length === 0) {
-                    throw new Error("Cannot delete the last variant. Delete the entire component set instead.");
-                  }
-                  deletedType = "variant";
-                  componentNode.remove();
-                  figma.ui.postMessage({
-                    type: "component-deleted",
-                    componentId: msg.componentId,
-                    parentId,
-                    componentName,
-                    componentType: deletedType
-                  });
-                  return;
-                } else {
-                  if (componentNode.type !== "COMPONENT" && componentNode.type !== "COMPONENT_SET") {
-                    throw new Error("Node is not a component");
-                  }
-                  deletedType = "component";
-                  componentNode.remove();
-                }
-                console.log(`Successfully deleted ${deletedType}: ${componentName} (${msg.componentId})`);
-                figma.ui.postMessage({
-                  type: "component-deleted",
-                  componentId: msg.componentId,
-                  componentName,
-                  componentType: deletedType
-                });
-              } catch (deleteError) {
-                console.error("Error deleting component:", deleteError);
-                figma.ui.postMessage({
-                  type: "delete-component-error",
-                  error: deleteError.message || "Failed to delete component"
-                });
-              }
+              yield handleDeleteComponent(msg);
               break;
             case "delete-all-unused-variants":
-              try {
-                if (!msg.variantIds || !Array.isArray(msg.variantIds) || msg.variantIds.length === 0) {
-                  throw new Error("Variant IDs are required for batch deletion");
-                }
-                const deletionResults = [];
-                let successCount = 0;
-                let failCount = 0;
-                for (const variantId of msg.variantIds) {
-                  try {
-                    const variantNode = yield figma.getNodeByIdAsync(variantId);
-                    if (!variantNode || variantNode.type !== "COMPONENT") {
-                      console.warn(`Variant ${variantId} not found or not a component`);
-                      failCount++;
-                      continue;
-                    }
-                    const variantName = variantNode.name;
-                    variantNode.remove();
-                    deletionResults.push({ id: variantId, name: variantName, success: true });
-                    successCount++;
-                  } catch (error) {
-                    console.error(`Error deleting variant ${variantId}:`, error);
-                    deletionResults.push({ id: variantId, success: false, error: error.message });
-                    failCount++;
-                  }
-                }
-                console.log(`Batch deletion complete: ${successCount} succeeded, ${failCount} failed`);
-                figma.ui.postMessage({
-                  type: "batch-variants-deleted",
-                  results: deletionResults,
-                  successCount,
-                  failCount,
-                  componentId: msg.componentId,
-                  // Include componentId to help UI update
-                  deletedAll: successCount === msg.variantIds.length
-                  // True if all variants were successfully deleted
-                });
-              } catch (batchDeleteError) {
-                console.error("Error in batch variant deletion:", batchDeleteError);
-                figma.ui.postMessage({
-                  type: "delete-component-error",
-                  error: batchDeleteError.message || "Failed to delete variants"
-                });
-              }
+              yield handleDeleteAllUnusedVariants(msg);
               break;
             case "delete-variable":
-              try {
-                if (!msg.variableId) {
-                  throw new Error("Variable ID is required for deletion");
-                }
-                const variable = yield figma.variables.getVariableByIdAsync(msg.variableId);
-                if (!variable) {
-                  throw new Error("Variable not found");
-                }
-                const variableName = variable.name;
-                const variableType = variable.resolvedType;
-                variable.remove();
-                console.log(`Successfully deleted variable: ${variableName} (${msg.variableId})`);
-                figma.ui.postMessage({
-                  type: "variable-deleted",
-                  variableId: msg.variableId,
-                  variableName,
-                  variableType
-                });
-              } catch (deleteError) {
-                console.error("Error deleting variable:", deleteError);
-                figma.ui.postMessage({
-                  type: "delete-variable-error",
-                  error: deleteError.message || "Failed to delete variable"
-                });
-              }
+              yield handleDeleteVariable(msg);
               break;
             case "open-external":
-              try {
-                if (!msg.url) {
-                  throw new Error("URL is required for external opening");
-                }
-                figma.openExternal(msg.url);
-                figma.ui.postMessage({
-                  type: "external-url-opened",
-                  success: true
-                });
-              } catch (error) {
-                console.error("Error opening external URL:", error);
-                figma.ui.postMessage({
-                  type: "external-url-opened",
-                  success: false,
-                  error: error.message || "Failed to open external URL"
-                });
-              }
+              handleOpenExternal(msg);
               break;
             case "commit-to-gitlab":
             case "commit-to-repo":
-              const isLegacy = msg.type === "commit-to-gitlab";
-              if (!msg.projectId || !msg.token && !msg.gitlabToken || !msg.commitMessage || !msg.cssData) {
-                throw new Error("Missing required fields for commit");
-              }
-              try {
-                const provider = msg.provider || "gitlab";
-                const gitService2 = gitServiceFactory_1.GitServiceFactory.getService(provider);
-                const settings = {
-                  provider,
-                  baseUrl: msg.baseUrl || msg.gitlabUrl || "",
-                  projectId: msg.projectId,
-                  token: msg.token || msg.gitlabToken,
-                  // Accept either
-                  filePath: msg.filePath || "src/variables.css",
-                  strategy: "merge-request",
-                  branchName: msg.branchName || "feature/variables",
-                  exportFormat: "css",
-                  saveToken: false,
-                  savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-                  savedBy: figma.currentUser && figma.currentUser.name ? figma.currentUser.name : "Unknown user"
-                };
-                const result = yield gitService2.commitWorkflow(settings, msg.commitMessage, msg.filePath || "src/variables.css", msg.cssData, msg.branchName || "feature/variables");
-                figma.ui.postMessage({
-                  type: "commit-success",
-                  message: config_1.SUCCESS_MESSAGES.COMMIT_SUCCESS,
-                  mergeRequestUrl: result && result.pullRequestUrl
-                });
-              } catch (error) {
-                let errorMessage = "Unknown error occurred";
-                let errorType = "unknown";
-                if (error.name === "GitAuthError" || error.name === "GitLabAuthError") {
-                  errorType = "auth";
-                  errorMessage = "Authentication failed. Please check your token and permissions.";
-                } else if (error.name === "GitNetworkError" || error.name === "GitLabNetworkError") {
-                  errorType = "network";
-                  errorMessage = "Network error. Please check your internet connection.";
-                } else if (error.name === "GitServiceError" || error.name === "GitLabAPIError") {
-                  if (error.statusCode === 401 || error.statusCode === 403) {
-                    errorType = "auth";
-                    errorMessage = "Authentication failed. Please check your token and permissions.";
-                  } else {
-                    errorType = "api";
-                    if (error.statusCode === 404) {
-                      errorMessage = "Project/Repository not found. Please check your ID.";
-                    } else if (error.statusCode === 422) {
-                      errorMessage = "Invalid data provided. Please check your settings.";
-                    } else if (error.statusCode === 429) {
-                      errorMessage = "Rate limit exceeded. Please try again later.";
-                    } else {
-                      errorMessage = error.message || "Git API error occurred.";
-                    }
-                  }
-                } else {
-                  errorMessage = error.message || "Unknown error occurred";
-                }
-                figma.ui.postMessage({
-                  type: "commit-error",
-                  error: errorMessage,
-                  errorType,
-                  statusCode: error.statusCode
-                });
-              }
+              yield handleCommitToRepo(msg);
               break;
             case "reset-gitlab-settings":
               yield gitlabService_1.GitLabService.resetSettings();
@@ -9105,13 +9697,14 @@ ${commentPrefix} Grids${commentSuffix}`);
                 success: true
               });
               break;
-            case "get-unit-settings":
+            case "get-unit-settings": {
               const unitSettingsData = yield cssExportService_1.CSSExportService.getUnitSettingsData();
               figma.ui.postMessage({
                 type: "unit-settings-data",
                 data: unitSettingsData
               });
               break;
+            }
             case "update-unit-settings":
               cssExportService_1.CSSExportService.updateUnitSettings({
                 collections: msg.collections,
@@ -9123,214 +9716,36 @@ ${commentPrefix} Grids${commentSuffix}`);
                 success: true
               });
               break;
-            case "validate-tailwind-v4":
+            case "validate-tailwind-v4": {
               const twValidation = yield cssExportService_1.CSSExportService.getTailwindV4ValidationStatus();
               figma.ui.postMessage({
                 type: "tailwind-v4-validation",
                 validation: twValidation
               });
               break;
+            }
             case "resize-plugin":
               break;
             case "get-existing-collections":
-              try {
-                const existingCollections = yield figma.variables.getLocalVariableCollectionsAsync();
-                const collectionsData = [];
-                for (const collection of existingCollections) {
-                  const variablesPromises = collection.variableIds.map((id) => __awaiter(void 0, void 0, void 0, function* () {
-                    const variable = yield figma.variables.getVariableByIdAsync(id);
-                    return variable ? { id: variable.id, name: variable.name, resolvedType: variable.resolvedType } : null;
-                  }));
-                  const variables = yield Promise.all(variablesPromises);
-                  const validVariables = variables.filter((v) => v !== null);
-                  collectionsData.push({
-                    id: collection.id,
-                    name: collection.name,
-                    variables: validVariables
-                  });
-                }
-                figma.ui.postMessage({
-                  type: "existing-collections",
-                  collections: collectionsData
-                });
-              } catch (error) {
-                console.error("Error getting existing collections:", error);
-                figma.ui.postMessage({
-                  type: "existing-collections-error",
-                  error: error.message || "Failed to load existing collections"
-                });
-              }
+              yield handleGetExistingCollections();
               break;
             case "preview-import":
-              try {
-                const content = msg.content;
-                if (!content)
-                  throw new Error("No content provided");
-                const tokens = variableImportService_1.VariableImportService.parseCSS(content);
-                const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-                const variableIds = collections.reduce((acc, c) => acc.concat(c.variableIds), []);
-                const allVariables = yield Promise.all(variableIds.map((id) => figma.variables.getVariableByIdAsync(id)));
-                const validVariables = allVariables.filter((v) => v !== null);
-                const diff = variableImportService_1.VariableImportService.compareTokens(tokens, validVariables);
-                figma.ui.postMessage({
-                  type: "preview-import-result",
-                  diff,
-                  totalFound: tokens.length
-                });
-              } catch (error) {
-                figma.ui.postMessage({
-                  type: "import-error",
-                  message: error.message
-                });
-              }
+              yield handlePreviewImport(msg);
               break;
             case "import-tokens":
-              console.log("DEBUG: Received import-tokens message");
-              console.log("DEBUG: Message content:", JSON.stringify(msg, null, 2));
-              try {
-                const importOptions = msg.options || {};
-                const tokens = msg.tokens || [];
-                console.log(`DEBUG: Received ${tokens.length} tokens to import`);
-                console.log("DEBUG: Import options:", JSON.stringify(importOptions, null, 2));
-                if (tokens.length > 0) {
-                  console.log("DEBUG: Sample token:", JSON.stringify(tokens[0], null, 2));
-                }
-                const validTokens = tokens.map((t) => Object.assign(Object.assign({}, t), { originalLine: t.originalLine || "", lineNumber: t.lineNumber || 0 }));
-                console.log("DEBUG: Calling VariableImportService.importVariables now...");
-                const result = yield variableImportService_1.VariableImportService.importVariables(validTokens, {
-                  collectionId: importOptions.collectionId,
-                  collectionName: importOptions.collectionName,
-                  strategy: importOptions.strategy || "merge",
-                  organizeByCategories: importOptions.organizeByCategories
-                });
-                figma.ui.postMessage({
-                  type: "import-complete",
-                  result: {
-                    importedCount: result.success,
-                    success: result.success,
-                    // Added for compatibility with UI
-                    errors: result.errors,
-                    collectionName: importOptions.collectionName,
-                    groupsCreated: result.groupsCreated
-                  }
-                });
-                try {
-                  const refreshedData = yield collectDocumentData();
-                  figma.ui.postMessage({
-                    type: "refresh-success",
-                    variables: refreshedData.variables,
-                    styles: refreshedData.styles,
-                    components: refreshedData.components,
-                    message: "Tokens imported and data refreshed"
-                  });
-                } catch (refreshError) {
-                  console.error("Auto-refresh failed:", refreshError);
-                }
-              } catch (error) {
-                console.error("Import failed:", error);
-                figma.ui.postMessage({
-                  type: "import-error",
-                  error: error.message
-                });
-              }
+              yield handleImportTokens(msg);
               break;
             // Old inline logic removed in favor of VariableImportService
             case "refresh-data":
-              try {
-                console.log("Refreshing document data...");
-                const refreshedData = yield collectDocumentData();
-                console.log("[DEBUG] refresh-data: Data collected, sending refresh-success");
-                figma.ui.postMessage({
-                  type: "refresh-success",
-                  variables: refreshedData.variables,
-                  styles: refreshedData.styles,
-                  components: refreshedData.components,
-                  message: "Data refreshed successfully"
-                });
-                console.log("[DEBUG] refresh-data: refresh-success message sent");
-              } catch (refreshError) {
-                console.error("Error refreshing data:", refreshError);
-                figma.ui.postMessage({
-                  type: "refresh-error",
-                  error: refreshError.message || "Failed to refresh data"
-                });
-              }
+              yield handleRefreshData();
               break;
             case "delete-style":
-              try {
-                const deleteStyleMsg = msg;
-                if (!deleteStyleMsg.styleId || !deleteStyleMsg.styleType) {
-                  throw new Error("Style ID and type are required for deletion");
-                }
-                let styleToDelete = null;
-                const styleType = deleteStyleMsg.styleType;
-                const styleId = deleteStyleMsg.styleId;
-                if (styleType === "paint") {
-                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
-                } else if (styleType === "text") {
-                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
-                } else if (styleType === "effect") {
-                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
-                } else if (styleType === "grid") {
-                  styleToDelete = yield figma.getStyleByIdAsync(styleId);
-                }
-                if (!styleToDelete) {
-                  throw new Error("Style not found");
-                }
-                const styleName = styleToDelete.name;
-                styleToDelete.remove();
-                console.log(`Successfully deleted style: ${styleName} (${styleId})`);
-                figma.ui.postMessage({
-                  type: "style-deleted",
-                  styleId,
-                  styleName
-                });
-                const refreshedData = yield collectDocumentData();
-                figma.ui.postMessage({
-                  type: "data-refreshed",
-                  variables: refreshedData.variables,
-                  components: refreshedData.components
-                });
-              } catch (deleteError) {
-                console.error("Error deleting style:", deleteError);
-                figma.ui.postMessage({
-                  type: "delete-error",
-                  error: deleteError.message || "Failed to delete style"
-                });
-              }
+              yield handleDeleteStyle(msg);
               break;
             case "analyze-token-coverage":
-              try {
-                const scope = msg.scope || "PAGE";
-                console.log(`Analyzing token coverage (Scope: ${scope})...`);
-                const settings = yield gitlabService_1.GitLabService.loadSettings();
-                const exportFormat = msg.exportFormat || (settings === null || settings === void 0 ? void 0 : settings.exportFormat) || "css";
-                let coverageResult;
-                if (scope === "ALL") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeDocument(exportFormat, msg.pageIds);
-                } else if (scope === "SMART_SCAN") {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSmart(exportFormat, msg.pageIds);
-                } else if (scope === "SELECTION") {
-                  console.log("Analyzing selection...");
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeSelection(exportFormat);
-                } else {
-                  coverageResult = yield tokenCoverageService_1.TokenCoverageService.analyzeCurrentPage(exportFormat);
-                }
-                console.log("[Plugin Debug] Analysis finished, result obtained. Posting message...");
-                figma.ui.postMessage({
-                  type: "token-coverage-result",
-                  result: coverageResult
-                });
-                console.log("[Plugin Debug] Message posted successfully.");
-              } catch (coverageError) {
-                console.error("Error analyzing token coverage:", coverageError);
-                figma.ui.postMessage({
-                  type: "token-coverage-error",
-                  error: coverageError.message || "Failed to analyze token coverage"
-                });
-              }
+              yield handleAnalyzeTokenCoverage(msg);
               break;
-            case "get-pages":
+            case "get-pages": {
               try {
                 const pages = figma.root.children.map((page) => ({
                   id: page.id,
@@ -9345,299 +9760,26 @@ ${commentPrefix} Grids${commentSuffix}`);
                 console.error("Error fetching pages:", error);
               }
               break;
-            case "set-client-storage":
+            }
+            case "set-client-storage": {
               const storageMsg = msg;
               if (storageMsg.key) {
                 yield figma.clientStorage.setAsync(storageMsg.key, storageMsg.value);
                 console.log(`Backend: Saved ${storageMsg.key} to clientStorage`);
               }
               break;
+            }
             case "focus-node":
-              try {
-                const focusMsg = msg;
-                if (focusMsg.nodeId) {
-                  const node = yield figma.getNodeByIdAsync(focusMsg.nodeId);
-                  if (node) {
-                    if (node.parent && node.parent.type === "PAGE") {
-                      if (figma.currentPage.id !== node.parent.id) {
-                        yield figma.setCurrentPageAsync(node.parent);
-                      }
-                    } else {
-                      let p = node.parent;
-                      while (p && p.type !== "PAGE" && p.type !== "DOCUMENT") {
-                        p = p.parent;
-                      }
-                      if (p && p.type === "PAGE" && figma.currentPage.id !== p.id) {
-                        yield figma.setCurrentPageAsync(p);
-                      }
-                    }
-                    figma.currentPage.selection = [node];
-                    figma.viewport.scrollAndZoomIntoView([node]);
-                    console.log(`Focused on node: ${node.name}`);
-                  } else {
-                    console.warn(`Node not found for focusing: ${focusMsg.nodeId}`);
-                  }
-                }
-              } catch (focusError) {
-                console.error("Error focusing node:", focusError);
-              }
+              yield handleFocusNode(msg);
               break;
             case "create-variable":
-              try {
-                const { name, value, collectionName } = msg;
-                if (!name || !value) {
-                  throw new Error("Name and value are required");
-                }
-                console.log(`Creating variable: ${name} = ${value} in ${collectionName || "Primitives"}`);
-                let resolvedValue = null;
-                let resolvedType = "FLOAT";
-                const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                if (colorMatch) {
-                  resolvedType = "COLOR";
-                  resolvedValue = {
-                    r: parseInt(colorMatch[1]) / 255,
-                    g: parseInt(colorMatch[2]) / 255,
-                    b: parseInt(colorMatch[3]) / 255
-                  };
-                } else {
-                  const floatMatch = value.match(/^([\d.]+)/);
-                  if (floatMatch) {
-                    resolvedType = "FLOAT";
-                    resolvedValue = parseFloat(floatMatch[1]);
-                  }
-                }
-                if (resolvedValue === null) {
-                  throw new Error(`Could not parse value: ${value}`);
-                }
-                const targetCollectionName = collectionName || "Primitives";
-                console.log(`DEBUG: Finding collection '${targetCollectionName}'...`);
-                const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-                let collection = collections.find((c) => c.name === targetCollectionName);
-                if (!collection) {
-                  console.log(`DEBUG: Creating new collection '${targetCollectionName}'...`);
-                  try {
-                    collection = figma.variables.createVariableCollection(targetCollectionName);
-                    console.log("DEBUG: Collection created:", collection ? collection.id : "null");
-                  } catch (colError) {
-                    console.error("DEBUG: Failed to create collection:", colError);
-                    throw colError;
-                  }
-                } else {
-                  console.log(`DEBUG: Found existing collection: ${collection.id}`);
-                }
-                if (!collection || !collection.id) {
-                  throw new Error("Failed to resolve valid collection");
-                }
-                console.log(`DEBUG: Executing createVariable('${name}', collection object, '${resolvedType}')`);
-                let variable;
-                try {
-                  variable = figma.variables.createVariable(name, collection, resolvedType);
-                } catch (err) {
-                  console.error("createVariable failed:", err);
-                  throw err;
-                }
-                if (!variable)
-                  throw new Error("Variable creation returned undefined");
-                console.log("DEBUG: Variable created successfully:", variable.id);
-                const modeId = collection.defaultModeId;
-                variable.setValueForMode(modeId, resolvedValue);
-                figma.notify(`Created variable ${variable.name}`);
-                figma.ui.postMessage({
-                  type: "variable-created",
-                  variable: {
-                    id: variable.id,
-                    name: variable.name,
-                    key: variable.key,
-                    valuesByMode: variable.valuesByMode,
-                    collectionName: collection.name,
-                    resolvedValue: value
-                  },
-                  context: msg.context
-                });
-              } catch (createError) {
-                console.error("Error creating variable:", createError);
-                figma.ui.postMessage({
-                  type: "create-variable-error",
-                  error: createError.message
-                });
-                figma.notify(`Failed to create variable: ${createError.message}`, { error: true });
-              }
+              yield handleCreateVariable(msg);
               break;
             case "rename-variable-group":
-              try {
-                const { oldGroupName, newGroupName, action, variableId } = msg;
-                if (!newGroupName) {
-                  throw new Error("New group name is required");
-                }
-                const renameAction = action || "replace";
-                console.log(`Renaming variable group: ${oldGroupName || "standalone"} \u2192 ${newGroupName} (action: ${renameAction})`);
-                const collections = yield figma.variables.getLocalVariableCollectionsAsync();
-                let renamedCount = 0;
-                if (variableId) {
-                  const variable = yield figma.variables.getVariableByIdAsync(variableId);
-                  if (!variable) {
-                    throw new Error(`Variable with ID ${variableId} not found`);
-                  }
-                  const oldName = variable.name;
-                  const newName = `${newGroupName}/${variable.name}`;
-                  try {
-                    variable.name = newName;
-                    renamedCount = 1;
-                    console.log(`Renamed: ${oldName} \u2192 ${newName}`);
-                  } catch (renameError) {
-                    console.error(`Failed to rename variable ${oldName}:`, renameError);
-                    throw renameError;
-                  }
-                } else {
-                  for (const collection of collections) {
-                    for (const collectionVariableId of collection.variableIds) {
-                      const variable = yield figma.variables.getVariableByIdAsync(collectionVariableId);
-                      if (!variable)
-                        continue;
-                      let newName = null;
-                      const oldName = variable.name;
-                      const pathMatch = variable.name.match(/^([^\/]+)\/(.*)/);
-                      if (pathMatch && pathMatch[1] === oldGroupName) {
-                        const currentGroup = pathMatch[1];
-                        const remainder = pathMatch[2];
-                        if (renameAction === "add-prefix") {
-                          newName = `${newGroupName}/${currentGroup}/${remainder}`;
-                        } else {
-                          newName = `${newGroupName}/${remainder}`;
-                        }
-                      }
-                      if (newName) {
-                        try {
-                          variable.name = newName;
-                          renamedCount++;
-                          console.log(`Renamed: ${oldName} \u2192 ${newName}`);
-                        } catch (renameError) {
-                          console.error(`Failed to rename variable ${oldName}:`, renameError);
-                        }
-                      }
-                    }
-                  }
-                }
-                if (renamedCount === 0) {
-                  throw new Error(`No variables found matching the criteria`);
-                }
-                const validation = yield cssExportService_1.CSSExportService.getTailwindV4ValidationStatus();
-                figma.ui.postMessage({
-                  type: "tailwind-v4-validation",
-                  validation
-                });
-                const actionLabel = renameAction === "add-prefix" ? "prefixed with" : "renamed to";
-                figma.notify(`${renamedCount} variable${renamedCount !== 1 ? "s" : ""} ${actionLabel} "${newGroupName}"`);
-                figma.ui.postMessage({
-                  type: "variable-group-renamed",
-                  success: true,
-                  oldGroupName,
-                  newGroupName,
-                  renamedCount,
-                  action: renameAction
-                });
-              } catch (renameError) {
-                console.error("Error renaming variable group:", renameError);
-                figma.ui.postMessage({
-                  type: "variable-group-rename-error",
-                  error: renameError.message
-                });
-                figma.notify(`Failed to rename variable group: ${renameError.message}`, { error: true });
-              }
+              yield handleRenameVariableGroup(msg);
               break;
             case "apply-token-to-nodes":
-              try {
-                const applyMsg = msg;
-                const { nodeIds, variableId, property, category, targetValue } = applyMsg;
-                if (!nodeIds || !variableId || !property || !category) {
-                  throw new Error("Missing required parameters for applying token");
-                }
-                console.log(`Applying token: ${variableId} to ${nodeIds.length} nodes (Property: ${property})`);
-                const variable = yield figma.variables.getVariableByIdAsync(variableId);
-                if (!variable) {
-                  throw new Error("Variable not found");
-                }
-                let successCount = 0;
-                let failCount = 0;
-                const errors = [];
-                for (const nodeId of nodeIds) {
-                  try {
-                    const node = yield figma.getNodeByIdAsync(nodeId);
-                    if (!node) {
-                      console.warn(`Node not found: ${nodeId}`);
-                      failCount++;
-                      errors.push(`Node ${nodeId}: Not found`);
-                      continue;
-                    }
-                    if (node.type === "DOCUMENT" || node.type === "PAGE") {
-                      console.warn(`Cannot apply variable to ${node.type}: ${nodeId}`);
-                      failCount++;
-                      errors.push(`Node ${nodeId}: Invalid type ${node.type}`);
-                      continue;
-                    }
-                    const applied = yield applyVariableToNode(node, variable, property, category, targetValue);
-                    if (applied) {
-                      successCount++;
-                    } else {
-                      failCount++;
-                      errors.push(`Node ${nodeId}: Apply returned false`);
-                    }
-                  } catch (nodeError) {
-                    console.error(`Error applying variable to node ${nodeId}:`, nodeError);
-                    failCount++;
-                    errors.push(`Node ${nodeId}: ${nodeError.message}`);
-                  }
-                }
-                console.log(`Apply token result: ${successCount} success, ${failCount} failed`);
-                if (errors.length > 0) {
-                  console.log("Sample errors:", errors.slice(0, 5));
-                }
-                figma.ui.postMessage({
-                  type: "apply-token-result",
-                  success: true,
-                  // Completed attempts
-                  successCount,
-                  failCount,
-                  errors
-                });
-                let refreshTimeout;
-                if (figma.variables && typeof figma.variables.on === "function") {
-                  figma.variables.on("change", (event) => {
-                    console.log("Variable change detected in Figma:", event);
-                    if (refreshTimeout) {
-                      clearTimeout(refreshTimeout);
-                    }
-                    refreshTimeout = setTimeout(() => {
-                      console.log("Triggering auto-refresh due to variable changes...");
-                      collectDocumentData().then((refreshedData) => {
-                        figma.ui.postMessage({
-                          type: "refresh-success",
-                          variables: refreshedData.variables,
-                          styles: refreshedData.styles,
-                          components: refreshedData.components,
-                          message: "Auto-refreshed from Figma changes"
-                        });
-                      });
-                    }, 1e3);
-                  });
-                }
-                if (successCount > 0) {
-                  figma.notify(`\u2713 Applied token to ${successCount} node${successCount !== 1 ? "s" : ""}`);
-                }
-                if (failCount > 0) {
-                  figma.notify(`\u26A0 Failed to apply token to ${failCount} node${failCount !== 1 ? "s" : ""}`, { error: true });
-                }
-              } catch (applyError) {
-                console.error("Error applying token:", applyError);
-                figma.ui.postMessage({
-                  type: "apply-token-result",
-                  success: false,
-                  error: applyError.message || "Failed to apply token"
-                });
-                figma.notify(`\u2717 Error: ${applyError.message || "Failed to apply token"}`, {
-                  error: true
-                });
-              }
+              yield handleApplyTokenToNodes(msg);
               break;
             default:
           }
