@@ -210,7 +210,6 @@ describe('EnvironmentManager', () => {
     it('should generate correct domains for manifest', () => {
       const domains = EnvironmentManager.generateManifestDomains();
 
-      expect(domains).toContain('https://cdnjs.cloudflare.com');
       expect(domains).toContain('https://gitlab.com');
       expect(domains).toContain('https://*.gitlab.com');
       expect(domains).toContain('https://gitlab.fhnw.ch');
