@@ -677,10 +677,6 @@ export class TokenCoverageService {
     tailwindValidation.isValid = tailwindValidation.invalid.length === 0 && tailwindValidation.invalidGroups.length === 0;
 
 
-    // 5. Layout Hygiene Score (15%)
-    // Logic: % of frames/components using Auto Layout
-    // const totalContainerNodes = instanceCount + frameCount; (Calculated in loop)
-    // const autoLayoutCount (Calculated in loop)
     const totalContainerNodes = instanceCount + frameCount;
     // 5. Layout Hygiene Score (15%)
     // Logic: % of frames/components using Auto Layout
