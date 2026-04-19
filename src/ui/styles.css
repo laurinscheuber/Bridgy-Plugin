@@ -5253,6 +5253,40 @@ input[type='password']:focus {
   font-weight: 500;
 }
 
+.custom-select-search {
+  visibility: visible;
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--text-primary);
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: 1;
+  height: 1em;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
+}
+
+.custom-select-search::placeholder {
+  color: var(--text-tertiary);
+}
+
+.custom-select-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+}
+
 .custom-select-option.create-new {
   font-weight: 600;
   color: var(--text-accent);
@@ -6933,9 +6967,15 @@ body.edit-mode .quality-header {
 }
 
 /* Focus Highlight (for JS-driven element highlighting) */
+@keyframes variable-highlight-pulse {
+  0%   { background-color: rgba(139, 92, 246, 0.0); box-shadow: none; }
+  15%  { background-color: rgba(139, 92, 246, 0.35); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.6); }
+  60%  { background-color: rgba(139, 92, 246, 0.20); box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3); }
+  100% { background-color: rgba(139, 92, 246, 0.0); box-shadow: none; }
+}
+
 .focus-highlight {
-  background-color: var(--surface-accent);
-  border: 2px solid var(--border-focus);
+  animation: variable-highlight-pulse 1.8s ease-out forwards;
 }
 
 /* Modal Show State */

@@ -1773,14 +1773,40 @@ function findVariableNameById(variableId) {
 }
 
 function scrollToVariable(variableName) {
-  const element = document.getElementById(`var-${variableName}`);
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    element.classList.add('focus-highlight');
-    setTimeout(() => {
-      element.classList.remove('focus-highlight');
-    }, 2000);
+  // Switch to Variables tab if not already active
+  const variablesTab = document.querySelector('.tab[data-tab="variables"]');
+  const variablesContent = document.getElementById('variables-content');
+  if (variablesContent && !variablesContent.classList.contains('active')) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    if (variablesTab) variablesTab.classList.add('active');
+    variablesContent.classList.add('active');
   }
+
+  const element = document.getElementById(`var-${variableName}`);
+  if (!element) return;
+
+  // Expand any collapsed ancestor collection-content or subgroup-content
+  let ancestor = element.parentElement;
+  while (ancestor) {
+    if (ancestor.classList.contains('collection-content') && ancestor.classList.contains('collapsed')) {
+      ancestor.classList.remove('collapsed');
+      const header = ancestor.previousElementSibling;
+      if (header) header.classList.remove('collapsed');
+    }
+    if (ancestor.classList.contains('subgroup-content') && ancestor.classList.contains('collapsed')) {
+      ancestor.classList.remove('collapsed');
+      const header = ancestor.previousElementSibling;
+      if (header) header.classList.remove('collapsed');
+    }
+    ancestor = ancestor.parentElement;
+  }
+
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  element.classList.remove('focus-highlight');
+  void element.offsetWidth;
+  element.classList.add('focus-highlight');
+  element.addEventListener('animationend', () => element.classList.remove('focus-highlight'), { once: true });
 }
 
 function scrollToGroup(collection, group) {
@@ -6773,9 +6799,15 @@ window.openCreateVariableModal = function (value, issueId) {
     if (btn.dataset.type === 'semantic') {
       btn.disabled = !hasAliasOptions;
       btn.style.opacity = hasAliasOptions ? '' : '0.35';
-      btn.title = hasAliasOptions ? '' : 'No variables with a matching value found';
+      btn.title = '';
     }
   });
+  const typeHelper = document.getElementById('create-var-type-helper');
+  if (typeHelper) {
+    typeHelper.textContent = hasAliasOptions
+      ? 'Primitive stores a direct value; Semantic references another variable'
+      : 'No primitive variable with this value exists — semantic alias not available';
+  }
   document.getElementById('create-var-alias-group').classList.add('hidden');
   document.getElementById('create-var-primitive-hint').classList.remove('hidden');
 
@@ -6805,37 +6837,49 @@ window.openCreateVariableModal = function (value, issueId) {
 
   // Reset new inputs
   const newColInput = document.getElementById('create-var-new-collection');
-  if (newColInput) newColInput.classList.add('hidden');
+  const newColRow = document.getElementById('create-var-new-collection-row');
+  if (newColRow) { newColRow.style.display = 'none'; newColRow.classList.add('hidden'); }
+  if (newColInput) newColInput.value = '';
+  const newGroupRow = document.getElementById('create-var-new-group-row');
   const newGroupInput = document.getElementById('create-var-new-group');
-  if (newGroupInput) newGroupInput.classList.add('hidden');
+  if (newGroupRow) { newGroupRow.style.display = 'none'; newGroupRow.classList.add('hidden'); }
+  if (newGroupInput) newGroupInput.value = '';
 
   // Populate Collections
-  const collectionSelect = document.getElementById('create-var-collection');
-  if (collectionSelect) {
-    collectionSelect.innerHTML = '';
+  const collectionCustomSelect = document.getElementById('create-var-collection-custom-select');
+  const collectionMenu = document.getElementById('create-var-collection-menu');
+  const collectionTriggerText = document.getElementById('create-var-collection-trigger-text');
+  if (collectionCustomSelect && collectionMenu) {
+    collectionMenu.innerHTML = '';
+    collectionCustomSelect.dataset.value = '';
 
-    // Use global variables data if available, or empty array
     const collections = window.globalVariablesData || [];
+    const firstValue = collections.length > 0 ? collections[0].name : 'create-new';
 
     collections.forEach((col) => {
-      const opt = document.createElement('option');
-      opt.value = col.name;
-      opt.text = col.name;
-      collectionSelect.appendChild(opt);
+      const div = document.createElement('div');
+      div.className = 'custom-select-option' + (col.name === firstValue ? ' selected' : '');
+      div.textContent = col.name;
+      div.onclick = () => selectCollectionOption(col.name, col.name);
+      collectionMenu.appendChild(div);
     });
 
-    // Add "Create New" option
-    const createNewOpt = document.createElement('option');
-    createNewOpt.value = 'create-new';
-    createNewOpt.text = 'Create New Collection...';
-    collectionSelect.appendChild(createNewOpt);
+    const divider = document.createElement('div');
+    divider.className = 'custom-select-divider';
+    collectionMenu.appendChild(divider);
 
-    // Select first one by default if exists
-    if (collections.length > 0) {
-      collectionSelect.selectedIndex = 0;
+    const createNewDiv = document.createElement('div');
+    createNewDiv.className = 'custom-select-option create-new';
+    createNewDiv.textContent = 'Create New Collection...';
+    createNewDiv.onclick = () => selectCollectionOption('create-new', 'Create New Collection...');
+    collectionMenu.appendChild(createNewDiv);
+
+    // Select first collection by default
+    collectionCustomSelect.dataset.value = firstValue;
+    if (collectionTriggerText) {
+      collectionTriggerText.textContent = collections.length > 0 ? collections[0].name : 'Create New Collection...';
     }
 
-    // Trigger group update
     handleCollectionChange();
   }
 
@@ -6843,11 +6887,7 @@ window.openCreateVariableModal = function (value, issueId) {
   document.body.classList.add('modal-open');
 
   setTimeout(() => {
-    if (collectionSelect && collectionSelect.value === 'create-new') {
-      document.getElementById('create-var-new-collection').focus();
-    } else {
-      document.getElementById('create-var-name').focus();
-    }
+    document.getElementById('create-var-name') && document.getElementById('create-var-name').focus();
   }, 100);
 };
 
@@ -6908,21 +6948,182 @@ function findAllExactMatchingVariables(value, category) {
   return results;
 }
 
+function openBackdrop() {
+  if (document.getElementById('custom-select-backdrop')) return;
+  const bd = document.createElement('div');
+  bd.id = 'custom-select-backdrop';
+  bd.className = 'custom-select-backdrop';
+  document.body.appendChild(bd);
+}
+
+function removeBackdrop() {
+  const bd = document.getElementById('custom-select-backdrop');
+  if (bd) bd.remove();
+}
+
+function closeMenuAndCleanup(menu) {
+  menu.classList.remove('show');
+  menu.querySelectorAll('.custom-select-option, .custom-select-group-header, .custom-select-divider').forEach(el => { el.style.display = ''; });
+  const trigger = menu.previousElementSibling;
+  if (!trigger) return;
+  trigger.classList.remove('active');
+  const triggerText = trigger.querySelector('.trigger-text');
+  if (triggerText && triggerText._savedHTML !== undefined) {
+    triggerText.innerHTML = triggerText._savedHTML;
+    delete triggerText._savedHTML;
+    triggerText.style.flex = '';
+    triggerText.style.display = '';
+    triggerText.style.alignItems = '';
+    triggerText.style.overflow = '';
+  }
+}
+
+function injectMenuSearch(menu) {
+  const trigger = menu.previousElementSibling;
+  if (!trigger) return;
+  const triggerText = trigger.querySelector('.trigger-text');
+  if (!triggerText) return;
+  if (triggerText.querySelector('.custom-select-search')) {
+    triggerText.querySelector('.custom-select-search').focus();
+    return;
+  }
+
+  // Save current content, clear it so it takes no space, then inject the input flush-left
+  triggerText._savedHTML = triggerText.innerHTML;
+  triggerText.innerHTML = '';
+  triggerText.style.flex = '1';
+  triggerText.style.display = 'flex';
+  triggerText.style.alignItems = 'center';
+  triggerText.style.overflow = 'hidden';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'custom-select-search';
+  input.placeholder = 'Search…';
+  input.addEventListener('input', () => filterCustomSelectOptions(menu, input.value));
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeAllCustomSelectMenus(); } });
+  triggerText.appendChild(input);
+  requestAnimationFrame(() => input.focus());
+}
+
+function filterCustomSelectOptions(menu, query) {
+  const q = query.toLowerCase();
+  menu.querySelectorAll('.custom-select-option').forEach(opt => {
+    opt.style.display = (!q || opt.textContent.toLowerCase().includes(q)) ? '' : 'none';
+  });
+}
+
+window.toggleCollectionSelect = function () {
+  const select = document.getElementById('create-var-collection-custom-select');
+  if (!select) return;
+  const menu = select.querySelector('.custom-select-menu');
+  const trigger = select.querySelector('.custom-select-trigger');
+  const opening = !menu.classList.contains('show');
+  document.querySelectorAll('.custom-select-menu.show').forEach(m => closeMenuAndCleanup(m));
+  if (opening) { menu.classList.add('show'); trigger.classList.add('active'); injectMenuSearch(menu); openBackdrop(); }
+  event.stopPropagation();
+};
+
+window.selectCollectionOption = function (value, label) {
+  const select = document.getElementById('create-var-collection-custom-select');
+  const triggerText = document.getElementById('create-var-collection-trigger-text');
+  const menu = document.getElementById('create-var-collection-menu');
+
+  if (select) select.dataset.value = value;
+  if (menu) {
+    menu.querySelectorAll('.custom-select-option').forEach((opt) => opt.classList.remove('selected'));
+    const clicked = Array.from(menu.querySelectorAll('.custom-select-option')).find((o) => o.textContent === label);
+    if (clicked) clicked.classList.add('selected');
+    closeMenuAndCleanup(menu);
+  }
+  if (triggerText) triggerText.textContent = label;
+  handleCollectionChange();
+};
+
+window.toggleGroupSelect = function () {
+  const select = document.getElementById('create-var-group-custom-select');
+  if (!select) return;
+  const menu = select.querySelector('.custom-select-menu');
+  const trigger = select.querySelector('.custom-select-trigger');
+  const opening = !menu.classList.contains('show');
+  document.querySelectorAll('.custom-select-menu.show').forEach(m => closeMenuAndCleanup(m));
+  if (opening) { menu.classList.add('show'); trigger.classList.add('active'); injectMenuSearch(menu); openBackdrop(); }
+  event.stopPropagation();
+};
+
+window.selectGroupOption = function (value, label) {
+  const select = document.getElementById('create-var-group-custom-select');
+  const triggerText = document.getElementById('create-var-group-trigger-text');
+  const menu = document.getElementById('create-var-group-menu');
+
+  if (select) select.dataset.value = value;
+  if (menu) {
+    menu.querySelectorAll('.custom-select-option').forEach((opt) => opt.classList.remove('selected'));
+    const clicked = Array.from(menu.querySelectorAll('.custom-select-option')).find((o) => o.textContent === label);
+    if (clicked) clicked.classList.add('selected');
+    closeMenuAndCleanup(menu);
+  }
+  if (triggerText) triggerText.textContent = label;
+  handleGroupChange();
+};
+
+window.confirmNewGroup = function () {
+  const input = document.getElementById('create-var-new-group');
+  const name = input ? input.value.trim() : '';
+  if (!name) { if (input) input.focus(); return; }
+  const triggerText = document.getElementById('create-var-group-trigger-text');
+  if (triggerText) triggerText.textContent = name;
+  const row = document.getElementById('create-var-new-group-row');
+  if (row) { row.style.display = 'none'; row.classList.add('hidden'); }
+  document.getElementById('create-var-name') && document.getElementById('create-var-name').focus();
+};
+
+window.cancelNewGroup = function () {
+  const row = document.getElementById('create-var-new-group-row');
+  if (row) { row.style.display = 'none'; row.classList.add('hidden'); }
+  const groupCustomSelect = document.getElementById('create-var-group-custom-select');
+  if (groupCustomSelect) groupCustomSelect.dataset.value = '';
+  const triggerText = document.getElementById('create-var-group-trigger-text');
+  if (triggerText) triggerText.textContent = '(No Group)';
+};
+
+window.confirmNewCollection = function () {
+  const input = document.getElementById('create-var-new-collection');
+  const name = input ? input.value.trim() : '';
+  if (!name) {
+    if (input) input.focus();
+    return;
+  }
+  const triggerText = document.getElementById('create-var-collection-trigger-text');
+  if (triggerText) triggerText.textContent = name;
+  const row = document.getElementById('create-var-new-collection-row');
+  if (row) { row.style.display = 'none'; row.classList.add('hidden'); }
+  document.getElementById('create-var-name') && document.getElementById('create-var-name').focus();
+};
+
+window.cancelNewCollection = function () {
+  const row = document.getElementById('create-var-new-collection-row');
+  if (row) { row.style.display = 'none'; row.classList.add('hidden'); }
+  const collections = window.globalVariablesData || [];
+  if (collections.length > 0) {
+    selectCollectionOption(collections[0].name, collections[0].name);
+  } else {
+    const select = document.getElementById('create-var-collection-custom-select');
+    if (select) select.dataset.value = '';
+    const triggerText = document.getElementById('create-var-collection-trigger-text');
+    if (triggerText) triggerText.textContent = '(select)';
+  }
+};
+
 window.toggleModalAliasSelect = function () {
   const select = document.getElementById('modal-alias-custom-select');
   if (!select) return;
-  const trigger = select.querySelector('.custom-select-trigger');
   const menu = select.querySelector('.custom-select-menu');
-
-  document.querySelectorAll('.custom-select-menu.show').forEach((m) => {
-    if (m !== menu) {
-      m.classList.remove('show');
-      m.previousElementSibling && m.previousElementSibling.classList.remove('active');
-    }
-  });
-
-  menu.classList.toggle('show');
-  trigger.classList.toggle('active');
+  const trigger = select.querySelector('.custom-select-trigger');
+  const opening = !menu.classList.contains('show');
+  document.querySelectorAll('.custom-select-menu.show').forEach(m => closeMenuAndCleanup(m));
+  if (opening) { menu.classList.add('show'); trigger.classList.add('active'); injectMenuSearch(menu); openBackdrop(); }
   event.stopPropagation();
 };
 
@@ -6930,15 +7131,13 @@ window.selectModalAliasOption = function (id, label) {
   const select = document.getElementById('modal-alias-custom-select');
   const triggerText = document.getElementById('modal-alias-trigger-text');
   const menu = document.getElementById('modal-alias-menu');
-  const trigger = select && select.querySelector('.custom-select-trigger');
 
   if (select) select.dataset.value = id;
-  if (triggerText) triggerText.textContent = label;
   if (menu) {
     menu.querySelectorAll('.custom-select-option').forEach((opt) => opt.classList.remove('selected'));
-    menu.classList.remove('show');
+    closeMenuAndCleanup(menu);
   }
-  if (trigger) trigger.classList.remove('active');
+  if (triggerText) triggerText.textContent = label;
 };
 
 window.handleVariableTypeChange = function (type) {
@@ -6951,29 +7150,58 @@ window.handleVariableTypeChange = function (type) {
 };
 
 window.handleCollectionChange = function () {
-  const colSelect = document.getElementById('create-var-collection');
-  const groupSelect = document.getElementById('create-var-group');
+  const colCustomSelect = document.getElementById('create-var-collection-custom-select');
+  const groupCustomSelect = document.getElementById('create-var-group-custom-select');
+  const groupMenu = document.getElementById('create-var-group-menu');
+  const groupTriggerText = document.getElementById('create-var-group-trigger-text');
   const newColInput = document.getElementById('create-var-new-collection');
 
-  if (!colSelect || !groupSelect) return;
+  if (!colCustomSelect || !groupCustomSelect || !groupMenu) return;
 
-  const selectedColName = colSelect.value;
+  const selectedColName = colCustomSelect.dataset.value;
 
   // Toggle new collection input
+  const newColRow = document.getElementById('create-var-new-collection-row');
   if (selectedColName === 'create-new') {
-    newColInput.classList.remove('hidden');
-    newColInput.focus();
-    // Reset groups
-    groupSelect.innerHTML =
-      '<option value="">(No Group)</option><option value="create-new">Create New Group...</option>';
-    return; // No existing groups to show
+    if (newColRow) { newColRow.style.display = 'flex'; newColRow.classList.remove('hidden'); }
+    if (newColInput) { newColInput.value = ''; newColInput.focus(); }
+    setTimeout(() => newColRow && newColRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    // Reset group menu to just no-group + create-new
+    groupMenu.innerHTML = '';
+    groupCustomSelect.dataset.value = '';
+    if (groupTriggerText) groupTriggerText.textContent = '(No Group)';
+    const noGroupDiv = document.createElement('div');
+    noGroupDiv.className = 'custom-select-option selected';
+    noGroupDiv.textContent = '(No Group)';
+    noGroupDiv.onclick = () => selectGroupOption('', '(No Group)');
+    groupMenu.appendChild(noGroupDiv);
+    const divider = document.createElement('div');
+    divider.className = 'custom-select-divider';
+    groupMenu.appendChild(divider);
+    const createNewDiv = document.createElement('div');
+    createNewDiv.className = 'custom-select-option create-new';
+    createNewDiv.textContent = 'Create New Group...';
+    createNewDiv.onclick = () => selectGroupOption('create-new', 'Create New Group...');
+    groupMenu.appendChild(createNewDiv);
+    return;
   } else {
-    newColInput.classList.add('hidden');
+    if (newColRow) { newColRow.style.display = 'none'; newColRow.classList.add('hidden'); }
   }
 
+  // Also reset group row when collection changes
+  const newGroupRow = document.getElementById('create-var-new-group-row');
+  if (newGroupRow) { newGroupRow.style.display = 'none'; newGroupRow.classList.add('hidden'); }
+
   // Populate Groups for selected collection
-  groupSelect.innerHTML = '';
-  groupSelect.appendChild(new Option('(No Group)', ''));
+  groupMenu.innerHTML = '';
+  groupCustomSelect.dataset.value = '';
+  if (groupTriggerText) groupTriggerText.textContent = '(No Group)';
+
+  const noGroupDiv = document.createElement('div');
+  noGroupDiv.className = 'custom-select-option selected';
+  noGroupDiv.textContent = '(No Group)';
+  noGroupDiv.onclick = () => selectGroupOption('', '(No Group)');
+  groupMenu.appendChild(noGroupDiv);
 
   const collections = window.globalVariablesData || [];
   const selectedCol = collections.find((c) => c.name === selectedColName);
@@ -6982,38 +7210,47 @@ window.handleCollectionChange = function () {
     const groups = new Set();
     selectedCol.variables.forEach((v) => {
       if (v.name.includes('/')) {
-        // Extract group path (everything before last slash)
         const parts = v.name.split('/');
-        parts.pop(); // Remove variable name
-        const groupName = parts.join('/');
-        groups.add(groupName);
+        parts.pop();
+        groups.add(parts.join('/'));
       }
     });
 
-    // Add existing groups
     Array.from(groups)
       .sort()
       .forEach((g) => {
-        groupSelect.appendChild(new Option(g, g));
+        const div = document.createElement('div');
+        div.className = 'custom-select-option';
+        div.textContent = g;
+        div.onclick = () => selectGroupOption(g, g);
+        groupMenu.appendChild(div);
       });
   }
 
-  // Always add create new group option
-  groupSelect.appendChild(new Option('Create New Group...', 'create-new'));
+  const divider = document.createElement('div');
+  divider.className = 'custom-select-divider';
+  groupMenu.appendChild(divider);
 
-  // Trigger group change to set input visibility
+  const createNewDiv = document.createElement('div');
+  createNewDiv.className = 'custom-select-option create-new';
+  createNewDiv.textContent = 'Create New Group...';
+  createNewDiv.onclick = () => selectGroupOption('create-new', 'Create New Group...');
+  groupMenu.appendChild(createNewDiv);
+
   handleGroupChange();
 };
 
 window.handleGroupChange = function () {
-  const groupSelect = document.getElementById('create-var-group');
+  const groupCustomSelect = document.getElementById('create-var-group-custom-select');
+  const newGroupRow = document.getElementById('create-var-new-group-row');
   const newGroupInput = document.getElementById('create-var-new-group');
 
-  if (groupSelect.value === 'create-new') {
-    newGroupInput.classList.remove('hidden');
-    newGroupInput.focus();
+  if (groupCustomSelect && groupCustomSelect.dataset.value === 'create-new') {
+    if (newGroupRow) { newGroupRow.style.display = 'flex'; newGroupRow.classList.remove('hidden'); }
+    if (newGroupInput) { newGroupInput.value = ''; newGroupInput.focus(); }
+    setTimeout(() => newGroupRow && newGroupRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   } else {
-    newGroupInput.classList.add('hidden');
+    if (newGroupRow) { newGroupRow.style.display = 'none'; newGroupRow.classList.add('hidden'); }
   }
 };
 
@@ -7048,8 +7285,8 @@ window.submitCreateVariable = function () {
   const aliasVariableId = isSemantic && aliasCustomSelect ? aliasCustomSelect.dataset.value : null;
 
   // Collection Logic
-  const colSelect = document.getElementById('create-var-collection');
-  let collectionName = colSelect.value;
+  const colCustomSelect = document.getElementById('create-var-collection-custom-select');
+  let collectionName = colCustomSelect ? colCustomSelect.dataset.value : '';
   if (collectionName === 'create-new') {
     collectionName = document.getElementById('create-var-new-collection').value.trim();
     if (!collectionName) {
@@ -7059,8 +7296,8 @@ window.submitCreateVariable = function () {
   }
 
   // Group Logic
-  const groupSelect = document.getElementById('create-var-group');
-  let groupName = groupSelect.value;
+  const groupCustomSelect = document.getElementById('create-var-group-custom-select');
+  let groupName = groupCustomSelect ? groupCustomSelect.dataset.value : '';
   if (groupName === 'create-new') {
     groupName = document.getElementById('create-var-new-group').value.trim();
     if (!groupName) {
@@ -11311,16 +11548,9 @@ function toggleCustomSelect(issueId) {
   const trigger = select.querySelector('.custom-select-trigger');
   const menu = select.querySelector('.custom-select-menu');
 
-  // Close all other open selects first
-  document.querySelectorAll('.custom-select-menu.show').forEach(m => {
-    if (m !== menu) {
-      m.classList.remove('show');
-      m.previousElementSibling.classList.remove('active');
-    }
-  });
-
-  menu.classList.toggle('show');
-  trigger.classList.toggle('active');
+  const opening = !menu.classList.contains('show');
+  document.querySelectorAll('.custom-select-menu.show').forEach(m => closeMenuAndCleanup(m));
+  if (opening) { menu.classList.add('show'); trigger.classList.add('active'); injectMenuSearch(menu); openBackdrop(); }
 
   // Prevent event from bubbling up to document listener
   event.stopPropagation();
@@ -11342,8 +11572,8 @@ function selectCustomOption(issueId, value, label, type, skipAutoSelect) {
   triggerText.textContent = label;
 
   // Close menu
-  menu.classList.remove('show');
-  trigger.classList.remove('active');
+  closeMenuAndCleanup(menu);
+  triggerText.textContent = label;
 
   // Handle "Create New" directly if selected
   if (value === 'create-new') {
@@ -11365,15 +11595,20 @@ function selectCustomOption(issueId, value, label, type, skipAutoSelect) {
   }
 }
 
+function closeAllCustomSelectMenus() {
+  document.querySelectorAll('.custom-select-menu.show').forEach(closeMenuAndCleanup);
+  removeBackdrop();
+}
+
 // Global click listener to close custom selects
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.custom-select')) {
-    document.querySelectorAll('.custom-select-menu.show').forEach(m => {
-      m.classList.remove('show');
-      m.previousElementSibling.classList.remove('active');
-    });
+    closeAllCustomSelectMenus();
   }
 });
+
+// Close dropdowns when the plugin iframe loses focus (e.g. user clicks Figma canvas)
+window.addEventListener('blur', closeAllCustomSelectMenus);
 
 /**
  * Update the apply button state based on selection
@@ -11742,9 +11977,7 @@ function initCustomSelects() {
   const selectIds = [
     'config-export-format',
     'config-strategy',
-    'import-collection-select',
-    'create-var-collection',
-    'create-var-group'
+    'import-collection-select'
   ];
   
   selectIds.forEach(id => {
