@@ -7318,7 +7318,7 @@ ${commentPrefix} Grids${commentSuffix}`);
                     const match = token.value.match(/var\((--[^)]+)\)/);
                     if (match) {
                       const aliasName = match[1].replace(/^--/, "");
-                      const aliasedVar = existingVariablesMap.get(aliasName);
+                      const aliasedVar = existingVariablesMap.get(aliasName) || existingVariablesMap.get(this.cssNameToGrouped(aliasName));
                       if (aliasedVar) {
                         val = figma.variables.createVariableAlias(aliasedVar);
                         console.log(`[Import] Resolved alias for ${varName} -> ${aliasName}`);
@@ -7329,7 +7329,7 @@ ${commentPrefix} Grids${commentSuffix}`);
                             token.type = "number";
                         }
                       } else {
-                        console.warn(`[Import] Could not find variable for alias: ${aliasName}`);
+                        console.warn(`[Import] Could not find variable for alias: ${aliasName} (also tried: ${this.cssNameToGrouped(aliasName)})`);
                       }
                     }
                     if (val === void 0) {
@@ -7337,7 +7337,7 @@ ${commentPrefix} Grids${commentSuffix}`);
                       let hasUnresolved = false;
                       resolvedString = resolvedString.replace(/var\((--[^)]+)\)/g, (fullMatch, cssVarName) => {
                         const name = cssVarName.replace(/^--/, "");
-                        const existing = existingVariablesMap.get(name);
+                        const existing = existingVariablesMap.get(name) || existingVariablesMap.get(this.cssNameToGrouped(name));
                         if (existing) {
                           const modeVal = existing.valuesByMode[modeId];
                           if (typeof modeVal === "object" && "r" in modeVal) {
@@ -7833,6 +7833,10 @@ ${commentPrefix} Grids${commentSuffix}`);
         /**
          * Convert CSS angle to Figma gradient transform matrix
          */
+        static cssNameToGrouped(name) {
+          const idx = name.indexOf("-");
+          return idx !== -1 ? `${name.slice(0, idx)}/${name.slice(idx + 1)}` : name;
+        }
         static angleToGradientTransform(degrees) {
           const radians = degrees * Math.PI / 180;
           const cos = Math.cos(radians);
