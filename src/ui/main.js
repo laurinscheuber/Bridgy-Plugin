@@ -5927,8 +5927,9 @@ function renderMissingVarIssueCard(issue, category, idx) {
       html += '<div class="custom-select-group-header exact">Exact Matches</div>';
       exactMatches.forEach(v => {
         const sel = v.id === selectedId ? 'selected' : '';
+        const aliasTag = v.isAlias ? ' <span style="font-size:10px;opacity:0.5;font-style:italic;">alias</span>' : '';
         html += '<div class="custom-select-option ' + sel + '" onclick="selectCustomOption(\'' + issueId + '\', \'' + v.id + '\', \'' + SecurityUtils.escapeHTML(v.collectionName) + ' / ' + SecurityUtils.escapeHTML(v.name) + '\', \'exact\')">' +
-          SecurityUtils.escapeHTML(v.collectionName) + ' / ' + SecurityUtils.escapeHTML(v.name) +
+          SecurityUtils.escapeHTML(v.collectionName) + ' / ' + SecurityUtils.escapeHTML(v.name) + aliasTag +
           (sel ? ' <span class="material-symbols-outlined" style="font-size: 14px;">check</span>' : '') + '</div>';
       });
     }
@@ -6758,6 +6759,50 @@ window.openCreateVariableModal = function (value, issueId) {
   document.getElementById('create-var-issue-id').value = issueId;
   document.getElementById('create-var-name').value = '';
 
+  // Extract category from issueId (format: issue-{Category}-{Index})
+  const issueParts = issueId.split('-');
+  const modalCategory = issueParts.length >= 3 ? issueParts.slice(1, issueParts.length - 1).join('-') : '';
+
+  // Find all variables whose resolved value exactly matches the target
+  const exactAliasMatches = findAllExactMatchingVariables(value, modalCategory);
+  const hasAliasOptions = exactAliasMatches.length > 0;
+
+  // Reset type toggle to primitive and hide/disable Semantic when no matches
+  document.querySelectorAll('#create-var-type-toggle .segmented-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.type === 'primitive');
+    if (btn.dataset.type === 'semantic') {
+      btn.disabled = !hasAliasOptions;
+      btn.style.opacity = hasAliasOptions ? '' : '0.35';
+      btn.title = hasAliasOptions ? '' : 'No variables with a matching value found';
+    }
+  });
+  document.getElementById('create-var-alias-group').classList.add('hidden');
+  document.getElementById('create-var-primitive-hint').classList.remove('hidden');
+
+  // Populate custom alias dropdown with only exact matches
+  const aliasMenu = document.getElementById('modal-alias-menu');
+  const aliasTriggerText = document.getElementById('modal-alias-trigger-text');
+  const aliasSelect = document.getElementById('modal-alias-custom-select');
+  if (aliasMenu && aliasSelect) {
+    aliasMenu.innerHTML = '';
+    aliasSelect.dataset.value = '';
+    if (aliasTriggerText) aliasTriggerText.textContent = exactAliasMatches.length ? '(select)' : '(no match)';
+    exactAliasMatches.forEach((v, i) => {
+      const label = SecurityUtils.escapeHTML(v.collectionName) + ' / ' + SecurityUtils.escapeHTML(v.name);
+      const div = document.createElement('div');
+      div.className = 'custom-select-option' + (i === 0 ? ' selected' : '');
+      div.innerHTML = label;
+      div.onclick = () => selectModalAliasOption(v.id, v.collectionName + ' / ' + v.name);
+      aliasMenu.appendChild(div);
+    });
+    // Auto-select first
+    if (exactAliasMatches.length > 0) {
+      const first = exactAliasMatches[0];
+      aliasSelect.dataset.value = first.id;
+      if (aliasTriggerText) aliasTriggerText.textContent = first.collectionName + ' / ' + first.name;
+    }
+  }
+
   // Reset new inputs
   const newColInput = document.getElementById('create-var-new-collection');
   if (newColInput) newColInput.classList.add('hidden');
@@ -6804,6 +6849,105 @@ window.openCreateVariableModal = function (value, issueId) {
       document.getElementById('create-var-name').focus();
     }
   }, 100);
+};
+
+function findAllExactMatchingVariables(value, category) {
+  if (!window.globalVariablesData || !value) return [];
+
+  // Parse the raw value string into a typed object
+  const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  let parsedType, parsedValue;
+  if (colorMatch) {
+    parsedType = 'paint';
+    parsedValue = {
+      r: parseInt(colorMatch[1]) / 255,
+      g: parseInt(colorMatch[2]) / 255,
+      b: parseInt(colorMatch[3]) / 255,
+    };
+  } else {
+    const numMatch = value.match(/^([\d.]+)/);
+    if (numMatch) {
+      parsedType = 'number';
+      parsedValue = parseFloat(numMatch[1]);
+    }
+  }
+  if (!parsedType) return [];
+
+  const isMatch = (modeValue) => {
+    if (parsedType === 'paint') {
+      if (!modeValue || typeof modeValue !== 'object' || modeValue.r === undefined) return false;
+      return (
+        Math.abs(modeValue.r - parsedValue.r) < 0.001 &&
+        Math.abs(modeValue.g - parsedValue.g) < 0.001 &&
+        Math.abs(modeValue.b - parsedValue.b) < 0.001
+      );
+    } else {
+      if (typeof modeValue !== 'number') return false;
+      return Math.abs(modeValue - parsedValue) < 0.01;
+    }
+  };
+
+  const results = [];
+  for (const col of window.globalVariablesData) {
+    for (const variable of col.variables) {
+      // Type filter by category
+      if (parsedType === 'paint' && variable.resolvedType !== 'COLOR') continue;
+      if (parsedType === 'number' && variable.resolvedType !== 'FLOAT') continue;
+
+      for (const modeVal of variable.valuesByMode) {
+        if (!modeVal || !modeVal.value) continue;
+        // Skip alias values — we want primitives with a direct value match
+        if (typeof modeVal.value === 'object' && modeVal.value.type === 'VARIABLE_ALIAS') continue;
+        if (isMatch(modeVal.value)) {
+          results.push({ ...variable, collectionName: col.name });
+          break;
+        }
+      }
+    }
+  }
+  return results;
+}
+
+window.toggleModalAliasSelect = function () {
+  const select = document.getElementById('modal-alias-custom-select');
+  if (!select) return;
+  const trigger = select.querySelector('.custom-select-trigger');
+  const menu = select.querySelector('.custom-select-menu');
+
+  document.querySelectorAll('.custom-select-menu.show').forEach((m) => {
+    if (m !== menu) {
+      m.classList.remove('show');
+      m.previousElementSibling && m.previousElementSibling.classList.remove('active');
+    }
+  });
+
+  menu.classList.toggle('show');
+  trigger.classList.toggle('active');
+  event.stopPropagation();
+};
+
+window.selectModalAliasOption = function (id, label) {
+  const select = document.getElementById('modal-alias-custom-select');
+  const triggerText = document.getElementById('modal-alias-trigger-text');
+  const menu = document.getElementById('modal-alias-menu');
+  const trigger = select && select.querySelector('.custom-select-trigger');
+
+  if (select) select.dataset.value = id;
+  if (triggerText) triggerText.textContent = label;
+  if (menu) {
+    menu.querySelectorAll('.custom-select-option').forEach((opt) => opt.classList.remove('selected'));
+    menu.classList.remove('show');
+  }
+  if (trigger) trigger.classList.remove('active');
+};
+
+window.handleVariableTypeChange = function (type) {
+  document.querySelectorAll('#create-var-type-toggle .segmented-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.type === type);
+  });
+  const isSemantic = type === 'semantic';
+  document.getElementById('create-var-alias-group').classList.toggle('hidden', !isSemantic);
+  document.getElementById('create-var-primitive-hint').classList.toggle('hidden', isSemantic);
 };
 
 window.handleCollectionChange = function () {
@@ -6898,6 +7042,10 @@ window.submitCreateVariable = function () {
   const nameInput = document.getElementById('create-var-name').value.trim();
   const value = document.getElementById('create-var-value-display').textContent.trim();
   const issueId = document.getElementById('create-var-issue-id').value;
+  const activeTypeBtn = document.querySelector('#create-var-type-toggle .segmented-btn.active');
+  const isSemantic = activeTypeBtn && activeTypeBtn.dataset.type === 'semantic';
+  const aliasCustomSelect = document.getElementById('modal-alias-custom-select');
+  const aliasVariableId = isSemantic && aliasCustomSelect ? aliasCustomSelect.dataset.value : null;
 
   // Collection Logic
   const colSelect = document.getElementById('create-var-collection');
@@ -6964,19 +7112,25 @@ window.submitCreateVariable = function () {
     fullVariableName: fullVariableName // Store for auto-selection
   };
 
+  // Validate alias selection for semantic variables
+  if (isSemantic && !aliasVariableId) {
+    alert('Please select a reference variable.');
+    return;
+  }
+
   // Send to backend
-  parent.postMessage(
-    {
-      pluginMessage: {
-        type: 'create-variable',
-        name: fullVariableName,
-        value: value,
-        collectionName: collectionName,
-        context: { issueId: issueId },
-      },
-    },
-    '*',
-  );
+  const pluginMsg = {
+    type: 'create-variable',
+    name: fullVariableName,
+    collectionName: collectionName,
+    context: { issueId: issueId },
+  };
+  if (isSemantic) {
+    pluginMsg.aliasVariableId = aliasVariableId;
+  } else {
+    pluginMsg.value = value;
+  }
+  parent.postMessage({ pluginMessage: pluginMsg }, '*');
 
   // Show loading state on the existing UI elements
   const customSelect = document.getElementById(`${issueId}-custom-select`);
