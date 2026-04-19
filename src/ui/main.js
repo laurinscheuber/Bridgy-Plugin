@@ -6370,9 +6370,9 @@ function analyzeStats() {
 // Smooth gradient from red (0) → yellow (50) → green (100) using HSL
 function getScoreColor(score) {
   if (score === undefined || score === null) return '#ffffff';
-  if (score < 40) return '#ef4444'; // Red
-  if (score < 80) return '#fbbf24'; // Yellow/Orange
-  return '#22c55e'; // Green
+  if (score < 40) return 'var(--text-error)'; // Red
+  if (score < 80) return 'var(--text-warning)'; // Yellow/Orange
+  return 'var(--text-success)'; // Green
 }
 
 // Track active filter state
