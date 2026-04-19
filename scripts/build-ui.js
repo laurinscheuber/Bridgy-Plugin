@@ -68,7 +68,18 @@ async function buildUI() {
 
     // Read source files
     const template = fs.readFileSync(path.join(__dirname, '../src/ui/template.html'), 'utf8');
-    const css = fs.readFileSync(path.join(__dirname, '../src/ui/styles.css'), 'utf8');
+    const uiDir = path.join(__dirname, '../src/ui');
+    let css = fs.readFileSync(path.join(uiDir, 'styles.css'), 'utf8');
+
+    // Resolve CSS @imports (browser @import doesn't work in injected <style> tags)
+    css = css.replace(/@import\s+["']([^"']+)["'];?\n?/g, (_, importPath) => {
+      try {
+        return fs.readFileSync(path.join(uiDir, importPath), 'utf8') + '\n';
+      } catch {
+        console.warn(`⚠️  Could not resolve @import: ${importPath}`);
+        return '';
+      }
+    });
     const js = fs.readFileSync(path.join(__dirname, '../src/ui/main.js'), 'utf8');
     const bodyHtml = fs.readFileSync(path.join(__dirname, '../src/ui/body.html'), 'utf8');
 
