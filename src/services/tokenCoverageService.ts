@@ -18,6 +18,7 @@ export interface MatchingVariable {
   collectionName: string;
   resolvedValue: string;
   matchType: 'EXACT' | 'NEAR';
+  isAlias?: boolean;
 }
 
 export interface AnalysisStats {
@@ -1565,7 +1566,29 @@ export class TokenCoverageService {
   }
 
   /**
-   * Finds design variables that match the given value exactly or nearly
+   * Follows a VARIABLE_ALIAS chain to the underlying primitive value.
+   * Returns null if the chain cannot be resolved (missing variable or circular).
+   */
+  private static resolveAliasValue(
+    value: VariableValue,
+    allVariables: Array<{ variable: any; collection: any }>,
+  ): VariableValue | null {
+    let current = value;
+    for (let depth = 0; depth < 10; depth++) {
+      if (typeof current !== 'object' || !('type' in current) || (current as any).type !== 'VARIABLE_ALIAS') {
+        return current;
+      }
+      const aliasId = (current as any).id;
+      const entry = allVariables.find(({ variable }) => variable.id === aliasId);
+      if (!entry) return null;
+      current = entry.variable.valuesByMode[entry.collection.defaultModeId];
+    }
+    return null;
+  }
+
+  /**
+   * Finds design variables that match the given value exactly or nearly.
+   * Includes semantic (alias) variables whose resolved value matches.
    */
   private static async findMatchingVariables(
     value: string,
@@ -1580,9 +1603,14 @@ export class TokenCoverageService {
       const isTypeMatch = this.isVariableTypeMatch(variable.resolvedType, category);
       if (!isTypeMatch) continue;
 
-      // Get the resolved value for the current mode
+      // Get the value for the default mode
       const modeId = collection.defaultModeId;
-      const varValue = variable.valuesByMode[modeId];
+      const rawValue = variable.valuesByMode[modeId];
+
+      // Resolve aliases to their underlying primitive value
+      const isAlias = typeof rawValue === 'object' && rawValue !== null && 'type' in rawValue && (rawValue as any).type === 'VARIABLE_ALIAS';
+      const varValue = isAlias ? this.resolveAliasValue(rawValue, allVariables) : rawValue;
+      if (varValue === null) continue;
 
       // Compare values based on type
       const matchType = this.valuesMatch(varValue, value, variable.resolvedType);
@@ -1594,6 +1622,7 @@ export class TokenCoverageService {
           collectionName: collection.name,
           resolvedValue: this.formatVariableValue(varValue, variable.resolvedType),
           matchType: matchType,
+          isAlias: isAlias || undefined,
         });
       }
     }

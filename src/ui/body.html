@@ -1060,10 +1060,20 @@
       <h3>Create New Variable</h3>
     </div>
     <div class="modal-body">
-      <p>
+      <p id="create-var-primitive-hint">
         Create a new variable for value:
         <strong id="create-var-value-display" class="create-var-value"></strong>
       </p>
+
+      <!-- Variable Type Toggle -->
+      <div class="form-group">
+        <label>Variable Type</label>
+        <div class="segmented-control" id="create-var-type-toggle">
+          <button type="button" class="segmented-btn active" data-type="primitive" onclick="handleVariableTypeChange('primitive')">Primitive</button>
+          <button type="button" class="segmented-btn" data-type="semantic" onclick="handleVariableTypeChange('semantic')">Semantic (Alias)</button>
+        </div>
+        <div class="settings-helper">Primitive stores a direct value; Semantic references another variable</div>
+      </div>
 
       <!-- Collection Section -->
       <div class="form-group">
@@ -1086,6 +1096,21 @@
         <input type="text" id="create-var-new-group" class="input-field input-hidden-toggle hidden"
           placeholder="New Group Name (e.g. colors/primary)" />
         <div class="settings-helper">Select existing group or create new</div>
+      </div>
+
+      <!-- Reference Variable Section (semantic only) -->
+      <div class="form-group hidden" id="create-var-alias-group">
+        <label>Reference Variable</label>
+        <div id="modal-alias-custom-select" class="custom-select" data-value="">
+          <div class="custom-select-trigger" onclick="toggleModalAliasSelect()" style="border: 1px solid var(--border-subtle);">
+            <span class="trigger-text" id="modal-alias-trigger-text">(select)</span>
+            <span class="material-symbols-outlined trigger-icon">expand_more</span>
+          </div>
+          <div class="custom-select-menu" id="modal-alias-menu">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        <div class="settings-helper">Only variables with an exact value match are shown</div>
       </div>
 
       <!-- Variable Name Section -->
