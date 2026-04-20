@@ -5545,7 +5545,7 @@ input[type='checkbox']:indeterminate {
   align-items: center;
   justify-content: center;
   width: 20px;
-  height: 20px;
+  min-height: 0;
   cursor: pointer;
   color: rgba(255, 255, 255, 0.4);
 }

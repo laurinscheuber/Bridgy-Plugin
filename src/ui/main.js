@@ -4798,6 +4798,7 @@ function renderComponents(data) {
         'data-tooltip': 'Commit variants',
       })}
                     ${UIHelper.createNavIcon(component.id, 'Navigate to component')}
+                    <button class="icon-btn-focus" data-node-id="${component.id}" title="Focus on layer"><span class="material-symbols-outlined">filter_center_focus</span></button>
                   </div>
               </div>
               <div class="component-set-children" id="children-${index}">
@@ -4825,6 +4826,7 @@ function renderComponents(data) {
               : UIHelper.createBadge('Variant', 'component')
             }
                     </div>
+                    <button class="icon-btn-focus" data-node-id="${child.id}" title="Focus on layer" style="margin-left: auto;"><span class="material-symbols-outlined">filter_center_focus</span></button>
                   </div>
                 </div>
                 `;
@@ -4867,6 +4869,7 @@ function renderComponents(data) {
           'data-action': 'commit',
           class: 'commit-all-variants-button',
         })}
+                  <button class="icon-btn-focus" data-node-id="${component.id}" title="Focus on layer"><span class="material-symbols-outlined">filter_center_focus</span></button>
                 </div>
               </div>
               <div class="test-success-message">Test generated successfully!</div>
@@ -4880,7 +4883,15 @@ function renderComponents(data) {
 
   // Add event listeners for navigation buttons and component action buttons
   container.addEventListener('click', function (event) {
-    // 1. Handle navigation first
+    // 1. Handle focus buttons first
+    const focusBtn = event.target.closest('.icon-btn-focus');
+    if (focusBtn) {
+      const nodeId = focusBtn.getAttribute('data-node-id');
+      if (nodeId) window.focusOnNode(nodeId);
+      return;
+    }
+
+    // 2. Handle navigation
     const navIcon = event.target.closest('.nav-icon');
     if (navIcon) {
       const componentId = navIcon.getAttribute('data-component-id');
@@ -6588,6 +6599,11 @@ function renderStats(statsData, filteredData = null) {
         <!-- Instances Column -->
         <div style="text-align: right; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9);">
             ${item.count.toLocaleString()}
+        </div>
+
+        <!-- Actions Column -->
+        <div style="display: flex; align-items: center; justify-content: flex-end;">
+          <button class="icon-btn-focus" onclick="window.focusOnNode('${item.id}')" title="Focus on layer"><span class="material-symbols-outlined">filter_center_focus</span></button>
         </div>
       </div>
     `;
