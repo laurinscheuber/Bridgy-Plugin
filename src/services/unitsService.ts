@@ -39,6 +39,18 @@ export class UnitsService {
       return 'none';
     }
 
+    // Explicit unit in name takes priority over all pattern matching
+    if (name.endsWith('-px') || name.endsWith('/px')) return 'px';
+    if (name.endsWith('-rem') || name.endsWith('/rem')) return 'rem';
+
+    // Prefix-based unitless detection for common design-token naming conventions
+    // z-* → z-index aliases (z-hide, z-base, z-docked, z-modal, …)
+    if (/^z[-/]/.test(name)) return 'none';
+    // leading-* → line-height multipliers (leading-none, leading-tight, …)
+    if (/^leading[-/]/.test(name)) return 'none';
+    // font-{weight-keyword} → font-weight aliases (font-normal, font-bold, …)
+    if (/^font[-/](normal|medium|semibold|bold|extrabold|black|thin|light|heavy)$/.test(name)) return 'none';
+
     // 2. Typography variables (prefer rem for scalability)
     if (matchesPatterns(CSS_UNITS.TYPOGRAPHY_PATTERNS)) {
       // For very small typography values (likely line-height multipliers), use none
@@ -71,7 +83,7 @@ export class UnitsService {
       if (name.includes('pill') || name.includes('circle') || name.includes('full')) {
         return '%';
       }
-      return 'px'; // Small radius values prefer px
+      return 'rem'; // Small radius values use rem for scalability
     }
 
     // 6. Advanced pattern recognition (check before relative sizing)
@@ -108,9 +120,9 @@ export class UnitsService {
       if (name.includes('container') || name.includes('col') || name.includes('sidebar')) {
         return '%';
       }
-      // Small fixed dimensions prefer px
+      // Icon/avatar dimensions are typically rem-based in design systems
       if (name.includes('icon') || name.includes('avatar') || name.includes('thumb')) {
-        return 'px';
+        return 'rem';
       }
       return '%'; // Default to % for responsive layouts
     }
@@ -136,7 +148,13 @@ export class UnitsService {
       }
     }
 
-    // 9. Default fallback with improved logic
+    // 9. Icon dimension tokens (e.g. icon-xs, icon-sm, icon-48) — rem in design systems
+    if (/\bicon\b/.test(name)) return 'rem';
+
+    // Variables whose name ends with '-px' explicitly want px
+    if (name.endsWith('-px') || name.endsWith('/px')) return 'px';
+
+    // 10. Default fallback with improved logic
 
     // If it contains numbers or size-related words, likely needs units
     if (

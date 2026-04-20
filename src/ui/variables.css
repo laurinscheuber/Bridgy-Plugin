@@ -167,15 +167,15 @@
     --info-500: var(--primary-600);
     --warning-400: var(--warning-500);
 
-    /* Gradients (use derived values) */
+    /* Gradients
+       Note: colors are inlined (not var() refs) so Figma can store these as
+       Paint Styles. If you change a base color, update the matching gradient
+       stops below. */
     --gradient-main: linear-gradient(135deg, #0f172a 0%, #171638 100%);
-    --gradient-button: var(--primary-500);
-    --gradient-button-hover: var(--primary-600);
-    --gradient-scrollbar: linear-gradient(135deg, var(--purple-medium) 0%, var(--purple-bright) 100%);
-    --gradient-text: linear-gradient(135deg,
-    var(--neutral-0),
-    var(--primary-100),
-    var(--primary-200));
+    --gradient-button: var(--primary-500);          /* single-color alias — imports as COLOR */
+    --gradient-button-hover: var(--primary-600);    /* single-color alias — imports as COLOR */
+    --gradient-scrollbar: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); /* primary-400 → purple-bright */
+    --gradient-text: linear-gradient(135deg, #ffffff, #e0e7ff, #c7d2fe);     /* neutral-0 → primary-100 → primary-200 */
 
     /* SEMANTIC TOKENS */
 
@@ -346,23 +346,25 @@
     --icon-48: 3rem;
     /* 48px — jumbo size for alert modals */
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    /* Shadows
+       Colors are inlined (not var() refs) so Figma can store these as Effect
+       Styles. Visual output is unchanged. */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
-    /* Custom Purple-themed Shadows */
-    --shadow-purple-light: 0 0 20px var(--glass-purple-medium);
-    --shadow-purple-medium: 0 4px 15px var(--glass-purple-medium);
-    --shadow-purple-heavy: 0 4px 20px var(--glass-purple-heavy);
-    --shadow-purple-intense: 0 8px 25px var(--glass-purple-medium);
-    --shadow-purple-glow: 0 8px 30px rgba(139, 92, 246, var(--opacity-accent-max));
+    /* Custom Purple-themed Shadows — rgba(139, 92, 246) is --primary-400 */
+    --shadow-purple-light: 0 0 20px rgba(139, 92, 246, 0.15);     /* glass-purple-medium */
+    --shadow-purple-medium: 0 4px 15px rgba(139, 92, 246, 0.15);  /* glass-purple-medium */
+    --shadow-purple-heavy: 0 4px 20px rgba(139, 92, 246, 0.25);   /* glass-purple-heavy */
+    --shadow-purple-intense: 0 8px 25px rgba(139, 92, 246, 0.15); /* glass-purple-medium */
+    --shadow-purple-glow: 0 8px 30px rgba(139, 92, 246, 0.7);     /* opacity-accent-max */
 
     /* Dark Shadows */
-    --shadow-dark: 0 8px 32px var(--glass-dark-medium);
-    --shadow-dark-heavy: 0 8px 32px var(--glass-dark-heavy);
-    --shadow-dark-inset: inset 0 1px 3px var(--glass-dark-heavy);
-    --shadow-dark-inset-heavy: inset 0 1px 5px var(--glass-dark-medium);
+    --shadow-dark: 0 8px 32px rgba(0, 0, 0, 0.4);              /* glass-dark-medium */
+    --shadow-dark-heavy: 0 8px 32px rgba(0, 0, 0, 0.6);         /* glass-dark-heavy */
+    --shadow-dark-inset: inset 0 1px 3px rgba(0, 0, 0, 0.6);   /* glass-dark-heavy */
+    --shadow-dark-inset-heavy: inset 0 1px 5px rgba(0, 0, 0, 0.4); /* glass-dark-medium */
 
     /* Transitions */
     --transition-fast: all 0.2s ease;

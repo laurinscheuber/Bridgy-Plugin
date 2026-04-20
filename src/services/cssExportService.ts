@@ -266,7 +266,7 @@ export class CSSExportService {
 
   // Helper: Round to max 2 decimal places to avoid excessive precision
   private static round(value: number): number {
-    return Math.round(value * 100) / 100;
+    return Math.round(value * 10000) / 10000;
   }
 
   // Helper: Map Figma font style to CSS font-weight
@@ -803,12 +803,14 @@ export class CSSExportService {
     const g = Math.round(color.g * 255);
     const b = Math.round(color.b * 255);
 
-    // Check if the color has an alpha channel and it's less than 1
-    if (typeof color.a === 'number' && color.a < 1) {
+    // Semi-transparent: use rgba
+    if (typeof color.a === 'number' && color.a < 0.9999) {
       return `rgba(${r}, ${g}, ${b}, ${this.round(color.a)})`;
     }
 
-    return `rgb(${r}, ${g}, ${b})`;
+    // Opaque: use hex
+    const toHex = (n: number) => { const h = n.toString(16); return h.length === 1 ? '0' + h : h; };
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
 
   /**
@@ -825,7 +827,16 @@ export class CSSExportService {
     }
 
     const unit = UnitsService.getUnitForVariable(name, collectionName, groupName);
-    const formattedVal = this.round(value);
+
+    // Figma stores FLOAT variables as unitless pixels. If the variable's
+    // inferred unit is rem/em, divide by 16 to reverse the import conversion
+    // and produce the original rem value (e.g. 12 → 0.75rem).
+    let converted = value;
+    if (unit === 'rem' || unit === 'em') {
+      converted = value / 16;
+    }
+
+    const formattedVal = this.round(converted);
     return UnitsService.formatValueWithUnit(formattedVal, unit);
   }
 
@@ -836,9 +847,8 @@ export class CSSExportService {
     if (typeof value !== 'string') {
       return null;
     }
-    // Remove extra quotes if they exist in the value already
-    const cleanValue = value.replace(/^['"]|['"]$/g, '');
-    return `"${cleanValue}"`;
+    // Strip surrounding quotes that Figma may have stored
+    return value.replace(/^['"]|['"]$/g, '');
   }
 
   /**

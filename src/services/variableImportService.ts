@@ -61,11 +61,13 @@ export class VariableImportService {
           type = 'string'; // Gradients are not simple colors
         }
 
-        // Check for shadows
+        // Check for shadows: box-shadow/drop-shadow keywords, or value that looks like
+        // `[inset] <offset-x> <offset-y> [blur] [spread] <color>` — possibly a comma-separated list.
+        // The color can be rgb/rgba/hex/var() so we don't require a specific color syntax.
         else if (
           value.includes('box-shadow') ||
           value.includes('drop-shadow') ||
-          (value.match(/\d+px\s+\d+px/) && value.includes('rgba'))
+          /^(inset\s+)?-?[\d.]+(px)?\s+-?[\d.]+px/.test(value.trim())
         ) {
           isShadow = true;
           type = 'string';
@@ -602,7 +604,11 @@ export class VariableImportService {
 
         console.log(`[Import] Processing ${tokens.length} tokens...`);
 
-        for (const token of tokens) {
+        // Reorder tokens: direct values first, then aliases in dependency order.
+        // This ensures alias targets exist before the aliases that reference them.
+        const reorderedTokens = VariableImportService.reorderTokensForImport(tokens);
+
+        for (const token of reorderedTokens) {
           try {
             // Normalize name
             let varName = token.name;
@@ -759,28 +765,27 @@ export class VariableImportService {
             const desiredType = this.mapTokenTypeToFigmaType(token.type);
 
             if (targetVar) {
-              // Check for type mismatch
-              if (
-                desiredType &&
-                targetVar.resolvedType !== desiredType &&
-                options.strategy === 'overwrite'
-              ) {
+              const typeMismatch = desiredType && targetVar.resolvedType !== desiredType;
+              if (typeMismatch) {
+                // Figma variable types are immutable — the only way to "fix" a
+                // mismatched variable (e.g. an alias that was stored as COLOR by
+                // a broken previous import and now needs to be FLOAT) is to
+                // remove and recreate it. Do this for both strategies so merge
+                // can repair broken variables from prior imports.
                 console.warn(
                   `[Import] Type mismatch for ${varName} (Existing: ${targetVar.resolvedType}, New: ${desiredType}). Re-creating...`,
                 );
                 try {
                   targetVar.remove();
-                  targetVar = undefined; // Proceed to create new
+                  targetVar = undefined;
+                  existingVariablesMap.delete(varName);
                 } catch (e) {
                   console.error(`[Import] Failed to remove mismatched variable ${varName}:`, e);
                   errors.push(`Failed to remove mismatched variable ${varName}`);
                   continue;
                 }
-              } else if (options.strategy === 'merge') {
-                // Skip if exists (and no mismatch handling needed or ignoring it)
-                successCount++;
-                continue;
               }
+              // Types match (or no desiredType): fall through to update the value
             }
 
             if (!targetVar) {
@@ -1040,8 +1045,21 @@ export class VariableImportService {
     }
     if (type === 'number') {
       const num = parseFloat(value.replace(/[^0-9.-]/g, ''));
-      return isNaN(num) ? 0 : num;
+      if (isNaN(num)) return 0;
+
+      // Figma stores FLOAT variables as unitless numbers and the design canvas
+      // treats them as pixels. Convert rem/em to their pixel equivalent so the
+      // value designers see in Figma matches the visual size. The export side
+      // reverses this for variables whose inferred unit is rem/em.
+      const lower = value.toLowerCase().trim();
+      if (/[-\d.]rem$/.test(lower) || /[-\d.]em$/.test(lower)) {
+        return num * 16;
+      }
+      return num;
     }
+    // For string type: a bare var(--x) reference must go through alias resolution.
+    // Return undefined so the caller's alias-resolution block handles it.
+    if (/^var\(--[^)]+\)$/.test(value.trim())) return undefined;
     return value;
   }
 
@@ -1074,18 +1092,36 @@ export class VariableImportService {
         }
       }
 
-      // RGB/RGBA
+      // RGB/RGBA — supports both legacy `rgb(r, g, b[, a])` and modern `rgb(r g b / a)`
       if (cleanColor.startsWith('rgb')) {
-        // Match both rgb(r, g, b) and rgba(r, g, b, a) formats
-        const match = cleanColor.match(
+        // Legacy comma-separated syntax
+        const commaMatch = cleanColor.match(
           /rgba?\s*\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*(?:,\s*(\d+(?:\.\d+)?))?\s*\)/,
         );
-        if (match) {
+        if (commaMatch) {
           return {
-            r: Math.min(1, parseFloat(match[1]) / 255),
-            g: Math.min(1, parseFloat(match[2]) / 255),
-            b: Math.min(1, parseFloat(match[3]) / 255),
-            a: match[4] !== undefined ? parseFloat(match[4]) : 1,
+            r: Math.min(1, parseFloat(commaMatch[1]) / 255),
+            g: Math.min(1, parseFloat(commaMatch[2]) / 255),
+            b: Math.min(1, parseFloat(commaMatch[3]) / 255),
+            a: commaMatch[4] !== undefined ? parseFloat(commaMatch[4]) : 1,
+          };
+        }
+        // Modern space-separated syntax: rgb(r g b / a)
+        const spaceMatch = cleanColor.match(
+          /rgba?\s*\(\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+(?:\.\d+)?%?))?\s*\)/,
+        );
+        if (spaceMatch) {
+          let a = 1;
+          if (spaceMatch[4] !== undefined) {
+            a = spaceMatch[4].endsWith('%')
+              ? parseFloat(spaceMatch[4]) / 100
+              : parseFloat(spaceMatch[4]);
+          }
+          return {
+            r: Math.min(1, parseFloat(spaceMatch[1]) / 255),
+            g: Math.min(1, parseFloat(spaceMatch[2]) / 255),
+            b: Math.min(1, parseFloat(spaceMatch[3]) / 255),
+            a,
           };
         }
       }
@@ -1369,6 +1405,46 @@ export class VariableImportService {
   private static cssNameToGrouped(name: string): string {
     const idx = name.indexOf('-');
     return idx !== -1 ? `${name.slice(0, idx)}/${name.slice(idx + 1)}` : name;
+  }
+
+  /**
+   * Reorder tokens so that direct-value tokens are processed before alias tokens,
+   * and alias tokens are sorted in dependency order (targets before dependents).
+   * This prevents "variable not found" failures when aliases are processed before their targets exist.
+   */
+  private static reorderTokensForImport(tokens: ImportToken[]): ImportToken[] {
+    const isPureAlias = (t: ImportToken) => /^var\(--[^)]+\)$/.test(t.value.trim());
+    const getDepName = (t: ImportToken): string | null => {
+      const m = t.value.trim().match(/^var\(--([\w-]+)\)$/);
+      if (!m) return null;
+      return VariableImportService.cssNameToGrouped(m[1]);
+    };
+
+    const direct = tokens.filter(t => !isPureAlias(t));
+    const aliases = tokens.filter(t => isPureAlias(t));
+
+    const sorted: ImportToken[] = [...direct];
+    const processed = new Set(direct.map(t => t.name));
+    const remaining = [...aliases];
+
+    // Topological sort: repeatedly pick aliases whose dependency is already processed
+    let lastLength = -1;
+    while (remaining.length > 0 && remaining.length !== lastLength) {
+      lastLength = remaining.length;
+      for (let i = remaining.length - 1; i >= 0; i--) {
+        const dep = getDepName(remaining[i]);
+        if (!dep || processed.has(dep)) {
+          const [t] = remaining.splice(i, 1);
+          sorted.push(t);
+          processed.add(t.name);
+          lastLength = -1; // force re-check
+        }
+      }
+    }
+
+    // Append any unresolvable aliases at the end
+    sorted.push(...remaining);
+    return sorted;
   }
 
   private static angleToGradientTransform(degrees: number): Transform {
