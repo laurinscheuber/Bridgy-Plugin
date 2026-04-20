@@ -927,7 +927,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
-  margin-top: var(--space-1.5);
+  margin-top: var(--space-1-5);
   background: transparent;
   border-radius: 0;
   overflow: visible;
