@@ -3677,6 +3677,16 @@
           if (matchesPatterns(config_1.CSS_UNITS.UNITLESS_PATTERNS)) {
             return "none";
           }
+          if (name.endsWith("-px") || name.endsWith("/px"))
+            return "px";
+          if (name.endsWith("-rem") || name.endsWith("/rem"))
+            return "rem";
+          if (/^z[-/]/.test(name))
+            return "none";
+          if (/^leading[-/]/.test(name))
+            return "none";
+          if (/^font[-/](normal|medium|semibold|bold|extrabold|black|thin|light|heavy)$/.test(name))
+            return "none";
           if (matchesPatterns(config_1.CSS_UNITS.TYPOGRAPHY_PATTERNS)) {
             if (name.includes("line") || name.includes("leading")) {
               return "none";
@@ -3699,7 +3709,7 @@
             if (name.includes("pill") || name.includes("circle") || name.includes("full")) {
               return "%";
             }
-            return "px";
+            return "rem";
           }
           if (name.includes("color") || name.includes("bg") || name.includes("background") || name.includes("border-color") || name.includes("text-color")) {
             return "none";
@@ -3718,7 +3728,7 @@
               return "%";
             }
             if (name.includes("icon") || name.includes("avatar") || name.includes("thumb")) {
-              return "px";
+              return "rem";
             }
             return "%";
           }
@@ -3736,6 +3746,10 @@
               return "px";
             }
           }
+          if (/\bicon\b/.test(name))
+            return "rem";
+          if (name.endsWith("-px") || name.endsWith("/px"))
+            return "px";
           if (/\d/.test(name) || name.includes("size") || name.includes("width") || name.includes("height")) {
             return "px";
           }
@@ -4413,7 +4427,7 @@
         }
         // Helper: Round to max 2 decimal places to avoid excessive precision
         static round(value) {
-          return Math.round(value * 100) / 100;
+          return Math.round(value * 1e4) / 1e4;
         }
         // Helper: Map Figma font style to CSS font-weight
         static mapFontWeight(style) {
@@ -4807,10 +4821,14 @@ ${commentPrefix} Grids${commentSuffix}`);
           const r = Math.round(color.r * 255);
           const g = Math.round(color.g * 255);
           const b = Math.round(color.b * 255);
-          if (typeof color.a === "number" && color.a < 1) {
+          if (typeof color.a === "number" && color.a < 0.9999) {
             return `rgba(${r}, ${g}, ${b}, ${this.round(color.a)})`;
           }
-          return `rgb(${r}, ${g}, ${b})`;
+          const toHex = (n) => {
+            const h = n.toString(16);
+            return h.length === 1 ? "0" + h : h;
+          };
+          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
         }
         /**
          * Format float values with appropriate units
@@ -4820,7 +4838,11 @@ ${commentPrefix} Grids${commentSuffix}`);
             return null;
           }
           const unit = unitsService_1.UnitsService.getUnitForVariable(name, collectionName, groupName);
-          const formattedVal = this.round(value);
+          let converted = value;
+          if (unit === "rem" || unit === "em") {
+            converted = value / 16;
+          }
+          const formattedVal = this.round(converted);
           return unitsService_1.UnitsService.formatValueWithUnit(formattedVal, unit);
         }
         /**
@@ -4830,8 +4852,7 @@ ${commentPrefix} Grids${commentSuffix}`);
           if (typeof value !== "string") {
             return null;
           }
-          const cleanValue = value.replace(/^['"]|['"]$/g, "");
-          return `"${cleanValue}"`;
+          return value.replace(/^['"]|['"]$/g, "");
         }
         /**
          * Format boolean values
@@ -6873,7 +6894,7 @@ ${commentPrefix} Grids${commentSuffix}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.VariableImportService = void 0;
       var errorHandler_1 = require_errorHandler();
-      var VariableImportService = class {
+      var VariableImportService = class _VariableImportService {
         /**
          * Parse CSS content to extract variables
          */
@@ -6901,7 +6922,7 @@ ${commentPrefix} Grids${commentSuffix}`);
               if (value.includes("gradient(")) {
                 isGradient = true;
                 type = "string";
-              } else if (value.includes("box-shadow") || value.includes("drop-shadow") || value.match(/\d+px\s+\d+px/) && value.includes("rgba")) {
+              } else if (value.includes("box-shadow") || value.includes("drop-shadow") || /^(inset\s+)?-?[\d.]+(px)?\s+-?[\d.]+px/.test(value.trim())) {
                 isShadow = true;
                 type = "string";
               } else if (value.match(/^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|[a-zA-Z]+$)/)) {
@@ -7269,7 +7290,8 @@ ${commentPrefix} Grids${commentSuffix}`);
                 throw new Error("Failed to fetch existing variables or styles");
               }
               console.log(`[Import] Processing ${tokens.length} tokens...`);
-              for (const token of tokens) {
+              const reorderedTokens = _VariableImportService.reorderTokensForImport(tokens);
+              for (const token of reorderedTokens) {
                 try {
                   let varName = token.name;
                   console.log(`[Import] Processing variable creation for: "${token.name}"`);
@@ -7372,19 +7394,18 @@ ${commentPrefix} Grids${commentSuffix}`);
                   let targetVar = existingVariablesMap.get(varName);
                   const desiredType = this.mapTokenTypeToFigmaType(token.type);
                   if (targetVar) {
-                    if (desiredType && targetVar.resolvedType !== desiredType && options.strategy === "overwrite") {
+                    const typeMismatch = desiredType && targetVar.resolvedType !== desiredType;
+                    if (typeMismatch) {
                       console.warn(`[Import] Type mismatch for ${varName} (Existing: ${targetVar.resolvedType}, New: ${desiredType}). Re-creating...`);
                       try {
                         targetVar.remove();
                         targetVar = void 0;
+                        existingVariablesMap.delete(varName);
                       } catch (e) {
                         console.error(`[Import] Failed to remove mismatched variable ${varName}:`, e);
                         errors.push(`Failed to remove mismatched variable ${varName}`);
                         continue;
                       }
-                    } else if (options.strategy === "merge") {
-                      successCount++;
-                      continue;
                     }
                   }
                   if (!targetVar) {
@@ -7579,8 +7600,16 @@ ${commentPrefix} Grids${commentSuffix}`);
           }
           if (type === "number") {
             const num = parseFloat(value.replace(/[^0-9.-]/g, ""));
-            return isNaN(num) ? 0 : num;
+            if (isNaN(num))
+              return 0;
+            const lower = value.toLowerCase().trim();
+            if (/[-\d.]rem$/.test(lower) || /[-\d.]em$/.test(lower)) {
+              return num * 16;
+            }
+            return num;
           }
+          if (/^var\(--[^)]+\)$/.test(value.trim()))
+            return void 0;
           return value;
         }
         static parseColor(colorStr) {
@@ -7609,13 +7638,26 @@ ${commentPrefix} Grids${commentSuffix}`);
               }
             }
             if (cleanColor.startsWith("rgb")) {
-              const match = cleanColor.match(/rgba?\s*\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*(?:,\s*(\d+(?:\.\d+)?))?\s*\)/);
-              if (match) {
+              const commaMatch = cleanColor.match(/rgba?\s*\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*(?:,\s*(\d+(?:\.\d+)?))?\s*\)/);
+              if (commaMatch) {
                 return {
-                  r: Math.min(1, parseFloat(match[1]) / 255),
-                  g: Math.min(1, parseFloat(match[2]) / 255),
-                  b: Math.min(1, parseFloat(match[3]) / 255),
-                  a: match[4] !== void 0 ? parseFloat(match[4]) : 1
+                  r: Math.min(1, parseFloat(commaMatch[1]) / 255),
+                  g: Math.min(1, parseFloat(commaMatch[2]) / 255),
+                  b: Math.min(1, parseFloat(commaMatch[3]) / 255),
+                  a: commaMatch[4] !== void 0 ? parseFloat(commaMatch[4]) : 1
+                };
+              }
+              const spaceMatch = cleanColor.match(/rgba?\s*\(\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+(?:\.\d+)?%?))?\s*\)/);
+              if (spaceMatch) {
+                let a = 1;
+                if (spaceMatch[4] !== void 0) {
+                  a = spaceMatch[4].endsWith("%") ? parseFloat(spaceMatch[4]) / 100 : parseFloat(spaceMatch[4]);
+                }
+                return {
+                  r: Math.min(1, parseFloat(spaceMatch[1]) / 255),
+                  g: Math.min(1, parseFloat(spaceMatch[2]) / 255),
+                  b: Math.min(1, parseFloat(spaceMatch[3]) / 255),
+                  a
                 };
               }
             }
@@ -7841,6 +7883,40 @@ ${commentPrefix} Grids${commentSuffix}`);
         static cssNameToGrouped(name) {
           const idx = name.indexOf("-");
           return idx !== -1 ? `${name.slice(0, idx)}/${name.slice(idx + 1)}` : name;
+        }
+        /**
+         * Reorder tokens so that direct-value tokens are processed before alias tokens,
+         * and alias tokens are sorted in dependency order (targets before dependents).
+         * This prevents "variable not found" failures when aliases are processed before their targets exist.
+         */
+        static reorderTokensForImport(tokens) {
+          const isPureAlias = (t) => /^var\(--[^)]+\)$/.test(t.value.trim());
+          const getDepName = (t) => {
+            const m = t.value.trim().match(/^var\(--([\w-]+)\)$/);
+            if (!m)
+              return null;
+            return _VariableImportService.cssNameToGrouped(m[1]);
+          };
+          const direct = tokens.filter((t) => !isPureAlias(t));
+          const aliases = tokens.filter((t) => isPureAlias(t));
+          const sorted = [...direct];
+          const processed = new Set(direct.map((t) => t.name));
+          const remaining = [...aliases];
+          let lastLength = -1;
+          while (remaining.length > 0 && remaining.length !== lastLength) {
+            lastLength = remaining.length;
+            for (let i = remaining.length - 1; i >= 0; i--) {
+              const dep = getDepName(remaining[i]);
+              if (!dep || processed.has(dep)) {
+                const [t] = remaining.splice(i, 1);
+                sorted.push(t);
+                processed.add(t.name);
+                lastLength = -1;
+              }
+            }
+          }
+          sorted.push(...remaining);
+          return sorted;
         }
         static angleToGradientTransform(degrees) {
           const radians = degrees * Math.PI / 180;
