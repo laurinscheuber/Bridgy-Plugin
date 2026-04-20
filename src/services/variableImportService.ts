@@ -686,8 +686,10 @@ export class VariableImportService {
               const match = token.value.match(/var\((--[^)]+)\)/);
               if (match) {
                 const aliasName = match[1].replace(/^--/, '');
-                // Find the aliased variable
-                const aliasedVar = existingVariablesMap.get(aliasName);
+                // Find the aliased variable — try both dash format and grouped slash format
+                // e.g. "primary-300" → also try "primary/300"
+                const aliasedVar = existingVariablesMap.get(aliasName) ||
+                  existingVariablesMap.get(this.cssNameToGrouped(aliasName));
                 if (aliasedVar) {
                   // Create built-in alias
                   val = figma.variables.createVariableAlias(aliasedVar);
@@ -700,7 +702,7 @@ export class VariableImportService {
                     else if (aliasedVar.resolvedType === 'FLOAT') token.type = 'number';
                   }
                 } else {
-                  console.warn(`[Import] Could not find variable for alias: ${aliasName}`);
+                  console.warn(`[Import] Could not find variable for alias: ${aliasName} (also tried: ${this.cssNameToGrouped(aliasName)})`);
                 }
               }
 
@@ -716,8 +718,9 @@ export class VariableImportService {
                   /var\((--[^)]+)\)/g,
                   (fullMatch, cssVarName) => {
                     const name = cssVarName.replace(/^--/, '');
-                    // Check existing map first (ground truth)
-                    const existing = existingVariablesMap.get(name);
+                    // Check existing map — try both dash and grouped slash format
+                    const existing = existingVariablesMap.get(name) ||
+                      existingVariablesMap.get(this.cssNameToGrouped(name));
                     if (existing) {
                       // We need the VALUE of that variable.
                       const modeVal = existing.valuesByMode[modeId];
@@ -1363,6 +1366,11 @@ export class VariableImportService {
   /**
    * Convert CSS angle to Figma gradient transform matrix
    */
+  private static cssNameToGrouped(name: string): string {
+    const idx = name.indexOf('-');
+    return idx !== -1 ? `${name.slice(0, idx)}/${name.slice(idx + 1)}` : name;
+  }
+
   private static angleToGradientTransform(degrees: number): Transform {
     const radians = (degrees * Math.PI) / 180;
     const cos = Math.cos(radians);

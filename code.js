@@ -6713,7 +6713,26 @@ ${commentPrefix} Grids${commentSuffix}`);
           });
         }
         /**
-         * Finds design variables that match the given value exactly or nearly
+         * Follows a VARIABLE_ALIAS chain to the underlying primitive value.
+         * Returns null if the chain cannot be resolved (missing variable or circular).
+         */
+        static resolveAliasValue(value, allVariables) {
+          let current = value;
+          for (let depth = 0; depth < 10; depth++) {
+            if (typeof current !== "object" || !("type" in current) || current.type !== "VARIABLE_ALIAS") {
+              return current;
+            }
+            const aliasId = current.id;
+            const entry = allVariables.find(({ variable }) => variable.id === aliasId);
+            if (!entry)
+              return null;
+            current = entry.variable.valuesByMode[entry.collection.defaultModeId];
+          }
+          return null;
+        }
+        /**
+         * Finds design variables that match the given value exactly or nearly.
+         * Includes semantic (alias) variables whose resolved value matches.
          */
         static findMatchingVariables(value, category, allVariables) {
           return __awaiter(this, void 0, void 0, function* () {
@@ -6723,7 +6742,11 @@ ${commentPrefix} Grids${commentSuffix}`);
               if (!isTypeMatch)
                 continue;
               const modeId = collection.defaultModeId;
-              const varValue = variable.valuesByMode[modeId];
+              const rawValue = variable.valuesByMode[modeId];
+              const isAlias = typeof rawValue === "object" && rawValue !== null && "type" in rawValue && rawValue.type === "VARIABLE_ALIAS";
+              const varValue = isAlias ? this.resolveAliasValue(rawValue, allVariables) : rawValue;
+              if (varValue === null)
+                continue;
               const matchType = this.valuesMatch(varValue, value, variable.resolvedType);
               if (matchType) {
                 matchingVars.push({
@@ -6731,7 +6754,8 @@ ${commentPrefix} Grids${commentSuffix}`);
                   name: variable.name,
                   collectionName: collection.name,
                   resolvedValue: this.formatVariableValue(varValue, variable.resolvedType),
-                  matchType
+                  matchType,
+                  isAlias: isAlias || void 0
                 });
               }
             }
@@ -7294,7 +7318,7 @@ ${commentPrefix} Grids${commentSuffix}`);
                     const match = token.value.match(/var\((--[^)]+)\)/);
                     if (match) {
                       const aliasName = match[1].replace(/^--/, "");
-                      const aliasedVar = existingVariablesMap.get(aliasName);
+                      const aliasedVar = existingVariablesMap.get(aliasName) || existingVariablesMap.get(this.cssNameToGrouped(aliasName));
                       if (aliasedVar) {
                         val = figma.variables.createVariableAlias(aliasedVar);
                         console.log(`[Import] Resolved alias for ${varName} -> ${aliasName}`);
@@ -7305,7 +7329,7 @@ ${commentPrefix} Grids${commentSuffix}`);
                             token.type = "number";
                         }
                       } else {
-                        console.warn(`[Import] Could not find variable for alias: ${aliasName}`);
+                        console.warn(`[Import] Could not find variable for alias: ${aliasName} (also tried: ${this.cssNameToGrouped(aliasName)})`);
                       }
                     }
                     if (val === void 0) {
@@ -7313,7 +7337,7 @@ ${commentPrefix} Grids${commentSuffix}`);
                       let hasUnresolved = false;
                       resolvedString = resolvedString.replace(/var\((--[^)]+)\)/g, (fullMatch, cssVarName) => {
                         const name = cssVarName.replace(/^--/, "");
-                        const existing = existingVariablesMap.get(name);
+                        const existing = existingVariablesMap.get(name) || existingVariablesMap.get(this.cssNameToGrouped(name));
                         if (existing) {
                           const modeVal = existing.valuesByMode[modeId];
                           if (typeof modeVal === "object" && "r" in modeVal) {
@@ -7809,6 +7833,10 @@ ${commentPrefix} Grids${commentSuffix}`);
         /**
          * Convert CSS angle to Figma gradient transform matrix
          */
+        static cssNameToGrouped(name) {
+          const idx = name.indexOf("-");
+          return idx !== -1 ? `${name.slice(0, idx)}/${name.slice(idx + 1)}` : name;
+        }
         static angleToGradientTransform(degrees) {
           const radians = degrees * Math.PI / 180;
           const cos = Math.cos(radians);
@@ -9380,30 +9408,42 @@ ${commentPrefix} Grids${commentSuffix}`);
       function handleCreateVariable(msg) {
         return __awaiter(this, void 0, void 0, function* () {
           try {
-            const { name, value, collectionName } = msg;
-            if (!name || !value) {
-              throw new Error("Name and value are required");
+            const { name, value, collectionName, aliasVariableId } = msg;
+            if (!name) {
+              throw new Error("Name is required");
             }
-            console.log(`Creating variable: ${name} = ${value} in ${collectionName || "Primitives"}`);
+            if (!aliasVariableId && !value) {
+              throw new Error("Either a value or a reference variable is required");
+            }
+            console.log(`Creating variable: ${name} in ${collectionName || "Primitives"}`);
             let resolvedValue = null;
             let resolvedType = "FLOAT";
-            const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if (colorMatch) {
-              resolvedType = "COLOR";
-              resolvedValue = {
-                r: parseInt(colorMatch[1]) / 255,
-                g: parseInt(colorMatch[2]) / 255,
-                b: parseInt(colorMatch[3]) / 255
-              };
-            } else {
-              const floatMatch = value.match(/^([\d.]+)/);
-              if (floatMatch) {
-                resolvedType = "FLOAT";
-                resolvedValue = parseFloat(floatMatch[1]);
+            if (aliasVariableId) {
+              const targetVar = yield figma.variables.getVariableByIdAsync(aliasVariableId);
+              if (!targetVar) {
+                throw new Error(`Reference variable not found: ${aliasVariableId}`);
               }
-            }
-            if (resolvedValue === null) {
-              throw new Error(`Could not parse value: ${value}`);
+              resolvedType = targetVar.resolvedType;
+              resolvedValue = figma.variables.createVariableAlias(targetVar);
+            } else {
+              const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+              if (colorMatch) {
+                resolvedType = "COLOR";
+                resolvedValue = {
+                  r: parseInt(colorMatch[1]) / 255,
+                  g: parseInt(colorMatch[2]) / 255,
+                  b: parseInt(colorMatch[3]) / 255
+                };
+              } else {
+                const floatMatch = value.match(/^([\d.]+)/);
+                if (floatMatch) {
+                  resolvedType = "FLOAT";
+                  resolvedValue = parseFloat(floatMatch[1]);
+                }
+              }
+              if (resolvedValue === null) {
+                throw new Error(`Could not parse value: ${value}`);
+              }
             }
             const targetCollectionName = collectionName || "Primitives";
             console.log(`DEBUG: Finding collection '${targetCollectionName}'...`);

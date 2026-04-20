@@ -1763,34 +1763,46 @@ async function handleFocusNode(msg: PluginMessage) {
 
 async function handleCreateVariable(msg: PluginMessage) {
   try {
-    const { name, value, collectionName } = msg as any;
-    if (!name || !value) {
-      throw new Error('Name and value are required');
+    const { name, value, collectionName, aliasVariableId } = msg as any;
+    if (!name) {
+      throw new Error('Name is required');
+    }
+    if (!aliasVariableId && !value) {
+      throw new Error('Either a value or a reference variable is required');
     }
 
-    console.log(`Creating variable: ${name} = ${value} in ${collectionName || 'Primitives'}`);
+    console.log(`Creating variable: ${name} in ${collectionName || 'Primitives'}`);
 
     let resolvedValue: any = null;
     let resolvedType: VariableResolvedDataType = 'FLOAT';
 
-    const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (colorMatch) {
-      resolvedType = 'COLOR';
-      resolvedValue = {
-        r: parseInt(colorMatch[1]) / 255,
-        g: parseInt(colorMatch[2]) / 255,
-        b: parseInt(colorMatch[3]) / 255,
-      };
-    } else {
-      const floatMatch = value.match(/^([\d.]+)/);
-      if (floatMatch) {
-        resolvedType = 'FLOAT';
-        resolvedValue = parseFloat(floatMatch[1]);
+    if (aliasVariableId) {
+      const targetVar = await figma.variables.getVariableByIdAsync(aliasVariableId);
+      if (!targetVar) {
+        throw new Error(`Reference variable not found: ${aliasVariableId}`);
       }
-    }
+      resolvedType = targetVar.resolvedType;
+      resolvedValue = figma.variables.createVariableAlias(targetVar);
+    } else {
+      const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (colorMatch) {
+        resolvedType = 'COLOR';
+        resolvedValue = {
+          r: parseInt(colorMatch[1]) / 255,
+          g: parseInt(colorMatch[2]) / 255,
+          b: parseInt(colorMatch[3]) / 255,
+        };
+      } else {
+        const floatMatch = value.match(/^([\d.]+)/);
+        if (floatMatch) {
+          resolvedType = 'FLOAT';
+          resolvedValue = parseFloat(floatMatch[1]);
+        }
+      }
 
-    if (resolvedValue === null) {
-      throw new Error(`Could not parse value: ${value}`);
+      if (resolvedValue === null) {
+        throw new Error(`Could not parse value: ${value}`);
+      }
     }
 
     const targetCollectionName = collectionName || 'Primitives';

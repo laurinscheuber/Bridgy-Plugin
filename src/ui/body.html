@@ -1060,32 +1060,74 @@
       <h3>Create New Variable</h3>
     </div>
     <div class="modal-body">
-      <p>
+      <p id="create-var-primitive-hint">
         Create a new variable for value:
         <strong id="create-var-value-display" class="create-var-value"></strong>
       </p>
 
+      <!-- Variable Type Toggle -->
+      <div class="form-group">
+        <label>Variable Type</label>
+        <div class="segmented-control" id="create-var-type-toggle">
+          <button type="button" class="segmented-btn active" data-type="primitive" onclick="handleVariableTypeChange('primitive')">Primitive</button>
+          <button type="button" class="segmented-btn" data-type="semantic" onclick="handleVariableTypeChange('semantic')">Semantic (Alias)</button>
+        </div>
+        <div class="settings-helper" id="create-var-type-helper">Primitive stores a direct value; Semantic references another variable</div>
+      </div>
+
       <!-- Collection Section -->
       <div class="form-group">
-        <label for="create-var-collection">Collection</label>
-        <select id="create-var-collection" onchange="handleCollectionChange()" class="select-field">
-          <!-- Populated by JS -->
-        </select>
-        <input type="text" id="create-var-new-collection" placeholder="New Collection Name" class="input-field"
-          class="input-hidden-toggle hidden" />
+        <label>Collection</label>
+        <div id="create-var-collection-custom-select" class="custom-select" data-value="">
+          <div class="custom-select-trigger" onclick="toggleCollectionSelect()" style="border: 1px solid var(--border-subtle);">
+            <span class="trigger-text" id="create-var-collection-trigger-text">(select)</span>
+            <span class="material-symbols-outlined trigger-icon">expand_more</span>
+          </div>
+          <div class="custom-select-menu" id="create-var-collection-menu">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        <div id="create-var-new-collection-row" class="hidden" style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+          <input type="text" id="create-var-new-collection" placeholder="New Collection Name" class="input-field" style="flex: 1; margin: 0;" />
+          <button type="button" onclick="confirmNewCollection()" class="btn-secondary" style="white-space: nowrap; padding: 6px 10px; font-size: 11px;">Confirm</button>
+          <button type="button" onclick="cancelNewCollection()" class="btn-secondary btn--ghost" style="padding: 6px 10px; font-size: 11px;">✕</button>
+        </div>
         <div class="settings-helper">Select target collection</div>
       </div>
 
       <!-- Group Section -->
       <div class="form-group">
-        <label for="create-var-group">Group</label>
-        <select id="create-var-group" onchange="handleGroupChange()" class="select-field">
-          <option value="">(No Group)</option>
-          <option value="create-new">Create New Group...</option>
-        </select>
-        <input type="text" id="create-var-new-group" class="input-field input-hidden-toggle hidden"
-          placeholder="New Group Name (e.g. colors/primary)" />
+        <label>Group</label>
+        <div id="create-var-group-custom-select" class="custom-select" data-value="">
+          <div class="custom-select-trigger" onclick="toggleGroupSelect()" style="border: 1px solid var(--border-subtle);">
+            <span class="trigger-text" id="create-var-group-trigger-text">(No Group)</span>
+            <span class="material-symbols-outlined trigger-icon">expand_more</span>
+          </div>
+          <div class="custom-select-menu" id="create-var-group-menu">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        <div id="create-var-new-group-row" class="hidden" style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+          <input type="text" id="create-var-new-group" placeholder="New Group Name (e.g. colors/primary)" class="input-field" style="flex: 1; margin: 0;" />
+          <button type="button" onclick="confirmNewGroup()" class="btn-secondary" style="white-space: nowrap; padding: 6px 10px; font-size: 11px;">Confirm</button>
+          <button type="button" onclick="cancelNewGroup()" class="btn-secondary btn--ghost" style="padding: 6px 10px; font-size: 11px;">✕</button>
+        </div>
         <div class="settings-helper">Select existing group or create new</div>
+      </div>
+
+      <!-- Reference Variable Section (semantic only) -->
+      <div class="form-group hidden" id="create-var-alias-group">
+        <label>Reference Variable</label>
+        <div id="modal-alias-custom-select" class="custom-select" data-value="">
+          <div class="custom-select-trigger" onclick="toggleModalAliasSelect()" style="border: 1px solid var(--border-subtle);">
+            <span class="trigger-text" id="modal-alias-trigger-text">(select)</span>
+            <span class="material-symbols-outlined trigger-icon">expand_more</span>
+          </div>
+          <div class="custom-select-menu" id="modal-alias-menu">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        <div class="settings-helper">Only variables with an exact value match are shown</div>
       </div>
 
       <!-- Variable Name Section -->
