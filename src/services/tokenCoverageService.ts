@@ -1011,7 +1011,10 @@ export class TokenCoverageService {
       const solidFill = fills.find((fill) => fill.type === 'SOLID' && fill.visible !== false);
       if (solidFill && solidFill.type === 'SOLID') {
         const color = solidFill.color;
-        const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+        const opacity = solidFill.opacity !== undefined ? solidFill.opacity : 1;
+        const colorValue = opacity < 1
+          ? `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${parseFloat(opacity.toFixed(3))})`
+          : `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
         this.addIssue(issuesMap, 'Fill Color', colorValue, node, 'Fill', instanceMainCompMap);
       }
     }
@@ -1039,7 +1042,10 @@ export class TokenCoverageService {
       );
       if (solidStroke && solidStroke.type === 'SOLID') {
         const color = solidStroke.color;
-        const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+        const opacity = solidStroke.opacity !== undefined ? solidStroke.opacity : 1;
+        const colorValue = opacity < 1
+          ? `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${parseFloat(opacity.toFixed(3))})`
+          : `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
         this.addIssue(issuesMap, 'Stroke Color', colorValue, node, 'Stroke', instanceMainCompMap);
       }
     }
@@ -1669,24 +1675,26 @@ export class TokenCoverageService {
     varType: VariableResolvedDataType,
   ): 'EXACT' | 'NEAR' | null {
     if (varType === 'COLOR' && typeof varValue === 'object' && 'r' in varValue) {
-      // Parse color from rgb(r, g, b) format (this is how we store colors in addIssue)
-      const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-      if (!colorMatch) return null;
+      // Parse color from rgb(r,g,b) or rgba(r,g,b,a) format
+      const rgbaMatch = hardValue.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+      const rgbMatch = !rgbaMatch && hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!rgbaMatch && !rgbMatch) return null;
 
-      const r = parseInt(colorMatch[1]) / 255;
-      const g = parseInt(colorMatch[2]) / 255;
-      const b = parseInt(colorMatch[3]) / 255;
+      const r = parseInt((rgbaMatch || rgbMatch)![1]) / 255;
+      const g = parseInt((rgbaMatch || rgbMatch)![2]) / 255;
+      const b = parseInt((rgbaMatch || rgbMatch)![3]) / 255;
+      const a = rgbaMatch ? parseFloat(rgbaMatch[4]) : 1;
+      const varA = (varValue as any).a !== undefined ? (varValue as any).a : 1;
 
-      // Exact match check (with small tolerance for float precision)
       if (
         Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE &&
         Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE &&
-        Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE
+        Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE &&
+        Math.abs(varA - a) < VALUE_MATCH_TOLERANCE
       ) {
         return 'EXACT';
       }
 
-      // Near match: No near match for colors currently requested, but could handle it later
       return null;
     }
 

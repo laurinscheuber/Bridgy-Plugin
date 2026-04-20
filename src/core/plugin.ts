@@ -321,19 +321,22 @@ function matchesTargetValue(paint: any, targetValue?: string): boolean {
   if (!paint || !paint.color) return false;
 
   const { r, g, b } = paint.color;
+  const opacity = paint.opacity !== undefined ? paint.opacity : 1;
+
   const toHex = (n: number) => {
     const hex = Math.round(n * 255).toString(16);
     return hex.length === 1 ? '0' + hex : hex;
   };
 
-  const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-  const rgb = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+  const target = targetValue.trim().replace(/\s/g, '');
 
-  const target = targetValue.trim();
+  const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+  const rgb = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+  const rgba = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${parseFloat(opacity.toFixed(3))})`;
 
   return target.toUpperCase() === hex ||
     target === rgb ||
-    target.replace(/\s/g, '') === rgb.replace(/\s/g, '');
+    target === rgba;
 }
 
 // ─── applyVariableToNode helpers ──────────────────────────────────────────────
