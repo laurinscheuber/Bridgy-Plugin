@@ -6,6 +6,9 @@
 
    --blue-400: #60a5fa;
 
+   --red-800: #7e1d16;
+   --red-900: #2d0906;
+
    --border-warning: var(--orange-500);
    --border-success: var(--success-500);
    --border-error: var(--error-500);
