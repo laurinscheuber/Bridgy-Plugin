@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@custom-variant default (&:where([data-theme=default], [data-theme=default] *));
+@custom-variant value (&:where([data-theme=Value], [data-theme=Value] *));
 @theme {
   --bg-card: rgb(255, 255, 255);
 
@@ -272,6 +272,7 @@
   --text-on-accent: var(--neutral-0);
 
   --background-primary: var(--blue-800);
+  --background-test-background: var(--blue-800);
 
   --bg-card: var(--glass-white-medium);
 
@@ -541,6 +542,6 @@
   --highlight: var(--glass-purple-medium);
 }
 @layer theme {
-  [data-theme="default"] {
+  [data-theme="Value"] {
   }
 }
