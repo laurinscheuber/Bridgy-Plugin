@@ -6911,14 +6911,24 @@ function findAllExactMatchingVariables(value, category) {
   if (!window.globalVariablesData || !value) return [];
 
   // Parse the raw value string into a typed object
-  const colorMatch = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  const rgbaMatch = value.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+  const colorMatch = !rgbaMatch && value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
   let parsedType, parsedValue;
-  if (colorMatch) {
+  if (rgbaMatch) {
+    parsedType = 'paint';
+    parsedValue = {
+      r: parseInt(rgbaMatch[1]) / 255,
+      g: parseInt(rgbaMatch[2]) / 255,
+      b: parseInt(rgbaMatch[3]) / 255,
+      a: parseFloat(rgbaMatch[4]),
+    };
+  } else if (colorMatch) {
     parsedType = 'paint';
     parsedValue = {
       r: parseInt(colorMatch[1]) / 255,
       g: parseInt(colorMatch[2]) / 255,
       b: parseInt(colorMatch[3]) / 255,
+      a: 1,
     };
   } else {
     const numMatch = value.match(/^([\d.]+)/);
@@ -6932,10 +6942,12 @@ function findAllExactMatchingVariables(value, category) {
   const isMatch = (modeValue) => {
     if (parsedType === 'paint') {
       if (!modeValue || typeof modeValue !== 'object' || modeValue.r === undefined) return false;
+      const modeA = modeValue.a !== undefined ? modeValue.a : 1;
       return (
         Math.abs(modeValue.r - parsedValue.r) < 0.001 &&
         Math.abs(modeValue.g - parsedValue.g) < 0.001 &&
-        Math.abs(modeValue.b - parsedValue.b) < 0.001
+        Math.abs(modeValue.b - parsedValue.b) < 0.001 &&
+        Math.abs(modeA - parsedValue.a) < 0.001
       );
     } else {
       if (typeof modeValue !== 'number') return false;

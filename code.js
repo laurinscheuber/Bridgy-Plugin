@@ -6332,7 +6332,8 @@ ${commentPrefix} Grids${commentSuffix}`);
             const solidFill = fills.find((fill) => fill.type === "SOLID" && fill.visible !== false);
             if (solidFill && solidFill.type === "SOLID") {
               const color = solidFill.color;
-              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              const opacity = solidFill.opacity !== void 0 ? solidFill.opacity : 1;
+              const colorValue = opacity < 1 ? `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${parseFloat(opacity.toFixed(3))})` : `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
               this.addIssue(issuesMap, "Fill Color", colorValue, node, "Fill", instanceMainCompMap);
             }
           }
@@ -6351,7 +6352,8 @@ ${commentPrefix} Grids${commentSuffix}`);
             const solidStroke = strokes.find((stroke) => stroke.type === "SOLID" && stroke.visible !== false);
             if (solidStroke && solidStroke.type === "SOLID") {
               const color = solidStroke.color;
-              const colorValue = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+              const opacity = solidStroke.opacity !== void 0 ? solidStroke.opacity : 1;
+              const colorValue = opacity < 1 ? `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${parseFloat(opacity.toFixed(3))})` : `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
               this.addIssue(issuesMap, "Stroke Color", colorValue, node, "Stroke", instanceMainCompMap);
             }
           }
@@ -6791,13 +6793,16 @@ ${commentPrefix} Grids${commentSuffix}`);
          */
         static valuesMatch(varValue, hardValue, varType) {
           if (varType === "COLOR" && typeof varValue === "object" && "r" in varValue) {
-            const colorMatch = hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if (!colorMatch)
+            const rgbaMatch = hardValue.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+            const rgbMatch = !rgbaMatch && hardValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!rgbaMatch && !rgbMatch)
               return null;
-            const r = parseInt(colorMatch[1]) / 255;
-            const g = parseInt(colorMatch[2]) / 255;
-            const b = parseInt(colorMatch[3]) / 255;
-            if (Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE) {
+            const r = parseInt((rgbaMatch || rgbMatch)[1]) / 255;
+            const g = parseInt((rgbaMatch || rgbMatch)[2]) / 255;
+            const b = parseInt((rgbaMatch || rgbMatch)[3]) / 255;
+            const a = rgbaMatch ? parseFloat(rgbaMatch[4]) : 1;
+            const varA = varValue.a !== void 0 ? varValue.a : 1;
+            if (Math.abs(varValue.r - r) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.g - g) < VALUE_MATCH_TOLERANCE && Math.abs(varValue.b - b) < VALUE_MATCH_TOLERANCE && Math.abs(varA - a) < VALUE_MATCH_TOLERANCE) {
               return "EXACT";
             }
             return null;
@@ -8208,14 +8213,16 @@ ${commentPrefix} Grids${commentSuffix}`);
         if (!paint || !paint.color)
           return false;
         const { r, g, b } = paint.color;
+        const opacity = paint.opacity !== void 0 ? paint.opacity : 1;
         const toHex = (n) => {
           const hex2 = Math.round(n * 255).toString(16);
           return hex2.length === 1 ? "0" + hex2 : hex2;
         };
+        const target = targetValue.trim().replace(/\s/g, "");
         const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-        const rgb = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
-        const target = targetValue.trim();
-        return target.toUpperCase() === hex || target === rgb || target.replace(/\s/g, "") === rgb.replace(/\s/g, "");
+        const rgb = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+        const rgba = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${parseFloat(opacity.toFixed(3))})`;
+        return target.toUpperCase() === hex || target === rgb || target === rgba;
       }
       function applyPaddingVariable(node, variable) {
         if ("paddingLeft" in node && typeof node.setBoundVariable === "function") {
